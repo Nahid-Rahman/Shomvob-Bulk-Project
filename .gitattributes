@@ -1,0 +1,8 @@
+# Normalize line endings: LF in the repo, native in the working copy.
+# The machine's global core.autocrlf=true would otherwise commit CRLF.
+* text=auto eol=lf
+
+# Binary / generated assets — never diff or normalize.
+*.xlsx binary
+vendor/** linguist-vendored
+index.html linguist-generated

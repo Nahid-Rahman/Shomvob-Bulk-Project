@@ -1,0 +1,40 @@
+<title>Bulk Forge</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+__APP_CSS__
+</style>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+          <path d="M12 2 3 7v6c0 5 4 8 9 9 5-1 9-4 9-9V7l-9-5Z"/>
+          <path d="M9 12.5 11 14.5 15.5 9.5"/>
+        </svg>
+        Bulk Forge
+      </div>
+      <div class="brand-sub">Shomvob QA bulk-upload generator</div>
+    </div>
+    <nav class="op-nav">
+      <div class="op-nav-label">Operations</div>
+      <div id="opNav"></div>
+    </nav>
+    <div class="sidebar-foot">Runs entirely in your browser — nothing leaves this page.</div>
+  </aside>
+
+  <main class="main">
+    <div class="main-scroll">
+      <div class="main-inner" id="mainContent"></div>
+    </div>
+    <div class="action-bar" id="actionBar">
+      <span class="action-summary" id="actionSummary"></span>
+      <button type="button" class="generate-btn" id="generateBtn" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13m0 0 4-4m-4 4-4-4M4 19h16"/></svg>
+        Generate Excel file
+      </button>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
