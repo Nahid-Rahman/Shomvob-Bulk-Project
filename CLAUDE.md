@@ -92,18 +92,27 @@ Already validated (Playwright, 25-row and 300-row batches): ID/email/
 phone uniqueness, employment-type↔probation linkage, joining-date↔DOB
 ordering, salary rounding, department↔designation consistency.
 
+## Inspecting a template
+
+`python tools/probe_xlsx.py <template.xlsx>` dumps sheets and visibility,
+head cells with number formats, data validations (dropdown sources and
+date/number constraints), comments, freeze panes and merged ranges. Needs
+openpyxl. Use openpyxl rather than SheetJS for this — SheetJS cannot read
+data validations, which is exactly where dropdown option lists live.
+
 ## Next work: the remaining 4 operations
 
-- Employee Attendance Add
+- **Employee Attendance Add** — template inspected, some inputs confirmed,
+  time-generation rules still being dictated by the user. See
+  "Employee Attendance Add — spec IN PROGRESS" in `SPEC.md` and finish
+  gathering those rules before writing any code.
 - Leave Balance Add
 - Payroll Custom Field Value Add
 - Assets Add
 
 For each: get the real Shomvob upload template (.xlsx) from the user,
-inspect it (header row, required/optional columns, dropdown/data-validation
-rules, any cross-field validation — the same way Employee Add's template
-was inspected with openpyxl), confirm column-by-column input/generation
-rules with the user (don't assume), then:
+inspect it with `tools/probe_xlsx.py`, confirm column-by-column
+input/generation rules with the user (don't assume), then:
 1. Flip its `status` from `"soon"` to `"active"` in `OPERATIONS`
    (`src/app-data.js`)
 2. Add its data tables (name pools / option lists / etc. as needed) to
