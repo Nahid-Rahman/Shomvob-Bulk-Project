@@ -114,6 +114,22 @@ the parts that are easy to get wrong:
   dates are a draft the user has not yet verified — the UI renders them as
   dashed removable chips for that reason. Adding a year is one more key.
 
+## Tests
+
+`tests/` holds browser tests that drive the built `index.html` in Chromium,
+fill each form, download the generated `.xlsx` and assert on its contents.
+Run them after any change under `src/` (build first — they test the built
+file, not the sources):
+
+    python build.py
+    cd tests && npm run setup   # once
+    npm test
+
+Each assertion maps to a rule in `SPEC.md`; if one fails, check `SPEC.md`
+before changing the test. The test tooling lives entirely inside `tests/`,
+including its `package.json` — a `package.json` at the repo root would make
+Vercel try to build what is deliberately a no-build static site.
+
 ## Inspecting a template
 
 `python tools/probe_xlsx.py <template.xlsx>` dumps sheets and visibility,
@@ -140,5 +156,6 @@ input/generation rules with the user (don't assume), then:
    `employeeAddTemplate()` / `wireEmployeeAddEvents()` /
    `generateWorkbookRows()`
 4. Branch on `currentOp` in `renderMain()` to route to the new operation
-5. Run `python3 build.py`, then sanity-test (Playwright or manual) that
-   the generated file's headers/data match the real template exactly
+5. Run `python build.py`, then add a `tests/<operation>.test.js` following
+   the existing two, and check the generated file's headers and data match
+   the real template exactly
