@@ -231,10 +231,12 @@ Quirks found, and what they mean for us:
       like a weekend. An absence is the absence of a row; nothing is
       written blank. (This also keeps all four required columns filled on
       every row the file does contain.)
-    - **Late** — shifts In Time later than the shift's start. The user
-      said the exact lateness does not matter, so no input for it:
-      generate a random 1–60 minutes past shift start. This is our choice,
-      not a stated requirement — easy to change.
+    - **Grace period** — a user input in minutes, default 15. Lateness is
+      measured from the end of grace, not from the shift start: with a
+      09:00 shift and 15 minutes' grace, arriving at 09:12 is not late.
+    - **Late** — In Time falls after grace ends, a random 1–60 minutes
+      past it (09:16–10:15 in the example above). The user said the exact
+      lateness does not matter, so this range is our choice.
     - **Overtime on a weekday** — In Time as normal, Out Time pushed past
       shift end by up to the weekday maximum.
     - **Overtime on a weekend or holiday** — there is no regular shift
@@ -249,11 +251,15 @@ Quirks found, and what they mean for us:
     split across two dates, and Out Time reading earlier than In Time is
     expected and correct for such shifts.
 
-13. **An ordinary day** (present, not late, no overtime) — In Time is
-    exactly the shift start and Out Time exactly the shift end. No jitter
-    is added; the user asked for no unnecessary complexity, so many rows
-    will legitimately carry identical times. Assumption, not a stated
-    requirement.
+13. **An ordinary day** (present, not late, no overtime) carries real
+    jitter — people drift in early and leave a little after. Exact
+    shift-start / shift-end times would look fake, so:
+    - **In Time** — random between 10 minutes *before* shift start and
+      the end of the grace period.
+    - **Out Time** — random between shift end and 10 minutes after it.
+
+    Overtime is a separate, much larger push past shift end, so a ten
+    minute overrun never reads as overtime.
 
 ### Form order
 
@@ -267,8 +273,9 @@ order is part of the spec — each answer reveals the next control:
 5. Which weekdays are the weekend
 6. Holidays: BD govt / BD govt + custom / custom only / none
 7. Is there overtime? → if yes, max hours for weekday / weekend / holiday
-8. Percentages: late, absent, and (if overtime) overtime per day type
-9. Output time format
+8. Grace period in minutes (default 15)
+9. Percentages: late, absent, and (if overtime) overtime per day type
+10. Output time format
 
 ### Row generation, end to end
 
@@ -279,19 +286,19 @@ for each assigned employee:
   falls in that day type's overtime percentage, in which case: In = shift
   start, Out = shift start + overtime hours.
 - **Weekday** — no row if the employee falls in the absent percentage.
-  Otherwise In = shift start, or shift start + 1–60 minutes if they fall
-  in the late percentage; Out = shift end, pushed later by up to the
-  weekday overtime maximum if they fall in the weekday overtime
-  percentage.
+  Otherwise In is jittered around the shift start (10 minutes early
+  through the end of grace), or 1–60 minutes past the end of grace if they
+  fall in the late percentage; Out is jittered just past shift end (0–10
+  minutes), pushed further by up to the weekday overtime maximum if they
+  fall in the weekday overtime percentage.
 
 The row's date is always the date the shift **started**.
 
 ### Still open
 
-- Nothing blocking. Two things to settle while building: the BD holiday
-  table must be drafted and verified with the user before wiring, and
-  items 11 (1–60 minute lateness) and 13 (no jitter on ordinary days) are
-  our assumptions rather than stated requirements.
+- Nothing blocking. One thing to settle while building: the BD holiday
+  table must be drafted and shown to the user to verify — the Eid dates
+  especially — before it is wired in.
 
 ## Still to spec (not started)
 
