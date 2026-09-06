@@ -87,8 +87,12 @@ Row layout in the blank template: row 1 header (bold, red fill `FFDC3545`),
 row 2 instruction text (italic grey), rows 3–5 example data
 (`EMP001`/`EMP002`/`EMP003`), freeze panes at `A6`.
 
-`ReferenceData` holds 300 employee IDs, `HUIW0101` through `HUIW0400` —
-i.e. account-specific, and note it starts at `0101`, not `0001`.
+`ReferenceData` is the dropdown's source list, and **its contents vary per
+download**. The template downloaded 2026-08-27 held 300 IDs (`HUIW0101`
+through `HUIW0400` — note: starting at `0101`, not `0001`); the one
+downloaded 2026-09-06 has an entirely empty `ReferenceData` sheet. So the
+valid-ID list is account-specific and may be absent altogether. Never rely
+on it being populated.
 
 Quirks found, and what they mean for us:
 - The three example rows use **three different time formats**: `09:00 AM`,
@@ -113,9 +117,26 @@ Quirks found, and what they mean for us:
 
 ### Decisions confirmed with the user
 
-1. **Employee ID source** — the user pastes the actual ID list into a
-   textarea (one per line / comma-separated). Not generated from a prefix,
-   because attendance must reference IDs that already exist in the account.
+1. **Employee ID source** — three modes behind one segmented control, all
+   resolving to a single list of IDs, with a live "N employee IDs ready"
+   chip:
+   - **Paste** (default) — one textarea, tolerant parsing: accepts
+     newline / comma / tab / space / quoted separators, trims, dedupes,
+     and reports what it parsed and what it dropped. This subsumes
+     "type them one at a time", so no separate single-entry mode.
+   - **Generate** — prefix + start number + count, producing
+     `PREFIX0001`, `PREFIX0002`, … This matches what Employee Add emits,
+     which is the normal QA chain (bulk-add employees, then their
+     attendance). A start offset is supported because real accounts do
+     not necessarily begin at `0001`.
+   - **Upload** — an .xlsx or .csv. Show the detected columns and let the
+     user pick which holds the IDs; auto-detect when the file is an
+     Employee Add output (an `Employee ID*` column) or an attendance
+     template with a populated `ReferenceData` sheet.
+
+   Feasibility confirmed: the vendored `xlsx.mini.min.js` **can read**
+   .xlsx — `XLSX.read` plus `utils.sheet_to_json` were tested against the
+   real template and parsed it correctly. Upload needs no library change.
 2. **Date range** — month picker by default (pick one month → its days),
    plus a custom from–to range toggle.
 3. **Output time format** — a UI dropdown offering the template's three
