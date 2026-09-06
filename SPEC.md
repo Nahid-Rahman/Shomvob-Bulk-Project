@@ -137,28 +137,161 @@ Quirks found, and what they mean for us:
    Feasibility confirmed: the vendored `xlsx.mini.min.js` **can read**
    .xlsx — `XLSX.read` plus `utils.sheet_to_json` were tested against the
    real template and parsed it correctly. Upload needs no library change.
-2. **Date range** — month picker by default (pick one month → its days),
-   plus a custom from–to range toggle.
+2. **Date range** — two plain date pickers, From and To. An earlier
+   month-picker-plus-custom-range idea was dropped: the user asked for no
+   added complexity here.
 3. **Output time format** — a UI dropdown offering the template's three
    observed formats (`hh:MM AM/PM`, `HH:MM:SS`, `hh:MM:SS AM/PM`); the
    user picks which one gets written.
 4. **Row cap** — none, and no row-count estimate shown. The user
    explicitly does not want generation blocked or warned.
-5. **Office time** — two native `<input type="time">` controls, one for
-   office In and one for office Out, defaulting to 09:00 AM – 05:00 PM
-   (from the template's first example). This is the base shift that the
-   remaining rules will vary.
+5. **Shifts** — the In/Out columns are driven by a shift model, not a
+   single office time. First input is a shift *count*; that many shift
+   rows then render, each with its own native `<input type="time">` pair
+   (In and Out). One shift is not a special case — it is just a count of
+   1, rendering one row. Defaults to 09:00 AM – 05:00 PM, from the
+   template's first example.
 
-### Open — user is supplying these next
+6. **Assigning employee IDs to shifts** — assignment is arbitrary: it is
+   neither serial nor random, so the user picks explicitly. The IDs from
+   step 1 become an in-memory pool (in-memory only — a reload clears it,
+   consistent with the project's stateless design). Each shift card then
+   has:
+   - a **search box** filtering the pool by substring — typing `059`
+     matches `EHYS059`, `EHYS159`; clicking a result adds it to that
+     shift as a removable chip;
+   - **drag and drop** from the pool into a shift card, as an alternative
+     to search-and-click (the user asked for both);
+   - **"add all matching"**, so a search like `HUIW00` assigns all 20
+     matches in one click;
+   - an **unassigned counter**, and a **"assign the rest to this shift"**
+     button;
+   - IDs already assigned to a shift are excluded from other shifts'
+     search results, so an employee cannot accidentally land in two.
 
-- The full in-time / out-time condition set (the user said there are many
-  conditions and will dictate them one at a time).
-- Whether weekends (Fri–Sat) are skipped, whether some days are absences,
-  and how much in/out times vary — asked, but deliberately left unanswered
-  pending the condition set above.
-- Anything about half-days, night shifts crossing midnight, or holidays.
+7. **Weekends** — the user selects which weekdays are the company's
+   weekend (a multi-select over the seven days; default Friday + Saturday
+   for Bangladesh). The generator then derives which actual dates in the
+   From–To range fall on those weekdays. **Those dates normally produce no
+   row at all** — the employee simply has no attendance entry that day.
+   The one exception is overtime, whose rules the user is still to
+   dictate; overtime can put a row on a weekend date.
 
-Do not infer any of these. Ask.
+8. **Holidays** — a four-way choice:
+   1. Bangladesh government holidays
+   2. Bangladesh government holidays + custom dates
+   3. Custom dates only
+   4. No holidays
+
+   Custom dates are entered as a list of individual dates (add/remove,
+   shown as chips). Holiday dates are expected to behave like weekend
+   dates — no row — with overtime as the presumed exception, but confirm
+   that when the overtime rules land.
+
+   The holiday table is baked into `app-data.js` as
+   `BD_HOLIDAYS = { 2025: [...], 2026: [...] }` — both years are already
+   published by the government. Adding a later year must stay a one-line
+   edit; the app is offline and cannot fetch an updated list, so this
+   needs a manual top-up each year. If the chosen date range falls in a
+   year with no table, show a note ("no holiday list for 2027 — use
+   custom dates") but do not block generation; custom dates remain
+   available regardless.
+
+   Before wiring the table, draft the dates and have the user verify them
+   — the Eid dates especially, since they move with the moon. Do not ship
+   unverified dates.
+
+9. **Overtime** — a yes/no first. If no, the whole section collapses and
+   weekend and holiday dates simply produce no rows.
+
+   If yes, three numeric inputs, each a **maximum in whole hours**
+   (positive integers):
+   1. Max overtime allowed on a **weekday**
+   2. Max overtime allowed on a **weekend**
+   3. Max overtime allowed on a **holiday**
+
+   **Overtime is not a column — it is what pushes Out Time later.** The
+   file only ever carries In Time and Out Time; overtime is the gap past
+   the shift's end. So with a shift ending 5:00 PM and max weekday
+   overtime of 2 hours, an employee doing overtime that day gets an Out
+   Time somewhere in 5:00 PM – 7:00 PM. (The user's point: writing 9:00 PM
+   would still only be counted as 2 hours by the system, so the generator
+   must keep Out Time inside shift-end + max.)
+
+10. **Percentages** — how much of the population each behaviour applies
+    to, asked as separate inputs:
+    - what % of employees come in **late**, daily
+    - what % are **absent**
+    - what % do **overtime**, asked separately for **weekday**, **weekend**
+      and **holiday** — and only asked at all when the company has
+      overtime enabled
+
+11. **How each behaviour lands on a row**
+    - **Absent** — no row at all for that employee on that date, exactly
+      like a weekend. An absence is the absence of a row; nothing is
+      written blank. (This also keeps all four required columns filled on
+      every row the file does contain.)
+    - **Late** — shifts In Time later than the shift's start. The user
+      said the exact lateness does not matter, so no input for it:
+      generate a random 1–60 minutes past shift start. This is our choice,
+      not a stated requirement — easy to change.
+    - **Overtime on a weekday** — In Time as normal, Out Time pushed past
+      shift end by up to the weekday maximum.
+    - **Overtime on a weekend or holiday** — there is no regular shift
+      that day, so the entire attendance is overtime: In Time = shift
+      start, Out Time = shift start + the overtime hours (capped by that
+      day type's maximum). A weekend row is therefore short, not a full
+      shift plus overtime.
+
+12. **Shifts that cross midnight** — a shift may end before it starts
+    (10:00 PM – 06:00 AM). One shift is always one row, dated by the day
+    the shift **starts**: `2026-09-06, 10:00 PM, 06:00 AM`. The row is not
+    split across two dates, and Out Time reading earlier than In Time is
+    expected and correct for such shifts.
+
+13. **An ordinary day** (present, not late, no overtime) — In Time is
+    exactly the shift start and Out Time exactly the shift end. No jitter
+    is added; the user asked for no unnecessary complexity, so many rows
+    will legitimately carry identical times. Assumption, not a stated
+    requirement.
+
+### Form order
+
+The user dictated the inputs in the order they should appear, and that
+order is part of the spec — each answer reveals the next control:
+
+1. Employee IDs (paste / generate / upload)
+2. Date range: From, To
+3. How many shifts → that many In/Out time pairs
+4. Assign employee IDs to shifts
+5. Which weekdays are the weekend
+6. Holidays: BD govt / BD govt + custom / custom only / none
+7. Is there overtime? → if yes, max hours for weekday / weekend / holiday
+8. Percentages: late, absent, and (if overtime) overtime per day type
+9. Output time format
+
+### Row generation, end to end
+
+For each date in From–To, classify it as weekday, weekend or holiday, then
+for each assigned employee:
+
+- **Holiday or weekend** — no row, unless overtime is on and the employee
+  falls in that day type's overtime percentage, in which case: In = shift
+  start, Out = shift start + overtime hours.
+- **Weekday** — no row if the employee falls in the absent percentage.
+  Otherwise In = shift start, or shift start + 1–60 minutes if they fall
+  in the late percentage; Out = shift end, pushed later by up to the
+  weekday overtime maximum if they fall in the weekday overtime
+  percentage.
+
+The row's date is always the date the shift **started**.
+
+### Still open
+
+- Nothing blocking. Two things to settle while building: the BD holiday
+  table must be drafted and verified with the user before wiring, and
+  items 11 (1–60 minute lateness) and 13 (no jitter on ordinary days) are
+  our assumptions rather than stated requirements.
 
 ## Still to spec (not started)
 
