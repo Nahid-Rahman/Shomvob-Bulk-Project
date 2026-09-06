@@ -245,6 +245,13 @@
 
   function renderMain() {
     const root = $("#mainContent");
+    if (currentOp === "attendance_add") {
+      $("#actionBar").style.display = "flex";
+      root.innerHTML = attendanceTemplate();
+      wireAttendanceEvents();
+      updateSummary();
+      return;
+    }
     if (currentOp !== "employee_add") {
       const op = OPERATIONS.find((o) => o.id === currentOp);
       root.innerHTML = `
@@ -579,7 +586,7 @@
     return body;
   }
 
-  function updateSummary() {
+  function updateEmployeeSummary() {
     const countOk = validateCount();
     const prefixOk = validatePrefix();
     const count = parseInt($("#countInput").value, 10);
@@ -608,7 +615,7 @@
     showToast._t = setTimeout(() => t.classList.remove("show"), 4200);
   }
 
-  function handleGenerate() {
+  function handleEmployeeGenerate() {
     if (!validateCount() || !validatePrefix()) {
       showToast("Batch basics-e error ache, check koro.", true);
       return;
@@ -630,7 +637,1121 @@
     }
   }
 
+  /* ================= Attendance Add ================= */
+
+  const att = {
+    idMode: "paste",
+    pasteText: "",
+    genPrefix: "HUIW",
+    genStart: 1,
+    genCount: 50,
+    upload: null, /* { name, options: [{label, values}], pick } */
+    ids: [],
+
+    from: "",
+    to: "",
+
+    shiftCount: 1,
+    shifts: [{ in: "09:00", out: "17:00", ids: [] }],
+    grace: 15,
+    searchText: [],
+    focusSearch: -1,
+
+    weekend: DEFAULT_WEEKEND.slice(),
+
+    holidayMode: "govt",
+    customHolidays: [],
+    govtRemoved: [],
+
+    otEnabled: false,
+    otMax: { weekday: 2, weekend: 4, holiday: 4 },
+    otPct: { weekday: 20, weekend: 10, holiday: 5 },
+
+    latePct: 15,
+    absentPct: 5,
+
+    timeFormat: "h12",
+  };
+
+  /* ---------- attendance helpers ---------- */
+
+  function pctHit(p) {
+    return Math.random() * 100 < p;
+  }
+  function parseHM(s) {
+    const parts = String(s || "").split(":");
+    const h = parseInt(parts[0], 10),
+      m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+  }
+  function colLetter(i) {
+    let s = "";
+    i += 1;
+    while (i > 0) {
+      const r = (i - 1) % 26;
+      s = String.fromCharCode(65 + r) + s;
+      i = Math.floor((i - 1) / 26);
+    }
+    return s;
+  }
+
+  /* Renders a minute-of-day in whichever of the template's accepted formats
+     the user picked. Values past midnight wrap, which is what a shift that
+     crosses midnight needs. Seconds are random when the format shows them. */
+  function formatTime(min, fmtId) {
+    const t = ((Math.round(min) % 1440) + 1440) % 1440;
+    const h = Math.floor(t / 60);
+    const mm = String(t % 60).padStart(2, "0");
+    const ss = String(randInt(0, 59)).padStart(2, "0");
+    if (fmtId === "h24") return `${String(h).padStart(2, "0")}:${mm}`;
+    if (fmtId === "h24s") return `${String(h).padStart(2, "0")}:${mm}:${ss}`;
+    const ap = h < 12 ? "AM" : "PM";
+    const hh = String(h % 12 === 0 ? 12 : h % 12).padStart(2, "0");
+    if (fmtId === "h12s") return `${hh}:${mm}:${ss} ${ap}`;
+    return `${hh}:${mm} ${ap}`;
+  }
+
+  function parseDateStr(s) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
+    if (!m) return null;
+    return new Date(+m[1], +m[2] - 1, +m[3]);
+  }
+
+  function eachDate(fromStr, toStr, cb) {
+    const start = parseDateStr(fromStr),
+      end = parseDateStr(toStr);
+    if (!start || !end || start > end) return;
+    const d = new Date(start);
+    while (d <= end) {
+      cb(new Date(d));
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  /* Split on any run of whitespace, comma, semicolon, pipe or quote, so a
+     column pasted from Excel, a comma list and one-per-line all work. */
+  function parseIdList(text) {
+    const raw = String(text || "")
+      .split(/[\s,;|"']+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const seen = new Set();
+    const ids = [];
+    raw.forEach((v) => {
+      if (seen.has(v)) return;
+      seen.add(v);
+      ids.push(v);
+    });
+    return { ids, total: raw.length, dupes: raw.length - ids.length };
+  }
+
+  function generatedIds() {
+    const prefix = att.genPrefix;
+    const start = att.genStart;
+    const count = att.genCount;
+    const out = [];
+    if (!prefix || !(count > 0)) return out;
+    for (let i = 0; i < count; i++) out.push(prefix + pad4(start + i));
+    return out;
+  }
+
+  /* Resolves whichever ID mode is active into att.ids, then drops any shift
+     assignment pointing at an ID that no longer exists. */
+  function recomputeIds() {
+    let ids = [];
+    if (att.idMode === "paste") ids = parseIdList(att.pasteText).ids;
+    else if (att.idMode === "generate") ids = generatedIds();
+    else if (att.upload && att.upload.pick != null) {
+      const opt = att.upload.options[att.upload.pick];
+      if (opt) ids = parseIdList(opt.values.join("\n")).ids;
+    }
+    att.ids = ids;
+    const pool = new Set(ids);
+    att.shifts.forEach((sh) => {
+      sh.ids = sh.ids.filter((id) => pool.has(id));
+    });
+  }
+
+  function assignedIdSet() {
+    const set = new Set();
+    att.shifts.forEach((sh) => sh.ids.forEach((id) => set.add(id)));
+    return set;
+  }
+
+  function unassignedIds() {
+    const taken = assignedIdSet();
+    return att.ids.filter((id) => !taken.has(id));
+  }
+
+  /* With a single shift there is nothing to decide — everyone is in it. */
+  function singleShift() {
+    return att.shiftCount === 1;
+  }
+
+  function effectiveShifts() {
+    if (singleShift()) return [{ in: att.shifts[0].in, out: att.shifts[0].out, ids: att.ids.slice() }];
+    return att.shifts.map((sh) => ({ in: sh.in, out: sh.out, ids: sh.ids.slice() }));
+  }
+
+  function syncShiftCount() {
+    const n = att.shiftCount;
+    while (att.shifts.length < n) {
+      const prev = att.shifts[att.shifts.length - 1];
+      att.shifts.push({ in: prev ? prev.in : "09:00", out: prev ? prev.out : "17:00", ids: [] });
+    }
+    if (att.shifts.length > n) att.shifts.length = n;
+    att.searchText.length = n;
+  }
+
+  function govtHolidayList() {
+    const out = [];
+    Object.keys(BD_HOLIDAYS).forEach((y) => {
+      BD_HOLIDAYS[y].forEach((h) => out.push({ date: h[0], name: h[1], approx: !!h[2] }));
+    });
+    out.sort((a, b) => (a.date < b.date ? -1 : 1));
+    return out;
+  }
+
+  function activeHolidaySet() {
+    const set = new Set();
+    if (att.holidayMode === "govt" || att.holidayMode === "govt_custom") {
+      govtHolidayList().forEach((h) => {
+        if (att.govtRemoved.indexOf(h.date) === -1) set.add(h.date);
+      });
+    }
+    if (att.holidayMode === "custom" || att.holidayMode === "govt_custom") {
+      att.customHolidays.forEach((d) => set.add(d));
+    }
+    return set;
+  }
+
+  /* ---------- attendance row generation ---------- */
+
+  function generateAttendanceRows() {
+    const rows = [ATTENDANCE_HEADER.slice()];
+    const holidays = activeHolidaySet();
+    const weekend = new Set(att.weekend);
+    const fmt = att.timeFormat;
+    const shifts = effectiveShifts();
+
+    eachDate(att.from, att.to, (date) => {
+      const ds = fmtDate(date);
+      const type = holidays.has(ds) ? "holiday" : weekend.has(date.getDay()) ? "weekend" : "weekday";
+
+      shifts.forEach((sh) => {
+        const start = parseHM(sh.in);
+        let end = parseHM(sh.out);
+        if (start == null || end == null) return;
+        if (end <= start) end += 1440; /* shift crosses midnight */
+
+        sh.ids.forEach((id) => {
+          let inMin, outMin;
+
+          if (type === "weekday") {
+            if (pctHit(att.absentPct)) return; /* absent = no row at all */
+            inMin = pctHit(att.latePct)
+              ? start + att.grace + randInt(1, 60)
+              : start + randInt(-10, att.grace);
+            outMin =
+              att.otEnabled && att.otMax.weekday > 0 && pctHit(att.otPct.weekday)
+                ? end + randInt(1, att.otMax.weekday * 60)
+                : end + randInt(0, 10);
+          } else {
+            /* weekend and holiday produce nothing unless this employee is
+               one of the overtime cases — and then the whole attendance is
+               overtime, starting at the shift's normal start time. */
+            if (!att.otEnabled) return;
+            const max = att.otMax[type];
+            if (!(max > 0) || !pctHit(att.otPct[type])) return;
+            inMin = start;
+            outMin = start + randInt(1, max * 60);
+          }
+
+          rows.push([id, ds, formatTime(inMin, fmt), formatTime(outMin, fmt)]);
+        });
+      });
+    });
+
+    return rows;
+  }
+
+  function downloadAttendanceWorkbook(rows) {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{ wch: 16 }, { wch: 13 }, { wch: 14 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, ATTENDANCE_SHEET);
+    const stamp = fmtDate(today).replace(/-/g, "");
+    const filename = `attendance_bulk_upload_${stamp}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    return filename;
+  }
+
+  /* ---------- attendance UI ---------- */
+
+  function attendanceTemplate() {
+    const fmtCards = TIME_FORMATS.map(
+      (f) =>
+        `<button type="button" class="theme-card" data-fmt="${f.id}" aria-pressed="${f.id === att.timeFormat}">
+           <div class="theme-card-title">${f.label}</div><div class="theme-card-sub">${f.sub}</div>
+         </button>`
+    ).join("");
+
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Bulk operation · 02</span>
+        <h1 class="page-title">Employee Attendance Add</h1>
+        <p class="page-desc">Employee ID, date range ar shift dile — weekend, holiday, late, absent ar overtime rule mene attendance file generate hobe.</p>
+        <details class="rules-card">
+          <summary class="rules-summary"><span>Fixed generation rules</span><span class="chev">›</span></summary>
+          <div class="rules-body">
+            <div class="rule-row"><span class="rule-col">Normal din</span><span class="rule-val">In: shift start-er 10 min age → grace-er sesh · Out: shift end → +10 min</span></div>
+            <div class="rule-row"><span class="rule-col">Late</span><span class="rule-val">grace sesh howar por 1–60 minute</span></div>
+            <div class="rule-row"><span class="rule-col">Absent</span><span class="rule-val">oi din kono row-i porbe na</span></div>
+            <div class="rule-row"><span class="rule-col">Weekend / holiday</span><span class="rule-val">kono row nei — shudhu overtime hole In = shift start, Out = start + OT</span></div>
+            <div class="rule-row"><span class="rule-col">Overtime</span><span class="rule-val">alada column na — Out Time-ke shift end-er por thele dey</span></div>
+            <div class="rule-row"><span class="rule-col">Midnight-cross shift</span><span class="rule-val">ek shift = ek row, date shift jei din shuru</span></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Employee IDs</h2></div>
+        <p class="section-note">Kon employee-der attendance lagbe. Paste koro, generate koro, ba file theke nao.</p>
+        <div class="seg" id="idModeSeg">
+          <button type="button" data-mode="paste" aria-pressed="${att.idMode === "paste"}">Paste</button>
+          <button type="button" data-mode="generate" aria-pressed="${att.idMode === "generate"}">Generate</button>
+          <button type="button" data-mode="upload" aria-pressed="${att.idMode === "upload"}">Upload</button>
+        </div>
+        <div class="seg-panel" id="idPanel"></div>
+        <div id="idTally"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Date range</h2></div>
+        <p class="section-note">Kon din theke kon din porjonto attendance banabe.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="fromDate">From</label>
+            <input type="date" id="fromDate" value="${att.from}" />
+          </div>
+          <div class="field">
+            <label for="toDate">To</label>
+            <input type="date" id="toDate" value="${att.to}" />
+          </div>
+        </div>
+        <div id="rangeTally"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Shifts</h2></div>
+        <p class="section-note">Koyta shift ache, ar protita shift-er start ar end time.</p>
+        <div class="field-grid-2">
+          <div class="field">
+            <label for="shiftCount">Koyta shift</label>
+            <input type="number" id="shiftCount" min="1" max="10" value="${att.shiftCount}" />
+            <span class="hint">1 theke 10</span>
+          </div>
+          <div class="field">
+            <label for="graceInput">Grace period (minutes)</label>
+            <input type="number" id="graceInput" min="0" max="120" value="${att.grace}" />
+            <span class="hint">Ei somoy porjonto late dhora hobe na</span>
+          </div>
+        </div>
+        <div class="shift-list" id="shiftList"></div>
+      </div>
+
+      <div class="section" id="assignSection">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Kon employee kon shift-e</h2></div>
+        <p class="section-note">Search kore click koro, ba pool theke shift-e drag koro.</p>
+        <div id="assignWrap"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">5</span>Weekend</h2></div>
+        <p class="section-note">Company-r weekend kon kon bar. Oi din normally kono entry porbe na.</p>
+        <div class="day-row" id="dayRow"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">6</span>Holiday</h2></div>
+        <p class="section-note">Date range-er moddhe holiday ache kina.</p>
+        <div class="choice-list" id="holidayChoices">
+          <label class="choice ${att.holidayMode === "govt" ? "on" : ""}"><input type="radio" name="hmode" value="govt" ${att.holidayMode === "govt" ? "checked" : ""} /><span class="choice-text"><strong>Bangladesh govt holidays</strong><span>Built-in list — 2025 ar 2026</span></span></label>
+          <label class="choice ${att.holidayMode === "govt_custom" ? "on" : ""}"><input type="radio" name="hmode" value="govt_custom" ${att.holidayMode === "govt_custom" ? "checked" : ""} /><span class="choice-text"><strong>Bangladesh govt holidays + custom dates</strong><span>Built-in list, shathe nijer date add koro</span></span></label>
+          <label class="choice ${att.holidayMode === "custom" ? "on" : ""}"><input type="radio" name="hmode" value="custom" ${att.holidayMode === "custom" ? "checked" : ""} /><span class="choice-text"><strong>Custom dates only</strong><span>Shudhu je date gula tumi dibe</span></span></label>
+          <label class="choice ${att.holidayMode === "none" ? "on" : ""}"><input type="radio" name="hmode" value="none" ${att.holidayMode === "none" ? "checked" : ""} /><span class="choice-text"><strong>No holiday</strong><span>Weekend chhara shob din kaj</span></span></label>
+        </div>
+        <div id="holidayWrap"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">7</span>Overtime</h2></div>
+        <p class="section-note">Company-te overtime ache kina. Overtime alada column na — Out Time deri kore dey.</p>
+        <div class="seg" id="otSeg">
+          <button type="button" data-ot="no" aria-pressed="${!att.otEnabled}">Nei</button>
+          <button type="button" data-ot="yes" aria-pressed="${att.otEnabled}">Ache</button>
+        </div>
+        <div id="otWrap"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">8</span>Percentage</h2></div>
+        <p class="section-note">Koto shotangsho employee late kore, absent thake, ar overtime kore.</p>
+        <div class="field-grid-2">
+          <div class="field">
+            <label for="latePct">Late (%)</label>
+            <input type="number" id="latePct" min="0" max="100" value="${att.latePct}" />
+          </div>
+          <div class="field">
+            <label for="absentPct">Absent (%)</label>
+            <input type="number" id="absentPct" min="0" max="100" value="${att.absentPct}" />
+          </div>
+        </div>
+        <div id="otPctWrap"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">9</span>Time format</h2></div>
+        <p class="section-note">Excel-e In/Out Time kon format-e likhbe. Char tai template accept kore.</p>
+        <div class="fmt-grid" id="fmtGrid">${fmtCards}</div>
+      </div>
+    `;
+  }
+
+  function renderIdPanel() {
+    const box = $("#idPanel");
+    if (att.idMode === "paste") {
+      box.innerHTML = `
+        <div class="field">
+          <label for="idPaste">Employee ID list</label>
+          <textarea id="idPaste" placeholder="HUIW0101&#10;HUIW0102&#10;HUIW0103">${escapeHtml(att.pasteText)}</textarea>
+          <span class="hint">Ek line-e ekta, ba comma / space diye — jevabe khushi. Duplicate baad chole jabe.</span>
+        </div>`;
+      $("#idPaste").addEventListener("input", (e) => {
+        att.pasteText = e.target.value;
+        recomputeIds();
+        renderIdTally();
+        renderAssign();
+        updateSummary();
+      });
+    } else if (att.idMode === "generate") {
+      box.innerHTML = `
+        <div class="field-grid-3">
+          <div class="field">
+            <label for="genPrefix">Prefix</label>
+            <input type="text" id="genPrefix" maxlength="8" value="${escapeHtml(att.genPrefix)}" />
+            <span class="hint">Auto-uppercase</span>
+          </div>
+          <div class="field">
+            <label for="genStart">Start number</label>
+            <input type="number" id="genStart" min="1" value="${att.genStart}" />
+            <span class="hint">0001 na hoye 0101 theke shuru hote pare</span>
+          </div>
+          <div class="field">
+            <label for="genCount">Koyta</label>
+            <input type="number" id="genCount" min="1" max="2000" value="${att.genCount}" />
+          </div>
+        </div>
+        <div class="preview-row" id="genPreview"></div>`;
+      const sync = () => {
+        recomputeIds();
+        renderGenPreview();
+        renderIdTally();
+        renderAssign();
+        updateSummary();
+      };
+      $("#genPrefix").addEventListener("input", (e) => {
+        e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        att.genPrefix = e.target.value;
+        sync();
+      });
+      $("#genStart").addEventListener("input", (e) => {
+        att.genStart = Math.max(1, parseInt(e.target.value, 10) || 1);
+        sync();
+      });
+      $("#genCount").addEventListener("input", (e) => {
+        att.genCount = Math.max(0, parseInt(e.target.value, 10) || 0);
+        sync();
+      });
+      renderGenPreview();
+    } else {
+      const up = att.upload;
+      let picker = "";
+      if (up && up.options.length) {
+        picker = `
+          <div class="field" style="margin-top:12px">
+            <label for="colPick">Kon column-e ID ache</label>
+            <select id="colPick">
+              ${up.options
+                .map((o, i) => `<option value="${i}" ${i === up.pick ? "selected" : ""}>${escapeHtml(o.label)} — ${o.values.length} value</option>`)
+                .join("")}
+            </select>
+          </div>`;
+      }
+      box.innerHTML = `
+        <div class="field">
+          <label for="idFile">Excel ba CSV file</label>
+          <input type="file" id="idFile" accept=".xlsx,.xlsm,.csv,.txt" />
+          <span class="hint">${up ? escapeHtml(up.name) : "Employee Add-er generate kora file dileo cholbe — column nije-i dhore nibe"}</span>
+        </div>
+        ${picker}`;
+      $("#idFile").addEventListener("change", handleIdFile);
+      if (up && up.options.length) {
+        $("#colPick").addEventListener("change", (e) => {
+          att.upload.pick = parseInt(e.target.value, 10);
+          recomputeIds();
+          renderIdTally();
+          renderAssign();
+          updateSummary();
+        });
+      }
+    }
+    renderIdTally();
+  }
+
+  function renderGenPreview() {
+    const box = $("#genPreview");
+    if (!box) return;
+    box.innerHTML = "";
+    const ids = generatedIds();
+    const show = ids.length > 3 ? [ids[0], ids[1], "…", ids[ids.length - 1]] : ids;
+    show.forEach((v) => {
+      const chip = document.createElement("span");
+      chip.className = "chip accent";
+      chip.textContent = v;
+      box.appendChild(chip);
+    });
+  }
+
+  function renderIdTally() {
+    const box = $("#idTally");
+    if (!box) return;
+    const n = att.ids.length;
+    let extra = "";
+    if (att.idMode === "paste") {
+      const p = parseIdList(att.pasteText);
+      if (p.dupes) extra = ` · <strong>${p.dupes}</strong> duplicate baad`;
+    }
+    box.innerHTML = n
+      ? `<span class="tally ok"><strong>${n}</strong> employee ID ready${extra}</span>`
+      : `<span class="tally">Kono employee ID nei</span>`;
+  }
+
+  /* Turns any uploaded sheet into a list of pickable columns, so "any file"
+     genuinely works. A column whose header looks like an ID header is
+     auto-selected; a bare single-column sheet (the template's ReferenceData)
+     is offered whole. */
+  function columnOptions(aoaBySheet) {
+    const opts = [];
+    Object.keys(aoaBySheet).forEach((name) => {
+      const aoa = aoaBySheet[name];
+      if (!aoa || !aoa.length) return;
+      const width = aoa.reduce((w, r) => Math.max(w, r.length), 0);
+      for (let c = 0; c < width; c++) {
+        const col = aoa.map((r) => (r[c] == null ? "" : String(r[c]).trim()));
+        const head = col[0] || "";
+        const isHeader = /[A-Za-z]/.test(head) && /id|name|employee|code/i.test(head);
+        const values = (isHeader ? col.slice(1) : col).filter(Boolean);
+        if (!values.length) continue;
+        opts.push({
+          label: isHeader ? `${name} · ${head}` : `${name} · column ${colLetter(c)}`,
+          header: isHeader ? head : "",
+          values,
+        });
+      }
+    });
+    return opts;
+  }
+
+  function parseCsv(text) {
+    return String(text)
+      .split(/\r?\n/)
+      .filter((line) => line.trim() !== "")
+      .map((line) => line.split(",").map((c) => c.replace(/^\s*"?|"?\s*$/g, "")));
+  }
+
+  function handleIdFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    const isText = /\.(csv|txt)$/i.test(file.name);
+
+    reader.onload = () => {
+      try {
+        const bySheet = {};
+        if (isText) {
+          bySheet[file.name] = parseCsv(reader.result);
+        } else {
+          const wb = XLSX.read(new Uint8Array(reader.result), { type: "array" });
+          wb.SheetNames.forEach((name) => {
+            if (name === "_Metadata") return;
+            const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, blankrows: false });
+            if (aoa && aoa.length) bySheet[name] = aoa;
+          });
+        }
+        const options = columnOptions(bySheet);
+        if (!options.length) {
+          showToast("File-e kono ID column pawa jayni.", true);
+          return;
+        }
+        let pick = options.findIndex((o) => /employee\s*id/i.test(o.header));
+        if (pick < 0) pick = options.findIndex((o) => /id/i.test(o.header));
+        if (pick < 0) pick = 0;
+        att.upload = { name: file.name, options, pick };
+        recomputeIds();
+        renderIdPanel();
+        renderAssign();
+        updateSummary();
+        showToast(`${file.name} — ${att.ids.length} ID pawa gelo.`);
+      } catch (err) {
+        console.error(err);
+        showToast("File porte somoshya hoyeche.", true);
+      }
+    };
+    reader.onerror = () => showToast("File porte somoshya hoyeche.", true);
+    if (isText) reader.readAsText(file);
+    else reader.readAsArrayBuffer(file);
+  }
+
+  function renderRangeTally() {
+    const box = $("#rangeTally");
+    if (!box) return;
+    const from = parseDateStr(att.from),
+      to = parseDateStr(att.to);
+    if (!from || !to) {
+      box.innerHTML = `<span class="tally">From ar To duita-i lagbe</span>`;
+      return;
+    }
+    if (from > to) {
+      box.innerHTML = `<span class="tally warn">From date-ta To date-er pore</span>`;
+      return;
+    }
+    let days = 0,
+      weekendDays = 0,
+      holidayDays = 0;
+    const holidays = activeHolidaySet();
+    const weekend = new Set(att.weekend);
+    eachDate(att.from, att.to, (d) => {
+      days++;
+      const ds = fmtDate(d);
+      if (holidays.has(ds)) holidayDays++;
+      else if (weekend.has(d.getDay())) weekendDays++;
+    });
+    const working = days - weekendDays - holidayDays;
+    box.innerHTML = `<span class="tally ok"><strong>${days}</strong> din · <strong>${working}</strong> working · ${weekendDays} weekend · ${holidayDays} holiday</span>`;
+  }
+
+  function shiftSpanText(sh) {
+    const start = parseHM(sh.in),
+      end = parseHM(sh.out);
+    if (start == null || end == null) return "";
+    let len = end - start;
+    if (len <= 0) len += 1440;
+    const h = Math.floor(len / 60),
+      m = len % 60;
+    return `${h}h${m ? " " + m + "m" : ""}${end <= start ? " · midnight cross kore" : ""}`;
+  }
+
+  function renderShifts() {
+    const list = $("#shiftList");
+    if (!list) return;
+    list.innerHTML = "";
+    att.shifts.forEach((sh, i) => {
+      const card = document.createElement("div");
+      card.className = "shift-card";
+      card.innerHTML = `
+        <div class="shift-card-head">
+          <span class="shift-badge">Shift ${i + 1}</span>
+          <span class="shift-span">${shiftSpanText(sh)}</span>
+          <div class="shift-times">
+            <label>In</label><input type="time" data-shift="${i}" data-side="in" value="${sh.in}" />
+            <label>Out</label><input type="time" data-shift="${i}" data-side="out" value="${sh.out}" />
+          </div>
+        </div>`;
+      $all("input[type=time]", card).forEach((inp) => {
+        /* Update the labels in place rather than re-rendering — a re-render
+           would rip out the very input being typed into. */
+        inp.addEventListener("input", (e) => {
+          const idx = +e.target.dataset.shift;
+          att.shifts[idx][e.target.dataset.side] = e.target.value;
+          const span = $(".shift-span", card);
+          if (span) span.textContent = shiftSpanText(att.shifts[idx]);
+          const assignSpan = $(`#assignWrap .shift-card:nth-of-type(${idx + 1}) .shift-span`);
+          if (assignSpan) {
+            const s2 = att.shifts[idx];
+            assignSpan.textContent = `${s2.in} – ${s2.out} · ${s2.ids.length} employee`;
+          }
+          updateSummary();
+        });
+      });
+      list.appendChild(card);
+    });
+  }
+
+  function renderAssign() {
+    const wrap = $("#assignWrap");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+
+    if (singleShift()) {
+      wrap.innerHTML = `<span class="tally"><strong>1</strong> shift — shob ${att.ids.length} ta employee Shift 1-e</span>`;
+      return;
+    }
+
+    const free = unassignedIds();
+
+    const pool = document.createElement("div");
+    pool.className = "assign-pool";
+    pool.innerHTML = `
+      <div class="pool-head">
+        <span class="pool-title">Unassigned</span>
+        <span class="tally" style="margin:0"><strong>${free.length}</strong> baki</span>
+      </div>
+      <div class="pool-scroll">${
+        free.length
+          ? free.map((id) => `<span class="pool-chip" draggable="true" data-id="${escapeHtml(id)}">${escapeHtml(id)}</span>`).join("")
+          : `<span class="pool-empty">Shob employee assign kora hoyeche.</span>`
+      }</div>`;
+    $all(".pool-chip", pool).forEach((chip) => {
+      chip.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", chip.dataset.id);
+        chip.classList.add("dragging");
+      });
+      chip.addEventListener("dragend", () => chip.classList.remove("dragging"));
+    });
+    pool.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      pool.classList.add("drop-hover");
+    });
+    pool.addEventListener("dragleave", () => pool.classList.remove("drop-hover"));
+    pool.addEventListener("drop", (e) => {
+      e.preventDefault();
+      pool.classList.remove("drop-hover");
+      const id = e.dataTransfer.getData("text/plain");
+      att.shifts.forEach((sh) => {
+        const i = sh.ids.indexOf(id);
+        if (i > -1) sh.ids.splice(i, 1);
+      });
+      renderAssign();
+      updateSummary();
+    });
+    wrap.appendChild(pool);
+
+    att.shifts.forEach((sh, i) => {
+      const term = (att.searchText[i] || "").trim();
+      const matches = term ? free.filter((id) => id.toLowerCase().indexOf(term.toLowerCase()) > -1) : [];
+
+      const card = document.createElement("div");
+      card.className = "shift-card";
+      card.style.marginTop = "10px";
+      card.innerHTML = `
+        <div class="shift-card-head">
+          <span class="shift-badge">Shift ${i + 1}</span>
+          <span class="shift-span">${sh.in} – ${sh.out} · ${sh.ids.length} employee</span>
+        </div>
+        <div class="assign-search">
+          <input type="text" placeholder="ID search koro — jemon 059" data-shift="${i}" value="${escapeHtml(att.searchText[i] || "")}" />
+          <div class="search-results" data-shift="${i}"></div>
+        </div>
+        <div class="mini-actions">
+          <button type="button" class="tiny-btn" data-act="all" data-shift="${i}">Add all matching${term ? ` (${matches.length})` : ""}</button>
+          <button type="button" class="tiny-btn" data-act="rest" data-shift="${i}">Baki shob ei shift-e (${free.length})</button>
+          <button type="button" class="tiny-btn" data-act="clear" data-shift="${i}">Clear</button>
+        </div>
+        <div class="assigned-row">${sh.ids
+          .map(
+            (id) =>
+              `<span class="chip removable">${escapeHtml(id)}<button type="button" class="chip-x" data-rm="${escapeHtml(id)}" data-shift="${i}" title="Remove">×</button></span>`
+          )
+          .join("")}</div>`;
+
+      const results = $(".search-results", card);
+      const input = $(".assign-search input", card);
+
+      const paint = () => {
+        const t = (att.searchText[i] || "").trim();
+        if (!t) {
+          results.hidden = true;
+          return;
+        }
+        const list = unassignedIds().filter((id) => id.toLowerCase().indexOf(t.toLowerCase()) > -1);
+        results.hidden = false;
+        results.innerHTML = list.length
+          ? list.slice(0, 60).map((id) => `<button type="button" data-add="${escapeHtml(id)}">${escapeHtml(id)}</button>`).join("")
+          : `<div class="search-none">Match korlo na</div>`;
+        $all("button[data-add]", results).forEach((b) => {
+          b.addEventListener("click", () => {
+            sh.ids.push(b.dataset.add);
+            att.focusSearch = i;
+            renderAssign();
+            updateSummary();
+          });
+        });
+      };
+
+      input.addEventListener("input", (e) => {
+        att.searchText[i] = e.target.value;
+        paint();
+      });
+      input.addEventListener("focus", () => {
+        att.focusSearch = i;
+        paint();
+      });
+      paint();
+
+      $all("button[data-act]", card).forEach((b) => {
+        b.addEventListener("click", () => {
+          const act = b.dataset.act;
+          if (act === "clear") sh.ids = [];
+          else if (act === "rest") sh.ids = sh.ids.concat(unassignedIds());
+          else {
+            const t = (att.searchText[i] || "").trim();
+            if (!t) return;
+            sh.ids = sh.ids.concat(unassignedIds().filter((id) => id.toLowerCase().indexOf(t.toLowerCase()) > -1));
+          }
+          renderAssign();
+          updateSummary();
+        });
+      });
+
+      $all("button[data-rm]", card).forEach((b) => {
+        b.addEventListener("click", () => {
+          const idx = sh.ids.indexOf(b.dataset.rm);
+          if (idx > -1) sh.ids.splice(idx, 1);
+          renderAssign();
+          updateSummary();
+        });
+      });
+
+      card.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        card.classList.add("drop-hover");
+      });
+      card.addEventListener("dragleave", () => card.classList.remove("drop-hover"));
+      card.addEventListener("drop", (e) => {
+        e.preventDefault();
+        card.classList.remove("drop-hover");
+        const id = e.dataTransfer.getData("text/plain");
+        if (!id) return;
+        att.shifts.forEach((s) => {
+          const k = s.ids.indexOf(id);
+          if (k > -1) s.ids.splice(k, 1);
+        });
+        sh.ids.push(id);
+        renderAssign();
+        updateSummary();
+      });
+
+      wrap.appendChild(card);
+    });
+
+    /* keep the caret where the user was typing across a re-render */
+    if (att.focusSearch > -1) {
+      const back = $(`.assign-search input[data-shift="${att.focusSearch}"]`, wrap);
+      if (back) {
+        back.focus();
+        const v = back.value;
+        back.setSelectionRange(v.length, v.length);
+      }
+    }
+  }
+
+  function renderDays() {
+    const row = $("#dayRow");
+    if (!row) return;
+    row.innerHTML = "";
+    WEEKDAYS.forEach((d) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "day-toggle";
+      btn.textContent = d.label;
+      btn.setAttribute("aria-pressed", String(att.weekend.indexOf(d.day) > -1));
+      btn.addEventListener("click", () => {
+        const i = att.weekend.indexOf(d.day);
+        if (i > -1) att.weekend.splice(i, 1);
+        else att.weekend.push(d.day);
+        renderDays();
+        renderRangeTally();
+        updateSummary();
+      });
+      row.appendChild(btn);
+    });
+  }
+
+  function renderHolidays() {
+    const wrap = $("#holidayWrap");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    if (att.holidayMode === "none") return;
+
+    const showGovt = att.holidayMode === "govt" || att.holidayMode === "govt_custom";
+    const showCustom = att.holidayMode === "custom" || att.holidayMode === "govt_custom";
+
+    if (showGovt) {
+      const govt = govtHolidayList().filter((h) => att.govtRemoved.indexOf(h.date) === -1);
+      const box = document.createElement("div");
+      box.innerHTML = `
+        <p class="sub-note">Built-in list — <strong>${govt.length}</strong> date. Dashed chip gula chand-nirbhor, tai approximate — bhul mone hole remove kore custom date diye dao.</p>
+        <div class="preview-row">${govt
+          .map(
+            (h) =>
+              `<span class="chip removable ${h.approx ? "approx" : ""}" title="${escapeHtml(h.name)}">${h.date}<button type="button" class="chip-x" data-govt="${h.date}" title="Remove">×</button></span>`
+          )
+          .join("")}</div>`;
+      $all("button[data-govt]", box).forEach((b) => {
+        b.addEventListener("click", () => {
+          att.govtRemoved.push(b.dataset.govt);
+          renderHolidays();
+          renderRangeTally();
+          updateSummary();
+        });
+      });
+      wrap.appendChild(box);
+    }
+
+    if (showCustom) {
+      const box = document.createElement("div");
+      box.style.marginTop = showGovt ? "16px" : "14px";
+      box.innerHTML = `
+        <div class="field-grid-2">
+          <div class="field">
+            <label for="customHoliday">Custom holiday date</label>
+            <input type="date" id="customHoliday" />
+          </div>
+          <div class="field" style="justify-content:flex-end">
+            <button type="button" class="tiny-btn" id="addHolidayBtn">+ Add date</button>
+          </div>
+        </div>
+        <div class="preview-row" id="customHolidayChips"></div>`;
+      wrap.appendChild(box);
+
+      const chips = $("#customHolidayChips", box);
+      const paintChips = () => {
+        chips.innerHTML = att.customHolidays
+          .slice()
+          .sort()
+          .map((d) => `<span class="chip removable accent">${d}<button type="button" class="chip-x" data-ch="${d}" title="Remove">×</button></span>`)
+          .join("");
+        $all("button[data-ch]", chips).forEach((b) => {
+          b.addEventListener("click", () => {
+            const i = att.customHolidays.indexOf(b.dataset.ch);
+            if (i > -1) att.customHolidays.splice(i, 1);
+            paintChips();
+            renderRangeTally();
+            updateSummary();
+          });
+        });
+      };
+      $("#addHolidayBtn", box).addEventListener("click", () => {
+        const v = $("#customHoliday", box).value;
+        if (!v) return;
+        if (att.customHolidays.indexOf(v) === -1) att.customHolidays.push(v);
+        $("#customHoliday", box).value = "";
+        paintChips();
+        renderRangeTally();
+        updateSummary();
+      });
+      paintChips();
+    }
+  }
+
+  function renderOt() {
+    const wrap = $("#otWrap");
+    if (!wrap) return;
+    wrap.innerHTML = att.otEnabled
+      ? `<div class="field-grid-3">
+           <div class="field"><label for="otWeekday">Max OT — weekday (hours)</label><input type="number" id="otWeekday" min="0" max="12" value="${att.otMax.weekday}" /></div>
+           <div class="field"><label for="otWeekend">Max OT — weekend (hours)</label><input type="number" id="otWeekend" min="0" max="12" value="${att.otMax.weekend}" /></div>
+           <div class="field"><label for="otHoliday">Max OT — holiday (hours)</label><input type="number" id="otHoliday" min="0" max="12" value="${att.otMax.holiday}" /></div>
+         </div>
+         <p class="sub-note">Weekend ar holiday-te puro time-tai overtime — In hobe shift start, Out hobe <code>start + OT</code>.</p>`
+      : `<p class="sub-note">Overtime nei — weekend ar holiday-te kono row porbe na.</p>`;
+
+    if (att.otEnabled) {
+      [["otWeekday", "weekday"], ["otWeekend", "weekend"], ["otHoliday", "holiday"]].forEach(([id, key]) => {
+        $("#" + id).addEventListener("input", (e) => {
+          att.otMax[key] = Math.max(0, parseInt(e.target.value, 10) || 0);
+          updateSummary();
+        });
+      });
+    }
+    renderOtPct();
+  }
+
+  function renderOtPct() {
+    const wrap = $("#otPctWrap");
+    if (!wrap) return;
+    if (!att.otEnabled) {
+      wrap.innerHTML = "";
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="field-grid-3">
+        <div class="field"><label for="otPctWeekday">Overtime — weekday (%)</label><input type="number" id="otPctWeekday" min="0" max="100" value="${att.otPct.weekday}" /></div>
+        <div class="field"><label for="otPctWeekend">Overtime — weekend (%)</label><input type="number" id="otPctWeekend" min="0" max="100" value="${att.otPct.weekend}" /></div>
+        <div class="field"><label for="otPctHoliday">Overtime — holiday (%)</label><input type="number" id="otPctHoliday" min="0" max="100" value="${att.otPct.holiday}" /></div>
+      </div>`;
+    [["otPctWeekday", "weekday"], ["otPctWeekend", "weekend"], ["otPctHoliday", "holiday"]].forEach(([id, key]) => {
+      $("#" + id).addEventListener("input", (e) => {
+        att.otPct[key] = clampPct(e.target.value);
+        updateSummary();
+      });
+    });
+  }
+
+  function clampPct(v) {
+    const n = parseInt(v, 10);
+    if (isNaN(n)) return 0;
+    return Math.min(100, Math.max(0, n));
+  }
+
+  function wireAttendanceEvents() {
+    $all("#idModeSeg button").forEach((b) => {
+      b.addEventListener("click", () => {
+        att.idMode = b.dataset.mode;
+        $all("#idModeSeg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        recomputeIds();
+        renderIdPanel();
+        renderAssign();
+        updateSummary();
+      });
+    });
+
+    $("#fromDate").addEventListener("input", (e) => {
+      att.from = e.target.value;
+      renderRangeTally();
+      updateSummary();
+    });
+    $("#toDate").addEventListener("input", (e) => {
+      att.to = e.target.value;
+      renderRangeTally();
+      updateSummary();
+    });
+
+    $("#shiftCount").addEventListener("input", (e) => {
+      const n = Math.min(10, Math.max(1, parseInt(e.target.value, 10) || 1));
+      att.shiftCount = n;
+      syncShiftCount();
+      renderShifts();
+      renderAssign();
+      updateSummary();
+    });
+    $("#graceInput").addEventListener("input", (e) => {
+      att.grace = Math.max(0, parseInt(e.target.value, 10) || 0);
+      updateSummary();
+    });
+
+    $all("#holidayChoices input[name=hmode]").forEach((r) => {
+      r.addEventListener("change", () => {
+        att.holidayMode = r.value;
+        $all("#holidayChoices .choice").forEach((c) => c.classList.toggle("on", c.contains(r) && r.checked));
+        renderHolidays();
+        renderRangeTally();
+        updateSummary();
+      });
+    });
+
+    $all("#otSeg button").forEach((b) => {
+      b.addEventListener("click", () => {
+        att.otEnabled = b.dataset.ot === "yes";
+        $all("#otSeg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        renderOt();
+        updateSummary();
+      });
+    });
+
+    $("#latePct").addEventListener("input", (e) => {
+      att.latePct = clampPct(e.target.value);
+      updateSummary();
+    });
+    $("#absentPct").addEventListener("input", (e) => {
+      att.absentPct = clampPct(e.target.value);
+      updateSummary();
+    });
+
+    $all("#fmtGrid button").forEach((b) => {
+      b.addEventListener("click", () => {
+        att.timeFormat = b.dataset.fmt;
+        $all("#fmtGrid button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        updateSummary();
+      });
+    });
+
+    renderIdPanel();
+    renderRangeTally();
+    renderShifts();
+    renderAssign();
+    renderDays();
+    renderHolidays();
+    renderOt();
+  }
+
+  function attendanceProblems() {
+    const out = [];
+    if (!att.ids.length) out.push("employee ID lagbe");
+    const from = parseDateStr(att.from),
+      to = parseDateStr(att.to);
+    if (!from || !to) out.push("date range lagbe");
+    else if (from > to) out.push("From date To date-er pore");
+    if (att.shifts.some((s) => parseHM(s.in) == null || parseHM(s.out) == null)) out.push("shift time lagbe");
+    if (!singleShift() && !assignedIdSet().size) out.push("kono employee shift-e assign kora hoyni");
+    if (att.weekend.length === 7) out.push("shob din weekend — kono working day nei");
+    return out;
+  }
+
+  function updateAttendanceSummary() {
+    const problems = attendanceProblems();
+    const summary = $("#actionSummary");
+    const btn = $("#generateBtn");
+    if (problems.length) {
+      summary.textContent = problems[0];
+      btn.disabled = true;
+      return;
+    }
+    const assigned = singleShift() ? att.ids.length : assignedIdSet().size;
+    let days = 0;
+    eachDate(att.from, att.to, () => days++);
+    summary.innerHTML = `<strong>${assigned}</strong> employee · <strong>${days}</strong> din · <strong>${att.shiftCount}</strong> shift · ${att.otEnabled ? "OT on" : "OT off"}`;
+    btn.disabled = false;
+  }
+
+  function handleAttendanceGenerate() {
+    const problems = attendanceProblems();
+    if (problems.length) {
+      showToast(problems[0], true);
+      return;
+    }
+    try {
+      const rows = generateAttendanceRows();
+      if (rows.length < 2) {
+        showToast("Kono row generate holo na — percentage ar date range check koro.", true);
+        return;
+      }
+      const filename = downloadAttendanceWorkbook(rows);
+      showToast(`${filename} — ${rows.length - 1} attendance row generate hoyeche.`);
+    } catch (err) {
+      console.error(err);
+      showToast("File generate korte somoshya hoyeche. Console check koro.", true);
+    }
+  }
+
+  /* Both operations share the one action bar, so these dispatch on the
+     operation currently on screen. */
+  function updateSummary() {
+    if (currentOp === "attendance_add") return updateAttendanceSummary();
+    return updateEmployeeSummary();
+  }
+
+  function handleGenerate() {
+    if (currentOp === "attendance_add") return handleAttendanceGenerate();
+    return handleEmployeeGenerate();
+  }
+
   function init() {
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    att.from = fmtDate(monthStart);
+    att.to = fmtDate(today);
     renderSidebar();
     renderMain();
     $("#generateBtn").addEventListener("click", handleGenerate);

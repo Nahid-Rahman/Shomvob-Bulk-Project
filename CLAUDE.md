@@ -45,11 +45,12 @@ operations visually consistent with this system — reuse the existing
 `.section`, `.field`, `.chip`, `.dept-card`-style patterns rather than
 inventing new component styles per operation.
 
-## Operations — 1 of 5 built
+## Operations — 2 of 5 built
 
 The sidebar (`OPERATIONS` in `src/app-data.js`) lists 5 planned bulk
-operations. Only **Employee Add** is implemented. The other 4 currently
-render a "Coming soon" placeholder (see `renderMain()` in `src/app.js`).
+operations. **Employee Add** and **Employee Attendance Add** are
+implemented. The other 3 render a "Coming soon" placeholder (see
+`renderMain()` in `src/app.js`).
 
 ### Employee Add — full spec (built, tested, do not change without asking)
 
@@ -92,6 +93,27 @@ Already validated (Playwright, 25-row and 300-row batches): ID/email/
 phone uniqueness, employment-type↔probation linkage, joining-date↔DOB
 ordering, salary rounding, department↔designation consistency.
 
+### Employee Attendance Add — built, tested, do not change without asking
+
+Four required columns (`Employee ID*`, `Date*`, `In Time*`, `Out Time*`)
+on a sheet named `Attendance_Bulk_Import`. Full rules live in `SPEC.md`;
+the parts that are easy to get wrong:
+
+- **Overtime is not a column.** The file only carries In and Out, so
+  overtime is what pushes Out Time past the shift's end.
+- **Absence and weekends are expressed as no row**, never a blank one —
+  which also keeps all four required columns filled on every row written.
+- **Weekends and holidays produce nothing** unless overtime is on and the
+  employee falls in that day type's overtime percentage; then the whole
+  attendance is overtime, In at shift start and Out at start + overtime.
+- **Lateness is measured from the end of the grace period**, not the shift
+  start.
+- **A shift may cross midnight**; it stays one row, dated by the day it
+  started, and its Out Time reads earlier than its In Time.
+- `BD_HOLIDAYS` in `app-data.js` covers 2025 and 2026 only. Its lunar
+  dates are a draft the user has not yet verified — the UI renders them as
+  dashed removable chips for that reason. Adding a year is one more key.
+
 ## Inspecting a template
 
 `python tools/probe_xlsx.py <template.xlsx>` dumps sheets and visibility,
@@ -100,12 +122,8 @@ date/number constraints), comments, freeze panes and merged ranges. Needs
 openpyxl. Use openpyxl rather than SheetJS for this — SheetJS cannot read
 data validations, which is exactly where dropdown option lists live.
 
-## Next work: the remaining 4 operations
+## Next work: the remaining 3 operations
 
-- **Employee Attendance Add** — template inspected, some inputs confirmed,
-  time-generation rules still being dictated by the user. See
-  "Employee Attendance Add — spec IN PROGRESS" in `SPEC.md` and finish
-  gathering those rules before writing any code.
 - Leave Balance Add
 - Payroll Custom Field Value Add
 - Assets Add

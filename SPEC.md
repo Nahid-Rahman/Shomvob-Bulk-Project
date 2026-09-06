@@ -58,12 +58,10 @@ uniqueness of IDs/emails/phones, employment-type↔probation linkage,
 joining-date↔DOB ordering, salary rounding, department↔designation
 consistency — all clean.
 
-## Employee Attendance Add — spec IN PROGRESS (started 2026-08-27)
+## Employee Attendance Add — full spec (built 2026-09-06)
 
-Nothing is implemented yet. The real template has been inspected and some
-input decisions are confirmed; the in/out time generation rules are still
-being dictated by the user condition-by-condition. **Do not start building
-until the open items below are closed.**
+Built and tested. Template inspected, every rule below confirmed with the
+user before implementation. Do not change these without asking.
 
 ### Template as inspected
 
@@ -294,11 +292,27 @@ for each assigned employee:
 
 The row's date is always the date the shift **started**.
 
-### Still open
+### Tested
 
-- Nothing blocking. One thing to settle while building: the BD holiday
-  table must be drafted and shown to the user to verify — the Eid dates
-  especially — before it is wired in.
+Playwright, against the built `index.html`, 29 checks: sheet name and exact
+header, filename shape, row count against working days, only the supplied
+IDs appearing, no weekend rows, dates inside range, in/out inside the
+jitter windows, all four time formats, weekend overtime placement, two
+shifts each keeping their own times with no employee in both, a
+midnight-crossing shift staying one row dated by its start day, government
+holidays producing no rows, 100% absence producing none, and 100% lateness
+landing past grace. A separate 9-check regression covers Employee Add,
+which now shares the action bar.
+
+### Outstanding
+
+- The `BD_HOLIDAYS` table in `app-data.js` still needs the user to verify
+  its lunar dates (every Eid, Ashura, Buddha Purnima, Janmashtami,
+  Eid-e-Miladunnabi, Durga Puja). The UI shows those as dashed, removable
+  chips so they can be corrected without a code change, but the baked
+  values are our draft, not confirmed.
+- Only 2025 and 2026 are covered. A range in another year simply gets no
+  government holidays; custom dates still work.
 
 ## Still to spec (not started)
 

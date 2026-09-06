@@ -95,9 +95,82 @@ const DEFAULT_DEPARTMENTS = [
   { id: "ops", name: "Operations", designations: ["Operations Executive","Operations Manager","Logistics Coordinator","Process Analyst"] }
 ];
 
+/* ===== Attendance Add ===== */
+
+/* Weekday index matches JS Date#getDay(): 0 = Sunday. */
+const WEEKDAYS = [
+  { day: 0, label: "Sun" },
+  { day: 1, label: "Mon" },
+  { day: 2, label: "Tue" },
+  { day: 3, label: "Wed" },
+  { day: 4, label: "Thu" },
+  { day: 5, label: "Fri" },
+  { day: 6, label: "Sat" }
+];
+
+const DEFAULT_WEEKEND = [5, 6]; /* Friday + Saturday */
+
+/* The four time formats the real template accepts. The first three are the
+   formats its own three example rows use; HH:MM is the 24-hour form its
+   column description names explicitly. */
+const TIME_FORMATS = [
+  { id: "h12", label: "09:00 AM", sub: "12-hour" },
+  { id: "h24", label: "17:00", sub: "24-hour" },
+  { id: "h24s", label: "09:15:45", sub: "24-hour + seconds" },
+  { id: "h12s", label: "09:30:45 AM", sub: "12-hour + seconds" }
+];
+
+/* Bangladesh government holidays. Entries marked `approx` follow the lunar
+   calendar and are announced close to the date, so they are a best guess —
+   the UI shows them as editable chips precisely so they can be corrected.
+   Adding a year is a matter of adding one more key here. */
+const BD_HOLIDAYS = {
+  2025: [
+    ["2025-02-21", "Shaheed Day / Mother Language Day"],
+    ["2025-03-26", "Independence Day"],
+    ["2025-03-30", "Eid-ul-Fitr holiday", true],
+    ["2025-03-31", "Eid-ul-Fitr", true],
+    ["2025-04-01", "Eid-ul-Fitr holiday", true],
+    ["2025-04-14", "Pahela Baishakh"],
+    ["2025-05-01", "May Day"],
+    ["2025-05-11", "Buddha Purnima", true],
+    ["2025-06-06", "Eid-ul-Azha holiday", true],
+    ["2025-06-07", "Eid-ul-Azha", true],
+    ["2025-06-08", "Eid-ul-Azha holiday", true],
+    ["2025-07-06", "Ashura", true],
+    ["2025-08-16", "Janmashtami", true],
+    ["2025-09-05", "Eid-e-Miladunnabi", true],
+    ["2025-10-02", "Durga Puja (Vijaya Dashami)", true],
+    ["2025-12-16", "Victory Day"],
+    ["2025-12-25", "Christmas Day"]
+  ],
+  2026: [
+    ["2026-02-21", "Shaheed Day / Mother Language Day"],
+    ["2026-03-20", "Eid-ul-Fitr", true],
+    ["2026-03-21", "Eid-ul-Fitr holiday", true],
+    ["2026-03-22", "Eid-ul-Fitr holiday", true],
+    ["2026-03-26", "Independence Day"],
+    ["2026-04-14", "Pahela Baishakh"],
+    ["2026-05-01", "May Day"],
+    ["2026-05-27", "Eid-ul-Azha", true],
+    ["2026-05-28", "Eid-ul-Azha holiday", true],
+    ["2026-05-29", "Eid-ul-Azha holiday", true],
+    ["2026-05-31", "Buddha Purnima", true],
+    ["2026-06-25", "Ashura", true],
+    ["2026-08-04", "Janmashtami", true],
+    ["2026-08-25", "Eid-e-Miladunnabi", true],
+    ["2026-10-20", "Durga Puja (Vijaya Dashami)", true],
+    ["2026-12-16", "Victory Day"],
+    ["2026-12-25", "Christmas Day"]
+  ]
+};
+
+const ATTENDANCE_HEADER = ["Employee ID*", "Date*", "In Time*", "Out Time*"];
+const ATTENDANCE_SHEET = "Attendance_Bulk_Import";
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
-  { id: "attendance_add", label: "Employee Attendance Add", status: "soon" },
+  { id: "attendance_add", label: "Employee Attendance Add", status: "active" },
   { id: "leave_balance_add", label: "Leave Balance Add", status: "soon" },
   { id: "payroll_field_add", label: "Payroll Custom Field Add", status: "soon" },
   { id: "assets_add", label: "Assets Add", status: "soon" }
