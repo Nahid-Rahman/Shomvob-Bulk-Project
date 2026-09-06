@@ -138,6 +138,23 @@ date/number constraints), comments, freeze panes and merged ranges. Needs
 openpyxl. Use openpyxl rather than SheetJS for this — SheetJS cannot read
 data validations, which is exactly where dropdown option lists live.
 
+## Where this stands (2026-09-06)
+
+Employee Add and Employee Attendance Add are built, tested and pushed.
+Work is paused waiting on the three remaining upload templates, which only
+the user can export from Shomvob.
+
+The user wants the last three built in one go and reviewed once, not one
+at a time. Agreed sequence: he hands over all three `.xlsx` templates →
+inspect them all with `tools/probe_xlsx.py` → put **one consolidated set
+of questions** covering every column across all three → build, test and
+commit all three together → he reviews once.
+
+One thing still outstanding on Attendance: the lunar dates in
+`BD_HOLIDAYS` (`src/app-data.js`) are our draft and the user has not
+verified them yet. The UI renders them as dashed removable chips so they
+can be corrected without a code change.
+
 ## Next work: the remaining 3 operations
 
 - Leave Balance Add
