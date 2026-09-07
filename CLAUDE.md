@@ -45,12 +45,12 @@ operations visually consistent with this system — reuse the existing
 `.section`, `.field`, `.chip`, `.dept-card`-style patterns rather than
 inventing new component styles per operation.
 
-## Operations — 2 of 5 built
+## Operations — 3 of 5 built
 
 The sidebar (`OPERATIONS` in `src/app-data.js`) lists 5 planned bulk
-operations. **Employee Add** and **Employee Attendance Add** are
-implemented. The other 3 render a "Coming soon" placeholder (see
-`renderMain()` in `src/app.js`).
+operations. **Employee Add**, **Employee Attendance Add** and **Leave
+Balance Add** are implemented. The other 2 render a "Coming soon"
+placeholder (see `renderMain()` in `src/app.js`).
 
 ### Employee Add — full spec (built, tested, do not change without asking)
 
@@ -130,6 +130,27 @@ before changing the test. The test tooling lives entirely inside `tests/`,
 including its `package.json` — a `package.json` at the repo root would make
 Vercel try to build what is deliberately a no-build static site.
 
+### Leave Balance Add — built, tested, do not change without asking
+
+The odd one out: it generates almost nothing. The user uploads the
+system's own export (sheet `Leave_Balance_Already_Used_Upda` — that name
+is truncated at Excel's 31-char limit and must be reproduced as-is), and
+every column except `Already Used Leave` is carried through untouched,
+row order included. Full rules in `SPEC.md`; the traps:
+
+- **Read, don't invent.** Employee IDs, names, leave types and allocations
+  all come from the uploaded sheet. Leave types are configured per company
+  — the sample account had one called "Fight With Voldemort" — so they can
+  never be hardcoded, and employee IDs follow no single prefix pattern.
+- **`Already Used < Total Allocated + Earned Leave`**, strictly. Used
+  leave is *not* bounded by earned leave; the real export broke that on
+  361 of 550 rows.
+- **Values are half steps** (0.5), and are scaled by how far into the
+  calendar year today is — January small, October large.
+- **An update may only increase.** A row that already carries a value must
+  come back larger; a row already at its ceiling comes back untouched and
+  is counted in the report rather than clamped.
+
 ## Inspecting a template
 
 `python tools/probe_xlsx.py <template.xlsx>` dumps sheets and visibility,
@@ -138,26 +159,20 @@ date/number constraints), comments, freeze panes and merged ranges. Needs
 openpyxl. Use openpyxl rather than SheetJS for this — SheetJS cannot read
 data validations, which is exactly where dropdown option lists live.
 
-## Where this stands (2026-09-06)
+## Where this stands (2026-09-07)
 
-Employee Add and Employee Attendance Add are built, tested and pushed.
-Work is paused waiting on the three remaining upload templates, which only
-the user can export from Shomvob.
-
-The user wants the last three built in one go and reviewed once, not one
-at a time. Agreed sequence: he hands over all three `.xlsx` templates →
-inspect them all with `tools/probe_xlsx.py` → put **one consolidated set
-of questions** covering every column across all three → build, test and
-commit all three together → he reviews once.
+Employee Add, Employee Attendance Add and Leave Balance Add are built,
+tested and pushed. Two remain — Payroll Custom Field Value Add and Assets
+Add — both blocked on their upload templates, which only the user can
+export from Shomvob.
 
 One thing still outstanding on Attendance: the lunar dates in
 `BD_HOLIDAYS` (`src/app-data.js`) are our draft and the user has not
 verified them yet. The UI renders them as dashed removable chips so they
 can be corrected without a code change.
 
-## Next work: the remaining 3 operations
+## Next work: the remaining 2 operations
 
-- Leave Balance Add
 - Payroll Custom Field Value Add
 - Assets Add
 

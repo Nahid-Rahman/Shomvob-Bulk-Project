@@ -252,6 +252,13 @@
       updateSummary();
       return;
     }
+    if (currentOp === "leave_balance_add") {
+      $("#actionBar").style.display = "flex";
+      root.innerHTML = leaveTemplate();
+      wireLeaveEvents();
+      updateSummary();
+      return;
+    }
     if (currentOp !== "employee_add") {
       const op = OPERATIONS.find((o) => o.id === currentOp);
       root.innerHTML = `
@@ -1736,15 +1743,361 @@
     }
   }
 
-  /* Both operations share the one action bar, so these dispatch on the
+  /* ================= Leave Balance Add ================= */
+
+  /* This operation inverts the other two. Nothing is invented: the user
+     uploads the system's own export and every column except "Already Used
+     Leave" is carried through untouched, row order included. Only that one
+     column is filled, and only upward — leave already taken cannot shrink. */
+
+  const leave = {
+    fileName: "",
+    sheetName: "",
+    header: [],
+    rows: [], /* raw rows, original order, original values */
+    cols: null, /* { id, name, type, total, earned, used } → column indices */
+    stats: null,
+  };
+
+  function roundHalf(v) {
+    return Math.round(v / LEAVE_STEP) * LEAVE_STEP;
+  }
+  function floorHalf(v) {
+    return Math.floor(v / LEAVE_STEP) * LEAVE_STEP;
+  }
+  function numOf(v) {
+    if (typeof v === "number") return v;
+    const n = parseFloat(String(v == null ? "" : v).replace(/,/g, ""));
+    return isNaN(n) ? 0 : n;
+  }
+
+  /* Fraction of the calendar year elapsed. Drives how much leave looks
+     plausibly used: a file made in January shows little, one made in
+     October shows a lot. */
+  function yearProgress(when) {
+    const d = when || today;
+    const start = new Date(d.getFullYear(), 0, 1);
+    const end = new Date(d.getFullYear() + 1, 0, 1);
+    return (d - start) / (end - start);
+  }
+
+  /* Largest half-step value strictly below Total + Earned, which is the
+     bound the user specified: Already Used < Total Allocated + Earned. */
+  function usedCeiling(total, earned) {
+    const cap = numOf(total) + numOf(earned);
+    if (!(cap > 0)) return 0;
+    const c = floorHalf(cap - LEAVE_STEP);
+    return c > 0 ? c : 0;
+  }
+
+  function findLeaveColumns(header) {
+    const norm = header.map((h) => String(h == null ? "" : h).trim().toLowerCase());
+    const cols = {};
+    for (const key of Object.keys(LEAVE_COLUMNS)) {
+      const idx = norm.indexOf(LEAVE_COLUMNS[key].toLowerCase());
+      if (idx < 0) return null;
+      cols[key] = idx;
+    }
+    return cols;
+  }
+
+  function leaveStats() {
+    const { rows, cols } = leave;
+    if (!cols) return null;
+    const emps = new Set();
+    const types = new Map();
+    let withExisting = 0;
+    rows.forEach((r) => {
+      emps.add(String(r[cols.id]));
+      const t = String(r[cols.type] == null ? "" : r[cols.type]).trim();
+      if (t) types.set(t, (types.get(t) || 0) + 1);
+      if (numOf(r[cols.used]) > 0) withExisting++;
+    });
+    return { rowCount: rows.length, employees: emps.size, types, withExisting };
+  }
+
+  /* ---------- generation ---------- */
+
+  function generateLeaveRows() {
+    const { rows, cols } = leave;
+    const prog = yearProgress();
+    const out = [leave.header.slice()];
+    let filled = 0;
+    let unchanged = 0;
+
+    rows.forEach((r) => {
+      const row = r.slice();
+      const ceiling = usedCeiling(row[cols.total], row[cols.earned]);
+      const existing = numOf(row[cols.used]);
+
+      /* No headroom at all, or the row already sits at the ceiling — leave
+         it exactly as it came in and count it. */
+      if (ceiling <= 0 || existing >= ceiling) {
+        unchanged++;
+        out.push(row);
+        return;
+      }
+
+      const expected = ceiling * prog;
+      const band = LEAVE_BAND.low + Math.random() * (LEAVE_BAND.high - LEAVE_BAND.low);
+      let v = roundHalf(expected * band);
+      if (v < 0) v = 0;
+      if (v > ceiling) v = ceiling;
+
+      /* An update may only increase leave already taken. */
+      if (existing > 0 && v <= existing) {
+        const room = ceiling - existing;
+        v = roundHalf(existing + LEAVE_STEP + Math.random() * Math.max(0, room - LEAVE_STEP));
+        if (v <= existing) v = existing + LEAVE_STEP;
+        if (v > ceiling) v = ceiling;
+      }
+
+      row[cols.used] = v;
+      filled++;
+      out.push(row);
+    });
+
+    return { rows: out, filled, unchanged, progress: prog };
+  }
+
+  function downloadLeaveWorkbook(rows) {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const cols = leave.cols;
+
+    /* keep the export's one-decimal presentation on the three numeric columns */
+    for (let i = 1; i < rows.length; i++) {
+      [cols.total, cols.earned, cols.used].forEach((c) => {
+        const addr = XLSX.utils.encode_cell({ r: i, c: c });
+        if (ws[addr] && ws[addr].t === "n") ws[addr].z = "#,##0.0";
+      });
+    }
+    ws["!cols"] = [{ wch: 16 }, { wch: 22 }, { wch: 24 }, { wch: 19 }, { wch: 25 }, { wch: 22 }];
+    ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, leave.sheetName || LEAVE_SHEET_FALLBACK);
+    const filename = `leave_balance_already_used_update_${fmtDate(today)}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    return filename;
+  }
+
+  /* ---------- UI ---------- */
+
+  function leaveTemplate() {
+    const prog = Math.round(yearProgress() * 100);
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Bulk operation · 03</span>
+        <h1 class="page-title">Leave Balance Add</h1>
+        <p class="page-desc">System theke export kora leave balance file ta upload koro. Employee, leave type ar allocation shob file theke-i pora hobe — shudhu <strong>Already Used Leave</strong> column ta fill kore dibo.</p>
+        <details class="rules-card">
+          <summary class="rules-summary"><span>Fixed generation rules</span><span class="chev">›</span></summary>
+          <div class="rules-body">
+            <div class="rule-row"><span class="rule-col">Ja pora hoy</span><span class="rule-val">Employee ID · Name · Leave Type · Total Allocated · Earned Leave</span></div>
+            <div class="rule-row"><span class="rule-col">Ja generate hoy</span><span class="rule-val">shudhu Already Used Leave</span></div>
+            <div class="rule-row"><span class="rule-col">Upper bound</span><span class="rule-val">Already Used &lt; Total Allocated + Earned Leave</span></div>
+            <div class="rule-row"><span class="rule-col">Step</span><span class="rule-val">0.5 — half-day leave (4, 4.5, 5, 5.5 …)</span></div>
+            <div class="rule-row"><span class="rule-col">Month onujayi</span><span class="rule-val">bochor ${prog}% pass — ceiling × ${prog}% er ${Math.round(LEAVE_BAND.low * 100)}–${Math.round(LEAVE_BAND.high * 100)}%</span></div>
+            <div class="rule-row"><span class="rule-col">Age value thakle</span><span class="rule-val">notun value tar theke beshi hobe — kokhono kombe na</span></div>
+            <div class="rule-row"><span class="rule-col">Row order</span><span class="rule-val">uploaded file-er hubohu — kono row baad jabe na</span></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Exported file</h2></div>
+        <p class="section-note">Shomvob theke download kora <code>leave_balance_already_used_update_*.xlsx</code> file ta dao.</p>
+        <div class="field">
+          <label for="leaveFile">Excel file</label>
+          <input type="file" id="leaveFile" accept=".xlsx,.xlsm" />
+          <span class="hint">${leave.fileName ? escapeHtml(leave.fileName) : "6 ta column lagbe — Employee ID, Employee Name, Leave Type Name, Total Allocated, Earned Leave, Already Used Leave"}</span>
+        </div>
+        <div id="leaveTally"></div>
+        <div class="preview-row" id="leaveTypes"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Preview</h2></div>
+        <p class="section-note">Generate korar age dekhe nao kon row-e ki boshbe. Prottek baar generate korle value bodlabe — random.</p>
+        <div id="leavePreview"></div>
+      </div>
+    `;
+  }
+
+  function renderLeaveTally() {
+    const box = $("#leaveTally");
+    if (!box) return;
+    const st = leave.stats;
+    if (!st) {
+      box.innerHTML = `<span class="tally">File upload koro</span>`;
+      return;
+    }
+    const prog = Math.round(yearProgress() * 100);
+    box.innerHTML =
+      `<span class="tally ok"><strong>${st.rowCount}</strong> row · <strong>${st.employees}</strong> employee · <strong>${st.types.size}</strong> leave type</span>` +
+      `<span class="tally" style="margin-left:8px">as of <strong>${fmtDate(today)}</strong> — bochor <strong>${prog}%</strong> pass</span>` +
+      (st.withExisting
+        ? `<span class="tally warn" style="margin-left:8px"><strong>${st.withExisting}</strong> row-e age theke value ache</span>`
+        : "");
+  }
+
+  function renderLeaveTypes() {
+    const box = $("#leaveTypes");
+    if (!box) return;
+    box.innerHTML = "";
+    if (!leave.stats) return;
+    Array.from(leave.stats.types.entries())
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([name, n]) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = `${name} · ${n}`;
+        box.appendChild(chip);
+      });
+  }
+
+  function renderLeavePreview() {
+    const box = $("#leavePreview");
+    if (!box) return;
+    if (!leave.cols || !leave.rows.length) {
+      box.innerHTML = `<span class="tally">File upload korle preview ashbe</span>`;
+      return;
+    }
+    const { rows, filled, unchanged } = generateLeaveRows();
+    const cols = leave.cols;
+    const sample = rows.slice(1, 9);
+
+    box.innerHTML = `
+      <div class="preview-table-wrap">
+        <table class="preview-table">
+          <thead><tr>
+            <th>Employee ID</th><th>Leave Type</th>
+            <th class="num">Total</th><th class="num">Earned</th>
+            <th class="num">Ceiling</th><th class="num">Already Used</th>
+          </tr></thead>
+          <tbody>
+            ${sample
+              .map((r) => {
+                const ceiling = usedCeiling(r[cols.total], r[cols.earned]);
+                return `<tr>
+                  <td>${escapeHtml(String(r[cols.id]))}</td>
+                  <td>${escapeHtml(String(r[cols.type]))}</td>
+                  <td class="num">${numOf(r[cols.total]).toFixed(1)}</td>
+                  <td class="num">${numOf(r[cols.earned]).toFixed(1)}</td>
+                  <td class="num faint">&lt; ${(ceiling + LEAVE_STEP).toFixed(1)}</td>
+                  <td class="num strong">${numOf(r[cols.used]).toFixed(1)}</td>
+                </tr>`;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+      <span class="tally ok"><strong>${filled}</strong> row fill hobe</span>
+      ${unchanged ? `<span class="tally warn" style="margin-left:8px"><strong>${unchanged}</strong> row oporibortito thakbe — ceiling-e pouche geche</span>` : ""}`;
+  }
+
+  function handleLeaveFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const wb = XLSX.read(new Uint8Array(reader.result), { type: "array" });
+        let found = null;
+        for (const name of wb.SheetNames) {
+          const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, blankrows: false });
+          if (!aoa.length) continue;
+          const cols = findLeaveColumns(aoa[0]);
+          if (cols) {
+            found = { name, header: aoa[0], rows: aoa.slice(1), cols };
+            break;
+          }
+        }
+        if (!found) {
+          showToast("Ei file-e leave balance-er 6 ta column pawa jayni.", true);
+          return;
+        }
+        /* drop trailing blank rows the export sometimes carries */
+        found.rows = found.rows.filter((r) =>
+          r.some((c) => c != null && String(c).trim() !== "")
+        );
+
+        leave.fileName = file.name;
+        leave.sheetName = found.name;
+        leave.header = found.header;
+        leave.rows = found.rows;
+        leave.cols = found.cols;
+        leave.stats = leaveStats();
+
+        renderLeaveTally();
+        renderLeaveTypes();
+        renderLeavePreview();
+        updateSummary();
+        showToast(`${file.name} — ${leave.rows.length} row pora holo.`);
+      } catch (err) {
+        console.error(err);
+        showToast("File porte somoshya hoyeche.", true);
+      }
+    };
+    reader.onerror = () => showToast("File porte somoshya hoyeche.", true);
+    reader.readAsArrayBuffer(file);
+  }
+
+  function wireLeaveEvents() {
+    $("#leaveFile").addEventListener("change", handleLeaveFile);
+    renderLeaveTally();
+    renderLeaveTypes();
+    renderLeavePreview();
+  }
+
+  function leaveProblems() {
+    if (!leave.cols || !leave.rows.length) return ["exported file upload koro"];
+    return [];
+  }
+
+  function updateLeaveSummary() {
+    const problems = leaveProblems();
+    const summary = $("#actionSummary");
+    const btn = $("#generateBtn");
+    if (problems.length) {
+      summary.textContent = problems[0];
+      btn.disabled = true;
+      return;
+    }
+    const st = leave.stats;
+    summary.innerHTML = `<strong>${st.rowCount}</strong> row · <strong>${st.employees}</strong> employee · <strong>${st.types.size}</strong> leave type`;
+    btn.disabled = false;
+  }
+
+  function handleLeaveGenerate() {
+    const problems = leaveProblems();
+    if (problems.length) {
+      showToast(problems[0], true);
+      return;
+    }
+    try {
+      const result = generateLeaveRows();
+      const filename = downloadLeaveWorkbook(result.rows);
+      const tail = result.unchanged ? ` (${result.unchanged} row oporibortito)` : "";
+      showToast(`${filename} — ${result.filled} row fill hoyeche${tail}.`);
+      renderLeavePreview();
+    } catch (err) {
+      console.error(err);
+      showToast("File generate korte somoshya hoyeche. Console check koro.", true);
+    }
+  }
+
+  /* Every operation shares the one action bar, so these dispatch on the
      operation currently on screen. */
   function updateSummary() {
     if (currentOp === "attendance_add") return updateAttendanceSummary();
+    if (currentOp === "leave_balance_add") return updateLeaveSummary();
     return updateEmployeeSummary();
   }
 
   function handleGenerate() {
     if (currentOp === "attendance_add") return handleAttendanceGenerate();
+    if (currentOp === "leave_balance_add") return handleLeaveGenerate();
     return handleEmployeeGenerate();
   }
 

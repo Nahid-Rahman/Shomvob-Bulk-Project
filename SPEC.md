@@ -1,10 +1,10 @@
 # Bulk Forge — spec
 
 Reusable web app (single self-contained HTML file, runs fully in-browser,
-no backend). Sidebar lists 5 planned bulk operations; only **Employee Add**
-is built so far. Each operation gets its own form section; output is
-always an `.xlsx` file matching Shomvob's real upload template for that
-operation.
+no backend). Sidebar lists 5 planned bulk operations; **Employee Add**,
+**Employee Attendance Add** and **Leave Balance Add** are built. Each
+operation gets its own form section; output is always an `.xlsx` file
+matching Shomvob's real upload template for that operation.
 
 ## Employee Add — full spec (confirmed with user)
 
@@ -314,9 +314,103 @@ which now shares the action bar.
 - Only 2025 and 2026 are covered. A range in another year simply gets no
   government holidays; custom dates still work.
 
+## Leave Balance Add — full spec (built 2026-09-07)
+
+Built and tested. This operation inverts the other two: **nothing is
+invented**. The user uploads the system's own export and only one column
+is filled in.
+
+### Template as inspected
+
+Source file: `leave_balance_already_used_update_2026-09-07.xlsx`. Not a
+blank template — an **export of live data**, 550 rows, meant to be edited
+and re-uploaded.
+
+One sheet, `Leave_Balance_Already_Used_Upda` — already truncated to
+Excel's 31-character sheet-name limit (the intended `..._Update` lost its
+last two letters). Generated files must carry that same truncated name, so
+we round-trip whatever the uploaded file had.
+
+Six columns, and unlike the other templates **none carry a `*`**:
+
+| # | Column | Type | Number format |
+|---|--------|------|---------------|
+| 1 | `Employee ID` | text | General |
+| 2 | `Employee Name` | text | General |
+| 3 | `Leave Type Name` | text | General |
+| 4 | `Total Allocated` | number | `#,##0.0` |
+| 5 | `Earned Leave` | number | `#,##0.0` |
+| 6 | `Already Used Leave` | number | `#,##0.0` |
+
+Header row 1, data from row 2 — no instruction or example rows. Freeze
+panes `A2`, autofilter `A1:F551`, and **no data validations at all**.
+
+What the live data showed:
+
+- 110 employees x 5 leave types = 550 rows. Every employee carried every
+  leave type; the grid had no gaps.
+- Leave types were `Annual Leave`, `Casual Leave`, `Sick Leave`,
+  `Sad Leave` and `Fight With Voldemort` — i.e. leave types are configured
+  per company, joke entries included, so they can never be hardcoded.
+- `Total Allocated` varied per employee for Annual/Casual/Sick
+  (5, 6.5, 7.5, 10, 11.5, 12.5, 14, 15) but was fixed for the other two
+  (Sad Leave 3, Fight With Voldemort 10).
+- Half-day granularity throughout — `.5` values are normal.
+- `Already Used <= Total` and `Earned <= Total` held on all 550 rows, but
+  **`Already Used > Earned` on 361 of them**, so used leave is not bounded
+  by earned leave.
+- Employee IDs were not uniform: 105 of the shape `HSWW001`, plus
+  `EMP_01`, `E_001`, `EMP00123`, `DEMOC006qer2`. Never assume a prefix.
+
+### Decisions confirmed with the user
+
+1. **The only input is the uploaded export.** Employee ID, Employee Name,
+   Leave Type Name, Total Allocated and Earned Leave are all *read* from
+   the sheet and carried through untouched. Leave types and allocations
+   are read too — they are never asked for or generated.
+2. **Only `Already Used Leave` is generated.**
+3. **Upper bound:** `Already Used < Total Allocated + Earned Leave`,
+   strictly less. So the largest usable value is the biggest half step
+   below that sum — the "ceiling".
+4. **Half steps:** every generated value is a multiple of 0.5. Both `4.0`
+   and `4.5` are valid.
+5. **Scaled by how far into the year it is,** taken from today's date
+   automatically with no input: a file generated in January shows little
+   leave used, one in October shows much more. The value lands between
+   60% and 100% of `ceiling x year-progress`, so it also varies row to
+   row rather than being uniform.
+6. **An update may only increase.** Where the uploaded row already carries
+   a value, the generated one must be strictly greater — leave already
+   taken cannot shrink.
+7. **A row already at its ceiling is left exactly as it came in**, and the
+   count of such rows is reported after generating. Same for a row with no
+   allocation at all. Nothing is clamped or overwritten.
+8. **Every uploaded row comes back**, in the original order, with columns
+   1-5 byte-identical and the `#,##0.0` presentation preserved on the
+   three numeric columns.
+
+Filename: `leave_balance_already_used_update_{YYYY-MM-DD}.xlsx`, matching
+the export's own convention.
+
+### Tested
+
+Playwright, against the built `index.html`, 51 checks. The test writes its
+own fixture shaped like a real export — including a row whose existing
+value already sits at the ceiling, a row with a zero allocation, and
+half-step allocations — so it does not depend on a file in anyone's
+Downloads folder. It checks the sheet name round-trips, the header and row
+order survive, columns 1-5 are untouched, every generated value is a half
+step below `Total + Earned`, rows with an existing value strictly increase,
+rows at the ceiling come back unchanged, fresh rows land inside the
+month-scaled band, the number format survives, a file lacking the six
+columns is refused, and regenerating reshuffles the values.
+
+Not yet run against the real 550-row export: the user had cleared it from
+Downloads by the time the build was finished. Worth one run when a fresh
+export is to hand.
+
 ## Still to spec (not started)
 
-- Leave Balance Add
 - Payroll Custom Field Value Add
 - Assets Add
 

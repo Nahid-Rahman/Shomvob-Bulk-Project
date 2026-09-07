@@ -594,6 +594,36 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .fmt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
 @media (max-width: 640px) { .fmt-grid { grid-template-columns: repeat(2, 1fr); } }
 
+/* ---- Leave Balance Add ---- */
+
+/* A wide table must scroll inside its own box, never the page. */
+.preview-table-wrap {
+  margin-top: 14px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.preview-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.preview-table th, .preview-table td {
+  padding: 8px 12px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.preview-table thead th {
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.preview-table tbody tr:last-child td { border-bottom: none; }
+.preview-table td { font-family: var(--font-mono); color: var(--text-muted); }
+.preview-table td.num, .preview-table th.num { text-align: right; }
+.preview-table td.faint { color: var(--text-faint); }
+.preview-table td.strong { color: var(--accent-strong); font-weight: 600; }
+
 @media (max-width: 860px) {
   .app { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: relative; }

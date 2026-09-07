@@ -168,10 +168,41 @@ const BD_HOLIDAYS = {
 const ATTENDANCE_HEADER = ["Employee ID*", "Date*", "In Time*", "Out Time*"];
 const ATTENDANCE_SHEET = "Attendance_Bulk_Import";
 
+/* ===== Leave Balance Add ===== */
+
+/* Unlike the other operations, this one does not build a file from
+   scratch — the user uploads the system's own export and only the
+   "Already Used Leave" column is filled in. So these are the headers we
+   look FOR, not headers we invent. Matched case-insensitively on the
+   uploaded sheet, since only the export produces them. */
+const LEAVE_COLUMNS = {
+  id: "Employee ID",
+  name: "Employee Name",
+  type: "Leave Type Name",
+  total: "Total Allocated",
+  earned: "Earned Leave",
+  used: "Already Used Leave"
+};
+
+/* The export's sheet name, already truncated to Excel's 31-character
+   limit ("..._Update" lost its "te"). Used only if an uploaded file
+   somehow carries no sheet name — normally we round-trip whatever the
+   upload had. */
+const LEAVE_SHEET_FALLBACK = "Leave_Balance_Already_Used_Upda";
+
+/* Leave actually taken lands on half days, so every generated value is a
+   multiple of 0.5 — 4, 4.5, 5, 5.5 are all valid. */
+const LEAVE_STEP = 0.5;
+
+/* How much of the year's leave is plausibly used up by now: the generated
+   value sits between these fractions of (ceiling x year-progress), so an
+   October file shows materially more used than a January one. */
+const LEAVE_BAND = { low: 0.6, high: 1.0 };
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },
-  { id: "leave_balance_add", label: "Leave Balance Add", status: "soon" },
+  { id: "leave_balance_add", label: "Leave Balance Add", status: "active" },
   { id: "payroll_field_add", label: "Payroll Custom Field Add", status: "soon" },
   { id: "assets_add", label: "Assets Add", status: "soon" }
 ];
