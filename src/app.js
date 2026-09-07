@@ -2577,14 +2577,6 @@
       .join("");
 
     return `
-      <div class="masthead">
-        <span class="brandmark">
-          <img class="brandmark-logo" src="__SHOMVOB_LOGO__" alt="Shomvob" />
-          <span class="brandmark-stamp" aria-hidden="true">Lazy</span>
-        </span>
-        <span class="masthead-title"><b>Bulk Forge</b> for Shomvob HR</span>
-      </div>
-
       <div class="welcome-hero">
         <div class="welcome-intro">
           <span class="welcome-badge">Dear certified lazy</span>

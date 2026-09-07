@@ -28,17 +28,21 @@ const { check, state } = makeChecker();
   await signIn(page);
   check("gate clears with the pre-filled credentials", !(await page.locator("#loginGate").count()));
 
-  /* the Shomvob logo is inlined by build.py — check it actually decoded,
-     since a broken data URI still renders as an <img> */
+  /* the Shomvob logo lives in the sidebar and is inlined by build.py —
+     check it actually decoded, since a broken data URI still renders as an
+     <img> */
   const logo = await page.evaluate(() => {
-    const el = document.querySelector(".brandmark-logo");
+    const el = document.querySelector(".brand-logo");
     if (!el) return null;
     return { src: el.getAttribute("src").slice(0, 22), w: el.naturalWidth, h: el.naturalHeight };
   });
   check("logo is inlined as a data URI", logo && logo.src === "data:image/png;base64,", logo && logo.src);
   check("logo actually decoded", logo && logo.w > 0 && logo.h > 0, JSON.stringify(logo));
-  check("masthead names the product", /Bulk Forge\s+for Shomvob HR/.test(await page.textContent(".masthead-title")),
-    await page.textContent(".masthead-title"));
+  check("sidebar names the product",
+    (await page.textContent(".brand-name")).trim() === "Bulk Forge" &&
+      (await page.textContent(".brand-sub")).trim() === "for Shomvob HR",
+    (await page.textContent(".brand-name")) + " / " + (await page.textContent(".brand-sub")));
+  check("the Lazy stamp is there", (await page.textContent(".brand-stamp")).trim() === "Lazy");
 
   /* the app opens on the dashboard, so pick the operation first */
   check("app opens on the dashboard", await page.isVisible(".welcome-title"));

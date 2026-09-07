@@ -138,23 +138,45 @@ button { font-family: inherit; }
   height: 100vh;
 }
 .brand {
-  padding: 24px 22px 18px;
+  padding: 22px 22px 18px;
   border-bottom: 1px solid var(--sidebar-border);
 }
-.brand-mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
+/* Shomvob's own white wordmark, inlined by build.py. The file is
+   unmodified — the "Lazy" stamp is a layer over its corner, so the mark
+   stays intact and swapping the logo is a file swap and nothing else. The
+   sidebar is already dark, so the white version needs no plaque. */
+.brand-logo-wrap { position: relative; display: inline-block; }
+.brand-logo { display: block; width: 138px; height: auto; }
+.brand-stamp {
+  position: absolute;
+  /* hangs off the corner rather than sitting on the wordmark — any higher
+     and it covers the final letter of "Shomvob" */
+  right: -18px;
+  bottom: -13px;
+  transform: rotate(-9deg);
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--accent);
+  background: var(--sidebar-bg);
+  border: 1.5px solid var(--accent);
+  border-radius: 3px;
+  padding: 3px 5px 2px;
+}
+.brand-name {
+  margin-top: 26px;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 19px;
+  font-size: 17px;
   letter-spacing: -0.01em;
   color: var(--sidebar-text);
 }
-.brand-mark svg { flex-shrink: 0; }
 .brand-sub {
-  margin-top: 6px;
-  font-size: 12.5px;
+  margin-top: 3px;
+  font-size: 12px;
   color: var(--sidebar-text-muted);
   line-height: 1.45;
 }
@@ -645,56 +667,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .preview-table td.num, .preview-table th.num { text-align: right; }
 .preview-table td.faint { color: var(--text-faint); }
 .preview-table td.strong { color: var(--accent-strong); font-weight: 600; }
-
-/* ---- Dashboard masthead ---- */
-
-.masthead {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  flex-wrap: wrap;
-  padding-bottom: 20px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--border);
-}
-
-/* The logo file itself is untouched — Shomvob's own white wordmark, inlined
-   as a data URI by build.py. The "Lazy" stamp is a separate layer sitting
-   over its corner, so the mark is overlaid rather than altered, and the
-   stamp picks up the theme. */
-.brandmark {
-  position: relative;
-  display: inline-flex;
-  padding: 13px 17px;
-  border-radius: var(--radius);
-  background: var(--sidebar-bg);
-}
-.brandmark-logo { display: block; width: 132px; height: auto; }
-.brandmark-stamp {
-  position: absolute;
-  right: -13px;
-  bottom: -10px;
-  transform: rotate(-9deg);
-  font-family: var(--font-display);
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  line-height: 1;
-  color: var(--accent);
-  background: var(--surface);
-  border: 2px solid var(--accent);
-  border-radius: 4px;
-  padding: 4px 7px 3px;
-}
-
-.masthead-title {
-  font-family: var(--font-display);
-  font-size: 15.5px;
-  font-weight: 600;
-  color: var(--text-faint);
-}
-.masthead-title b { font-weight: 600; color: var(--text); }
 
 /* ---- Welcome page ---- */
 

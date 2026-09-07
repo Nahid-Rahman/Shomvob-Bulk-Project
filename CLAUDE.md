@@ -74,16 +74,6 @@ rendered by `welcomeTemplate()`, with the action bar hidden; its sidebar
 entry lives in `#homeNav`, above the "Operations" label, and is wired in
 `renderSidebar()`.
 
-It opens with a masthead: Shomvob's own white wordmark on an ink plaque
-with a rotated "Lazy" stamp over its corner, beside "**Bulk Forge** for
-Shomvob HR". The logo file (`assets/shomvob_logo_white.png`) is
-**unmodified** — the stamp is a separate CSS layer on top, so the mark is
-overlaid rather than altered and the stamp follows the theme. `build.py`
-inlines the PNG as a base64 data URI through the `__SHOMVOB_LOGO__` token,
-which is the mechanism to reuse for any future binary asset: add it to
-`INLINE_ASSETS` in `build.py` and reference the token from the sources.
-`index.html` stays self-contained that way.
-
 Two things about it worth keeping:
 
 - **The Dashboard is the one screen in English.** Every operation's own
@@ -214,6 +204,26 @@ in its own footnote — keep that line.
 
 Nothing is persisted, so a reload asks again; one click clears it. Tests
 call `signIn(page)` from `tests/lib.js` straight after `page.goto`.
+
+## Sidebar branding
+
+The sidebar head carries Shomvob's own white wordmark with a rotated
+"Lazy" stamp hanging off its corner, then **Bulk Forge** and "for Shomvob
+HR" beneath — the shape of Shomvob's own admin sidebar, which is where the
+user wanted it. It lived on the dashboard first; it was moved here because
+two copies of the same logo within a few hundred pixels read as a
+duplication rather than a design.
+
+The logo file (`assets/shomvob_logo_white.png`) is **unmodified**. The
+stamp is a separate CSS layer over it, so the mark stays intact, the stamp
+follows the theme, and replacing the logo is a file swap and nothing else.
+It hangs off the corner deliberately — any higher and it covers the last
+letter of "Shomvob".
+
+`build.py` inlines the PNG as a base64 data URI through the
+`__SHOMVOB_LOGO__` token. That is the mechanism to reuse for any future
+binary asset: add it to `INLINE_ASSETS` in `build.py` and reference the
+token from the sources. `index.html` stays self-contained that way.
 
 ## Sidebar icons
 
