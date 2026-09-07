@@ -218,12 +218,26 @@ before you draw one for it.
 
 ## Deployment
 
-Vercel, as a plain static site: framework preset "Other", no build
-command, output directory `.`. `index.html` is already built and
-self-contained, so there is nothing to compile — this is why there must
-never be a `package.json` at the repo root (Vercel would try to build
-it). The test tooling keeps its own `package.json` inside `tests/` for
-exactly that reason.
+**Live at https://shomvob-bulk-project.vercel.app** — Vercel project
+`nahidsmrahman/shomvob-bulk-project`, connected to this GitHub repo, so
+**every push to `main` deploys to production automatically** (verified: a
+push produced a new Production deployment ~35s later). Nothing needs
+running by hand.
+
+It is a plain static site: framework preset "Other", no build command,
+output directory `.`. `index.html` is already built and self-contained, so
+there is nothing to compile — this is why there must never be a
+`package.json` at the repo root (Vercel would try to build it). The test
+tooling keeps its own `package.json` inside `tests/` for exactly that
+reason. **Do remember to run `python build.py` before pushing**, since it
+is `index.html` that ships, not `src/`.
+
+Two Vercel quirks worth knowing. The clean production domain is public,
+but per-deployment URLs (`...-<hash>-nahidsmrahman.vercel.app`) sit behind
+Vercel Authentication and 302 to an SSO page — that is the default
+protection, not a misconfiguration. And `vercel link` writes a
+`.env.local` containing a `VERCEL_OIDC_TOKEN`; `.gitignore` covers it via
+`.env*`, and it must stay that way.
 
 `.vercelignore` keeps `CLAUDE.md` and `SPEC.md` out of the deployment.
 They describe Shomvob's internal template structures, business rules and
