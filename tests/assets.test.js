@@ -34,8 +34,16 @@ async function gotoAssets(page) {
   await page.waitForSelector("#assetCount");
 }
 
-function daysAgo(dateStr, from) {
-  return Math.round((from - ymd(dateStr)) / 86400000);
+/* Compare midnight to midnight. Measuring against `new Date()` counts the
+   current time of day as extra elapsed days, which makes a date exactly at
+   the edge of the window look a day older than it is. */
+function daysAgo(dateStr, fromMidnight) {
+  return Math.round((fromMidnight - ymd(dateStr)) / 86400000);
+}
+function todayMidnight() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
 (async () => {
@@ -113,8 +121,8 @@ function daysAgo(dateStr, from) {
   check("B unassigned rows leave both columns blank",
     bRows.filter((r) => r[COL.empId] === "").every((r) => r[COL.date] === ""));
 
-  const now = new Date();
-  const ages = assignedRows.map((r) => daysAgo(r[COL.date], now));
+  const midnight = todayMidnight();
+  const ages = assignedRows.map((r) => daysAgo(r[COL.date], midnight));
   check("B assigned dates inside the last year, never future",
     ages.every((d) => d >= 0 && d <= DATA.ASSETS_ASSIGNED_WINDOW_DAYS),
     `min=${Math.min(...ages)} max=${Math.max(...ages)}`);

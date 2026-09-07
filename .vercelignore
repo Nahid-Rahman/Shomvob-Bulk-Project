@@ -1,0 +1,11 @@
+# Kept out of the public deployment: these describe Shomvob's internal
+# template structures, business rules and test-account data, and a
+# *.vercel.app URL is both guessable and indexable.
+CLAUDE.md
+SPEC.md
+
+# Test tooling is never served.
+tests/
+
+# src/ is intentionally NOT excluded — index.html inlines all of it, so
+# hiding the sources would achieve nothing.

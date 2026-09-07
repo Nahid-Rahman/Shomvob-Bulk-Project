@@ -3,31 +3,48 @@
 <style>
 /* ===== Bulk Forge — styles ===== */
 
+/* ---- Palette ----
+   Shomvob's own brand tokens, lifted from the values their site ships:
+   brand green #28a143 (with 600/700 for hover and text-on-light), gold
+   #edb713, ink #262823, canvas #f7faf8, pill #eff7f1, destructive #dc2626.
+
+   The earlier burnt-copper palette existed specifically to avoid green, so
+   that the accent could never be confused with a semantic success colour.
+   Now that the brand *is* green, that separation is impossible, so it is
+   resolved the other way: there is exactly ONE green. Accent and success
+   both come from the brand family, gold carries warning, red carries
+   danger. In this app "ok" only ever means "input accepted", so brand
+   green reads correctly there.
+
+   Shomvob's site is light-only, so the dark values below are derived —
+   a brighter brand green (#3dbf5a, their own lighter shade) on a
+   green-leaning near-black. */
+
 :root {
-  --bg: #f7f5f2;
+  --bg: #f7faf8;
   --surface: #ffffff;
-  --surface-2: #efebe5;
-  --border: #e0dad1;
-  --border-strong: #cdc4b5;
-  --text: #221e1a;
-  --text-muted: #6b6259;
-  --text-faint: #948a7d;
-  --accent: #c05621;
-  --accent-strong: #9a431a;
-  --accent-soft: #fbeadd;
-  --accent-contrast: #fffaf6;
-  --success: #2f7d53;
-  --success-soft: #e4f3ea;
-  --warning: #a9720b;
-  --warning-soft: #fbf0d9;
-  --danger: #c23b32;
-  --danger-soft: #fceae7;
-  --sidebar-bg: #221e1a;
-  --sidebar-text: #efebe5;
-  --sidebar-text-muted: #a79a89;
-  --sidebar-border: #362f27;
-  --sidebar-active: #2e2820;
-  --shadow: 0 1px 2px rgba(34, 30, 26, 0.06), 0 8px 24px -12px rgba(34, 30, 26, 0.18);
+  --surface-2: #f2f5f3;
+  --border: #ececec;
+  --border-strong: #dcdcdc;
+  --text: #262823;
+  --text-muted: #6b7280;
+  --text-faint: #9aa3a0;
+  --accent: #28a143;
+  --accent-strong: #186129;
+  --accent-soft: #eff7f1;
+  --accent-contrast: #ffffff;
+  --success: #208136;
+  --success-soft: #cdecd6;
+  --warning: #9a7808;
+  --warning-soft: #fef8e4;
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
+  --sidebar-bg: #262823;
+  --sidebar-text: #f2f5f3;
+  --sidebar-text-muted: #9aa39c;
+  --sidebar-border: #3a3d37;
+  --sidebar-active: #32352f;
+  --shadow: 0 1px 2px rgba(38, 40, 35, 0.06), 0 8px 24px -12px rgba(38, 40, 35, 0.18);
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 14px;
@@ -38,57 +55,57 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #17140f;
-    --surface: #201c16;
-    --surface-2: #2a251d;
-    --border: #3a342a;
-    --border-strong: #4a4234;
-    --text: #f1ece4;
-    --text-muted: #a79c8c;
-    --text-faint: #7d7364;
-    --accent: #e8823d;
-    --accent-strong: #f2a05f;
-    --accent-soft: #3a2413;
-    --accent-contrast: #1a1006;
-    --success: #4cae7c;
-    --success-soft: #16301f;
-    --warning: #d9a441;
-    --warning-soft: #332508;
-    --danger: #e2685c;
-    --danger-soft: #3a1815;
-    --sidebar-bg: #0f0d0a;
-    --sidebar-text: #f1ece4;
-    --sidebar-text-muted: #8a8072;
-    --sidebar-border: #2a251d;
-    --sidebar-active: #201c16;
+    --bg: #101512;
+    --surface: #171d19;
+    --surface-2: #1f2721;
+    --border: #2b342d;
+    --border-strong: #3a453c;
+    --text: #e8efea;
+    --text-muted: #9aa79f;
+    --text-faint: #74827a;
+    --accent: #3dbf5a;
+    --accent-strong: #75c381;
+    --accent-soft: #14301d;
+    --accent-contrast: #08150c;
+    --success: #47af57;
+    --success-soft: #12301c;
+    --warning: #edb713;
+    --warning-soft: #33280a;
+    --danger: #f05252;
+    --danger-soft: #3a1717;
+    --sidebar-bg: #0b0f0c;
+    --sidebar-text: #e8efea;
+    --sidebar-text-muted: #8b9990;
+    --sidebar-border: #1f2721;
+    --sidebar-active: #171d19;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #17140f;
-  --surface: #201c16;
-  --surface-2: #2a251d;
-  --border: #3a342a;
-  --border-strong: #4a4234;
-  --text: #f1ece4;
-  --text-muted: #a79c8c;
-  --text-faint: #7d7364;
-  --accent: #e8823d;
-  --accent-strong: #f2a05f;
-  --accent-soft: #3a2413;
-  --accent-contrast: #1a1006;
-  --success: #4cae7c;
-  --success-soft: #16301f;
-  --warning: #d9a441;
-  --warning-soft: #332508;
-  --danger: #e2685c;
-  --danger-soft: #3a1815;
-  --sidebar-bg: #0f0d0a;
-  --sidebar-text: #f1ece4;
-  --sidebar-text-muted: #8a8072;
-  --sidebar-border: #2a251d;
-  --sidebar-active: #201c16;
+  --bg: #101512;
+  --surface: #171d19;
+  --surface-2: #1f2721;
+  --border: #2b342d;
+  --border-strong: #3a453c;
+  --text: #e8efea;
+  --text-muted: #9aa79f;
+  --text-faint: #74827a;
+  --accent: #3dbf5a;
+  --accent-strong: #75c381;
+  --accent-soft: #14301d;
+  --accent-contrast: #08150c;
+  --success: #47af57;
+  --success-soft: #12301c;
+  --warning: #edb713;
+  --warning-soft: #33280a;
+  --danger: #f05252;
+  --danger-soft: #3a1717;
+  --sidebar-bg: #0b0f0c;
+  --sidebar-text: #e8efea;
+  --sidebar-text-muted: #8b9990;
+  --sidebar-border: #1f2721;
+  --sidebar-active: #171d19;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
 }
 

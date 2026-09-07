@@ -33,16 +33,35 @@ file; `src/` holds the editable source (`app.css`, `app.js`,
   from a normal origin (Vercel), not inside a sandboxed iframe. Keep it
   this way; don't add any capability-gated download API.
 
-## Design system already in place (in src/app.css)
-"Forge / anvil" visual identity — warm stone neutrals with a burnt-copper
-/ ember-orange accent (not green, to stay distinct from semantic
-success-green). Typography: IBM Plex Sans (headings/body) + IBM Plex Mono
-(data/IDs/code-like values). Full light/dark theme support via CSS custom
-properties (`:root`, `prefers-color-scheme: dark`, and `[data-theme]`
-overrides). Layout: fixed dark sidebar (operation switcher) + scrollable
-main panel with card sections + sticky bottom action bar. Keep new
-operations visually consistent with this system — reuse the existing
-`.section`, `.field`, `.chip`, `.dept-card`-style patterns rather than
+## Design system (in src/app.css)
+
+**Shomvob brand palette.** The tokens are the values Shomvob's own site
+ships: brand green `#28a143` (with `#208136` / `#186129` for hover and
+text-on-light), gold `#edb713`, ink `#262823`, canvas `#f7faf8`, pill
+`#eff7f1`, destructive `#dc2626`.
+
+The app originally used a burnt-copper palette chosen *specifically to
+avoid green*, so that the accent could never be mistaken for a semantic
+success colour. Since the brand is green, that separation is impossible,
+and it is resolved the other way: **there is exactly one green.** Accent
+and success both come from the brand family, gold carries warning, red
+carries danger. In this app "ok" only ever means "input accepted", so
+brand green reads correctly there. Don't reintroduce a second green.
+
+Shomvob's site is light-only, so the dark-theme values are derived — a
+brighter brand green (`#3dbf5a`) on a green-leaning near-black. Full
+light/dark support via CSS custom properties (`:root`,
+`prefers-color-scheme: dark`, and `[data-theme]` overrides); every colour
+lives in those three token blocks, so a rebrand is one edit. The only
+hard-coded colour outside them is `#fff` on the error toast.
+
+Typography: IBM Plex Sans (headings/body) + IBM Plex Mono (data/IDs/
+code-like values) — unchanged, and not matched to Shomvob's own fonts.
+
+Layout: fixed dark sidebar (operation switcher) + scrollable main panel
+with card sections + sticky bottom action bar. Keep new operations
+visually consistent — reuse the existing `.section`, `.field`, `.chip`,
+`.dept-card`, `.seg`, `.tally`, `.preview-table` patterns rather than
 inventing new component styles per operation.
 
 ## Operations — all 5 built
@@ -140,6 +159,21 @@ columns of which three are required. Full rules in `SPEC.md`; the traps:
   leaves *both* the employee ID and the date blank.
 - The type/name cards reuse Employee Add's department/designation classes
   on purpose; keep them looking alike.
+
+## Deployment
+
+Vercel, as a plain static site: framework preset "Other", no build
+command, output directory `.`. `index.html` is already built and
+self-contained, so there is nothing to compile — this is why there must
+never be a `package.json` at the repo root (Vercel would try to build
+it). The test tooling keeps its own `package.json` inside `tests/` for
+exactly that reason.
+
+`.vercelignore` keeps `CLAUDE.md` and `SPEC.md` out of the deployment.
+They describe Shomvob's internal template structures, business rules and
+test-account data, and a `*.vercel.app` URL is guessable and indexable.
+`src/` is deliberately *not* excluded — `index.html` inlines all of it
+anyway, so hiding it would achieve nothing.
 
 ## Tests
 
