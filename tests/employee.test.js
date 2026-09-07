@@ -18,6 +18,10 @@ const { check, state } = makeChecker();
   page.on("pageerror", (e) => pageErrors.push(String(e)));
 
   await page.goto(PAGE);
+  /* the app now opens on the welcome page, so pick the operation first */
+  check("app opens on the welcome page", await page.isVisible(".welcome-title"));
+  await page.click('.op-item:has-text("Employee Add")');
+  await page.waitForSelector("#countInput");
   await page.fill("#countInput", "25");
   await page.fill("#prefixInput", "QATE");
   await page.click('.dept-card:has-text("Engineering/IT") input[type=checkbox]');
@@ -36,6 +40,13 @@ const { check, state } = makeChecker();
   check("only the chosen department and designation",
     E.rows.every((r) => r[12] === "Engineering/IT" && r[13] === "QA Engineer"));
   check("filename", /^QATE_employee_bulk_upload_\d{8}\.xlsx$/.test(E.suggested), E.suggested);
+
+  /* the welcome cards must route to their operation */
+  await page.click('.op-item:has-text("Welcome")');
+  await page.waitForSelector(".op-card-grid");
+  await page.click('.op-card[data-op="assets_add"]');
+  await page.waitForSelector("#assetCount");
+  check("welcome card routes to its operation", await page.isVisible("#assetCount"));
 
   /* switching operations must leave both forms usable */
   await page.click('.op-item:has-text("Employee Attendance Add")');

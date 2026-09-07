@@ -641,12 +641,151 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .preview-table td.faint { color: var(--text-faint); }
 .preview-table td.strong { color: var(--accent-strong); font-weight: 600; }
 
+/* ---- Welcome page ---- */
+
+.welcome-hero { margin-bottom: 30px; }
+
+.welcome-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  padding: 5px 11px;
+  border-radius: 99px;
+  margin-bottom: 16px;
+}
+
+.welcome-title { font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; }
+.welcome-lede {
+  margin-top: 12px;
+  max-width: 58ch;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+.welcome-lede em { color: var(--text); font-style: normal; font-weight: 600; }
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 26px;
+}
+.stat-tile {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px 16px 14px;
+}
+.stat-value {
+  display: block;
+  /* display font, not mono: mono's fixed-width comma turns 4,200 into
+     "4 , 200" at this size */
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--accent-strong);
+  letter-spacing: -0.02em;
+}
+.stat-label {
+  display: block;
+  margin-top: 7px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.how-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.how-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: 99px;
+  padding: 7px 14px 7px 8px;
+}
+.how-step b {
+  display: inline-grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* one clickable card per operation */
+.op-card-grid { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+.op-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  padding: 14px 15px;
+  font-family: inherit;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.op-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.op-card-num {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+.op-card:hover .op-card-num { color: var(--accent-strong); }
+.op-card-body { flex: 1; min-width: 0; }
+.op-card-title { display: block; font-size: 14px; font-weight: 600; color: var(--text); }
+.op-card:hover .op-card-title { color: var(--accent-strong); }
+.op-card-blurb {
+  display: block;
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.op-card-cost {
+  display: block;
+  margin-top: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.op-card-go { font-size: 20px; color: var(--text-faint); line-height: 1; flex-shrink: 0; }
+.op-card:hover .op-card-go { color: var(--accent); }
+
+.welcome-foot {
+  margin-top: 26px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-faint);
+  max-width: 62ch;
+}
+
 @media (max-width: 860px) {
   .app { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: relative; }
   .main { height: auto; overflow: visible; }
   .main-scroll { overflow: visible; }
   .field-row { grid-template-columns: 1fr; }
+  .stat-row { grid-template-columns: 1fr; }
+  .welcome-title { font-size: 27px; }
   .field-grid-3, .field-grid-2 { grid-template-columns: 1fr; }
   .shift-times { margin-left: 0; width: 100%; }
   .shift-times input[type="time"] { flex: 1; min-width: 0; }

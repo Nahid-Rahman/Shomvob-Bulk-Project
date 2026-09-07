@@ -314,6 +314,39 @@ const DEFAULT_ASSET_TYPES = [
   ] }
 ];
 
+/* ===== Welcome page ===== */
+
+/* One card per operation on the landing page. `cost` is what you would be
+   typing by hand instead — the numbers are real, taken from each
+   operation's own limits and from the sample account's 110 employees. */
+const OPERATION_BLURBS = {
+  employee_add: {
+    blurb: "300 jon employee — naam, email, phone, salary, DOB, department, shob. Naam chaile Harry Potter-er cast theke-o nite paro.",
+    cost: "14 column x 300 row = 4,200 cell"
+  },
+  attendance_add: {
+    blurb: "Ek masher attendance — shift, weekend, holiday, grace period, late, absent, overtime, shob rule mene.",
+    cost: "110 jon x 30 din = ~13,000 cell"
+  },
+  leave_balance_add: {
+    blurb: "System-er export ta dao, already-used leave bhore dibo — bochor koto ta pass hoyeche sheta mathay rekhe.",
+    cost: "110 jon x 5 leave type = 550 row"
+  },
+  payroll_field_add: {
+    blurb: "Custom addition/deduction grid. Kar koto, koto jon, kon field — shob random, kintu believable.",
+    cost: "110 jon x 8 field = 880 cell"
+  },
+  assets_add: {
+    blurb: "Laptop, monitor, chair, projector — code, type, description ar kake assign kora, protita row-e.",
+    cost: "7 column x 5,000 row porjonto"
+  }
+};
+
+/* Five seconds a cell is a generous guess for someone typing carefully
+   from a spec. 4,200 cells at that rate is the number in the hero. */
+const WELCOME_SECONDS_PER_CELL = 5;
+const WELCOME_BIGGEST_BATCH = 300 * 14;
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },

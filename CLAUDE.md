@@ -66,6 +66,16 @@ inventing new component styles per operation.
 
 ## Operations — all 5 built
 
+The app opens on a **welcome page**, not on an operation: a deliberately
+tongue-in-cheek landing view ("this exists for people too lazy to type
+4,200 cells — i.e. everyone") with three stat tiles and a clickable card
+per operation. It is `currentOp === "welcome"`, rendered by
+`welcomeTemplate()`, with the action bar hidden; its sidebar entry lives in
+`#homeNav`, above the "Operations" label, and is wired in
+`renderSidebar()`. Card copy and the hand-typing costs live in
+`OPERATION_BLURBS` (`src/app-data.js`) — every number there is real, taken
+from each operation's own limits, so keep them honest if limits change.
+
 All five operations in the sidebar (`OPERATIONS` in `src/app-data.js`) are
 implemented and tested. `renderMain()` in `src/app.js` routes each one; the
 "Coming soon" placeholder it still contains is now unreachable, kept for

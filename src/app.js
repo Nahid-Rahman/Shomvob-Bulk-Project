@@ -3,7 +3,7 @@
   "use strict";
 
   /* ---------- state ---------- */
-  let currentOp = "employee_add";
+  let currentOp = "welcome";
   let nameTheme = "bangla";
   let customDeptCounter = 0;
 
@@ -223,6 +223,20 @@
   /* ================= UI ================= */
 
   function renderSidebar() {
+    const home = $("#homeNav");
+    home.innerHTML = "";
+    const homeBtn = document.createElement("button");
+    homeBtn.className = "op-item";
+    homeBtn.type = "button";
+    homeBtn.setAttribute("aria-current", String(currentOp === "welcome"));
+    homeBtn.innerHTML = `<span class="op-item-label"><span class="op-dot"></span>Welcome</span>`;
+    homeBtn.addEventListener("click", () => {
+      currentOp = "welcome";
+      renderSidebar();
+      renderMain();
+    });
+    home.appendChild(homeBtn);
+
     const nav = $("#opNav");
     nav.innerHTML = "";
     OPERATIONS.forEach((op) => {
@@ -245,6 +259,12 @@
 
   function renderMain() {
     const root = $("#mainContent");
+    if (currentOp === "welcome") {
+      $("#actionBar").style.display = "none";
+      root.innerHTML = welcomeTemplate();
+      wireWelcomeEvents();
+      return;
+    }
     if (currentOp === "attendance_add") {
       $("#actionBar").style.display = "flex";
       root.innerHTML = attendanceTemplate();
@@ -2506,6 +2526,91 @@
       console.error(err);
       showToast("File generate korte somoshya hoyeche. Console check koro.", true);
     }
+  }
+
+  /* ================= Welcome ================= */
+
+  /* The landing view. It is a joke at the user's expense, which is the
+     point — but every number on it is real, pulled from the operations'
+     own limits rather than invented for the gag. */
+
+  function welcomeTemplate() {
+    const seconds = WELCOME_BIGGEST_BATCH * WELCOME_SECONDS_PER_CELL;
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.round((seconds % 3600) / 60);
+
+    const cards = OPERATIONS.filter((op) => op.status === "active")
+      .map((op, i) => {
+        const b = OPERATION_BLURBS[op.id] || { blurb: "", cost: "" };
+        return `
+          <button type="button" class="op-card" data-op="${op.id}">
+            <span class="op-card-num">${String(i + 1).padStart(2, "0")}</span>
+            <span class="op-card-body">
+              <span class="op-card-title">${escapeHtml(op.label)}</span>
+              <span class="op-card-blurb">${escapeHtml(b.blurb)}</span>
+              <span class="op-card-cost">hate korle: ${escapeHtml(b.cost)}</span>
+            </span>
+            <span class="op-card-go" aria-hidden="true">&rsaquo;</span>
+          </button>`;
+      })
+      .join("");
+
+    return `
+      <div class="welcome-hero">
+        <span class="welcome-badge">Alsemi certified</span>
+        <h1 class="welcome-title">Ei tool-ta apnar jonno.</h1>
+        <p class="welcome-lede">
+          Bulk Forge banano hoyeche tader jonno jara 300 ta employee-r data
+          nijer hate boshiye likhte parbe na. Mane — <em>shobar</em> jonno.
+          QA-r jonno test data lagbe, kintu 4,200 ta cell type korar somoy
+          keu-i tension niye boshte chay na. Ekhon boshte hobe na.
+        </p>
+
+        <div class="stat-row">
+          <div class="stat-tile">
+            <span class="stat-value">5</span>
+            <span class="stat-label">operation, protita-i Shomvob-er asol template-e mile</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value">${WELCOME_BIGGEST_BATCH.toLocaleString("en-US")}</span>
+            <span class="stat-label">cell, ekta 300-employee batch-e — apni ekta-o likhben na</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value">${hours}h ${mins}m</span>
+            <span class="stat-label">hate likhle lagto, cell-e 5 second dhorle. Ekhane 2 second</span>
+          </div>
+        </div>
+
+        <div class="how-row">
+          <span class="how-step"><b>1</b> Bame theke ekta operation bacho</span>
+          <span class="how-step"><b>2</b> Dui-tinta field bharo</span>
+          <span class="how-step"><b>3</b> Generate chapo. Sesh.</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">·</span>Ki ki korte pare</h2></div>
+        <p class="section-note">Jekhane chan sekhane click korun — direct oi operation-e chole jabe.</p>
+        <div class="op-card-grid">${cards}</div>
+      </div>
+
+      <p class="welcome-foot">
+        Kono backend nei, kono database nei, kichu kothao pathano hoy na —
+        puro jinis-ta apnar browser-ei cholche. File-ta generate hoy, download
+        hoy, ar byapar sesh. Apnar alsemi apnar kachhei thakbe.
+      </p>
+    `;
+  }
+
+  function wireWelcomeEvents() {
+    $all(".op-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        currentOp = card.dataset.op;
+        renderSidebar();
+        renderMain();
+        $(".main-scroll").scrollTop = 0;
+      });
+    });
   }
 
   /* Every operation shares the one action bar, so these dispatch on the

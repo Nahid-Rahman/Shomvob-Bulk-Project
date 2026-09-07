@@ -644,12 +644,151 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .preview-table td.faint { color: var(--text-faint); }
 .preview-table td.strong { color: var(--accent-strong); font-weight: 600; }
 
+/* ---- Welcome page ---- */
+
+.welcome-hero { margin-bottom: 30px; }
+
+.welcome-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  padding: 5px 11px;
+  border-radius: 99px;
+  margin-bottom: 16px;
+}
+
+.welcome-title { font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; }
+.welcome-lede {
+  margin-top: 12px;
+  max-width: 58ch;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+.welcome-lede em { color: var(--text); font-style: normal; font-weight: 600; }
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 26px;
+}
+.stat-tile {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px 16px 14px;
+}
+.stat-value {
+  display: block;
+  /* display font, not mono: mono's fixed-width comma turns 4,200 into
+     "4 , 200" at this size */
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--accent-strong);
+  letter-spacing: -0.02em;
+}
+.stat-label {
+  display: block;
+  margin-top: 7px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.how-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.how-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: 99px;
+  padding: 7px 14px 7px 8px;
+}
+.how-step b {
+  display: inline-grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* one clickable card per operation */
+.op-card-grid { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+.op-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  padding: 14px 15px;
+  font-family: inherit;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.op-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.op-card-num {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+.op-card:hover .op-card-num { color: var(--accent-strong); }
+.op-card-body { flex: 1; min-width: 0; }
+.op-card-title { display: block; font-size: 14px; font-weight: 600; color: var(--text); }
+.op-card:hover .op-card-title { color: var(--accent-strong); }
+.op-card-blurb {
+  display: block;
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.op-card-cost {
+  display: block;
+  margin-top: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.op-card-go { font-size: 20px; color: var(--text-faint); line-height: 1; flex-shrink: 0; }
+.op-card:hover .op-card-go { color: var(--accent); }
+
+.welcome-foot {
+  margin-top: 26px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-faint);
+  max-width: 62ch;
+}
+
 @media (max-width: 860px) {
   .app { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: relative; }
   .main { height: auto; overflow: visible; }
   .main-scroll { overflow: visible; }
   .field-row { grid-template-columns: 1fr; }
+  .stat-row { grid-template-columns: 1fr; }
+  .welcome-title { font-size: 27px; }
   .field-grid-3, .field-grid-2 { grid-template-columns: 1fr; }
   .shift-times { margin-left: 0; width: 100%; }
   .shift-times input[type="time"] { flex: 1; min-width: 0; }
@@ -674,6 +813,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
       <div class="brand-sub">Shomvob QA bulk-upload generator</div>
     </div>
     <nav class="op-nav">
+      <div id="homeNav"></div>
       <div class="op-nav-label">Operations</div>
       <div id="opNav"></div>
     </nav>
@@ -1024,6 +1164,39 @@ const DEFAULT_ASSET_TYPES = [
   ] }
 ];
 
+/* ===== Welcome page ===== */
+
+/* One card per operation on the landing page. `cost` is what you would be
+   typing by hand instead — the numbers are real, taken from each
+   operation's own limits and from the sample account's 110 employees. */
+const OPERATION_BLURBS = {
+  employee_add: {
+    blurb: "300 jon employee — naam, email, phone, salary, DOB, department, shob. Naam chaile Harry Potter-er cast theke-o nite paro.",
+    cost: "14 column x 300 row = 4,200 cell"
+  },
+  attendance_add: {
+    blurb: "Ek masher attendance — shift, weekend, holiday, grace period, late, absent, overtime, shob rule mene.",
+    cost: "110 jon x 30 din = ~13,000 cell"
+  },
+  leave_balance_add: {
+    blurb: "System-er export ta dao, already-used leave bhore dibo — bochor koto ta pass hoyeche sheta mathay rekhe.",
+    cost: "110 jon x 5 leave type = 550 row"
+  },
+  payroll_field_add: {
+    blurb: "Custom addition/deduction grid. Kar koto, koto jon, kon field — shob random, kintu believable.",
+    cost: "110 jon x 8 field = 880 cell"
+  },
+  assets_add: {
+    blurb: "Laptop, monitor, chair, projector — code, type, description ar kake assign kora, protita row-e.",
+    cost: "7 column x 5,000 row porjonto"
+  }
+};
+
+/* Five seconds a cell is a generous guess for someone typing carefully
+   from a spec. 4,200 cells at that rate is the number in the hero. */
+const WELCOME_SECONDS_PER_CELL = 5;
+const WELCOME_BIGGEST_BATCH = 300 * 14;
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },
@@ -1039,7 +1212,7 @@ const OPERATIONS = [
   "use strict";
 
   /* ---------- state ---------- */
-  let currentOp = "employee_add";
+  let currentOp = "welcome";
   let nameTheme = "bangla";
   let customDeptCounter = 0;
 
@@ -1259,6 +1432,20 @@ const OPERATIONS = [
   /* ================= UI ================= */
 
   function renderSidebar() {
+    const home = $("#homeNav");
+    home.innerHTML = "";
+    const homeBtn = document.createElement("button");
+    homeBtn.className = "op-item";
+    homeBtn.type = "button";
+    homeBtn.setAttribute("aria-current", String(currentOp === "welcome"));
+    homeBtn.innerHTML = `<span class="op-item-label"><span class="op-dot"></span>Welcome</span>`;
+    homeBtn.addEventListener("click", () => {
+      currentOp = "welcome";
+      renderSidebar();
+      renderMain();
+    });
+    home.appendChild(homeBtn);
+
     const nav = $("#opNav");
     nav.innerHTML = "";
     OPERATIONS.forEach((op) => {
@@ -1281,6 +1468,12 @@ const OPERATIONS = [
 
   function renderMain() {
     const root = $("#mainContent");
+    if (currentOp === "welcome") {
+      $("#actionBar").style.display = "none";
+      root.innerHTML = welcomeTemplate();
+      wireWelcomeEvents();
+      return;
+    }
     if (currentOp === "attendance_add") {
       $("#actionBar").style.display = "flex";
       root.innerHTML = attendanceTemplate();
@@ -3542,6 +3735,91 @@ const OPERATIONS = [
       console.error(err);
       showToast("File generate korte somoshya hoyeche. Console check koro.", true);
     }
+  }
+
+  /* ================= Welcome ================= */
+
+  /* The landing view. It is a joke at the user's expense, which is the
+     point — but every number on it is real, pulled from the operations'
+     own limits rather than invented for the gag. */
+
+  function welcomeTemplate() {
+    const seconds = WELCOME_BIGGEST_BATCH * WELCOME_SECONDS_PER_CELL;
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.round((seconds % 3600) / 60);
+
+    const cards = OPERATIONS.filter((op) => op.status === "active")
+      .map((op, i) => {
+        const b = OPERATION_BLURBS[op.id] || { blurb: "", cost: "" };
+        return `
+          <button type="button" class="op-card" data-op="${op.id}">
+            <span class="op-card-num">${String(i + 1).padStart(2, "0")}</span>
+            <span class="op-card-body">
+              <span class="op-card-title">${escapeHtml(op.label)}</span>
+              <span class="op-card-blurb">${escapeHtml(b.blurb)}</span>
+              <span class="op-card-cost">hate korle: ${escapeHtml(b.cost)}</span>
+            </span>
+            <span class="op-card-go" aria-hidden="true">&rsaquo;</span>
+          </button>`;
+      })
+      .join("");
+
+    return `
+      <div class="welcome-hero">
+        <span class="welcome-badge">Alsemi certified</span>
+        <h1 class="welcome-title">Ei tool-ta apnar jonno.</h1>
+        <p class="welcome-lede">
+          Bulk Forge banano hoyeche tader jonno jara 300 ta employee-r data
+          nijer hate boshiye likhte parbe na. Mane — <em>shobar</em> jonno.
+          QA-r jonno test data lagbe, kintu 4,200 ta cell type korar somoy
+          keu-i tension niye boshte chay na. Ekhon boshte hobe na.
+        </p>
+
+        <div class="stat-row">
+          <div class="stat-tile">
+            <span class="stat-value">5</span>
+            <span class="stat-label">operation, protita-i Shomvob-er asol template-e mile</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value">${WELCOME_BIGGEST_BATCH.toLocaleString("en-US")}</span>
+            <span class="stat-label">cell, ekta 300-employee batch-e — apni ekta-o likhben na</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value">${hours}h ${mins}m</span>
+            <span class="stat-label">hate likhle lagto, cell-e 5 second dhorle. Ekhane 2 second</span>
+          </div>
+        </div>
+
+        <div class="how-row">
+          <span class="how-step"><b>1</b> Bame theke ekta operation bacho</span>
+          <span class="how-step"><b>2</b> Dui-tinta field bharo</span>
+          <span class="how-step"><b>3</b> Generate chapo. Sesh.</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">·</span>Ki ki korte pare</h2></div>
+        <p class="section-note">Jekhane chan sekhane click korun — direct oi operation-e chole jabe.</p>
+        <div class="op-card-grid">${cards}</div>
+      </div>
+
+      <p class="welcome-foot">
+        Kono backend nei, kono database nei, kichu kothao pathano hoy na —
+        puro jinis-ta apnar browser-ei cholche. File-ta generate hoy, download
+        hoy, ar byapar sesh. Apnar alsemi apnar kachhei thakbe.
+      </p>
+    `;
+  }
+
+  function wireWelcomeEvents() {
+    $all(".op-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        currentOp = card.dataset.op;
+        renderSidebar();
+        renderMain();
+        $(".main-scroll").scrollTop = 0;
+      });
+    });
   }
 
   /* Every operation shares the one action bar, so these dispatch on the
