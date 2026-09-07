@@ -828,14 +828,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 .meme-time { white-space: nowrap; }
 
-.meme figcaption {
-  margin-top: 9px;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--text-faint);
-}
-
 /* one clickable card per operation */
 .op-card-grid { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
 .op-card {

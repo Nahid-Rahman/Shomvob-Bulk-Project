@@ -83,13 +83,17 @@ Two things about it worth keeping:
   4,200 cells at five seconds each. They live in `OPERATION_BLURBS`
   (`src/app-data.js`) rather than in markup, so keep them honest if a
   limit changes.
-- The meme is a drawn spreadsheet — a fake `employees_FINAL_v7_use_this
-  .xlsx` window with a blinking caret in an empty cell and "4,197 cells to
-  go / 2:14 AM" along the bottom, i.e. the thing this app exists to
-  prevent. It is built from styled divs, a table and one emoji, not an
-  image: the page ships no external assets beyond the font, and a real
-  meme picture would be someone else's to licence. Its caret blink is
-  covered by the global `prefers-reduced-motion` rule.
+- **The `<figure class="meme">` slot is the user's to fill.** What sits
+  there now — a drawn spreadsheet window, `employees_FINAL_v7_use_this
+  .xlsx`, caret blinking in an empty cell, "4,197 cells to go / 2:14 AM"
+  — is a placeholder he intends to replace with his own meme. Don't
+  iterate on it unprompted.
+
+  If he supplies an image: the page is self-contained apart from the
+  font, so either drop the file in the repo root and reference it
+  (fine on Vercel, but `index.html` stops being standalone), or have
+  `build.py` inline it as a base64 data URI, which keeps that property.
+  Prefer the second.
 
 All five operations in the sidebar (`OPERATIONS` in `src/app-data.js`) are
 implemented and tested. `renderMain()` in `src/app.js` routes each one; the

@@ -2592,7 +2592,6 @@
               <span class="meme-time">2:14 AM &#128565;</span>
             </div>
           </div>
-          <figcaption>fig. 1 &mdash; the alternative</figcaption>
         </figure>
       </div>
 
