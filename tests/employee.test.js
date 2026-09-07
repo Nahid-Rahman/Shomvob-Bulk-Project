@@ -19,7 +19,7 @@ const { check, state } = makeChecker();
 
   await page.goto(PAGE);
   /* the app now opens on the welcome page, so pick the operation first */
-  check("app opens on the welcome page", await page.isVisible(".welcome-title"));
+  check("app opens on the dashboard", await page.isVisible(".welcome-title"));
   await page.click('.op-item:has-text("Employee Add")');
   await page.waitForSelector("#countInput");
   await page.fill("#countInput", "25");
@@ -41,12 +41,12 @@ const { check, state } = makeChecker();
     E.rows.every((r) => r[12] === "Engineering/IT" && r[13] === "QA Engineer"));
   check("filename", /^QATE_employee_bulk_upload_\d{8}\.xlsx$/.test(E.suggested), E.suggested);
 
-  /* the welcome cards must route to their operation */
-  await page.click('.op-item:has-text("Welcome")');
+  /* the dashboard cards must route to their operation */
+  await page.click('.op-item:has-text("Dashboard")');
   await page.waitForSelector(".op-card-grid");
   await page.click('.op-card[data-op="assets_add"]');
   await page.waitForSelector("#assetCount");
-  check("welcome card routes to its operation", await page.isVisible("#assetCount"));
+  check("dashboard card routes to its operation", await page.isVisible("#assetCount"));
 
   /* switching operations must leave both forms usable */
   await page.click('.op-item:has-text("Employee Attendance Add")');

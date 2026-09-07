@@ -66,15 +66,26 @@ inventing new component styles per operation.
 
 ## Operations — all 5 built
 
-The app opens on a **welcome page**, not on an operation: a deliberately
-tongue-in-cheek landing view ("this exists for people too lazy to type
-4,200 cells — i.e. everyone") with three stat tiles and a clickable card
-per operation. It is `currentOp === "welcome"`, rendered by
-`welcomeTemplate()`, with the action bar hidden; its sidebar entry lives in
-`#homeNav`, above the "Operations" label, and is wired in
-`renderSidebar()`. Card copy and the hand-typing costs live in
-`OPERATION_BLURBS` (`src/app-data.js`) — every number there is real, taken
-from each operation's own limits, so keep them honest if limits change.
+The app opens on a **Dashboard**, not on an operation: a deliberately
+tongue-in-cheek landing view ("this exists for people who cannot face
+typing 4,200 cells — i.e. everyone") with a two-panel meme, three stat
+tiles and a clickable card per operation. It is `currentOp === "welcome"`,
+rendered by `welcomeTemplate()`, with the action bar hidden; its sidebar
+entry lives in `#homeNav`, above the "Operations" label, and is wired in
+`renderSidebar()`.
+
+Two things about it worth keeping:
+
+- **The Dashboard is the one screen in English.** Every operation's own
+  copy stays in Banglish; don't "fix" either to match the other.
+- **Its numbers are real** — card costs come from each operation's own
+  limits and the sample account's 110 employees, and the hero's 5h 50m is
+  4,200 cells at five seconds each. They live in `OPERATION_BLURBS`
+  (`src/app-data.js`) rather than in markup, so keep them honest if a
+  limit changes.
+- The meme is built from styled divs and emoji, not an image. The page
+  ships no external assets beyond the font, and a real meme picture would
+  be someone else's to licence.
 
 All five operations in the sidebar (`OPERATIONS` in `src/app-data.js`) are
 implemented and tested. `renderMain()` in `src/app.js` routes each one; the

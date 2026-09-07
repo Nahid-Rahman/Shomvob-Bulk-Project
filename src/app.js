@@ -229,7 +229,7 @@
     homeBtn.className = "op-item";
     homeBtn.type = "button";
     homeBtn.setAttribute("aria-current", String(currentOp === "welcome"));
-    homeBtn.innerHTML = `<span class="op-item-label"><span class="op-dot"></span>Welcome</span>`;
+    homeBtn.innerHTML = `<span class="op-item-label"><span class="op-dot"></span>Dashboard</span>`;
     homeBtn.addEventListener("click", () => {
       currentOp = "welcome";
       renderSidebar();
@@ -2528,11 +2528,12 @@
     }
   }
 
-  /* ================= Welcome ================= */
+  /* ================= Dashboard ================= */
 
-  /* The landing view. It is a joke at the user's expense, which is the
-     point — but every number on it is real, pulled from the operations'
-     own limits rather than invented for the gag. */
+  /* The landing view, and the only screen written in English — every
+     operation's own copy stays in Banglish. It is a joke at the visitor's
+     expense, which is the point, but every number on it is real, pulled
+     from the operations' own limits rather than invented for the gag. */
 
   function welcomeTemplate() {
     const seconds = WELCOME_BIGGEST_BATCH * WELCOME_SECONDS_PER_CELL;
@@ -2548,7 +2549,7 @@
             <span class="op-card-body">
               <span class="op-card-title">${escapeHtml(op.label)}</span>
               <span class="op-card-blurb">${escapeHtml(b.blurb)}</span>
-              <span class="op-card-cost">hate korle: ${escapeHtml(b.cost)}</span>
+              <span class="op-card-cost">by hand: ${escapeHtml(b.cost)}</span>
             </span>
             <span class="op-card-go" aria-hidden="true">&rsaquo;</span>
           </button>`;
@@ -2557,47 +2558,62 @@
 
     return `
       <div class="welcome-hero">
-        <span class="welcome-badge">Alsemi certified</span>
-        <h1 class="welcome-title">Ei tool-ta apnar jonno.</h1>
-        <p class="welcome-lede">
-          Bulk Forge banano hoyeche tader jonno jara 300 ta employee-r data
-          nijer hate boshiye likhte parbe na. Mane — <em>shobar</em> jonno.
-          QA-r jonno test data lagbe, kintu 4,200 ta cell type korar somoy
-          keu-i tension niye boshte chay na. Ekhon boshte hobe na.
-        </p>
-
-        <div class="stat-row">
-          <div class="stat-tile">
-            <span class="stat-value">5</span>
-            <span class="stat-label">operation, protita-i Shomvob-er asol template-e mile</span>
-          </div>
-          <div class="stat-tile">
-            <span class="stat-value">${WELCOME_BIGGEST_BATCH.toLocaleString("en-US")}</span>
-            <span class="stat-label">cell, ekta 300-employee batch-e — apni ekta-o likhben na</span>
-          </div>
-          <div class="stat-tile">
-            <span class="stat-value">${hours}h ${mins}m</span>
-            <span class="stat-label">hate likhle lagto, cell-e 5 second dhorle. Ekhane 2 second</span>
+        <div class="welcome-intro">
+          <span class="welcome-badge">Certified lazy</span>
+          <h1 class="welcome-title">This one is for you.</h1>
+          <p class="welcome-lede">
+            Bulk Forge exists for people who cannot face typing out 300
+            employees' worth of data by hand. Which is to say:
+            <em>everyone</em>. QA needs test data, and nobody wants to spend
+            an afternoon filling 4,200 cells to get some. So now you don't.
+          </p>
+          <div class="how-row">
+            <span class="how-step"><b>1</b> Pick an operation from the list</span>
+            <span class="how-step"><b>2</b> Fill in two or three fields</span>
+            <span class="how-step"><b>3</b> Hit Generate. That's it.</span>
           </div>
         </div>
 
-        <div class="how-row">
-          <span class="how-step"><b>1</b> Bame theke ekta operation bacho</span>
-          <span class="how-step"><b>2</b> Dui-tinta field bharo</span>
-          <span class="how-step"><b>3</b> Generate chapo. Sesh.</span>
+        <figure class="meme" aria-label="Two ways to produce test data">
+          <div class="meme-row bad">
+            <span class="meme-face" aria-hidden="true">&#128533;</span>
+            <span class="meme-text">Type 4,200 cells<br />by hand</span>
+            <span class="meme-verdict" aria-hidden="true">&times;</span>
+          </div>
+          <div class="meme-row good">
+            <span class="meme-face" aria-hidden="true">&#128526;</span>
+            <span class="meme-text">Click Generate,<br />go get tea</span>
+            <span class="meme-verdict" aria-hidden="true">&check;</span>
+          </div>
+          <figcaption>fig. 1 — QA engineering, solved</figcaption>
+        </figure>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-tile">
+          <span class="stat-value">5</span>
+          <span class="stat-label">operations, each matching a real Shomvob upload template</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value">${WELCOME_BIGGEST_BATCH.toLocaleString("en-US")}</span>
+          <span class="stat-label">cells in one 300-employee batch, none of which you will type</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value">${hours}h ${mins}m</span>
+          <span class="stat-label">that would take by hand, at five seconds a cell. Here it takes two</span>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">·</span>Ki ki korte pare</h2></div>
-        <p class="section-note">Jekhane chan sekhane click korun — direct oi operation-e chole jabe.</p>
+        <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>What it can do</h2></div>
+        <p class="section-note">Click any of them to jump straight in.</p>
         <div class="op-card-grid">${cards}</div>
       </div>
 
       <p class="welcome-foot">
-        Kono backend nei, kono database nei, kichu kothao pathano hoy na —
-        puro jinis-ta apnar browser-ei cholche. File-ta generate hoy, download
-        hoy, ar byapar sesh. Apnar alsemi apnar kachhei thakbe.
+        No backend, no database, nothing sent anywhere — the whole thing runs
+        in your browser. The file is generated, it downloads, and that is the
+        end of it. Your laziness remains entirely your own.
       </p>
     `;
   }

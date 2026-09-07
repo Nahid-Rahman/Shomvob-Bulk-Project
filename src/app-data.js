@@ -314,36 +314,40 @@ const DEFAULT_ASSET_TYPES = [
   ] }
 ];
 
-/* ===== Welcome page ===== */
+/* ===== Dashboard ===== */
 
-/* One card per operation on the landing page. `cost` is what you would be
+/* One card per operation on the dashboard. `cost` is what you would be
    typing by hand instead — the numbers are real, taken from each
-   operation's own limits and from the sample account's 110 employees. */
+   operation's own limits and from the sample account's 110 employees, so
+   keep them honest if a limit changes.
+
+   The dashboard is the one screen written in English; every operation's
+   own copy stays in Banglish. */
 const OPERATION_BLURBS = {
   employee_add: {
-    blurb: "300 jon employee — naam, email, phone, salary, DOB, department, shob. Naam chaile Harry Potter-er cast theke-o nite paro.",
-    cost: "14 column x 300 row = 4,200 cell"
+    blurb: "300 employees with names, emails, phones, salaries, dates of birth and departments. Name them after the Harry Potter cast if you like.",
+    cost: "14 columns x 300 rows = 4,200 cells"
   },
   attendance_add: {
-    blurb: "Ek masher attendance — shift, weekend, holiday, grace period, late, absent, overtime, shob rule mene.",
-    cost: "110 jon x 30 din = ~13,000 cell"
+    blurb: "A month of attendance that respects shifts, weekends, holidays, the grace period, lateness, absence and overtime.",
+    cost: "110 people x 30 days = ~13,000 cells"
   },
   leave_balance_add: {
-    blurb: "System-er export ta dao, already-used leave bhore dibo — bochor koto ta pass hoyeche sheta mathay rekhe.",
-    cost: "110 jon x 5 leave type = 550 row"
+    blurb: "Hand it the system's own export and it fills in the leave already used, scaled to how far into the year you are.",
+    cost: "110 people x 5 leave types = 550 rows"
   },
   payroll_field_add: {
-    blurb: "Custom addition/deduction grid. Kar koto, koto jon, kon field — shob random, kintu believable.",
-    cost: "110 jon x 8 field = 880 cell"
+    blurb: "The custom addition and deduction grid. Who gets what, how many of them, which fields — random, but believable.",
+    cost: "110 people x 8 fields = 880 cells"
   },
   assets_add: {
-    blurb: "Laptop, monitor, chair, projector — code, type, description ar kake assign kora, protita row-e.",
-    cost: "7 column x 5,000 row porjonto"
+    blurb: "Laptops, monitors, chairs, projectors — code, type, description, and who each one is assigned to.",
+    cost: "7 columns x up to 5,000 rows"
   }
 };
 
-/* Five seconds a cell is a generous guess for someone typing carefully
-   from a spec. 4,200 cells at that rate is the number in the hero. */
+/* Five seconds a cell is generous for someone typing carefully from a
+   spec. 4,200 cells at that rate is the figure in the hero. */
 const WELCOME_SECONDS_PER_CELL = 5;
 const WELCOME_BIGGEST_BATCH = 300 * 14;
 

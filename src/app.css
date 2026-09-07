@@ -643,7 +643,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 /* ---- Welcome page ---- */
 
-.welcome-hero { margin-bottom: 30px; }
+/* text on the left, the joke on the right; stacks on narrow screens */
+.welcome-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 26px;
+  align-items: start;
+  margin-bottom: 24px;
+}
+.welcome-intro { min-width: 0; }
 
 .welcome-badge {
   display: inline-block;
@@ -673,7 +681,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
-  margin-top: 26px;
+  margin-bottom: 30px;
 }
 .stat-tile {
   border: 1px solid var(--border);
@@ -701,7 +709,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--text-faint);
 }
 
-.how-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.how-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
 .how-step {
   display: inline-flex;
   align-items: center;
@@ -722,6 +730,41 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--accent-contrast);
   font-size: 11px;
   font-weight: 700;
+}
+
+/* The meme. Drawn rather than fetched: the page ships no external assets
+   beyond the font, and a real meme image would be someone else's to
+   licence. Emoji need no files. */
+.meme {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 10px;
+}
+.meme-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+}
+.meme-row.bad { background: var(--danger-soft); }
+.meme-row.good { background: var(--accent-soft); margin-top: 8px; }
+.meme-face { font-size: 24px; line-height: 1; }
+.meme-text { font-size: 12px; font-weight: 600; line-height: 1.35; }
+.meme-row.bad .meme-text { color: var(--danger); }
+.meme-row.good .meme-text { color: var(--accent-strong); }
+.meme-verdict { font-size: 17px; font-weight: 700; line-height: 1; }
+.meme-row.bad .meme-verdict { color: var(--danger); }
+.meme-row.good .meme-verdict { color: var(--accent); }
+.meme figcaption {
+  margin-top: 9px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
 }
 
 /* one clickable card per operation */
@@ -785,6 +828,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .main-scroll { overflow: visible; }
   .field-row { grid-template-columns: 1fr; }
   .stat-row { grid-template-columns: 1fr; }
+  .welcome-hero { grid-template-columns: 1fr; }
   .welcome-title { font-size: 27px; }
   .field-grid-3, .field-grid-2 { grid-template-columns: 1fr; }
   .shift-times { margin-left: 0; width: 100%; }
