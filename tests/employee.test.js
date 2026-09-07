@@ -5,7 +5,7 @@
  * catch anything that breaks it while a later operation is being added.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate } = require("./lib");
+const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn } = require("./lib");
 
 const XLSX = loadSheetJs();
 const { check, state } = makeChecker();
@@ -18,7 +18,17 @@ const { check, state } = makeChecker();
   page.on("pageerror", (e) => pageErrors.push(String(e)));
 
   await page.goto(PAGE);
-  /* the app now opens on the welcome page, so pick the operation first */
+
+  /* the joke gate: a wrong password is refused, the right one is pre-filled */
+  await page.fill("#loginPass", "definitely-not-it");
+  await page.click("#loginBtn");
+  check("gate refuses a wrong password", await page.isVisible("#loginGate"));
+  check("gate says so", (await page.textContent("#loginError")).length > 0);
+  await page.fill("#loginPass", "amioneklazy");
+  await signIn(page);
+  check("gate clears with the pre-filled credentials", !(await page.locator("#loginGate").count()));
+
+  /* the app opens on the dashboard, so pick the operation first */
   check("app opens on the dashboard", await page.isVisible(".welcome-title"));
   await page.click('.op-item:has-text("Employee Add")');
   await page.waitForSelector("#countInput");

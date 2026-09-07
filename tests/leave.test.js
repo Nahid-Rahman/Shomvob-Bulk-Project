@@ -11,7 +11,7 @@
 const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
-const { PAGE, DOWNLOADS, loadSheetJs, makeChecker, report, freshDownloads, generate } = require("./lib");
+const { PAGE, DOWNLOADS, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn } = require("./lib");
 
 const XLSX = loadSheetJs();
 const { check, state } = makeChecker();
@@ -76,6 +76,7 @@ function writeFixture(file, rows, header, sheet) {
   page.on("console", (m) => { if (m.type() === "error") pageErrors.push("console: " + m.text()); });
 
   await page.goto(PAGE);
+  await signIn(page);
   await page.click('.op-item:has-text("Leave Balance Add")');
   await page.waitForSelector("#leaveFile");
 

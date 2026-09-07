@@ -314,6 +314,15 @@ const DEFAULT_ASSET_TYPES = [
   ] }
 ];
 
+/* ===== The joke gate =====
+
+   Not security, and nothing here pretends otherwise: the credentials are
+   printed on the login screen, pre-filled into the inputs, and sitting in
+   this file, which anyone can read. It is a gag about the app's own
+   premise, and it gates nothing that matters — every generated file is
+   random test data made in the visitor's own browser. */
+const DEMO_LOGIN = { email: "amilazy@yopmail.com", password: "amioneklazy" };
+
 /* ===== Dashboard ===== */
 
 /* One card per operation on the dashboard. `cost` is what you would be

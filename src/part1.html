@@ -4,6 +4,43 @@
 __APP_CSS__
 </style>
 
+<div class="gate" id="loginGate">
+  <form class="gate-card" id="loginForm" autocomplete="off">
+    <div class="gate-mark">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+        <path d="M12 2 3 7v6c0 5 4 8 9 9 5-1 9-4 9-9V7l-9-5Z"/>
+        <path d="M9 12.5 11 14.5 15.5 9.5"/>
+      </svg>
+      Bulk Forge
+    </div>
+
+    <h1 class="gate-title">Prove you are lazy.</h1>
+    <p class="gate-sub">
+      This gate protects nothing. The credentials are printed below, and we
+      have already typed them in for you — obviously.
+    </p>
+
+    <div class="field">
+      <label for="loginEmail">Email</label>
+      <input type="email" id="loginEmail" autocomplete="off" spellcheck="false" />
+    </div>
+    <div class="field">
+      <label for="loginPass">Password</label>
+      <input type="password" id="loginPass" autocomplete="off" />
+    </div>
+
+    <span class="error-text" id="loginError"></span>
+
+    <button type="submit" class="generate-btn gate-btn" id="loginBtn">Let me in</button>
+
+    <div class="gate-creds" id="gateCreds"></div>
+    <p class="gate-foot">
+      Not a security control — this page's source is right there, and the
+      files it makes are random test data generated in your own browser.
+    </p>
+  </form>
+</div>
+
 <div class="app">
   <aside class="sidebar">
     <div class="brand">

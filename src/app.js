@@ -229,7 +229,7 @@
     homeBtn.className = "op-item";
     homeBtn.type = "button";
     homeBtn.setAttribute("aria-current", String(currentOp === "welcome"));
-    homeBtn.innerHTML = `<span class="op-item-label"><span class="op-dot"></span>Dashboard</span>`;
+    homeBtn.innerHTML = `<span class="op-item-label">${opIcon("welcome")}Dashboard</span>`;
     homeBtn.addEventListener("click", () => {
       currentOp = "welcome";
       renderSidebar();
@@ -245,7 +245,7 @@
       btn.type = "button";
       btn.setAttribute("aria-current", String(op.id === currentOp));
       if (op.status === "soon") btn.disabled = true;
-      btn.innerHTML = `<span class="op-item-label"><span class="op-dot"></span>${op.label}</span>${op.status === "soon" ? '<span class="pill-soon">Soon</span>' : ""}`;
+      btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span>${op.status === "soon" ? '<span class="pill-soon">Soon</span>' : ""}`;
       if (op.status !== "soon") {
         btn.addEventListener("click", () => {
           currentOp = op.id;
@@ -314,6 +314,26 @@
     wireEmployeeAddEvents();
     renderDepartments();
     updateSummary();
+  }
+
+  /* Line icons matching the ones in Shomvob's own admin sidebar: a grid for
+     the dashboard, people for employees, a clock for attendance, a calendar
+     for leave, a dollar sign for payroll, a monitor for assets. Drawn here
+     rather than pulled from an icon library — the page ships no external
+     assets. */
+  const OP_ICONS = {
+    welcome: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
+    employee_add: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    attendance_add: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 1.9"/>',
+    leave_balance_add: '<rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M8 2.5v4M16 2.5v4M3 10.5h18"/><path d="M8 15h.01M12 15h.01M16 15h.01M8 18.5h.01M12 18.5h.01"/>',
+    payroll_field_add: '<path d="M12 2.5v19"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    assets_add: '<rect x="2.5" y="3.5" width="19" height="13.5" rx="2"/><path d="M8.5 21h7M12 17v4"/>',
+  };
+
+  function opIcon(id) {
+    const paths = OP_ICONS[id];
+    if (!paths) return '<span class="op-dot"></span>';
+    return `<svg class="op-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
   }
 
   function iconClock() {
@@ -3065,7 +3085,50 @@
     return handleEmployeeGenerate();
   }
 
+  /* ================= The joke gate ================= */
+
+  function wireLogin() {
+    const gate = $("#loginGate");
+    const form = $("#loginForm");
+    const email = $("#loginEmail");
+    const pass = $("#loginPass");
+    const err = $("#loginError");
+
+    /* pre-filled, because making you type them would rather miss the point */
+    email.value = DEMO_LOGIN.email;
+    pass.value = DEMO_LOGIN.password;
+
+    $("#gateCreds").innerHTML =
+      `<span class="gate-cred"><b>email</b>${DEMO_LOGIN.email}</span>` +
+      `<span class="gate-cred"><b>password</b>${DEMO_LOGIN.password}</span>`;
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const ok =
+        email.value.trim().toLowerCase() === DEMO_LOGIN.email &&
+        pass.value === DEMO_LOGIN.password;
+      if (!ok) {
+        err.textContent = "Wrong — and they were written down for you.";
+        email.classList.toggle("invalid", email.value.trim().toLowerCase() !== DEMO_LOGIN.email);
+        pass.classList.toggle("invalid", pass.value !== DEMO_LOGIN.password);
+        return;
+      }
+      err.textContent = "";
+      gate.classList.add("gone");
+      /* removed rather than just hidden, so it can never trap focus */
+      setTimeout(() => gate.remove(), 200);
+    });
+
+    [email, pass].forEach((el) => {
+      el.addEventListener("input", () => {
+        err.textContent = "";
+        el.classList.remove("invalid");
+      });
+    });
+  }
+
   function init() {
+    wireLogin();
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     att.from = fmtDate(monthStart);
     att.to = fmtDate(today);

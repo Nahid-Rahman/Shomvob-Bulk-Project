@@ -7,7 +7,7 @@
  * Every check maps to a rule in SPEC.md. Read SPEC.md before changing one.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, generate, ymd } = require("./lib");
+const { PAGE, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, generate, ymd, signIn } = require("./lib");
 
 const XLSX = loadSheetJs();
 const DATA = loadAppData([
@@ -30,6 +30,7 @@ DATA.DEFAULT_ASSET_TYPES.forEach((t) =>
 
 async function gotoAssets(page) {
   await page.goto(PAGE);
+  await signIn(page);
   await page.click('.op-item:has-text("Assets Add")');
   await page.waitForSelector("#assetCount");
 }

@@ -81,6 +81,15 @@ function freshDownloads() {
   fs.mkdirSync(DOWNLOADS, { recursive: true });
 }
 
+/* Clears the joke login gate. The credentials are pre-filled, so this only
+   has to submit the form. Every test needs it before touching the app. */
+async function signIn(page) {
+  const gate = page.locator("#loginGate");
+  if (!(await gate.count())) return;
+  await page.click("#loginBtn");
+  await gate.waitFor({ state: "detached" });
+}
+
 /* Clicks Generate, waits for the download, saves it and parses it. */
 async function generate(page, XLSX, tag) {
   const [download] = await Promise.all([
@@ -116,4 +125,4 @@ function ymd(s) {
   return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
 }
 
-module.exports = { REPO, PAGE, DOWNLOADS, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, generate, toMin, ymd };
+module.exports = { REPO, PAGE, DOWNLOADS, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, signIn, generate, toMin, ymd };

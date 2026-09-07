@@ -189,6 +189,33 @@ columns of which three are required. Full rules in `SPEC.md`; the traps:
 - The type/name cards reuse Employee Add's department/designation classes
   on purpose; keep them looking alike.
 
+## The login gate is a joke, not a control
+
+`#loginGate` in `src/part1.html` covers the app on load and clears when the
+form is submitted with the credentials in `DEMO_LOGIN`
+(`src/app-data.js`) — which are printed on the card, pre-filled into the
+inputs, and readable in the page source. That is the gag: the app is about
+not doing tedious things, so it does the typing for you.
+
+**Never present it as security, and never put anything behind it that
+would matter if bypassed.** It gates nothing: every file the app makes is
+random test data generated in the visitor's own browser. The card says so
+in its own footnote — keep that line.
+
+Nothing is persisted, so a reload asks again; one click clears it. Tests
+call `signIn(page)` from `tests/lib.js` straight after `page.goto`.
+
+## Sidebar icons
+
+Each operation carries a line icon matching the equivalent item in
+Shomvob's own admin sidebar: a grid for the dashboard, two people for
+employees, a clock for attendance, a calendar for leave, a dollar sign for
+payroll, a monitor for assets. They live in `OP_ICONS` (`src/app.js`) as
+raw SVG path data, drawn by hand rather than pulled from an icon library —
+the page ships no external assets. `opIcon(id)` falls back to the old
+`.op-dot` when an id has no icon, so a new operation renders sensibly
+before you draw one for it.
+
 ## Deployment
 
 Vercel, as a plain static site: framework preset "Other", no build
