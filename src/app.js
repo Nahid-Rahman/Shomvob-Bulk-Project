@@ -3127,8 +3127,18 @@
     });
   }
 
+  /* A reload is the honest implementation of logging out here: nothing is
+     persisted, so it clears every pasted list, upload and assignment and
+     brings the gate back, rather than hiding the app over live state. */
+  function wireLogout() {
+    $("#logoutBtn").addEventListener("click", () => {
+      window.location.reload();
+    });
+  }
+
   function init() {
     wireLogin();
+    wireLogout();
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     att.from = fmtDate(monthStart);
     att.to = fmtDate(today);

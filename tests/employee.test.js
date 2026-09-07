@@ -86,6 +86,17 @@ const { check, state } = makeChecker();
   await page.click('.op-item:has-text("Employee Add")');
   await page.waitForSelector("#countInput");
   check("switching back re-renders Employee Add", await page.isVisible("#countInput"));
+  /* logging out brings the gate back and clears what was typed */
+  await page.fill("#countInput", "77");
+  await page.click("#logoutBtn");
+  await page.waitForSelector("#loginGate");
+  check("logout returns to the login page", await page.isVisible("#loginGate"));
+  await signIn(page);
+  await page.click('.op-item:has-text("Employee Add")');
+  await page.waitForSelector("#countInput");
+  check("logout cleared the form", (await page.inputValue("#countInput")) !== "77",
+    await page.inputValue("#countInput"));
+
   check("no page errors", pageErrors.length === 0, pageErrors.join(" | "));
 
   await browser.close();

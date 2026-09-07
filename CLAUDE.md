@@ -205,6 +205,13 @@ in its own footnote — keep that line.
 Nothing is persisted, so a reload asks again; one click clears it. Tests
 call `signIn(page)` from `tests/lib.js` straight after `page.goto`.
 
+The **Log out** button in the sidebar footer is `location.reload()`. That
+is the honest implementation given nothing is persisted: it clears every
+pasted list, upload and shift assignment and the gate comes back on its
+own, rather than hiding the app over live state. Note it therefore
+discards work in progress — the button is small and tucked in the footer
+for that reason, and there is deliberately no confirmation dialog.
+
 ## Sidebar branding
 
 The Shomvob HR logo appears in two places: the sidebar head (logo tile,
