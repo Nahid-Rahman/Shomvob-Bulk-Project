@@ -1,10 +1,9 @@
 # Bulk Forge — spec
 
 Reusable web app (single self-contained HTML file, runs fully in-browser,
-no backend). Sidebar lists 5 planned bulk operations; only **Assets Add**
-remains to be built. Each operation gets its own form section; output is
-always an `.xlsx` file matching Shomvob's real upload template for that
-operation.
+no backend). All five bulk operations in the sidebar are built. Each
+operation gets its own form section; output is always an `.xlsx` file
+matching Shomvob's real upload template for that operation.
 
 ## Employee Add — full spec (confirmed with user)
 
@@ -479,11 +478,96 @@ Also run against the real 110-row export: sheet name and header exact,
 cells filled and 7 of 110 employees left entirely at zero, every value
 on-step and in-range, no console errors.
 
-## Still to spec (not started)
+## Assets Add — full spec (built 2026-09-07)
 
-- Assets Add
+Built and tested. A blank template again, like Attendance, so rows are
+generated from scratch rather than filled into an upload.
 
-Each needs the same treatment as Employee Add: get the real template file,
-inspect it with `tools/probe_xlsx.py`, walk its columns/rules one at a time
-with the user, then add the operation to the sidebar and wire it into the
-same app shell.
+### Template as inspected
+
+Source file: `assets_bulk_upload_template.xlsx` (v2.0.0,
+"ExcelTemplateBuilder"). Three sheets: `Assets_List_Upload` (visible),
+`ReferenceData` (hidden, **empty**), `_Metadata` (veryHidden).
+
+Seven columns, three required — the red `FFDC3545` headers; the other four
+are blue `FF4A90E2`:
+
+| # | Header (exact) | Required | Template's example |
+|---|----------------|----------|--------------------|
+| 1 | `Asset Image` | no | `https://example.com/image1.png` |
+| 2 | `Asset Code*` | **yes** | `AST001` |
+| 3 | `Asset Name*` | **yes** | `HP X390 Laptop` |
+| 4 | `Asset Type*` | **yes** | `Computers` |
+| 5 | `Asset Description` | no | `Dell laptop with 16GB RAM` |
+| 6 | `Assigned Employee ID` | no | `EMP001` |
+| 7 | `Assigned Date` | no | `2025-01-01` |
+
+Header row 1, instruction row 2, example rows 3-5, freeze panes `A6`.
+
+Quirks, and what they mean:
+- **The example rows mismatch name and type on purpose** — a monitor typed
+  as `Printers`, a keyboard as `Laptops`. That is what told us Asset Type
+  is a free category, not something derived from the name.
+- Only one validation: a date rule on `Assigned Date` with
+  `allow_blank=True`, and its minimum is the **same broken JS-timestamp
+  serial** (`1.7546296296313812`) the attendance template had. No real
+  constraint.
+- `ReferenceData` is empty, so there is no employee-ID dropdown to read.
+- `Has Cross-Field Validation: No`, and the A1 comment carries the same
+  irrelevant "phone numbers must be 13 digits" boilerplate.
+
+### Decisions confirmed with the user
+
+1. **Asset Code** — `PREFIX` + 4 digits, sequential from `0001`
+   (`AST0001`), matching Employee Add's shape rather than the template
+   example's 3 digits. Prefix is 2-6 letters, auto-uppercased; count is
+   1-5000, the extent of the template's own validation range.
+2. **Asset Type and Asset Name** — a default type list, each type owning
+   its own name pool, presented exactly like Employee Add's
+   department/designation cards: per-type checkbox, a default/custom mode
+   toggle, and unlimited custom types with free-text names. Nine types,
+   47 names, all pre-selected so the operation works without setup.
+3. **Asset Description** is paired with the name in the data table, so the
+   two columns always agree. Custom names the user types get **no
+   description** — inventing one would be making things up; the column is
+   optional.
+4. **Asset Image is always left blank.** A placeholder URL would only put
+   a broken image link into the system.
+5. **Assigned Employee ID** uses the same paste / generate / upload picker
+   as Attendance. It is **optional**: with no IDs supplied every asset
+   comes out unassigned, which is valid since both assignment columns are
+   optional.
+6. **70-80% of assets get assigned**, the exact figure drawn per batch
+   from that band. No input controls it — the user asked for the band
+   directly. Unassigned rows leave *both* Assigned Employee ID and
+   Assigned Date blank.
+7. **Assigned Date** is a random date within the last year from today,
+   never in the future, and only present on assigned rows.
+
+Output: single sheet `Assets_List_Upload`, row 1 the exact template
+headers, data from row 2. Filename
+`{PREFIX}_assets_bulk_upload_{YYYYMMDD}.xlsx`.
+
+### Tested
+
+Playwright, 31 checks, asserting against the app's own tables in
+`app-data.js` rather than restating them: sheet name and exact header,
+filename, row count, codes sequential and unique, image always blank, the
+three required columns never blank, every name belonging to its own type
+with the matching description, nothing assigned when no IDs are given,
+the assigned share landing in the band, assigned IDs coming from the
+pool, assigned rows always carrying a date and unassigned rows carrying
+neither, dates inside the last year and never future, narrowing the type
+list narrowing the output, unchecking every type blocking generation, a
+custom type with a custom name and no invented description, and the
+prefix/count validation.
+
+Also compared against the real template directly: sheet name and all
+seven headers match exactly.
+
+## All five operations are built
+
+Nothing left to spec. Adding a sixth would follow the same route: get the
+real template, inspect it with `tools/probe_xlsx.py`, walk its columns and
+rules with the user one at a time, then add the operation to the sidebar
+and wire it into the same app shell.

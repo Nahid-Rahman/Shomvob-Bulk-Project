@@ -45,11 +45,18 @@ operations visually consistent with this system — reuse the existing
 `.section`, `.field`, `.chip`, `.dept-card`-style patterns rather than
 inventing new component styles per operation.
 
-## Operations — 4 of 5 built
+## Operations — all 5 built
 
-The sidebar (`OPERATIONS` in `src/app-data.js`) lists 5 planned bulk
-operations. All but **Assets Add** are implemented; that one still renders
-a "Coming soon" placeholder (see `renderMain()` in `src/app.js`).
+All five operations in the sidebar (`OPERATIONS` in `src/app-data.js`) are
+implemented and tested. `renderMain()` in `src/app.js` routes each one; the
+"Coming soon" placeholder it still contains is now unreachable, kept for
+whenever a sixth operation is added.
+
+Two of the five build a file from scratch against a blank template
+(Employee Add, Attendance Add, Assets Add); two fill values into the
+system's own export and must not disturb anything else (Leave Balance,
+Payroll Custom Field). Knowing which kind you are looking at matters more
+than anything else in this codebase.
 
 ### Employee Add — full spec (built, tested, do not change without asking)
 
@@ -112,6 +119,27 @@ the parts that are easy to get wrong:
 - `BD_HOLIDAYS` in `app-data.js` covers 2025 and 2026 only. Its lunar
   dates are a draft the user has not yet verified — the UI renders them as
   dashed removable chips for that reason. Adding a year is one more key.
+
+### Assets Add — built, tested, do not change without asking
+
+Blank template, so rows are generated. Sheet `Assets_List_Upload`, seven
+columns of which three are required. Full rules in `SPEC.md`; the traps:
+
+- **Asset Type is a free category, not derived from the name.** The
+  template's own example rows deliberately mismatch the two (a monitor
+  typed as `Printers`), which is how we know.
+- **Asset Image is always blank** — a placeholder URL would only put a
+  broken image link into the system.
+- **Descriptions are paired with names** in `DEFAULT_ASSET_TYPES`, so the
+  two columns always agree. A user's custom name gets no description
+  rather than an invented one.
+- **Employee IDs are optional here.** Both assignment columns are optional
+  in the template, so with no IDs every asset comes out unassigned.
+- **70-80% of assets get assigned**, drawn per batch from
+  `ASSETS_ASSIGNED_BAND`, with no input to control it. An unassigned row
+  leaves *both* the employee ID and the date blank.
+- The type/name cards reuse Employee Add's department/designation classes
+  on purpose; keep them looking alike.
 
 ## Tests
 
@@ -181,31 +209,34 @@ data validations, which is exactly where dropdown option lists live.
 
 ## Where this stands (2026-09-07)
 
-Four of the five operations are built, tested and pushed. Only **Assets
-Add** remains, blocked on its upload template, which only the user can
-export from Shomvob.
+All five operations are built, tested and pushed — 142 browser checks
+across the five suites. The app is feature-complete against the five
+templates the user supplied.
 
-One thing still outstanding on Attendance: the lunar dates in
+One thing still outstanding, from Attendance: the lunar dates in
 `BD_HOLIDAYS` (`src/app-data.js`) are our draft and the user has not
 verified them yet. The UI renders them as dashed removable chips so they
-can be corrected without a code change.
+can be corrected without a code change. Ask before treating them as
+correct.
 
-## Next work: the last operation
+## Adding a sixth operation
 
-- Assets Add
+Nothing is outstanding, but if another operation is ever added, the route
+that worked five times is: get the real Shomvob template (.xlsx) from the
+user, inspect it with `tools/probe_xlsx.py`, confirm every column's rule
+with the user before writing code (don't assume), then:
 
-For each: get the real Shomvob upload template (.xlsx) from the user,
-inspect it with `tools/probe_xlsx.py`, confirm column-by-column
-input/generation rules with the user (don't assume), then:
 1. Flip its `status` from `"soon"` to `"active"` in `OPERATIONS`
    (`src/app-data.js`)
-2. Add its data tables (name pools / option lists / etc. as needed) to
+2. Add its data tables (name pools / option lists / etc.) to
    `src/app-data.js`
-3. Add a `<operation>Template()` render function + `wire<Operation>Events()`
-   + `generate<Operation>Rows()` in `src/app.js`, following the pattern of
-   `employeeAddTemplate()` / `wireEmployeeAddEvents()` /
-   `generateWorkbookRows()`
-4. Branch on `currentOp` in `renderMain()` to route to the new operation
-5. Run `python build.py`, then add a `tests/<operation>.test.js` following
-   the existing two, and check the generated file's headers and data match
-   the real template exactly
+3. Add `<operation>Template()` + `wire<Operation>Events()` +
+   `generate<Operation>Rows()` in `src/app.js`, following the existing
+   five
+4. Branch on `currentOp` in `renderMain()`, and add a case to the
+   `updateSummary()` / `handleGenerate()` dispatchers
+5. If it needs employee IDs, reuse the shared picker — `idSourceMarkup()`,
+   `bindIdSource()`, `wireIdSourceSeg()` — rather than writing another one
+6. Run `python build.py`, add `tests/<operation>.test.js` following the
+   existing five, and check the generated file's sheet name, headers and
+   data against the real template

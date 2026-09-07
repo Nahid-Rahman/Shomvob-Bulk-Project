@@ -913,12 +913,106 @@ const PAYROLL_COVERAGE_OPTIONS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
 const PAYROLL_DEFAULTS = { coverage: 30, min: 500, max: 10000, step: 100 };
 
+/* ===== Assets Add ===== */
+
+const ASSETS_HEADER = [
+  "Asset Image",
+  "Asset Code*",
+  "Asset Name*",
+  "Asset Type*",
+  "Asset Description",
+  "Assigned Employee ID",
+  "Assigned Date"
+];
+const ASSETS_SHEET = "Assets_List_Upload";
+
+/* Between 70% and 80% of assets get an employee; the rest stay
+   unassigned, with Assigned Employee ID and Assigned Date both blank.
+   Both columns are optional in the template, so that is a valid file. The
+   user asked for this band with no input to control it. */
+const ASSETS_ASSIGNED_BAND = { low: 70, high: 80 };
+
+/* How far back an Assigned Date may fall, in days. Never in the future. */
+const ASSETS_ASSIGNED_WINDOW_DAYS = 365;
+
+/* Each entry is [name, description] so the two columns always agree — a
+   monitor never inherits a laptop's description. The template's own
+   example rows mismatch name and type on purpose, which told us Asset
+   Type is a free category rather than something derived from the name. */
+const DEFAULT_ASSET_TYPES = [
+  { id: "laptops", name: "Laptops", items: [
+    ["HP EliteBook 840 G9", "14-inch business laptop, 16GB RAM / 512GB SSD"],
+    ["Dell Latitude 5430", "14-inch laptop, i5 / 16GB RAM / 256GB SSD"],
+    ["Lenovo ThinkPad T14", "14-inch laptop, i7 / 16GB RAM / 512GB SSD"],
+    ["MacBook Air M2", "13-inch MacBook, 8GB unified memory / 256GB SSD"],
+    ["Asus ExpertBook B9", "14-inch ultralight laptop, 16GB RAM / 1TB SSD"],
+    ["HP ProBook 450 G10", "15-inch laptop, i5 / 8GB RAM / 512GB SSD"]
+  ] },
+  { id: "desktops", name: "Desktops", items: [
+    ["Dell OptiPlex 7010 SFF", "Small form factor desktop, i5 / 16GB RAM"],
+    ["HP ProDesk 400 G9", "Mini tower desktop, i5 / 8GB RAM / 512GB SSD"],
+    ["Lenovo ThinkCentre M70q", "Tiny desktop, i5 / 16GB RAM / 512GB SSD"],
+    ["Asus ExpertCenter D700", "Tower desktop, i7 / 16GB RAM / 1TB HDD"],
+    ["Intel NUC 13 Pro", "Mini PC, i5 / 16GB RAM / 512GB SSD"]
+  ] },
+  { id: "monitors", name: "Monitors", items: [
+    ["Dell P2422H 24\"", "24-inch IPS monitor, 1920x1080, height adjustable"],
+    ["LG 27UP550 27\"", "27-inch 4K IPS monitor with USB-C"],
+    ["Samsung S36C 24\"", "24-inch curved monitor, 1920x1080, 75Hz"],
+    ["HP E24 G5 24\"", "24-inch IPS monitor, 1920x1080, pivot stand"],
+    ["Asus ProArt PA248QV", "24-inch colour-calibrated monitor, 1920x1200"]
+  ] },
+  { id: "mobile", name: "Mobile Devices", items: [
+    ["Samsung Galaxy A54", "Android phone, 8GB RAM / 128GB storage"],
+    ["iPhone 14", "iOS phone, 128GB storage"],
+    ["Xiaomi Redmi Note 13", "Android phone, 6GB RAM / 128GB storage"],
+    ["Samsung Galaxy Tab A9+", "11-inch Android tablet, 64GB storage"],
+    ["iPad 10th Gen", "10.9-inch tablet, 64GB storage, Wi-Fi"]
+  ] },
+  { id: "printers", name: "Printers & Scanners", items: [
+    ["HP LaserJet Pro M404dn", "Mono laser printer with duplex and network"],
+    ["Canon imageCLASS MF445dw", "Mono laser multifunction, print/scan/copy"],
+    ["Epson EcoTank L3250", "Colour inkjet all-in-one with refillable tanks"],
+    ["Brother HL-L2350DW", "Compact mono laser printer, wireless"],
+    ["Canon CanoScan LiDE 300", "Flatbed document scanner, 600 dpi"]
+  ] },
+  { id: "networking", name: "Networking", items: [
+    ["TP-Link Archer AX55", "Dual-band Wi-Fi 6 router, AX3000"],
+    ["Cisco Catalyst 1000-24T", "24-port managed gigabit switch"],
+    ["Ubiquiti UniFi U6-Lite", "Ceiling-mount Wi-Fi 6 access point"],
+    ["Netgear GS308 8-port", "Unmanaged 8-port gigabit desktop switch"],
+    ["MikroTik hEX S", "Gigabit router with SFP and PoE out"]
+  ] },
+  { id: "peripherals", name: "Peripherals", items: [
+    ["Logitech MX Master 3S", "Wireless ergonomic mouse, USB-C rechargeable"],
+    ["Logitech K380 Keyboard", "Compact multi-device Bluetooth keyboard"],
+    ["Jabra Evolve2 40", "USB wired headset with noise-cancelling mic"],
+    ["Logitech C920 HD Pro", "1080p USB webcam with stereo mics"],
+    ["Anker 7-in-1 USB-C Hub", "USB-C dock with HDMI, ethernet and card reader"],
+    ["APC BX1100C-IN UPS", "1100VA line-interactive UPS with AVR"]
+  ] },
+  { id: "furniture", name: "Furniture", items: [
+    ["Ergonomic Office Chair", "Mesh-back chair with lumbar support and armrests"],
+    ["Height-Adjustable Desk", "Electric sit-stand desk, 120x60 cm"],
+    ["3-Drawer Filing Cabinet", "Lockable steel filing cabinet"],
+    ["8-Seat Conference Table", "Laminate conference table with cable channel"],
+    ["5-Shelf Bookcase", "Open steel and laminate storage shelf"]
+  ] },
+  { id: "office", name: "Office Equipment", items: [
+    ["Epson EB-X51 Projector", "3LCD projector, XGA, 3800 lumens"],
+    ["Whiteboard 6x4 ft", "Magnetic dry-erase board with aluminium frame"],
+    ["Voltas 1.5 Ton Split AC", "Inverter split air conditioner, 5 star"],
+    ["Water Dispenser", "Hot and cold bottled water dispenser"],
+    ["Fellowes Paper Shredder", "Cross-cut shredder, 12-sheet capacity"]
+  ] }
+];
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },
   { id: "leave_balance_add", label: "Leave Balance Add", status: "active" },
   { id: "payroll_field_add", label: "Payroll Custom Field Add", status: "active" },
-  { id: "assets_add", label: "Assets Add", status: "soon" }
+  { id: "assets_add", label: "Assets Add", status: "active" }
 ];
 
 </script>
@@ -1188,6 +1282,13 @@ const OPERATIONS = [
       $("#actionBar").style.display = "flex";
       root.innerHTML = payrollTemplate();
       wirePayrollEvents();
+      updateSummary();
+      return;
+    }
+    if (currentOp === "assets_add") {
+      $("#actionBar").style.display = "flex";
+      root.innerHTML = assetsTemplate();
+      wireAssetsEvents();
       updateSummary();
       return;
     }
@@ -1685,31 +1786,81 @@ const OPERATIONS = [
     return { ids, total: raw.length, dupes: raw.length - ids.length };
   }
 
+  /* ---------- shared employee-ID source ----------
+
+     Attendance and Assets both need the same paste / generate / upload
+     picker, so rather than duplicate it the picker is bound to whichever
+     state object the operation on screen owns. Only one operation renders
+     at a time, so the element ids are safe to share. */
+
+  let idSrc = { state: null, onChange: null };
+
+  function newIdSourceState(defaults) {
+    const d = defaults || {};
+    return {
+      idMode: "paste",
+      pasteText: "",
+      genPrefix: d.genPrefix || "HUIW",
+      genStart: 1,
+      genCount: d.genCount || 50,
+      upload: null,
+      ids: [],
+    };
+  }
+
+  function bindIdSource(state, onChange) {
+    idSrc = { state: state, onChange: onChange };
+  }
+
+  function idSourceMarkup(state) {
+    return `
+      <div class="seg" id="idModeSeg">
+        <button type="button" data-mode="paste" aria-pressed="${state.idMode === "paste"}">Paste</button>
+        <button type="button" data-mode="generate" aria-pressed="${state.idMode === "generate"}">Generate</button>
+        <button type="button" data-mode="upload" aria-pressed="${state.idMode === "upload"}">Upload</button>
+      </div>
+      <div class="seg-panel" id="idPanel"></div>
+      <div id="idTally"></div>`;
+  }
+
+  function wireIdSourceSeg() {
+    $all("#idModeSeg button").forEach((b) => {
+      b.addEventListener("click", () => {
+        idSrc.state.idMode = b.dataset.mode;
+        $all("#idModeSeg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        recomputeIds();
+        renderIdPanel();
+        if (idSrc.onChange) idSrc.onChange();
+      });
+    });
+  }
+
   function generatedIds() {
-    const prefix = att.genPrefix;
-    const start = att.genStart;
-    const count = att.genCount;
+    const s = idSrc.state;
     const out = [];
-    if (!prefix || !(count > 0)) return out;
-    for (let i = 0; i < count; i++) out.push(prefix + pad4(start + i));
+    if (!s.genPrefix || !(s.genCount > 0)) return out;
+    for (let i = 0; i < s.genCount; i++) out.push(s.genPrefix + pad4(s.genStart + i));
     return out;
   }
 
-  /* Resolves whichever ID mode is active into att.ids, then drops any shift
-     assignment pointing at an ID that no longer exists. */
+  /* Resolves whichever mode is active into state.ids. Anything the owning
+     operation needs to do afterwards belongs in its onChange. */
   function recomputeIds() {
+    const s = idSrc.state;
     let ids = [];
-    if (att.idMode === "paste") ids = parseIdList(att.pasteText).ids;
-    else if (att.idMode === "generate") ids = generatedIds();
-    else if (att.upload && att.upload.pick != null) {
-      const opt = att.upload.options[att.upload.pick];
+    if (s.idMode === "paste") ids = parseIdList(s.pasteText).ids;
+    else if (s.idMode === "generate") ids = generatedIds();
+    else if (s.upload && s.upload.pick != null) {
+      const opt = s.upload.options[s.upload.pick];
       if (opt) ids = parseIdList(opt.values.join("\n")).ids;
     }
-    att.ids = ids;
-    const pool = new Set(ids);
-    att.shifts.forEach((sh) => {
-      sh.ids = sh.ids.filter((id) => pool.has(id));
-    });
+    s.ids = ids;
+  }
+
+  function idSourceChanged() {
+    recomputeIds();
+    renderIdTally();
+    if (idSrc.onChange) idSrc.onChange();
   }
 
   function assignedIdSet() {
@@ -1857,13 +2008,7 @@ const OPERATIONS = [
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Employee IDs</h2></div>
         <p class="section-note">Kon employee-der attendance lagbe. Paste koro, generate koro, ba file theke nao.</p>
-        <div class="seg" id="idModeSeg">
-          <button type="button" data-mode="paste" aria-pressed="${att.idMode === "paste"}">Paste</button>
-          <button type="button" data-mode="generate" aria-pressed="${att.idMode === "generate"}">Generate</button>
-          <button type="button" data-mode="upload" aria-pressed="${att.idMode === "upload"}">Upload</button>
-        </div>
-        <div class="seg-panel" id="idPanel"></div>
-        <div id="idTally"></div>
+        ${idSourceMarkup(att)}
       </div>
 
       <div class="section">
@@ -1959,63 +2104,57 @@ const OPERATIONS = [
   }
 
   function renderIdPanel() {
+    const st = idSrc.state;
     const box = $("#idPanel");
-    if (att.idMode === "paste") {
+    if (st.idMode === "paste") {
       box.innerHTML = `
         <div class="field">
           <label for="idPaste">Employee ID list</label>
-          <textarea id="idPaste" placeholder="HUIW0101&#10;HUIW0102&#10;HUIW0103">${escapeHtml(att.pasteText)}</textarea>
+          <textarea id="idPaste" placeholder="HUIW0101&#10;HUIW0102&#10;HUIW0103">${escapeHtml(st.pasteText)}</textarea>
           <span class="hint">Ek line-e ekta, ba comma / space diye — jevabe khushi. Duplicate baad chole jabe.</span>
         </div>`;
       $("#idPaste").addEventListener("input", (e) => {
-        att.pasteText = e.target.value;
-        recomputeIds();
-        renderIdTally();
-        renderAssign();
-        updateSummary();
+        st.pasteText = e.target.value;
+        idSourceChanged();
       });
-    } else if (att.idMode === "generate") {
+    } else if (st.idMode === "generate") {
       box.innerHTML = `
         <div class="field-grid-3">
           <div class="field">
             <label for="genPrefix">Prefix</label>
-            <input type="text" id="genPrefix" maxlength="8" value="${escapeHtml(att.genPrefix)}" />
+            <input type="text" id="genPrefix" maxlength="8" value="${escapeHtml(st.genPrefix)}" />
             <span class="hint">Auto-uppercase</span>
           </div>
           <div class="field">
             <label for="genStart">Start number</label>
-            <input type="number" id="genStart" min="1" value="${att.genStart}" />
+            <input type="number" id="genStart" min="1" value="${st.genStart}" />
             <span class="hint">0001 na hoye 0101 theke shuru hote pare</span>
           </div>
           <div class="field">
             <label for="genCount">Koyta</label>
-            <input type="number" id="genCount" min="1" max="2000" value="${att.genCount}" />
+            <input type="number" id="genCount" min="1" max="2000" value="${st.genCount}" />
           </div>
         </div>
         <div class="preview-row" id="genPreview"></div>`;
-      const sync = () => {
-        recomputeIds();
-        renderGenPreview();
-        renderIdTally();
-        renderAssign();
-        updateSummary();
-      };
       $("#genPrefix").addEventListener("input", (e) => {
         e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-        att.genPrefix = e.target.value;
-        sync();
+        st.genPrefix = e.target.value;
+        renderGenPreview();
+        idSourceChanged();
       });
       $("#genStart").addEventListener("input", (e) => {
-        att.genStart = Math.max(1, parseInt(e.target.value, 10) || 1);
-        sync();
+        st.genStart = Math.max(1, parseInt(e.target.value, 10) || 1);
+        renderGenPreview();
+        idSourceChanged();
       });
       $("#genCount").addEventListener("input", (e) => {
-        att.genCount = Math.max(0, parseInt(e.target.value, 10) || 0);
-        sync();
+        st.genCount = Math.max(0, parseInt(e.target.value, 10) || 0);
+        renderGenPreview();
+        idSourceChanged();
       });
       renderGenPreview();
     } else {
-      const up = att.upload;
+      const up = st.upload;
       let picker = "";
       if (up && up.options.length) {
         picker = `
@@ -2038,11 +2177,8 @@ const OPERATIONS = [
       $("#idFile").addEventListener("change", handleIdFile);
       if (up && up.options.length) {
         $("#colPick").addEventListener("change", (e) => {
-          att.upload.pick = parseInt(e.target.value, 10);
-          recomputeIds();
-          renderIdTally();
-          renderAssign();
-          updateSummary();
+          st.upload.pick = parseInt(e.target.value, 10);
+          idSourceChanged();
         });
       }
     }
@@ -2066,10 +2202,11 @@ const OPERATIONS = [
   function renderIdTally() {
     const box = $("#idTally");
     if (!box) return;
-    const n = att.ids.length;
+    const st = idSrc.state;
+    const n = st.ids.length;
     let extra = "";
-    if (att.idMode === "paste") {
-      const p = parseIdList(att.pasteText);
+    if (st.idMode === "paste") {
+      const p = parseIdList(st.pasteText);
       if (p.dupes) extra = ` · <strong>${p.dupes}</strong> duplicate baad`;
     }
     box.innerHTML = n
@@ -2079,8 +2216,8 @@ const OPERATIONS = [
 
   /* Turns any uploaded sheet into a list of pickable columns, so "any file"
      genuinely works. A column whose header looks like an ID header is
-     auto-selected; a bare single-column sheet (the template's ReferenceData)
-     is offered whole. */
+     auto-selected; a bare single-column sheet (the attendance template's
+     ReferenceData) is offered whole. */
   function columnOptions(aoaBySheet) {
     const opts = [];
     Object.keys(aoaBySheet).forEach((name) => {
@@ -2111,6 +2248,7 @@ const OPERATIONS = [
   }
 
   function handleIdFile(e) {
+    const st = idSrc.state;
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -2137,12 +2275,11 @@ const OPERATIONS = [
         let pick = options.findIndex((o) => /employee\s*id/i.test(o.header));
         if (pick < 0) pick = options.findIndex((o) => /id/i.test(o.header));
         if (pick < 0) pick = 0;
-        att.upload = { name: file.name, options, pick };
+        st.upload = { name: file.name, options, pick };
         recomputeIds();
         renderIdPanel();
-        renderAssign();
-        updateSummary();
-        showToast(`${file.name} — ${att.ids.length} ID pawa gelo.`);
+        if (idSrc.onChange) idSrc.onChange();
+        showToast(`${file.name} — ${st.ids.length} ID pawa gelo.`);
       } catch (err) {
         console.error(err);
         showToast("File porte somoshya hoyeche.", true);
@@ -2546,16 +2683,17 @@ const OPERATIONS = [
   }
 
   function wireAttendanceEvents() {
-    $all("#idModeSeg button").forEach((b) => {
-      b.addEventListener("click", () => {
-        att.idMode = b.dataset.mode;
-        $all("#idModeSeg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-        recomputeIds();
-        renderIdPanel();
-        renderAssign();
-        updateSummary();
+    /* Attendance owns the shift assignments, so its onChange prunes any
+       that point at an ID the pool no longer contains. */
+    bindIdSource(att, () => {
+      const pool = new Set(att.ids);
+      att.shifts.forEach((sh) => {
+        sh.ids = sh.ids.filter((id) => pool.has(id));
       });
+      renderAssign();
+      updateSummary();
     });
+    wireIdSourceSeg();
 
     $("#fromDate").addEventListener("input", (e) => {
       att.from = e.target.value;
@@ -3391,10 +3529,423 @@ const OPERATIONS = [
 
   /* Every operation shares the one action bar, so these dispatch on the
      operation currently on screen. */
+  /* ================= Assets Add ================= */
+
+  /* A blank template again, like Attendance — so this one builds rows from
+     scratch. Employee IDs are optional here: the two assignment columns are
+     optional in the template, so with no IDs supplied every asset simply
+     comes out unassigned. */
+
+  const assets = {
+    count: 50,
+    prefix: "AST",
+    idSrc: newIdSourceState({ genPrefix: "HUIW", genCount: 50 }),
+    customTypeCounter: 0,
+  };
+
+  /* Same card/checkbox/mode shape as Employee Add's departments, but
+     pre-selected so the operation works without setup. */
+  const assetTypes = DEFAULT_ASSET_TYPES.map((t) => ({
+    id: t.id,
+    name: t.name,
+    isCustom: false,
+    checked: true,
+    mode: "default",
+    selectedItems: new Set(t.items.map((it) => it[0])),
+    customItems: [],
+    defaultItems: t.items,
+  }));
+
+  function collectAssetTypes() {
+    const out = [];
+    for (const t of assetTypes) {
+      const custom = t.customItems.map((n) => String(n).trim()).filter(Boolean).map((n) => [n, ""]);
+      if (t.isCustom) {
+        if (t.name.trim() && custom.length) out.push({ name: t.name.trim(), items: custom });
+      } else if (t.checked) {
+        const items =
+          t.mode === "default"
+            ? t.defaultItems.filter((it) => t.selectedItems.has(it[0]))
+            : custom;
+        if (items.length) out.push({ name: t.name, items: items });
+      }
+    }
+    return out;
+  }
+
+  /* Somewhere in the last year, never in the future. */
+  function randomAssignedDate() {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    d.setDate(d.getDate() - randInt(0, ASSETS_ASSIGNED_WINDOW_DAYS));
+    return d;
+  }
+
+  function generateAssetRows() {
+    const types = collectAssetTypes();
+    const ids = assets.idSrc.ids;
+    const rows = [ASSETS_HEADER.slice()];
+    /* one coverage figure for the whole batch, drawn from the band */
+    const assignPct = randInt(ASSETS_ASSIGNED_BAND.low, ASSETS_ASSIGNED_BAND.high);
+    let assigned = 0;
+
+    for (let i = 0; i < assets.count; i++) {
+      const type = choice(types);
+      const item = choice(type.items);
+      let empId = "";
+      let date = "";
+      if (ids.length && pctHit(assignPct)) {
+        empId = choice(ids);
+        date = fmtDate(randomAssignedDate());
+        assigned++;
+      }
+      rows.push([
+        "", /* Asset Image stays blank — a fake URL would only create a broken link */
+        assets.prefix + pad4(i + 1),
+        item[0],
+        type.name,
+        item[1] || "",
+        empId,
+        date,
+      ]);
+    }
+    return { rows: rows, assigned: assigned, assignPct: assignPct };
+  }
+
+  function downloadAssetsWorkbook(rows) {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 28 }, { wch: 14 }, { wch: 26 }, { wch: 20 },
+      { wch: 42 }, { wch: 20 }, { wch: 14 },
+    ];
+    ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, ASSETS_SHEET);
+    const stamp = fmtDate(today).replace(/-/g, "");
+    const filename = `${assets.prefix}_assets_bulk_upload_${stamp}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    return filename;
+  }
+
+  /* ---------- UI ---------- */
+
+  function assetsTemplate() {
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Bulk operation · 05</span>
+        <h1 class="page-title">Assets Add</h1>
+        <p class="page-desc">QA-ready asset bulk-upload file generate koro. Koyta asset ar code prefix dile, type ar name apnar configure kora list theke ashbe.</p>
+        <details class="rules-card">
+          <summary class="rules-summary"><span>Fixed generation rules</span><span class="chev">›</span></summary>
+          <div class="rules-body">
+            <div class="rule-row"><span class="rule-col">Asset Code</span><span class="rule-val">PREFIX0001 sequential — unique</span></div>
+            <div class="rule-row"><span class="rule-col">Asset Name / Type</span><span class="rule-val">apnar select kora type theke ekta, oi type-er name pool theke ekta</span></div>
+            <div class="rule-row"><span class="rule-col">Asset Description</span><span class="rule-val">name-er sathe mile — default name-er jonno, custom name-e khali</span></div>
+            <div class="rule-row"><span class="rule-col">Asset Image</span><span class="rule-val">khali — bhua URL dile broken image link dhukbe</span></div>
+            <div class="rule-row"><span class="rule-col">Assignment</span><span class="rule-val">${ASSETS_ASSIGNED_BAND.low}–${ASSETS_ASSIGNED_BAND.high}% asset assign kora, baki gula khali</span></div>
+            <div class="rule-row"><span class="rule-col">Assigned Date</span><span class="rule-val">aaj theke 1 bochor pichhone random — kokhono future na</span></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Batch basics</h2></div>
+        <p class="section-note">Koyta asset generate hobe ar code-er prefix ki hobe.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="assetCount">Number of assets</label>
+            <input type="number" id="assetCount" min="1" max="5000" value="${assets.count}" />
+            <span class="hint">1 theke 5000</span>
+            <span class="error-text" id="assetCountError"></span>
+          </div>
+          <div class="field">
+            <label for="assetPrefix">Asset code prefix</label>
+            <input type="text" id="assetPrefix" maxlength="6" value="${escapeHtml(assets.prefix)}" />
+            <span class="hint">2–6 alphabetic characters — auto-uppercase</span>
+            <span class="error-text" id="assetPrefixError"></span>
+          </div>
+        </div>
+        <div class="preview-row" id="assetCodePreview"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Asset type &amp; name</h2></div>
+        <p class="section-note">Kon kon type-er asset banabe, ar protita type-e kon kon name. Kom pokkhe 1 ta type-e 1 ta name lagbe.</p>
+        <div class="dept-list" id="assetTypeList"></div>
+        <div class="add-dept-row">
+          <button type="button" class="tiny-btn" id="addAssetTypeBtn">+ Add custom type</button>
+        </div>
+        <div class="validation-banner hidden" id="assetTypeWarning">${iconWarn()}<span>Kom pokkhe ekta type-e ekta asset name select/add korte hobe.</span></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Assigned employee IDs</h2></div>
+        <p class="section-note">Kader ke asset assign hobe. Optional — ID na dile shob asset unassigned thakbe, karon oi duita column template-e optional.</p>
+        ${idSourceMarkup(assets.idSrc)}
+        <div id="assetAssignNote"></div>
+      </div>
+    `;
+  }
+
+  function renderAssetCodePreview() {
+    const box = $("#assetCodePreview");
+    if (!box) return;
+    box.innerHTML = "";
+    const prefix = /^[A-Z]{2,6}$/.test(assets.prefix) ? assets.prefix : "AST";
+    const last = assets.count > 0 ? assets.count : 1;
+    const show = last > 3 ? [1, 2, null, last] : [1, 2, 3].slice(0, last);
+    show.forEach((n) => {
+      const chip = document.createElement("span");
+      chip.className = "chip accent";
+      chip.textContent = n === null ? "…" : prefix + pad4(n);
+      box.appendChild(chip);
+    });
+  }
+
+  function renderAssetAssignNote() {
+    const box = $("#assetAssignNote");
+    if (!box) return;
+    const n = assets.idSrc.ids.length;
+    box.innerHTML = n
+      ? `<span class="tally ok">${ASSETS_ASSIGNED_BAND.low}–${ASSETS_ASSIGNED_BAND.high}% asset <strong>${n}</strong> jon employee-r moddhe bhag hobe</span>`
+      : `<span class="tally">Kono ID nei — shob asset unassigned thakbe</span>`;
+  }
+
+  function validateAssetCount() {
+    const el = $("#assetCount");
+    const err = $("#assetCountError");
+    if (!el) return true;
+    const ok = assets.count >= 1 && assets.count <= 5000;
+    err.textContent = ok ? "" : "1 theke 5000-er moddhe hote hobe";
+    el.classList.toggle("invalid", !ok);
+    return ok;
+  }
+
+  function validateAssetPrefix() {
+    const el = $("#assetPrefix");
+    const err = $("#assetPrefixError");
+    if (!el) return true;
+    const ok = /^[A-Z]{2,6}$/.test(assets.prefix);
+    err.textContent = ok ? "" : "2 theke 6 ta letter lagbe";
+    el.classList.toggle("invalid", !ok);
+    return ok;
+  }
+
+  /* Mirrors Employee Add's department cards — same classes, same
+     default/custom mode toggle — so the two operations look alike. */
+  function renderAssetTypes() {
+    const list = $("#assetTypeList");
+    if (!list) return;
+    list.innerHTML = "";
+
+    assetTypes.forEach((t) => {
+      const card = document.createElement("div");
+      card.className = "dept-card" + (t.checked || t.isCustom ? " checked" : "");
+      const head = document.createElement("div");
+      head.className = "dept-head";
+
+      if (!t.isCustom) {
+        head.innerHTML = `
+          <input type="checkbox" ${t.checked ? "checked" : ""} class="dept-checkbox" />
+          <span class="dept-name">${escapeHtml(t.name)}</span>`;
+        card.appendChild(head);
+        $(".dept-checkbox", head).addEventListener("change", (e) => {
+          t.checked = e.target.checked;
+          renderAssetTypes();
+          updateSummary();
+        });
+        if (t.checked) card.appendChild(assetTypeBody(t));
+      } else {
+        head.innerHTML = `
+          <input class="dept-name-input" type="text" placeholder="Asset type name" value="${escapeHtml(t.name)}" />
+          <button type="button" class="dept-remove" title="Remove">${iconTrash()}</button>`;
+        card.appendChild(head);
+        $(".dept-name-input", head).addEventListener("input", (e) => {
+          t.name = e.target.value;
+          updateSummary();
+        });
+        $(".dept-remove", head).addEventListener("click", () => {
+          const i = assetTypes.indexOf(t);
+          if (i > -1) assetTypes.splice(i, 1);
+          renderAssetTypes();
+          updateSummary();
+        });
+        card.appendChild(assetTypeBody(t));
+      }
+      list.appendChild(card);
+    });
+  }
+
+  function assetTypeBody(t) {
+    const body = document.createElement("div");
+    body.className = "dept-body";
+
+    if (!t.isCustom) {
+      const toggle = document.createElement("div");
+      toggle.className = "mode-toggle";
+      toggle.innerHTML = `
+        <button type="button" data-mode="default" aria-pressed="${t.mode === "default"}">Default</button>
+        <button type="button" data-mode="custom" aria-pressed="${t.mode === "custom"}">Custom</button>`;
+      $all("button", toggle).forEach((btn) => {
+        btn.addEventListener("click", () => {
+          t.mode = btn.dataset.mode;
+          renderAssetTypes();
+          updateSummary();
+        });
+      });
+      body.appendChild(toggle);
+
+      if (t.mode === "default") {
+        const grid = document.createElement("div");
+        grid.className = "desig-grid";
+        t.defaultItems.forEach((it) => {
+          const on = t.selectedItems.has(it[0]);
+          const label = document.createElement("label");
+          label.className = "desig-check" + (on ? " on" : "");
+          label.title = it[1] || "";
+          label.innerHTML = `<input type="checkbox" ${on ? "checked" : ""} /> ${escapeHtml(it[0])}`;
+          $("input", label).addEventListener("change", (e) => {
+            if (e.target.checked) t.selectedItems.add(it[0]);
+            else t.selectedItems.delete(it[0]);
+            renderAssetTypes();
+            updateSummary();
+          });
+          grid.appendChild(label);
+        });
+        body.appendChild(grid);
+        return body;
+      }
+    }
+
+    const wrap = document.createElement("div");
+    wrap.className = "custom-desig-list";
+    t.customItems.forEach((val, i) => {
+      const row = document.createElement("div");
+      row.className = "custom-desig-row";
+      row.innerHTML = `<input type="text" value="${escapeHtml(val)}" placeholder="Asset name" />
+        <button type="button" class="icon-btn" title="Remove">${iconTrash()}</button>`;
+      $("input", row).addEventListener("input", (e) => {
+        t.customItems[i] = e.target.value;
+        updateSummary();
+      });
+      $("button", row).addEventListener("click", () => {
+        t.customItems.splice(i, 1);
+        renderAssetTypes();
+        updateSummary();
+      });
+      wrap.appendChild(row);
+    });
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "tiny-btn";
+    addBtn.innerHTML = `${iconPlus()} Add asset name`;
+    addBtn.style.marginTop = t.customItems.length ? "7px" : "0";
+    addBtn.addEventListener("click", () => {
+      t.customItems.push("");
+      renderAssetTypes();
+    });
+    wrap.appendChild(addBtn);
+    body.appendChild(wrap);
+    return body;
+  }
+
+  function wireAssetsEvents() {
+    $("#assetCount").addEventListener("input", (e) => {
+      assets.count = parseInt(e.target.value, 10) || 0;
+      validateAssetCount();
+      renderAssetCodePreview();
+      updateSummary();
+    });
+    $("#assetPrefix").addEventListener("input", (e) => {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, "");
+      assets.prefix = e.target.value;
+      validateAssetPrefix();
+      renderAssetCodePreview();
+      updateSummary();
+    });
+
+    $("#addAssetTypeBtn").addEventListener("click", () => {
+      assets.customTypeCounter++;
+      assetTypes.push({
+        id: "custom_type_" + assets.customTypeCounter,
+        name: "",
+        isCustom: true,
+        checked: true,
+        mode: "custom",
+        selectedItems: new Set(),
+        customItems: [],
+        defaultItems: [],
+      });
+      renderAssetTypes();
+      updateSummary();
+    });
+
+    bindIdSource(assets.idSrc, () => {
+      renderAssetAssignNote();
+      updateSummary();
+    });
+    wireIdSourceSeg();
+
+    validateAssetCount();
+    validateAssetPrefix();
+    renderAssetCodePreview();
+    renderAssetTypes();
+    renderIdPanel();
+    renderAssetAssignNote();
+  }
+
+  function assetsProblems() {
+    const out = [];
+    if (!(assets.count >= 1 && assets.count <= 5000)) out.push("asset count 1–5000 hote hobe");
+    if (!/^[A-Z]{2,6}$/.test(assets.prefix)) out.push("asset code prefix 2–6 letter hote hobe");
+    if (!collectAssetTypes().length) out.push("kom pokkhe ekta type-e ekta asset name lagbe");
+    return out;
+  }
+
+  function updateAssetsSummary() {
+    const types = collectAssetTypes();
+    const warn = $("#assetTypeWarning");
+    if (warn) warn.classList.toggle("hidden", types.length > 0);
+
+    const problems = assetsProblems();
+    const summary = $("#actionSummary");
+    const btn = $("#generateBtn");
+    if (problems.length) {
+      summary.textContent = problems[0];
+      btn.disabled = true;
+      return;
+    }
+    const names = types.reduce((n, t) => n + t.items.length, 0);
+    const ids = assets.idSrc.ids.length;
+    summary.innerHTML = `<strong>${assets.count}</strong> assets · prefix <strong>${assets.prefix}</strong> · <strong>${types.length}</strong> type / <strong>${names}</strong> name · ${
+      ids ? `<strong>${ids}</strong> employee` : "unassigned"
+    }`;
+    btn.disabled = false;
+  }
+
+  function handleAssetsGenerate() {
+    const problems = assetsProblems();
+    if (problems.length) {
+      showToast(problems[0], true);
+      return;
+    }
+    try {
+      const result = generateAssetRows();
+      const filename = downloadAssetsWorkbook(result.rows);
+      const tail = assets.idSrc.ids.length
+        ? ` — ${result.assigned} ta assign kora (${result.assignPct}%)`
+        : " — shob unassigned";
+      showToast(`${filename}: ${assets.count} asset row${tail}.`);
+    } catch (err) {
+      console.error(err);
+      showToast("File generate korte somoshya hoyeche. Console check koro.", true);
+    }
+  }
+
   function updateSummary() {
     if (currentOp === "attendance_add") return updateAttendanceSummary();
     if (currentOp === "leave_balance_add") return updateLeaveSummary();
     if (currentOp === "payroll_field_add") return updatePayrollSummary();
+    if (currentOp === "assets_add") return updateAssetsSummary();
     return updateEmployeeSummary();
   }
 
@@ -3402,6 +3953,7 @@ const OPERATIONS = [
     if (currentOp === "attendance_add") return handleAttendanceGenerate();
     if (currentOp === "leave_balance_add") return handleLeaveGenerate();
     if (currentOp === "payroll_field_add") return handlePayrollGenerate();
+    if (currentOp === "assets_add") return handleAssetsGenerate();
     return handleEmployeeGenerate();
   }
 

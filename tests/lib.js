@@ -28,6 +28,30 @@ function loadSheetJs() {
   return ctx.XLSX;
 }
 
+/* Reads the data tables out of src/app-data.js so a test can assert against
+   the same pools the app generates from, instead of restating them. The
+   file declares everything with `const`, which never lands on a vm
+   context, so the names are handed back by a trailing expression. */
+function loadAppData(names) {
+  const ctx = {
+    console, Math, Date, JSON, String, Number, Array, Object, RegExp, Set, Map,
+    parseInt, parseFloat, isNaN, Boolean,
+  };
+  ctx.globalThis = ctx;
+  vm.createContext(ctx);
+  const src = fs.readFileSync(path.join(REPO, "src/app-data.js"), "utf8");
+  const expr = ";({" + names.map((n) => n + ": " + n).join(", ") + "})";
+  return vm.runInContext(src + expr, ctx);
+}
+
+/* sheet_to_json omits empty cells, so a row can come back short or with
+   holes. Normalise to a fixed-width array of strings. */
+function normalizeRow(row, width) {
+  const out = [];
+  for (let i = 0; i < width; i++) out.push(row[i] == null ? "" : String(row[i]));
+  return out;
+}
+
 function makeChecker() {
   const state = { pass: 0, failures: [] };
   const check = (name, cond, detail) => {
@@ -92,4 +116,4 @@ function ymd(s) {
   return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
 }
 
-module.exports = { REPO, PAGE, DOWNLOADS, loadSheetJs, makeChecker, report, freshDownloads, generate, toMin, ymd };
+module.exports = { REPO, PAGE, DOWNLOADS, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, generate, toMin, ymd };

@@ -220,10 +220,104 @@ const PAYROLL_COVERAGE_OPTIONS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
 const PAYROLL_DEFAULTS = { coverage: 30, min: 500, max: 10000, step: 100 };
 
+/* ===== Assets Add ===== */
+
+const ASSETS_HEADER = [
+  "Asset Image",
+  "Asset Code*",
+  "Asset Name*",
+  "Asset Type*",
+  "Asset Description",
+  "Assigned Employee ID",
+  "Assigned Date"
+];
+const ASSETS_SHEET = "Assets_List_Upload";
+
+/* Between 70% and 80% of assets get an employee; the rest stay
+   unassigned, with Assigned Employee ID and Assigned Date both blank.
+   Both columns are optional in the template, so that is a valid file. The
+   user asked for this band with no input to control it. */
+const ASSETS_ASSIGNED_BAND = { low: 70, high: 80 };
+
+/* How far back an Assigned Date may fall, in days. Never in the future. */
+const ASSETS_ASSIGNED_WINDOW_DAYS = 365;
+
+/* Each entry is [name, description] so the two columns always agree — a
+   monitor never inherits a laptop's description. The template's own
+   example rows mismatch name and type on purpose, which told us Asset
+   Type is a free category rather than something derived from the name. */
+const DEFAULT_ASSET_TYPES = [
+  { id: "laptops", name: "Laptops", items: [
+    ["HP EliteBook 840 G9", "14-inch business laptop, 16GB RAM / 512GB SSD"],
+    ["Dell Latitude 5430", "14-inch laptop, i5 / 16GB RAM / 256GB SSD"],
+    ["Lenovo ThinkPad T14", "14-inch laptop, i7 / 16GB RAM / 512GB SSD"],
+    ["MacBook Air M2", "13-inch MacBook, 8GB unified memory / 256GB SSD"],
+    ["Asus ExpertBook B9", "14-inch ultralight laptop, 16GB RAM / 1TB SSD"],
+    ["HP ProBook 450 G10", "15-inch laptop, i5 / 8GB RAM / 512GB SSD"]
+  ] },
+  { id: "desktops", name: "Desktops", items: [
+    ["Dell OptiPlex 7010 SFF", "Small form factor desktop, i5 / 16GB RAM"],
+    ["HP ProDesk 400 G9", "Mini tower desktop, i5 / 8GB RAM / 512GB SSD"],
+    ["Lenovo ThinkCentre M70q", "Tiny desktop, i5 / 16GB RAM / 512GB SSD"],
+    ["Asus ExpertCenter D700", "Tower desktop, i7 / 16GB RAM / 1TB HDD"],
+    ["Intel NUC 13 Pro", "Mini PC, i5 / 16GB RAM / 512GB SSD"]
+  ] },
+  { id: "monitors", name: "Monitors", items: [
+    ["Dell P2422H 24\"", "24-inch IPS monitor, 1920x1080, height adjustable"],
+    ["LG 27UP550 27\"", "27-inch 4K IPS monitor with USB-C"],
+    ["Samsung S36C 24\"", "24-inch curved monitor, 1920x1080, 75Hz"],
+    ["HP E24 G5 24\"", "24-inch IPS monitor, 1920x1080, pivot stand"],
+    ["Asus ProArt PA248QV", "24-inch colour-calibrated monitor, 1920x1200"]
+  ] },
+  { id: "mobile", name: "Mobile Devices", items: [
+    ["Samsung Galaxy A54", "Android phone, 8GB RAM / 128GB storage"],
+    ["iPhone 14", "iOS phone, 128GB storage"],
+    ["Xiaomi Redmi Note 13", "Android phone, 6GB RAM / 128GB storage"],
+    ["Samsung Galaxy Tab A9+", "11-inch Android tablet, 64GB storage"],
+    ["iPad 10th Gen", "10.9-inch tablet, 64GB storage, Wi-Fi"]
+  ] },
+  { id: "printers", name: "Printers & Scanners", items: [
+    ["HP LaserJet Pro M404dn", "Mono laser printer with duplex and network"],
+    ["Canon imageCLASS MF445dw", "Mono laser multifunction, print/scan/copy"],
+    ["Epson EcoTank L3250", "Colour inkjet all-in-one with refillable tanks"],
+    ["Brother HL-L2350DW", "Compact mono laser printer, wireless"],
+    ["Canon CanoScan LiDE 300", "Flatbed document scanner, 600 dpi"]
+  ] },
+  { id: "networking", name: "Networking", items: [
+    ["TP-Link Archer AX55", "Dual-band Wi-Fi 6 router, AX3000"],
+    ["Cisco Catalyst 1000-24T", "24-port managed gigabit switch"],
+    ["Ubiquiti UniFi U6-Lite", "Ceiling-mount Wi-Fi 6 access point"],
+    ["Netgear GS308 8-port", "Unmanaged 8-port gigabit desktop switch"],
+    ["MikroTik hEX S", "Gigabit router with SFP and PoE out"]
+  ] },
+  { id: "peripherals", name: "Peripherals", items: [
+    ["Logitech MX Master 3S", "Wireless ergonomic mouse, USB-C rechargeable"],
+    ["Logitech K380 Keyboard", "Compact multi-device Bluetooth keyboard"],
+    ["Jabra Evolve2 40", "USB wired headset with noise-cancelling mic"],
+    ["Logitech C920 HD Pro", "1080p USB webcam with stereo mics"],
+    ["Anker 7-in-1 USB-C Hub", "USB-C dock with HDMI, ethernet and card reader"],
+    ["APC BX1100C-IN UPS", "1100VA line-interactive UPS with AVR"]
+  ] },
+  { id: "furniture", name: "Furniture", items: [
+    ["Ergonomic Office Chair", "Mesh-back chair with lumbar support and armrests"],
+    ["Height-Adjustable Desk", "Electric sit-stand desk, 120x60 cm"],
+    ["3-Drawer Filing Cabinet", "Lockable steel filing cabinet"],
+    ["8-Seat Conference Table", "Laminate conference table with cable channel"],
+    ["5-Shelf Bookcase", "Open steel and laminate storage shelf"]
+  ] },
+  { id: "office", name: "Office Equipment", items: [
+    ["Epson EB-X51 Projector", "3LCD projector, XGA, 3800 lumens"],
+    ["Whiteboard 6x4 ft", "Magnetic dry-erase board with aluminium frame"],
+    ["Voltas 1.5 Ton Split AC", "Inverter split air conditioner, 5 star"],
+    ["Water Dispenser", "Hot and cold bottled water dispenser"],
+    ["Fellowes Paper Shredder", "Cross-cut shredder, 12-sheet capacity"]
+  ] }
+];
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },
   { id: "leave_balance_add", label: "Leave Balance Add", status: "active" },
   { id: "payroll_field_add", label: "Payroll Custom Field Add", status: "active" },
-  { id: "assets_add", label: "Assets Add", status: "soon" }
+  { id: "assets_add", label: "Assets Add", status: "active" }
 ];
