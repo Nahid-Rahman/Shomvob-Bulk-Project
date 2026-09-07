@@ -646,7 +646,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* text on the left, the joke on the right; stacks on narrow screens */
 .welcome-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-columns: minmax(0, 1fr) 296px;
   gap: 26px;
   align-items: start;
   margin-bottom: 24px;
@@ -732,33 +732,102 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-weight: 700;
 }
 
-/* The meme. Drawn rather than fetched: the page ships no external assets
-   beyond the font, and a real meme image would be someone else's to
-   licence. Emoji need no files. */
-.meme {
-  margin: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  padding: 10px;
-}
-.meme-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
+/* The meme: a spreadsheet being filled in by hand at 2am, which is the
+   thing this app exists to prevent. Drawn rather than fetched — the page
+   ships no external assets beyond the font, and a real meme image would
+   be someone else's to licence. The caret blink is covered by the global
+   prefers-reduced-motion rule at the bottom of this file. */
+.meme { margin: 0; }
+
+.meme-win {
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: var(--shadow);
 }
-.meme-row.bad { background: var(--danger-soft); }
-.meme-row.good { background: var(--accent-soft); margin-top: 8px; }
-.meme-face { font-size: 24px; line-height: 1; }
-.meme-text { font-size: 12px; font-weight: 600; line-height: 1.35; }
-.meme-row.bad .meme-text { color: var(--danger); }
-.meme-row.good .meme-text { color: var(--accent-strong); }
-.meme-verdict { font-size: 17px; font-weight: 700; line-height: 1; }
-.meme-row.bad .meme-verdict { color: var(--danger); }
-.meme-row.good .meme-verdict { color: var(--accent); }
+
+.meme-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.meme-dots { display: flex; gap: 4px; flex-shrink: 0; }
+.meme-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.meme-file {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meme-sheet {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  table-layout: fixed;
+}
+.meme-sheet th,
+.meme-sheet td {
+  border: 1px solid var(--border);
+  padding: 4px 5px;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* the row-number gutter and the A/B/C strip */
+.meme-sheet th {
+  width: 18px;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  font-weight: 500;
+  text-align: center;
+}
+.meme-sheet tr:first-child th { width: auto; }
+.meme-sheet td { color: var(--text-muted); }
+.meme-sheet td.hd { color: var(--text); font-weight: 600; }
+/* the cell the cursor is sitting in, still empty */
+.meme-sheet td.sel {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
+  background: var(--accent-soft);
+}
+.caret {
+  display: inline-block;
+  width: 1px;
+  height: 10px;
+  background: var(--text);
+  vertical-align: -1px;
+  animation: memeCaret 1.1s step-end infinite;
+}
+@keyframes memeCaret { 50% { opacity: 0; } }
+
+.meme-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border-top: 1px solid var(--border);
+  background: var(--danger-soft);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--danger);
+}
+.meme-time { white-space: nowrap; }
+
 .meme figcaption {
   margin-top: 9px;
   text-align: center;

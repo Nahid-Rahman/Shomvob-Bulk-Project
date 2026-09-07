@@ -2559,7 +2559,7 @@
     return `
       <div class="welcome-hero">
         <div class="welcome-intro">
-          <span class="welcome-badge">Certified lazy</span>
+          <span class="welcome-badge">Dear certified lazy</span>
           <h1 class="welcome-title">This one is for you.</h1>
           <p class="welcome-lede">
             Bulk Forge exists for people who cannot face typing out 300
@@ -2568,24 +2568,31 @@
             an afternoon filling 4,200 cells to get some. So now you don't.
           </p>
           <div class="how-row">
-            <span class="how-step"><b>1</b> Pick an operation from the list</span>
-            <span class="how-step"><b>2</b> Fill in two or three fields</span>
+            <span class="how-step"><b>1</b> Pick an operation</span>
+            <span class="how-step"><b>2</b> Fill in a few fields</span>
             <span class="how-step"><b>3</b> Hit Generate. That's it.</span>
           </div>
         </div>
 
-        <figure class="meme" aria-label="Two ways to produce test data">
-          <div class="meme-row bad">
-            <span class="meme-face" aria-hidden="true">&#128533;</span>
-            <span class="meme-text">Type 4,200 cells<br />by hand</span>
-            <span class="meme-verdict" aria-hidden="true">&times;</span>
+        <figure class="meme" aria-label="A spreadsheet being filled in by hand at two in the morning, with 4,197 cells left to go">
+          <div class="meme-win">
+            <div class="meme-bar">
+              <span class="meme-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="meme-file">employees_FINAL_v7_use_this.xlsx</span>
+            </div>
+            <table class="meme-sheet">
+              <tr><th></th><th>A</th><th>B</th><th>C</th></tr>
+              <tr><th>1</th><td class="hd">Emp ID</td><td class="hd">First Name</td><td class="hd">Phone</td></tr>
+              <tr><th>2</th><td>JHTY0001</td><td>Rahim</td><td>8801712&hellip;</td></tr>
+              <tr><th>3</th><td>JHTY0002</td><td>Karim</td><td>8801913&hellip;</td></tr>
+              <tr><th>4</th><td>JHTY0003</td><td class="sel"><span class="caret"></span></td><td></td></tr>
+            </table>
+            <div class="meme-status">
+              <span>4,197 cells to go</span>
+              <span class="meme-time">2:14 AM &#128565;</span>
+            </div>
           </div>
-          <div class="meme-row good">
-            <span class="meme-face" aria-hidden="true">&#128526;</span>
-            <span class="meme-text">Click Generate,<br />go get tea</span>
-            <span class="meme-verdict" aria-hidden="true">&check;</span>
-          </div>
-          <figcaption>fig. 1 — QA engineering, solved</figcaption>
+          <figcaption>fig. 1 &mdash; the alternative</figcaption>
         </figure>
       </div>
 

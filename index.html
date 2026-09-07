@@ -649,7 +649,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* text on the left, the joke on the right; stacks on narrow screens */
 .welcome-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-columns: minmax(0, 1fr) 296px;
   gap: 26px;
   align-items: start;
   margin-bottom: 24px;
@@ -735,33 +735,102 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-weight: 700;
 }
 
-/* The meme. Drawn rather than fetched: the page ships no external assets
-   beyond the font, and a real meme image would be someone else's to
-   licence. Emoji need no files. */
-.meme {
-  margin: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  padding: 10px;
-}
-.meme-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
+/* The meme: a spreadsheet being filled in by hand at 2am, which is the
+   thing this app exists to prevent. Drawn rather than fetched — the page
+   ships no external assets beyond the font, and a real meme image would
+   be someone else's to licence. The caret blink is covered by the global
+   prefers-reduced-motion rule at the bottom of this file. */
+.meme { margin: 0; }
+
+.meme-win {
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: var(--shadow);
 }
-.meme-row.bad { background: var(--danger-soft); }
-.meme-row.good { background: var(--accent-soft); margin-top: 8px; }
-.meme-face { font-size: 24px; line-height: 1; }
-.meme-text { font-size: 12px; font-weight: 600; line-height: 1.35; }
-.meme-row.bad .meme-text { color: var(--danger); }
-.meme-row.good .meme-text { color: var(--accent-strong); }
-.meme-verdict { font-size: 17px; font-weight: 700; line-height: 1; }
-.meme-row.bad .meme-verdict { color: var(--danger); }
-.meme-row.good .meme-verdict { color: var(--accent); }
+
+.meme-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.meme-dots { display: flex; gap: 4px; flex-shrink: 0; }
+.meme-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.meme-file {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meme-sheet {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  table-layout: fixed;
+}
+.meme-sheet th,
+.meme-sheet td {
+  border: 1px solid var(--border);
+  padding: 4px 5px;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* the row-number gutter and the A/B/C strip */
+.meme-sheet th {
+  width: 18px;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  font-weight: 500;
+  text-align: center;
+}
+.meme-sheet tr:first-child th { width: auto; }
+.meme-sheet td { color: var(--text-muted); }
+.meme-sheet td.hd { color: var(--text); font-weight: 600; }
+/* the cell the cursor is sitting in, still empty */
+.meme-sheet td.sel {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
+  background: var(--accent-soft);
+}
+.caret {
+  display: inline-block;
+  width: 1px;
+  height: 10px;
+  background: var(--text);
+  vertical-align: -1px;
+  animation: memeCaret 1.1s step-end infinite;
+}
+@keyframes memeCaret { 50% { opacity: 0; } }
+
+.meme-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border-top: 1px solid var(--border);
+  background: var(--danger-soft);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--danger);
+}
+.meme-time { white-space: nowrap; }
+
 .meme figcaption {
   margin-top: 9px;
   text-align: center;
@@ -3816,7 +3885,7 @@ const OPERATIONS = [
     return `
       <div class="welcome-hero">
         <div class="welcome-intro">
-          <span class="welcome-badge">Certified lazy</span>
+          <span class="welcome-badge">Dear certified lazy</span>
           <h1 class="welcome-title">This one is for you.</h1>
           <p class="welcome-lede">
             Bulk Forge exists for people who cannot face typing out 300
@@ -3825,24 +3894,31 @@ const OPERATIONS = [
             an afternoon filling 4,200 cells to get some. So now you don't.
           </p>
           <div class="how-row">
-            <span class="how-step"><b>1</b> Pick an operation from the list</span>
-            <span class="how-step"><b>2</b> Fill in two or three fields</span>
+            <span class="how-step"><b>1</b> Pick an operation</span>
+            <span class="how-step"><b>2</b> Fill in a few fields</span>
             <span class="how-step"><b>3</b> Hit Generate. That's it.</span>
           </div>
         </div>
 
-        <figure class="meme" aria-label="Two ways to produce test data">
-          <div class="meme-row bad">
-            <span class="meme-face" aria-hidden="true">&#128533;</span>
-            <span class="meme-text">Type 4,200 cells<br />by hand</span>
-            <span class="meme-verdict" aria-hidden="true">&times;</span>
+        <figure class="meme" aria-label="A spreadsheet being filled in by hand at two in the morning, with 4,197 cells left to go">
+          <div class="meme-win">
+            <div class="meme-bar">
+              <span class="meme-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="meme-file">employees_FINAL_v7_use_this.xlsx</span>
+            </div>
+            <table class="meme-sheet">
+              <tr><th></th><th>A</th><th>B</th><th>C</th></tr>
+              <tr><th>1</th><td class="hd">Emp ID</td><td class="hd">First Name</td><td class="hd">Phone</td></tr>
+              <tr><th>2</th><td>JHTY0001</td><td>Rahim</td><td>8801712&hellip;</td></tr>
+              <tr><th>3</th><td>JHTY0002</td><td>Karim</td><td>8801913&hellip;</td></tr>
+              <tr><th>4</th><td>JHTY0003</td><td class="sel"><span class="caret"></span></td><td></td></tr>
+            </table>
+            <div class="meme-status">
+              <span>4,197 cells to go</span>
+              <span class="meme-time">2:14 AM &#128565;</span>
+            </div>
           </div>
-          <div class="meme-row good">
-            <span class="meme-face" aria-hidden="true">&#128526;</span>
-            <span class="meme-text">Click Generate,<br />go get tea</span>
-            <span class="meme-verdict" aria-hidden="true">&check;</span>
-          </div>
-          <figcaption>fig. 1 — QA engineering, solved</figcaption>
+          <figcaption>fig. 1 &mdash; the alternative</figcaption>
         </figure>
       </div>
 

@@ -83,9 +83,13 @@ Two things about it worth keeping:
   4,200 cells at five seconds each. They live in `OPERATION_BLURBS`
   (`src/app-data.js`) rather than in markup, so keep them honest if a
   limit changes.
-- The meme is built from styled divs and emoji, not an image. The page
-  ships no external assets beyond the font, and a real meme picture would
-  be someone else's to licence.
+- The meme is a drawn spreadsheet — a fake `employees_FINAL_v7_use_this
+  .xlsx` window with a blinking caret in an empty cell and "4,197 cells to
+  go / 2:14 AM" along the bottom, i.e. the thing this app exists to
+  prevent. It is built from styled divs, a table and one emoji, not an
+  image: the page ships no external assets beyond the font, and a real
+  meme picture would be someone else's to licence. Its caret blink is
+  covered by the global `prefers-reduced-motion` rule.
 
 All five operations in the sidebar (`OPERATIONS` in `src/app-data.js`) are
 implemented and tested. `renderMain()` in `src/app.js` routes each one; the
