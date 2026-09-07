@@ -646,6 +646,56 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .preview-table td.faint { color: var(--text-faint); }
 .preview-table td.strong { color: var(--accent-strong); font-weight: 600; }
 
+/* ---- Dashboard masthead ---- */
+
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The logo file itself is untouched — Shomvob's own white wordmark, inlined
+   as a data URI by build.py. The "Lazy" stamp is a separate layer sitting
+   over its corner, so the mark is overlaid rather than altered, and the
+   stamp picks up the theme. */
+.brandmark {
+  position: relative;
+  display: inline-flex;
+  padding: 13px 17px;
+  border-radius: var(--radius);
+  background: var(--sidebar-bg);
+}
+.brandmark-logo { display: block; width: 132px; height: auto; }
+.brandmark-stamp {
+  position: absolute;
+  right: -13px;
+  bottom: -10px;
+  transform: rotate(-9deg);
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--accent);
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  padding: 4px 7px 3px;
+}
+
+.masthead-title {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+.masthead-title b { font-weight: 600; color: var(--text); }
+
 /* ---- Welcome page ---- */
 
 /* text on the left, the joke on the right; stacks on narrow screens */

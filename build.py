@@ -6,15 +6,31 @@ src/app.js, or src/part1.html.
 
     python3 build.py
 """
+import base64
 import pathlib
 
 ROOT = pathlib.Path(__file__).parent
 SRC = ROOT / "src"
 VENDOR = ROOT / "vendor"
+ASSETS = ROOT / "assets"
+
+# Binary assets are inlined as data URIs rather than referenced, so
+# index.html stays a single self-contained file. Keys are the placeholder
+# tokens the sources use.
+INLINE_ASSETS = {
+    "__SHOMVOB_LOGO__": (ASSETS / "shomvob_logo_white.png", "image/png"),
+}
 
 
 def read(path):
     return path.read_text(encoding="utf-8")
+
+
+def data_uri(path, mime):
+    if not path.exists():
+        raise SystemExit(f"missing asset: {path}")
+    b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{b64}"
 
 
 def main():
@@ -33,6 +49,10 @@ def main():
         f"<script>\n{app_js}\n</script>\n",
     ]
     final = "".join(out)
+
+    for token, (path, mime) in INLINE_ASSETS.items():
+        if token in final:
+            final = final.replace(token, data_uri(path, mime))
 
     out_path = ROOT / "index.html"
     # newline="\n" so a Windows run doesn't rewrite every line ending to CRLF.

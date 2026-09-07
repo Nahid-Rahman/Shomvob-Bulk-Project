@@ -74,6 +74,16 @@ rendered by `welcomeTemplate()`, with the action bar hidden; its sidebar
 entry lives in `#homeNav`, above the "Operations" label, and is wired in
 `renderSidebar()`.
 
+It opens with a masthead: Shomvob's own white wordmark on an ink plaque
+with a rotated "Lazy" stamp over its corner, beside "**Bulk Forge** for
+Shomvob HR". The logo file (`assets/shomvob_logo_white.png`) is
+**unmodified** — the stamp is a separate CSS layer on top, so the mark is
+overlaid rather than altered and the stamp follows the theme. `build.py`
+inlines the PNG as a base64 data URI through the `__SHOMVOB_LOGO__` token,
+which is the mechanism to reuse for any future binary asset: add it to
+`INLINE_ASSETS` in `build.py` and reference the token from the sources.
+`index.html` stays self-contained that way.
+
 Two things about it worth keeping:
 
 - **The Dashboard is the one screen in English.** Every operation's own
