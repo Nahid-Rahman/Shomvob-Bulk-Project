@@ -199,10 +199,31 @@ const LEAVE_STEP = 0.5;
    October file shows materially more used than a January one. */
 const LEAVE_BAND = { low: 0.6, high: 1.0 };
 
+/* ===== Payroll Custom Field Value Add ===== */
+
+/* Another export the user fills in rather than a blank template. Only the
+   two identity columns are known ahead of time; every column after them is
+   a custom addition or deduction the company configured itself, so the
+   field names — typos and all — are read from the uploaded header. */
+const PAYROLL_COLUMNS = { id: "Employee ID", name: "Employee Name" };
+
+/* Field headers carry their sign as a suffix: "Win Quiditch Match (+)",
+   "Friends With Malfoy (-)". Both signs draw from the same amount range —
+   the header already says which way the money moves, so values stay
+   positive. */
+const PAYROLL_SIGN_RE = /^(.*?)\s*\((\+|-)\)$/;
+
+/* Coverage is a plain percentage dropdown, applied per cell. Below 100%
+   this leaves some employees untouched across every field, which is what
+   real payroll looks like. */
+const PAYROLL_COVERAGE_OPTIONS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+const PAYROLL_DEFAULTS = { coverage: 30, min: 500, max: 10000, step: 100 };
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },
   { id: "leave_balance_add", label: "Leave Balance Add", status: "active" },
-  { id: "payroll_field_add", label: "Payroll Custom Field Add", status: "soon" },
+  { id: "payroll_field_add", label: "Payroll Custom Field Add", status: "active" },
   { id: "assets_add", label: "Assets Add", status: "soon" }
 ];

@@ -1,10 +1,10 @@
 # Bulk Forge — spec
 
 Reusable web app (single self-contained HTML file, runs fully in-browser,
-no backend). Sidebar lists 5 planned bulk operations; **Employee Add**,
-**Employee Attendance Add** and **Leave Balance Add** are built. Each
-operation gets its own form section; output is always an `.xlsx` file
-matching Shomvob's real upload template for that operation.
+no backend). Sidebar lists 5 planned bulk operations; only **Assets Add**
+remains to be built. Each operation gets its own form section; output is
+always an `.xlsx` file matching Shomvob's real upload template for that
+operation.
 
 ## Employee Add — full spec (confirmed with user)
 
@@ -409,9 +409,78 @@ Not yet run against the real 550-row export: the user had cleared it from
 Downloads by the time the build was finished. Worth one run when a fresh
 export is to hand.
 
+## Payroll Custom Field Add — full spec (built 2026-09-07)
+
+Built and tested. Like Leave Balance, this fills in the system's own
+export rather than building a file from scratch.
+
+### Template as inspected
+
+Source file: `custom-additions-deductions-H-2026-09.xlsx`. One sheet,
+`Custom Add-Deduct` — note the space and the hyphen. 110 data rows,
+10 columns, freeze panes `A2`, no autofilter, no data validations.
+
+| Col | Header | Notes |
+|-----|--------|-------|
+| A | `Employee ID` | 110 unique, inconsistent shapes: `HSWW001`…, plus `EMP_01`, `E_001`, `EMP00123`, `DEMOC006qer2` |
+| B | `Employee Name` | all populated |
+| C-F | `Helped A Professor (+)`, `OWL Maintainance (+)`, `Win Quiditch Match (+)`, `Helped Harry Potter (+)` | four additions |
+| G-J | `Used Spell On Student (-)`, `Friends With Malfoy (-)`, `Used Felix Felisis (-)`, `Using Unforgivable Curses (-)` | four deductions |
+
+All 880 numeric cells were `0` — the export is a blank grid to fill in.
+Values are plain integers with `General` format, not the `#,##0.0` that
+Leave Balance uses.
+
+What this forces:
+
+- **Field names are company-configured and must be reproduced verbatim.**
+  The sample account's names include real typos — `Maintainance`,
+  `Quiditch` — and a set of Harry Potter in-jokes. Never hardcode them,
+  never correct them.
+- **The sign lives in the header**, as a `(+)` or `(-)` suffix, so it is
+  parsed for display but the values written stay positive.
+- **The number of fields varies.** Anything after the two identity
+  columns with a non-empty header is a custom field.
+- The same 110 employees appear here as in the Leave Balance export —
+  same test account.
+
+### Decisions confirmed with the user
+
+1. **The only file input is the uploaded export.** Employee ID, Employee
+   Name and every field name are read from it and carried through
+   untouched, row order included.
+2. **Coverage is a percentage dropdown** — 10, 20, … 100 — applied **per
+   cell**. Because it is per cell, no employee gets every field filled and
+   some employees come out entirely zero, which is what the user asked
+   for; at 100% the whole grid fills.
+3. **Amount is user-supplied**: min, max and step (defaults 500, 10,000,
+   100). Values are a multiple of step inside the range.
+4. **Additions and deductions draw from the same range** — the header
+   already says which way the money moves, so nothing is negated.
+5. **A cell that already carries a value is never touched.** Re-running on
+   a partly filled file cannot undo earlier work; the count of preserved
+   cells is reported.
+6. **The output reuses the uploaded file's own name**, because it carries
+   a company code (`H`) we have no way to derive.
+
+### Tested
+
+Playwright, 21 checks against a self-written fixture (60 employees x 8
+fields, deliberately inconsistent IDs, a misspelled field name, and one
+pre-existing value): sheet name round-trip, header reproduced verbatim
+with typos and signs intact, row order and identity columns untouched,
+amounts on-step and in-range, 100% coverage filling every cell, 10%
+coverage leaving a sparse grid *and* some employees entirely zero, a
+pre-existing value surviving both, a custom range honoured, a file lacking
+the identity columns refused, and min-above-max disabling generation.
+
+Also run against the real 110-row export: sheet name and header exact,
+110 rows in and out, no identity drift, a 30% setting producing 31.1% of
+cells filled and 7 of 110 employees left entirely at zero, every value
+on-step and in-range, no console errors.
+
 ## Still to spec (not started)
 
-- Payroll Custom Field Value Add
 - Assets Add
 
 Each needs the same treatment as Employee Add: get the real template file,

@@ -45,12 +45,11 @@ operations visually consistent with this system — reuse the existing
 `.section`, `.field`, `.chip`, `.dept-card`-style patterns rather than
 inventing new component styles per operation.
 
-## Operations — 3 of 5 built
+## Operations — 4 of 5 built
 
 The sidebar (`OPERATIONS` in `src/app-data.js`) lists 5 planned bulk
-operations. **Employee Add**, **Employee Attendance Add** and **Leave
-Balance Add** are implemented. The other 2 render a "Coming soon"
-placeholder (see `renderMain()` in `src/app.js`).
+operations. All but **Assets Add** are implemented; that one still renders
+a "Coming soon" placeholder (see `renderMain()` in `src/app.js`).
 
 ### Employee Add — full spec (built, tested, do not change without asking)
 
@@ -151,6 +150,27 @@ row order included. Full rules in `SPEC.md`; the traps:
   come back larger; a row already at its ceiling comes back untouched and
   is counted in the report rather than clamped.
 
+### Payroll Custom Field Add — built, tested, do not change without asking
+
+Fills in the system's own export, same shape of problem as Leave Balance.
+Sheet `Custom Add-Deduct`. Columns A and B are Employee ID and Name;
+everything after them is a custom field the company configured. Full rules
+in `SPEC.md`; the traps:
+
+- **Field names are read from the header and reproduced verbatim.** The
+  real export's names contain typos (`Maintainance`, `Quiditch`) — do not
+  hardcode them and do not correct them. The count of fields varies too.
+- **The sign is a `(+)`/`(-)` suffix on the header**, so it is parsed for
+  display only and written values stay positive. Both signs draw from the
+  same user-supplied amount range.
+- **Coverage is a percentage applied per cell**, not per employee. That is
+  deliberate: it means some employees come out entirely zero, which the
+  user explicitly asked for.
+- **A cell that already has a value is never touched**, so re-running on a
+  partly filled file cannot undo earlier work.
+- **The output reuses the uploaded filename** — it carries a company code
+  (`H`) that cannot be derived.
+
 ## Inspecting a template
 
 `python tools/probe_xlsx.py <template.xlsx>` dumps sheets and visibility,
@@ -161,9 +181,8 @@ data validations, which is exactly where dropdown option lists live.
 
 ## Where this stands (2026-09-07)
 
-Employee Add, Employee Attendance Add and Leave Balance Add are built,
-tested and pushed. Two remain — Payroll Custom Field Value Add and Assets
-Add — both blocked on their upload templates, which only the user can
+Four of the five operations are built, tested and pushed. Only **Assets
+Add** remains, blocked on its upload template, which only the user can
 export from Shomvob.
 
 One thing still outstanding on Attendance: the lunar dates in
@@ -171,9 +190,8 @@ One thing still outstanding on Attendance: the lunar dates in
 verified them yet. The UI renders them as dashed removable chips so they
 can be corrected without a code change.
 
-## Next work: the remaining 2 operations
+## Next work: the last operation
 
-- Payroll Custom Field Value Add
 - Assets Add
 
 For each: get the real Shomvob upload template (.xlsx) from the user,

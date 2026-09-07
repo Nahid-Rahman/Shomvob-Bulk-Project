@@ -259,6 +259,13 @@
       updateSummary();
       return;
     }
+    if (currentOp === "payroll_field_add") {
+      $("#actionBar").style.display = "flex";
+      root.innerHTML = payrollTemplate();
+      wirePayrollEvents();
+      updateSummary();
+      return;
+    }
     if (currentOp !== "employee_add") {
       const op = OPERATIONS.find((o) => o.id === currentOp);
       root.innerHTML = `
@@ -2087,17 +2094,389 @@
     }
   }
 
+  /* ================= Payroll Custom Field Value Add ================= */
+
+  /* Like Leave Balance, this fills in the system's own export. The identity
+     columns pass through untouched; every column after them is a custom
+     addition or deduction the company configured, read from the header —
+     names, signs and typos included. A cell that already carries a value is
+     left alone, so re-running never undoes earlier work. */
+
+  const payroll = {
+    fileName: "",
+    sheetName: "",
+    header: [],
+    rows: [],
+    idCol: -1,
+    nameCol: -1,
+    fields: [], /* [{ index, label, name, sign }] */
+    coverage: PAYROLL_DEFAULTS.coverage,
+    min: PAYROLL_DEFAULTS.min,
+    max: PAYROLL_DEFAULTS.max,
+    step: PAYROLL_DEFAULTS.step,
+  };
+
+  function findPayrollColumns(header) {
+    const norm = header.map((h) => String(h == null ? "" : h).trim().toLowerCase());
+    const idCol = norm.indexOf(PAYROLL_COLUMNS.id.toLowerCase());
+    const nameCol = norm.indexOf(PAYROLL_COLUMNS.name.toLowerCase());
+    if (idCol < 0 || nameCol < 0) return null;
+
+    const fields = [];
+    header.forEach((h, i) => {
+      if (i === idCol || i === nameCol) return;
+      const label = String(h == null ? "" : h).trim();
+      if (!label) return;
+      const m = PAYROLL_SIGN_RE.exec(label);
+      fields.push({
+        index: i,
+        label: label,
+        name: m ? m[1] : label,
+        sign: m ? m[2] : "",
+      });
+    });
+    if (!fields.length) return null;
+    return { idCol, nameCol, fields };
+  }
+
+  function payrollAmount() {
+    const min = payroll.min;
+    const max = payroll.max;
+    const step = payroll.step > 0 ? payroll.step : 1;
+    if (max <= min) return min;
+    const steps = Math.floor((max - min) / step);
+    return min + randInt(0, steps) * step;
+  }
+
+  function generatePayrollRows() {
+    const out = [payroll.header.slice()];
+    let filled = 0,
+      kept = 0,
+      untouchedEmployees = 0;
+
+    payroll.rows.forEach((r) => {
+      const row = r.slice();
+      let touched = 0;
+      payroll.fields.forEach((f) => {
+        const existing = numOf(row[f.index]);
+        if (existing !== 0) {
+          /* the user asked that an existing value never be disturbed */
+          kept++;
+          touched++;
+          return;
+        }
+        if (Math.random() * 100 < payroll.coverage) {
+          row[f.index] = payrollAmount();
+          filled++;
+          touched++;
+        } else {
+          row[f.index] = 0;
+        }
+      });
+      if (!touched) untouchedEmployees++;
+      out.push(row);
+    });
+
+    return { rows: out, filled, kept, untouchedEmployees };
+  }
+
+  function downloadPayrollWorkbook(rows) {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    /* the export leaves these as General-format plain numbers, so nothing
+       to set per cell here — unlike Leave Balance's #,##0.0 */
+    ws["!cols"] = [{ wch: 22 }, { wch: 22 }].concat(
+      payroll.fields.map((f) => ({ wch: Math.max(14, Math.min(32, f.label.length + 2)) }))
+    );
+    ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, payroll.sheetName || "Custom Add-Deduct");
+    /* reuse the uploaded file's own name: it carries a company code we have
+       no way to derive */
+    const filename = payroll.fileName || `custom-additions-deductions-${fmtDate(today)}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    return filename;
+  }
+
+  /* ---------- UI ---------- */
+
+  function payrollTemplate() {
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Bulk operation · 04</span>
+        <h1 class="page-title">Payroll Custom Field Add</h1>
+        <p class="page-desc">System theke export kora custom addition/deduction file ta upload koro. Employee ar field name shob file theke pora hobe — ami shudhu amount gula boshabo.</p>
+        <details class="rules-card">
+          <summary class="rules-summary"><span>Fixed generation rules</span><span class="chev">›</span></summary>
+          <div class="rules-body">
+            <div class="rule-row"><span class="rule-col">Ja pora hoy</span><span class="rule-val">Employee ID · Employee Name · protita custom field-er naam</span></div>
+            <div class="rule-row"><span class="rule-col">Ja generate hoy</span><span class="rule-val">shudhu custom field-er amount</span></div>
+            <div class="rule-row"><span class="rule-col">Sign</span><span class="rule-val">(+) ar (-) ek-i range theke — header-e sign ache, tai value positive</span></div>
+            <div class="rule-row"><span class="rule-col">Coverage</span><span class="rule-val">per-cell, tai kichu employee puropuri 0 thakbe</span></div>
+            <div class="rule-row"><span class="rule-col">Age value thakle</span><span class="rule-val">hat dibe na — oporibortito thakbe</span></div>
+            <div class="rule-row"><span class="rule-col">Row order</span><span class="rule-val">uploaded file-er hubohu</span></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Exported file</h2></div>
+        <p class="section-note">Shomvob theke download kora <code>custom-additions-deductions-*.xlsx</code> file ta dao.</p>
+        <div class="field">
+          <label for="payrollFile">Excel file</label>
+          <input type="file" id="payrollFile" accept=".xlsx,.xlsm" />
+          <span class="hint">${payroll.fileName ? escapeHtml(payroll.fileName) : "Employee ID ar Employee Name column lagbe, tarpor joto gula custom field ache"}</span>
+        </div>
+        <div id="payrollTally"></div>
+        <div class="preview-row" id="payrollFields"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Coverage &amp; amount</h2></div>
+        <p class="section-note">Koto gulo cell-e amount boshbe, ar amount koto hobe.</p>
+        <div class="field-grid-2">
+          <div class="field">
+            <label for="payrollCoverage">Coverage</label>
+            <select id="payrollCoverage">
+              ${PAYROLL_COVERAGE_OPTIONS.map(
+                (v) => `<option value="${v}" ${v === payroll.coverage ? "selected" : ""}>${v}%</option>`
+              ).join("")}
+            </select>
+            <span class="hint">Protita cell-er ei shombhabona — 100% dile puro grid bhorbe</span>
+          </div>
+          <div class="field">
+            <label for="payrollStep">Step</label>
+            <input type="number" id="payrollStep" min="1" value="${payroll.step}" />
+            <span class="hint">Amount ei ongker gunitok hobe</span>
+          </div>
+        </div>
+        <div class="field-grid-2">
+          <div class="field">
+            <label for="payrollMin">Min amount</label>
+            <input type="number" id="payrollMin" min="0" value="${payroll.min}" />
+          </div>
+          <div class="field">
+            <label for="payrollMax">Max amount</label>
+            <input type="number" id="payrollMax" min="0" value="${payroll.max}" />
+            <span class="error-text" id="payrollRangeError"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Preview</h2></div>
+        <p class="section-note">Generate korar age dekhe nao. Prottek baar value bodlabe — random.</p>
+        <div id="payrollPreview"></div>
+      </div>
+    `;
+  }
+
+  function renderPayrollTally() {
+    const box = $("#payrollTally");
+    if (!box) return;
+    if (!payroll.fields.length) {
+      box.innerHTML = `<span class="tally">File upload koro</span>`;
+      return;
+    }
+    const cells = payroll.rows.length * payroll.fields.length;
+    const plus = payroll.fields.filter((f) => f.sign === "+").length;
+    const minus = payroll.fields.filter((f) => f.sign === "-").length;
+    box.innerHTML =
+      `<span class="tally ok"><strong>${payroll.rows.length}</strong> employee · <strong>${payroll.fields.length}</strong> field · <strong>${cells}</strong> cell</span>` +
+      `<span class="tally" style="margin-left:8px"><strong>${plus}</strong> addition · <strong>${minus}</strong> deduction</span>`;
+  }
+
+  function renderPayrollFields() {
+    const box = $("#payrollFields");
+    if (!box) return;
+    box.innerHTML = "";
+    payroll.fields.forEach((f) => {
+      const chip = document.createElement("span");
+      chip.className = "chip" + (f.sign === "+" ? " accent" : "");
+      chip.textContent = f.label;
+      box.appendChild(chip);
+    });
+  }
+
+  function renderPayrollPreview() {
+    const box = $("#payrollPreview");
+    if (!box) return;
+    if (!payroll.fields.length || !payroll.rows.length) {
+      box.innerHTML = `<span class="tally">File upload korle preview ashbe</span>`;
+      return;
+    }
+    if (payrollProblems().length) {
+      box.innerHTML = `<span class="tally warn">${payrollProblems()[0]}</span>`;
+      return;
+    }
+    const result = generatePayrollRows();
+    const sample = result.rows.slice(1, 9);
+    const cells = payroll.rows.length * payroll.fields.length;
+
+    box.innerHTML = `
+      <div class="preview-table-wrap">
+        <table class="preview-table">
+          <thead><tr>
+            <th>Employee ID</th>
+            ${payroll.fields.map((f) => `<th class="num">${escapeHtml(f.name)} <span class="faint">(${f.sign || "?"})</span></th>`).join("")}
+          </tr></thead>
+          <tbody>
+            ${sample
+              .map(
+                (r) => `<tr>
+                  <td>${escapeHtml(String(r[payroll.idCol]))}</td>
+                  ${payroll.fields
+                    .map((f) => {
+                      const v = numOf(r[f.index]);
+                      return `<td class="num ${v ? "strong" : "faint"}">${v ? v.toLocaleString("en-US") : "0"}</td>`;
+                    })
+                    .join("")}
+                </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+      <span class="tally ok"><strong>${result.filled}</strong> cell fill hobe (${cells} er moddhe)</span>
+      ${result.kept ? `<span class="tally warn" style="margin-left:8px"><strong>${result.kept}</strong> cell-e age theke value ache — hat dibo na</span>` : ""}
+      ${result.untouchedEmployees ? `<span class="tally" style="margin-left:8px"><strong>${result.untouchedEmployees}</strong> employee puropuri 0 thakbe</span>` : ""}`;
+  }
+
+  function handlePayrollFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const wb = XLSX.read(new Uint8Array(reader.result), { type: "array" });
+        let found = null;
+        for (const name of wb.SheetNames) {
+          const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, blankrows: false });
+          if (!aoa.length) continue;
+          const cols = findPayrollColumns(aoa[0]);
+          if (cols) {
+            found = { name, header: aoa[0], rows: aoa.slice(1), cols };
+            break;
+          }
+        }
+        if (!found) {
+          showToast("Ei file-e Employee ID / Name ar custom field column pawa jayni.", true);
+          return;
+        }
+        found.rows = found.rows.filter((r) => r.some((c) => c != null && String(c).trim() !== ""));
+
+        payroll.fileName = file.name;
+        payroll.sheetName = found.name;
+        payroll.header = found.header;
+        payroll.rows = found.rows;
+        payroll.idCol = found.cols.idCol;
+        payroll.nameCol = found.cols.nameCol;
+        payroll.fields = found.cols.fields;
+
+        renderPayrollTally();
+        renderPayrollFields();
+        renderPayrollPreview();
+        updateSummary();
+        showToast(`${file.name} — ${payroll.rows.length} employee, ${payroll.fields.length} field.`);
+      } catch (err) {
+        console.error(err);
+        showToast("File porte somoshya hoyeche.", true);
+      }
+    };
+    reader.onerror = () => showToast("File porte somoshya hoyeche.", true);
+    reader.readAsArrayBuffer(file);
+  }
+
+  function wirePayrollEvents() {
+    $("#payrollFile").addEventListener("change", handlePayrollFile);
+
+    $("#payrollCoverage").addEventListener("change", (e) => {
+      payroll.coverage = parseInt(e.target.value, 10) || 0;
+      renderPayrollPreview();
+      updateSummary();
+    });
+    const numFields = [
+      ["#payrollMin", "min"],
+      ["#payrollMax", "max"],
+      ["#payrollStep", "step"],
+    ];
+    numFields.forEach(([sel, key]) => {
+      $(sel).addEventListener("input", (e) => {
+        payroll[key] = Math.max(key === "step" ? 1 : 0, parseInt(e.target.value, 10) || 0);
+        validatePayrollRange();
+        renderPayrollPreview();
+        updateSummary();
+      });
+    });
+
+    validatePayrollRange();
+    renderPayrollTally();
+    renderPayrollFields();
+    renderPayrollPreview();
+  }
+
+  function validatePayrollRange() {
+    const err = $("#payrollRangeError");
+    const maxEl = $("#payrollMax");
+    if (!err || !maxEl) return true;
+    const ok = payroll.max >= payroll.min;
+    err.textContent = ok ? "" : "Max amount min-er cheye kom hote parbe na";
+    maxEl.classList.toggle("invalid", !ok);
+    return ok;
+  }
+
+  function payrollProblems() {
+    if (!payroll.fields.length || !payroll.rows.length) return ["exported file upload koro"];
+    if (payroll.max < payroll.min) return ["max amount min-er cheye kom"];
+    if (!(payroll.step > 0)) return ["step 1 ba tar beshi hote hobe"];
+    return [];
+  }
+
+  function updatePayrollSummary() {
+    const problems = payrollProblems();
+    const summary = $("#actionSummary");
+    const btn = $("#generateBtn");
+    if (problems.length) {
+      summary.textContent = problems[0];
+      btn.disabled = true;
+      return;
+    }
+    const cells = payroll.rows.length * payroll.fields.length;
+    summary.innerHTML = `<strong>${payroll.rows.length}</strong> employee · <strong>${payroll.fields.length}</strong> field · <strong>${payroll.coverage}%</strong> of ${cells} cell`;
+    btn.disabled = false;
+  }
+
+  function handlePayrollGenerate() {
+    const problems = payrollProblems();
+    if (problems.length) {
+      showToast(problems[0], true);
+      return;
+    }
+    try {
+      const result = generatePayrollRows();
+      const filename = downloadPayrollWorkbook(result.rows);
+      const tail = result.kept ? `, ${result.kept} cell oporibortito` : "";
+      showToast(`${filename} — ${result.filled} cell fill hoyeche${tail}.`);
+      renderPayrollPreview();
+    } catch (err) {
+      console.error(err);
+      showToast("File generate korte somoshya hoyeche. Console check koro.", true);
+    }
+  }
+
   /* Every operation shares the one action bar, so these dispatch on the
      operation currently on screen. */
   function updateSummary() {
     if (currentOp === "attendance_add") return updateAttendanceSummary();
     if (currentOp === "leave_balance_add") return updateLeaveSummary();
+    if (currentOp === "payroll_field_add") return updatePayrollSummary();
     return updateEmployeeSummary();
   }
 
   function handleGenerate() {
     if (currentOp === "attendance_add") return handleAttendanceGenerate();
     if (currentOp === "leave_balance_add") return handleLeaveGenerate();
+    if (currentOp === "payroll_field_add") return handlePayrollGenerate();
     return handleEmployeeGenerate();
   }
 
