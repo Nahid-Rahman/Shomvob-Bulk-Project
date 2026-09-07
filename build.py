@@ -18,7 +18,7 @@ ASSETS = ROOT / "assets"
 # index.html stays a single self-contained file. Keys are the placeholder
 # tokens the sources use.
 INLINE_ASSETS = {
-    "__SHOMVOB_LOGO__": (ASSETS / "shomvob_logo_white.png", "image/png"),
+    "__SHOMVOB_LOGO__": (ASSETS / "shomvob_hr_logo.png", "image/png"),
 }
 
 

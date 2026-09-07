@@ -19,6 +19,12 @@ const { check, state } = makeChecker();
 
   await page.goto(PAGE);
 
+  /* the gate carries the branding too */
+  check("gate shows the logo", await page.isVisible("#loginGate .brand-logo"));
+  check("gate names the product",
+    /Bulk Forge\s+for Shomvob HRIS/.test(await page.textContent(".gate-product")),
+    await page.textContent(".gate-product"));
+
   /* the joke gate: a wrong password is refused, the right one is pre-filled */
   await page.fill("#loginPass", "definitely-not-it");
   await page.click("#loginBtn");
@@ -40,7 +46,7 @@ const { check, state } = makeChecker();
   check("logo actually decoded", logo && logo.w > 0 && logo.h > 0, JSON.stringify(logo));
   check("sidebar names the product",
     (await page.textContent(".brand-name")).trim() === "Bulk Forge" &&
-      (await page.textContent(".brand-sub")).trim() === "for Shomvob HR",
+      (await page.textContent(".brand-sub")).trim() === "for Shomvob HRIS",
     (await page.textContent(".brand-name")) + " / " + (await page.textContent(".brand-sub")));
   check("the Lazy stamp is there", (await page.textContent(".brand-stamp")).trim() === "Lazy");
 

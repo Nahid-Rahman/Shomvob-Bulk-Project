@@ -141,18 +141,27 @@ button { font-family: inherit; }
   padding: 22px 22px 18px;
   border-bottom: 1px solid var(--sidebar-border);
 }
-/* Shomvob's own white wordmark, inlined by build.py. The file is
-   unmodified — the "Lazy" stamp is a layer over its corner, so the mark
-   stays intact and swapping the logo is a file swap and nothing else. The
-   sidebar is already dark, so the white version needs no plaque. */
-.brand-logo-wrap { position: relative; display: inline-block; }
-.brand-logo { display: block; width: 138px; height: auto; }
+/* The Shomvob HR logo, inlined by build.py. It arrived as a JPG with a
+   white ground and no alpha, so it sits on a white tile rather than being
+   keyed out — keying would eat the white gaps inside the mark and halo the
+   thin wordmark. The tile reads as deliberate against the dark sidebar,
+   and the file stays untouched, so replacing the logo is a file swap.
+
+   Shown at 92px because the wordmark inside it stops being legible much
+   below that. The product name beside it is live text, not image. */
+.brand-logo-wrap {
+  position: relative;
+  display: inline-block;
+  padding: 9px 11px;
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+.brand-logo { display: block; width: 92px; height: auto; }
 .brand-stamp {
   position: absolute;
-  /* hangs off the corner rather than sitting on the wordmark — any higher
-     and it covers the final letter of "Shomvob" */
-  right: -18px;
-  bottom: -13px;
+  /* hangs off the tile's corner rather than covering the mark */
+  right: -14px;
+  bottom: -10px;
   transform: rotate(-9deg);
   font-family: var(--font-display);
   font-size: 9.5px;
@@ -160,8 +169,8 @@ button { font-family: inherit; }
   letter-spacing: 0.16em;
   text-transform: uppercase;
   line-height: 1;
-  color: var(--accent);
-  background: var(--sidebar-bg);
+  color: var(--accent-strong);
+  background: #ffffff;
   border: 1.5px solid var(--accent);
   border-radius: 3px;
   padding: 3px 5px 2px;
@@ -934,17 +943,20 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 26px 26px 22px;
 }
 
-.gate-mark {
+.gate-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 20px;
+  gap: 18px;
+  margin-bottom: 22px;
 }
-.gate-mark svg { color: var(--accent); flex-shrink: 0; }
+/* the card is white too, so the tile needs an edge to read as a tile */
+.gate-brand .brand-logo-wrap { border: 1px solid var(--border); flex-shrink: 0; }
+.gate-product {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  color: var(--text-faint);
+}
+.gate-product b { font-weight: 600; color: var(--text); }
 
 .gate-title { font-size: 22px; letter-spacing: -0.01em; }
 .gate-sub {

@@ -207,18 +207,29 @@ call `signIn(page)` from `tests/lib.js` straight after `page.goto`.
 
 ## Sidebar branding
 
-The sidebar head carries Shomvob's own white wordmark with a rotated
-"Lazy" stamp hanging off its corner, then **Bulk Forge** and "for Shomvob
-HR" beneath — the shape of Shomvob's own admin sidebar, which is where the
-user wanted it. It lived on the dashboard first; it was moved here because
-two copies of the same logo within a few hundred pixels read as a
-duplication rather than a design.
+The Shomvob HR logo appears in two places: the sidebar head (logo tile,
+then **Bulk Forge** / "for Shomvob HRIS") and the login card (tile beside
+"**Bulk Forge** for Shomvob HRIS"). The sidebar shape follows Shomvob's
+own admin sidebar, which is what the user asked for. It briefly lived on
+the dashboard body too; that was removed, because two copies of one logo
+within a few hundred pixels read as duplication rather than design.
 
-The logo file (`assets/shomvob_logo_white.png`) is **unmodified**. The
-stamp is a separate CSS layer over it, so the mark stays intact, the stamp
-follows the theme, and replacing the logo is a file swap and nothing else.
-It hangs off the corner deliberately — any higher and it covers the last
-letter of "Shomvob".
+`assets/shomvob_hr_logo.png` is **unmodified artwork** — the user's own
+file, trimmed of its blank canvas and quantised, nothing else. Two things
+follow from what it is:
+
+- It came as a **JPG with a white ground and no alpha**, so it sits on a
+  white tile rather than being keyed transparent. Keying would eat the
+  white gaps inside the mark and halo the thin wordmark. On the dark
+  sidebar the tile reads as deliberate; on the white login card it gets a
+  border so it still reads as a tile.
+- The source held only **95x88 px of actual mark** inside a 200x200
+  canvas, so it is shown at 92px. Much smaller and its built-in "Shomvob
+  HR" wordmark turns to mush. If a higher-resolution or SVG version turns
+  up, swapping the file is the whole job.
+
+The "Lazy" stamp is a separate CSS layer hanging off the tile's corner,
+never burned into the image.
 
 `build.py` inlines the PNG as a base64 data URI through the
 `__SHOMVOB_LOGO__` token. That is the mechanism to reuse for any future
