@@ -325,7 +325,7 @@ const DEFAULT_ASSET_TYPES = [
    reasoning as the login clip: inlining a megabyte-plus would delay the
    page for no gain. */
 const OPERATION_MEDIA = {
-  // employee_add: "assets/....mp4",
+  employee_add: "assets/op_employee_add.mp4",
   // attendance_add: "assets/....mp4",
   // leave_balance_add: "assets/....mp4",
   // payroll_field_add: "assets/....mp4",
