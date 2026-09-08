@@ -171,9 +171,14 @@ the parts that are easy to get wrong:
   start.
 - **A shift may cross midnight**; it stays one row, dated by the day it
   started, and its Out Time reads earlier than its In Time.
-- `BD_HOLIDAYS` in `app-data.js` covers 2025 and 2026 only. Its lunar
-  dates are a draft the user has not yet verified — the UI renders them as
-  dashed removable chips for that reason. Adding a year is one more key.
+- `BD_HOLIDAYS` in `app-data.js` is **2026 only, and read off Shomvob's
+  own HR system** (Holiday Management → 2026 → All → Active) — not a
+  government gazette, because the company's calendar is what the test data
+  has to match. Nothing in it is a guess. The draft it replaced had the
+  Eid ranges too short and was missing Election Day, Shab e-Barat,
+  Muharram, Chaitra Sankranti and Student-People Uprising Day outright.
+  Adding a year is one more key; a range in a year with no key gets no
+  holidays and the UI says so.
 
 ### Assets Add — built, tested, do not change without asking
 
@@ -405,11 +410,15 @@ All five operations are built, tested and pushed — 142 browser checks
 across the five suites. The app is feature-complete against the five
 templates the user supplied.
 
-One thing still outstanding, from Attendance: the lunar dates in
-`BD_HOLIDAYS` (`src/app-data.js`) are our draft and the user has not
-verified them yet. The UI renders them as dashed removable chips so they
-can be corrected without a code change. Ask before treating them as
-correct.
+The holiday table is now the user's own HR calendar rather than our
+draft, so nothing in the app is knowingly guessed any more.
+
+What has still never been done: **no generated file has been uploaded into
+the real Shomvob HRIS.** Every rule was inferred from a template and
+confirmed in conversation, and 157 browser checks prove each file matches
+its template's shape — but the importer itself has never passed judgement.
+That is the largest remaining unknown, and worth doing before anyone
+relies on the output.
 
 ## Adding a sixth operation
 

@@ -1363,7 +1363,21 @@
       else if (weekend.has(d.getDay())) weekendDays++;
     });
     const working = days - weekendDays - holidayDays;
-    box.innerHTML = `<span class="tally ok"><strong>${days}</strong> din · <strong>${working}</strong> working · ${weekendDays} weekend · ${holidayDays} holiday</span>`;
+
+    /* The holiday table only covers the years it covers. Saying so beats
+       silently generating a month with no holidays in it. */
+    let missing = [];
+    if (att.holidayMode === "govt" || att.holidayMode === "govt_custom") {
+      const years = new Set();
+      for (let y = from.getFullYear(); y <= to.getFullYear(); y++) years.add(y);
+      missing = Array.from(years).filter((y) => !BD_HOLIDAYS[y]);
+    }
+
+    box.innerHTML =
+      `<span class="tally ok"><strong>${days}</strong> din · <strong>${working}</strong> working · ${weekendDays} weekend · ${holidayDays} holiday</span>` +
+      (missing.length
+        ? `<span class="tally warn" style="margin-left:8px">${missing.join(", ")}-er holiday list nei — custom date use koro</span>`
+        : "");
   }
 
   function shiftSpanText(sh) {
@@ -1616,7 +1630,7 @@
       const govt = govtHolidayList().filter((h) => att.govtRemoved.indexOf(h.date) === -1);
       const box = document.createElement("div");
       box.innerHTML = `
-        <p class="sub-note">Built-in list — <strong>${govt.length}</strong> date. Dashed chip gula chand-nirbhor, tai approximate — bhul mone hole remove kore custom date diye dao.</p>
+        <p class="sub-note">Shomvob-er HR system theke neya — <strong>${govt.length}</strong> date. Kono ta na lagle chip-er × chepe remove koro.</p>
         <div class="preview-row">${govt
           .map(
             (h) =>

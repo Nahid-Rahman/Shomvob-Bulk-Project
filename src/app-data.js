@@ -120,46 +120,56 @@ const TIME_FORMATS = [
   { id: "h12s", label: "09:30:45 AM", sub: "12-hour + seconds" }
 ];
 
-/* Bangladesh government holidays. Entries marked `approx` follow the lunar
-   calendar and are announced close to the date, so they are a best guess —
-   the UI shows them as editable chips precisely so they can be corrected.
-   Adding a year is a matter of adding one more key here. */
+/* Holidays, taken from Shomvob's own HR system (Holiday Management →
+   2026 → All → Active) rather than a government gazette, because that is
+   the calendar the test data has to line up with. Every date here was read
+   off that screen — none is a guess, unlike the draft this replaced.
+
+   Two things the source does that this format flattens:
+   - Eid is stored there as a date *range* (Eid ul-Fitr 19–23 Mar, Eid
+     ul-Adha 26–31 May). Each day is its own entry here, so the rest of the
+     code can keep treating a holiday as a single date.
+   - Two names can share one date — 1 May is both May Day and Buddha
+     Purnima, 20 Mar is both an Eid day and Jumatul Bidah. One entry per
+     date, both names in the label.
+
+   Three entries on that screen were left out deliberately: "Test"
+   (29 Jun), "Chuti" (8 Jul) and "S/B" (22 Jul) are somebody's test rows in
+   the demo account, not holidays, and treating them as such would turn
+   three working days into holidays.
+
+   Only 2026 is covered — the user does not need earlier years. A date
+   range in a year with no entry here simply gets no holidays, and the UI
+   says so rather than silently pretending there are none. Adding a year is
+   one more key. */
 const BD_HOLIDAYS = {
-  2025: [
-    ["2025-02-21", "Shaheed Day / Mother Language Day"],
-    ["2025-03-26", "Independence Day"],
-    ["2025-03-30", "Eid-ul-Fitr holiday", true],
-    ["2025-03-31", "Eid-ul-Fitr", true],
-    ["2025-04-01", "Eid-ul-Fitr holiday", true],
-    ["2025-04-14", "Pahela Baishakh"],
-    ["2025-05-01", "May Day"],
-    ["2025-05-11", "Buddha Purnima", true],
-    ["2025-06-06", "Eid-ul-Azha holiday", true],
-    ["2025-06-07", "Eid-ul-Azha", true],
-    ["2025-06-08", "Eid-ul-Azha holiday", true],
-    ["2025-07-06", "Ashura", true],
-    ["2025-08-16", "Janmashtami", true],
-    ["2025-09-05", "Eid-e-Miladunnabi", true],
-    ["2025-10-02", "Durga Puja (Vijaya Dashami)", true],
-    ["2025-12-16", "Victory Day"],
-    ["2025-12-25", "Christmas Day"]
-  ],
   2026: [
-    ["2026-02-21", "Shaheed Day / Mother Language Day"],
-    ["2026-03-20", "Eid-ul-Fitr", true],
-    ["2026-03-21", "Eid-ul-Fitr holiday", true],
-    ["2026-03-22", "Eid-ul-Fitr holiday", true],
+    ["2026-02-04", "Shab e-Barat"],
+    ["2026-02-11", "Election Day"],
+    ["2026-02-12", "Election Day Holiday"],
+    ["2026-02-21", "Language Martyrs' Day"],
+    ["2026-03-17", "Shab-e-qadr"],
+    ["2026-03-19", "Eid ul-Fitr"],
+    ["2026-03-20", "Eid ul-Fitr / Jumatul Bidah"],
+    ["2026-03-21", "Eid ul-Fitr"],
+    ["2026-03-22", "Eid ul-Fitr"],
+    ["2026-03-23", "Eid ul-Fitr"],
     ["2026-03-26", "Independence Day"],
-    ["2026-04-14", "Pahela Baishakh"],
-    ["2026-05-01", "May Day"],
-    ["2026-05-27", "Eid-ul-Azha", true],
-    ["2026-05-28", "Eid-ul-Azha holiday", true],
-    ["2026-05-29", "Eid-ul-Azha holiday", true],
-    ["2026-05-31", "Buddha Purnima", true],
-    ["2026-06-25", "Ashura", true],
-    ["2026-08-04", "Janmashtami", true],
-    ["2026-08-25", "Eid-e-Miladunnabi", true],
-    ["2026-10-20", "Durga Puja (Vijaya Dashami)", true],
+    ["2026-04-13", "Chaitra Sankranti"],
+    ["2026-04-14", "Bengali New Year"],
+    ["2026-05-01", "May Day / Buddha Purnima-Vesak"],
+    ["2026-05-26", "Eid ul-Adha"],
+    ["2026-05-27", "Eid ul-Adha"],
+    ["2026-05-28", "Eid ul-Adha"],
+    ["2026-05-29", "Eid ul-Adha"],
+    ["2026-05-30", "Eid ul-Adha"],
+    ["2026-05-31", "Eid ul-Adha"],
+    ["2026-06-17", "Muharram"],
+    ["2026-06-26", "Ashura"],
+    ["2026-08-05", "Student-People Uprising Day"],
+    ["2026-08-26", "Eid e-Milad-un Nabi"],
+    ["2026-10-20", "Mahanabami"],
+    ["2026-10-21", "Durga Puja"],
     ["2026-12-16", "Victory Day"],
     ["2026-12-25", "Christmas Day"]
   ]
