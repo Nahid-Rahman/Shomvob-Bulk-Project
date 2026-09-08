@@ -99,6 +99,35 @@ const { check, state } = makeChecker();
   await page.click('.op-item:has-text("Employee Add")');
   await page.waitForSelector("#countInput");
   check("switching back re-renders Employee Add", await page.isVisible("#countInput"));
+  /* every navigation must land at the top of the new page — the panel
+     scrolls internally, so a retained scrollTop drops you halfway down it */
+  const scrollTo = (v) => page.evaluate((x) => { document.querySelector(".main-scroll").scrollTop = x; }, v);
+  const scrollNow = () => page.evaluate(() => Math.round(document.querySelector(".main-scroll").scrollTop));
+  const hops = [
+    ["Employee Attendance Add", "#idModeSeg"],
+    ["Assets Add", "#assetCount"],
+    ["Dashboard", ".op-card-grid"],
+    ["Employee Add", "#countInput"],
+  ];
+  let landedAtTop = true;
+  for (const [label, ready] of hops) {
+    await scrollTo(800);
+    await page.click(`.op-item:has-text("${label}")`);
+    await page.waitForSelector(ready);
+    if ((await scrollNow()) !== 0) landedAtTop = false;
+  }
+  check("switching operations lands at the top", landedAtTop);
+
+  await page.click('.op-item:has-text("Dashboard")');
+  await page.waitForSelector(".op-card-grid");
+  await scrollTo(500);
+  await page.click('.op-card[data-op="assets_add"]');
+  await page.waitForSelector("#assetCount");
+  check("a dashboard card lands at the top", (await scrollNow()) === 0, String(await scrollNow()));
+
+  await page.click('.op-item:has-text("Employee Add")');
+  await page.waitForSelector("#countInput");
+
   /* logging out brings the gate back and clears what was typed */
   await page.fill("#countInput", "77");
   await page.click("#logoutBtn");

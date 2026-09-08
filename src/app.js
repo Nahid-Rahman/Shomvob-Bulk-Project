@@ -284,6 +284,14 @@
 
   function renderMain() {
     const root = $("#mainContent");
+
+    /* Every navigation lands at the top. The panel scrolls internally, so
+       without this you arrive halfway down the new page — or wherever the
+       previous one's scroll position clamps to. renderMain is only ever
+       called to change page, so this is the one place it belongs. */
+    const scroller = $(".main-scroll");
+    if (scroller) scroller.scrollTop = 0;
+
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media");
@@ -2691,7 +2699,6 @@
         currentOp = card.dataset.op;
         renderSidebar();
         renderMain();
-        $(".main-scroll").scrollTop = 0;
       });
     });
   }
