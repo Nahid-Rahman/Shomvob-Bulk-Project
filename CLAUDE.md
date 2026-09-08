@@ -200,11 +200,17 @@ columns of which three are required. Full rules in `SPEC.md`; the traps:
 
 An operation page can carry a video in a sticky right-hand rail: the form
 scrolls on the left at ~65% of the width, the clip holds the middle of the
-viewport on the right. Wired through `OPERATION_MEDIA` in
-`src/app-data.js` — one entry per operation id, and
-**an operation with no entry gets no rail and keeps its full 760px form**,
-so these can be filled in one at a time without disturbing the other
-pages. `paintOperation()` in `src/app.js` decides which shell to render.
+viewport on the right. Wired through `OPERATION_MEDIA` in `src/app-data.js` — one entry per
+operation id, and **an operation with no entry gets no rail and keeps its
+full 760px form**, so a page can be left without one and nothing else
+changes. `paintOperation()` in `src/app.js` decides which shell to render.
+All five are filled: `assets/op_<operation_id>.mp4`, the user's own clips.
+
+Clip shape does not matter — the frame takes the rail's width and its
+height follows the video's aspect, so portrait (720x1280) and landscape
+(848x642) both sit centred with nothing cropped or stretched. Name files
+without `#` or spaces: `#` starts a URL fragment and would silently
+truncate the `src`.
 
 Three things it is easy to break:
 
