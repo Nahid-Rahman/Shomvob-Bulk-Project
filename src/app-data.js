@@ -327,7 +327,7 @@ const DEFAULT_ASSET_TYPES = [
 const OPERATION_MEDIA = {
   employee_add: "assets/op_employee_add.mp4",
   attendance_add: "assets/op_attendance_add.mp4",
-  // leave_balance_add: "assets/....mp4",
+  leave_balance_add: "assets/op_leave_balance_add.mp4",
   // payroll_field_add: "assets/....mp4",
   // assets_add: "assets/....mp4",
 };
