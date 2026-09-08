@@ -5,7 +5,7 @@
  * spec changed — check SPEC.md before "fixing" the test.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, toMin, ymd, signIn } = require("./lib");
+const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, toMin, ymd, signIn, watchPageErrors } = require("./lib");
 
 const XLSX = loadSheetJs();
 const { check, state } = makeChecker();
@@ -38,9 +38,7 @@ async function fillCommon(page, opts) {
   freshDownloads();
   const browser = await chromium.launch();
   const page = await browser.newContext({ acceptDownloads: true }).then((c) => c.newPage());
-  const pageErrors = [];
-  page.on("pageerror", (e) => pageErrors.push(String(e)));
-  page.on("console", (m) => { if (m.type() === "error") pageErrors.push("console: " + m.text()); });
+  const pageErrors = watchPageErrors(page);
 
   const ids = Array.from({ length: 10 }, (_, i) => "HUIW" + String(101 + i).padStart(4, "0"));
   const isWeekend = (d) => d.getDay() === 5 || d.getDay() === 6; /* Fri + Sat */

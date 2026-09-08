@@ -52,6 +52,31 @@ function normalizeRow(row, width) {
   return out;
 }
 
+/* Collects anything the page complains about, minus one class of noise.
+   The Google Fonts stylesheet is the page's only external dependency, and
+   a network hiccup fetching it has failed whole suites before while saying
+   nothing about the app. Resource failures are judged by URL through
+   `requestfailed`, so a broken local asset — the logo, a video — is still
+   a real failure; the console's own "Failed to load resource" line carries
+   no URL and cannot be judged, so it is dropped in favour of that. */
+function watchPageErrors(page) {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => {
+    if (m.type() !== "error") return;
+    const text = m.text();
+    if (/Failed to load resource/.test(text)) return;
+    errors.push("console: " + text);
+  });
+  page.on("requestfailed", (r) => {
+    const url = r.url();
+    if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(url)) return;
+    const f = r.failure();
+    errors.push("request failed: " + url + (f ? " — " + f.errorText : ""));
+  });
+  return errors;
+}
+
 function makeChecker() {
   const state = { pass: 0, failures: [] };
   const check = (name, cond, detail) => {
@@ -125,4 +150,4 @@ function ymd(s) {
   return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
 }
 
-module.exports = { REPO, PAGE, DOWNLOADS, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, signIn, generate, toMin, ymd };
+module.exports = { REPO, PAGE, DOWNLOADS, loadSheetJs, loadAppData, normalizeRow, makeChecker, watchPageErrors, report, freshDownloads, signIn, generate, toMin, ymd };

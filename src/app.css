@@ -276,6 +276,49 @@ button { font-family: inherit; }
 .main-scroll { flex: 1; overflow-y: auto; }
 .main-inner { max-width: 760px; margin: 0 auto; padding: 40px 32px 140px; }
 
+/* An operation with a video splits the panel: form on the left at roughly
+   two thirds, video on the right. The right column is sticky, so the clip
+   holds the middle of the viewport while the form scrolls past it. */
+.main-inner.has-media {
+  max-width: 1180px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+  gap: 30px;
+  align-items: start;
+}
+.op-col { min-width: 0; }
+
+.op-media {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  /* Tall enough to centre the clip in the visible area (the action bar
+     covers the bottom ~70px), and deliberately taller than the frame it
+     holds: at the very end of the scroll a sticky element gets lifted by
+     its own containing block, and that slack is what stops the clip being
+     clipped when it happens. */
+  height: calc(100vh - 120px);
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.op-media-frame {
+  margin: 0;
+  width: 100%;
+  max-height: calc(100vh - 300px);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+}
+.op-media-frame video {
+  display: block;
+  width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
 .page-head { margin-bottom: 28px; }
 .page-eyebrow {
   font-family: var(--font-mono);
@@ -1068,6 +1111,13 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-size: 11px;
   line-height: 1.55;
   color: var(--text-faint);
+}
+
+@media (max-width: 1100px) {
+  /* the form needs its width back before the video does */
+  .main-inner.has-media { grid-template-columns: minmax(0, 1fr); max-width: 760px; }
+  .op-media { position: static; height: auto; }
+  .op-media-frame { aspect-ratio: 404 / 720; max-height: 60vh; margin: 0 auto; }
 }
 
 @media (max-width: 860px) {

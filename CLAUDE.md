@@ -196,6 +196,30 @@ columns of which three are required. Full rules in `SPEC.md`; the traps:
 - The type/name cards reuse Employee Add's department/designation classes
   on purpose; keep them looking alike.
 
+## Per-operation media rail
+
+An operation page can carry a video in a sticky right-hand rail: the form
+scrolls on the left at ~65% of the width, the clip holds the middle of the
+viewport on the right. Wired through `OPERATION_MEDIA` in
+`src/app-data.js` — one entry per operation id, and
+**an operation with no entry gets no rail and keeps its full 760px form**,
+so these can be filled in one at a time without disturbing the other
+pages. `paintOperation()` in `src/app.js` decides which shell to render.
+
+Three things it is easy to break:
+
+- **The rail must be shorter than the box it sits in.** At the very end of
+  a scroll a sticky element gets lifted by its own containing block; the
+  slack between `.op-media`'s height and `.op-media-frame`'s
+  `max-height` is what stops the clip being cut off when that happens.
+  Verified at 1440x900, 1280x900 and 1366x768 — 0px clipped at every
+  scroll position.
+- **Below 1100px the split collapses** back to a single 760px column with
+  the clip beneath, because the form needs its width back before the video
+  does.
+- Videos are separate files in `assets/`, never data URIs, and they honour
+  `prefers-reduced-motion` the same way the login clip does.
+
 ## The login gate is a joke, not a control
 
 `#loginGate` in `src/part1.html` covers the app on load and clears when the
@@ -308,7 +332,14 @@ file, not the sources):
     npm test
 
 Each assertion maps to a rule in `SPEC.md`; if one fails, check `SPEC.md`
-before changing the test. The test tooling lives entirely inside `tests/`,
+before changing the test.
+
+`watchPageErrors(page)` in `tests/lib.js` collects console and request
+failures for the "no page errors" check. It ignores failures of the Google
+Fonts stylesheet — the page's one external dependency, which has failed a
+whole suite on a network hiccup — while still failing on a broken local
+asset, since resource failures are judged by URL. Don't widen that filter
+to cover `assets/`. The test tooling lives entirely inside `tests/`,
 including its `package.json` — a `package.json` at the repo root would make
 Vercel try to build what is deliberately a no-build static site.
 

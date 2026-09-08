@@ -314,6 +314,24 @@ const DEFAULT_ASSET_TYPES = [
   ] }
 ];
 
+/* ===== Per-operation media =====
+
+   The video that sits in the sticky right-hand rail of an operation page.
+   One entry per operation id; an operation with no entry simply gets no
+   rail and keeps the full-width form, so these can be filled in one at a
+   time without the other pages changing.
+
+   Videos live in assets/ as separate files rather than data URIs — same
+   reasoning as the login clip: inlining a megabyte-plus would delay the
+   page for no gain. */
+const OPERATION_MEDIA = {
+  employee_add: "assets/lazy_cat.mp4",
+  // attendance_add: "assets/....mp4",
+  // leave_balance_add: "assets/....mp4",
+  // payroll_field_add: "assets/....mp4",
+  // assets_add: "assets/....mp4",
+};
+
 /* ===== The joke gate =====
 
    Not security, and nothing here pretends otherwise: the credentials are

@@ -7,7 +7,7 @@
  * Every check maps to a rule in SPEC.md. Read SPEC.md before changing one.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, generate, ymd, signIn } = require("./lib");
+const { PAGE, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, generate, ymd, signIn, watchPageErrors } = require("./lib");
 
 const XLSX = loadSheetJs();
 const DATA = loadAppData([
@@ -51,9 +51,7 @@ function todayMidnight() {
   freshDownloads();
   const browser = await chromium.launch();
   const page = await browser.newContext({ acceptDownloads: true }).then((c) => c.newPage());
-  const pageErrors = [];
-  page.on("pageerror", (e) => pageErrors.push(String(e)));
-  page.on("console", (m) => { if (m.type() === "error") pageErrors.push("console: " + m.text()); });
+  const pageErrors = watchPageErrors(page);
 
   /* ---------- A. defaults, no employee IDs: everything unassigned ---------- */
   await gotoAssets(page);

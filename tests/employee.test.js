@@ -5,7 +5,7 @@
  * catch anything that breaks it while a later operation is being added.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn } = require("./lib");
+const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn, watchPageErrors } = require("./lib");
 
 const XLSX = loadSheetJs();
 const { check, state } = makeChecker();
@@ -14,8 +14,7 @@ const { check, state } = makeChecker();
   freshDownloads();
   const browser = await chromium.launch();
   const page = await browser.newContext({ acceptDownloads: true }).then((c) => c.newPage());
-  const pageErrors = [];
-  page.on("pageerror", (e) => pageErrors.push(String(e)));
+  const pageErrors = watchPageErrors(page);
 
   await page.goto(PAGE);
 

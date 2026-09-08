@@ -257,44 +257,71 @@
     });
   }
 
+  /* Wraps an operation's form in the two-column shell when that operation
+     has a video, and leaves it full-width when it doesn't — so the rail can
+     be filled in one operation at a time. */
+  function paintOperation(root, html, opId) {
+    const media = OPERATION_MEDIA[opId];
+    if (!media) {
+      root.classList.remove("has-media");
+      root.innerHTML = html;
+      return;
+    }
+    root.classList.add("has-media");
+    root.innerHTML =
+      `<div class="op-col">${html}</div>` +
+      `<aside class="op-media"><figure class="op-media-frame">` +
+      `<video src="${media}" loop muted playsinline autoplay preload="metadata"></video>` +
+      `</figure></aside>`;
+    const vid = $(".op-media video");
+    if (vid && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      vid.autoplay = false;
+      vid.loop = false;
+      vid.controls = true;
+      vid.pause();
+    }
+  }
+
   function renderMain() {
     const root = $("#mainContent");
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
+      root.classList.remove("has-media");
       root.innerHTML = welcomeTemplate();
       wireWelcomeEvents();
       return;
     }
     if (currentOp === "attendance_add") {
       $("#actionBar").style.display = "flex";
-      root.innerHTML = attendanceTemplate();
+      paintOperation(root, attendanceTemplate(), "attendance_add");
       wireAttendanceEvents();
       updateSummary();
       return;
     }
     if (currentOp === "leave_balance_add") {
       $("#actionBar").style.display = "flex";
-      root.innerHTML = leaveTemplate();
+      paintOperation(root, leaveTemplate(), "leave_balance_add");
       wireLeaveEvents();
       updateSummary();
       return;
     }
     if (currentOp === "payroll_field_add") {
       $("#actionBar").style.display = "flex";
-      root.innerHTML = payrollTemplate();
+      paintOperation(root, payrollTemplate(), "payroll_field_add");
       wirePayrollEvents();
       updateSummary();
       return;
     }
     if (currentOp === "assets_add") {
       $("#actionBar").style.display = "flex";
-      root.innerHTML = assetsTemplate();
+      paintOperation(root, assetsTemplate(), "assets_add");
       wireAssetsEvents();
       updateSummary();
       return;
     }
     if (currentOp !== "employee_add") {
       const op = OPERATIONS.find((o) => o.id === currentOp);
+      root.classList.remove("has-media");
       root.innerHTML = `
         <div class="page-head">
           <span class="page-eyebrow">Bulk operation</span>
@@ -310,7 +337,7 @@
       return;
     }
     $("#actionBar").style.display = "flex";
-    root.innerHTML = employeeAddTemplate();
+    paintOperation(root, employeeAddTemplate(), "employee_add");
     wireEmployeeAddEvents();
     renderDepartments();
     updateSummary();
