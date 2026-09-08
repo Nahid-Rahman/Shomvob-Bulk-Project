@@ -991,6 +991,58 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   max-width: 62ch;
 }
 
+/* ---- Discard confirmation ---- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+}
+/* .modal sets display:flex, which would beat the browser's own rule for
+   the hidden attribute */
+.modal[hidden] { display: none; }
+
+.modal-card {
+  width: 100%;
+  max-width: 400px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 22px 24px 18px;
+}
+.modal-title { font-size: 19px; letter-spacing: -0.01em; }
+.modal-body {
+  margin-top: 9px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 20px;
+}
+.modal-keep { padding: 8px 14px; }
+.modal-danger {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--danger);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+}
+.modal-danger:hover { filter: brightness(1.08); }
+
 /* ---- The joke gate ---- */
 
 .gate {
@@ -1228,6 +1280,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   </main>
 </div>
 <div class="toast" id="toast"></div>
+
+<div class="modal" id="discardModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="discardTitle">
+    <h2 class="modal-title" id="discardTitle">Hey Lazy!</h2>
+    <p class="modal-body" id="discardBody"></p>
+    <div class="modal-actions">
+      <button type="button" class="tiny-btn modal-keep" id="discardCancel">Thaki, kaj ache</button>
+      <button type="button" class="modal-danger" id="discardOk">Discard koro</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /*! xlsx.js (C) 2013-present SheetJS -- http://sheetjs.com */
@@ -4830,18 +4893,92 @@ const OPERATIONS = [
     }
   }
 
-  /* A reload is the honest implementation of logging out here: nothing is
-     persisted, so it clears every pasted list, upload and assignment and
-     brings the gate back, rather than hiding the app over live state. */
+  /* ---------- guarding work in progress ----------
+
+     Switching operations loses nothing — every operation's state lives in
+     a module-level object and the form is rebuilt from it, verified by
+     test. What does lose everything is a reload or closing the tab, since
+     nothing is persisted anywhere. So the guard is on exactly those, plus
+     the Log out button, which is itself a reload. */
+
+  function hasUnsavedWork() {
+    if (leave.rows.length || payroll.rows.length) return true;
+    if (att.ids.length || att.customHolidays.length) return true;
+    if (att.shifts.some((sh) => sh.ids.length)) return true;
+    if (assets.idSrc.ids.length || assetTypes.some((t) => t.isCustom)) return true;
+    if (departments.some((d) => d.checked || d.isCustom)) return true;
+    return false;
+  }
+
+  /* Set while we are deliberately reloading, so the beforeunload guard
+     doesn't ask a second time on top of our own dialog. */
+  let leavingOnPurpose = false;
+
+  function askDiscard(body, confirmLabel, onConfirm) {
+    const modal = $("#discardModal");
+    const ok = $("#discardOk");
+    const cancel = $("#discardCancel");
+    $("#discardBody").textContent = body;
+    ok.textContent = confirmLabel;
+
+    const close = () => {
+      modal.hidden = true;
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+    };
+    /* replaceWith(cloneNode) drops every previously bound handler, so
+       reopening the dialog cannot stack them up */
+    const freshOk = ok.cloneNode(true);
+    const freshCancel = cancel.cloneNode(true);
+    ok.replaceWith(freshOk);
+    cancel.replaceWith(freshCancel);
+    freshOk.addEventListener("click", () => {
+      close();
+      onConfirm();
+    });
+    freshCancel.addEventListener("click", close);
+    document.addEventListener("keydown", onKey);
+
+    modal.hidden = false;
+    /* the safe option takes focus, so a stray Enter keeps the work */
+    freshCancel.focus();
+  }
+
   function wireLogout() {
     $("#logoutBtn").addEventListener("click", () => {
-      window.location.reload();
+      if (!hasUnsavedWork()) {
+        leavingOnPurpose = true;
+        window.location.reload();
+        return;
+      }
+      askDiscard(
+        "Ekhane kaj kora ache — ID list, upload kora file, shift assignment. Log out korle shob chole jabe, karon kichu save hoy na.",
+        "Discard kore log out",
+        () => {
+          leavingOnPurpose = true;
+          window.location.reload();
+        }
+      );
+    });
+  }
+
+  /* Reload and tab-close. The browser shows its own wording here and will
+     not take ours — that is deliberate on their part, so a page cannot
+     dress up a fake message. All we control is whether it asks at all. */
+  function wireUnloadGuard() {
+    window.addEventListener("beforeunload", (e) => {
+      if (leavingOnPurpose || !hasUnsavedWork()) return;
+      e.preventDefault();
+      e.returnValue = "";
     });
   }
 
   function init() {
     wireLogin();
     wireLogout();
+    wireUnloadGuard();
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     att.from = fmtDate(monthStart);
     att.to = fmtDate(today);

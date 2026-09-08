@@ -128,16 +128,56 @@ const { check, state } = makeChecker();
   await page.click('.op-item:has-text("Employee Add")');
   await page.waitForSelector("#countInput");
 
-  /* logging out brings the gate back and clears what was typed */
+  /* Work in progress is guarded. Nothing is lost by switching operations —
+     state outlives the re-render — so only a reload or a tab close can
+     throw it away, and Log out is a reload. */
+  const modalOpen = () => page.evaluate(() => !document.querySelector("#discardModal").hidden);
+  const unloadArmed = () => page.evaluate(() => {
+    const e = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(e);
+    return e.defaultPrevented;
+  });
+
   await page.fill("#countInput", "77");
+  check("reload is guarded while work is in progress", await unloadArmed());
+
   await page.click("#logoutBtn");
+  await page.waitForTimeout(200);
+  check("logout asks before discarding", await modalOpen());
+  check("the dialog is the Hey Lazy one",
+    (await page.textContent("#discardTitle")).trim() === "Hey Lazy!",
+    await page.textContent("#discardTitle"));
+  check("the safe button has focus",
+    (await page.evaluate(() => document.activeElement.id)) === "discardCancel",
+    await page.evaluate(() => document.activeElement.id));
+
+  /* backing out keeps everything */
+  await page.click("#discardCancel");
+  await page.waitForTimeout(150);
+  check("backing out closes the dialog", !(await modalOpen()));
+  check("backing out stays logged in", (await page.locator("#loginGate").count()) === 0);
+  check("backing out keeps the work", (await page.inputValue("#countInput")) === "77");
+
+  /* Escape is the same as backing out */
+  await page.click("#logoutBtn");
+  await page.waitForTimeout(150);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(150);
+  check("Escape keeps the work too",
+    !(await modalOpen()) && (await page.locator("#loginGate").count()) === 0);
+
+  /* confirming goes through, and clears everything */
+  await page.click("#logoutBtn");
+  await page.waitForTimeout(150);
+  await page.click("#discardOk");
   await page.waitForSelector("#loginGate");
-  check("logout returns to the login page", await page.isVisible("#loginGate"));
+  check("discarding returns to the login page", await page.isVisible("#loginGate"));
   await signIn(page);
   await page.click('.op-item:has-text("Employee Add")');
   await page.waitForSelector("#countInput");
-  check("logout cleared the form", (await page.inputValue("#countInput")) !== "77",
+  check("discarding cleared the form", (await page.inputValue("#countInput")) !== "77",
     await page.inputValue("#countInput"));
+  check("with nothing entered, reload is not guarded", !(await unloadArmed()));
 
   check("no page errors", pageErrors.length === 0, pageErrors.join(" | "));
 

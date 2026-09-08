@@ -256,9 +256,28 @@ call `signIn(page)` from `tests/lib.js` straight after `page.goto`.
 The **Log out** button in the sidebar footer is `location.reload()`. That
 is the honest implementation given nothing is persisted: it clears every
 pasted list, upload and shift assignment and the gate comes back on its
-own, rather than hiding the app over live state. Note it therefore
-discards work in progress — the button is small and tucked in the footer
-for that reason, and there is deliberately no confirmation dialog.
+own, rather than hiding the app over live state.
+
+## Guarding work in progress
+
+**Switching operations loses nothing.** Each operation's state lives in a
+module-level object (`att`, `leave`, `payroll`, `assets`, `departments`)
+and the form is rebuilt from it, so a pasted ID list, an uploaded file and
+every shift assignment all survive a round trip — verified by test. So
+there is deliberately **no** warning when navigating between pages; it
+would be a false alarm.
+
+What does throw work away is a reload or closing the tab, since nothing is
+persisted. Two guards, both keyed on `hasUnsavedWork()`:
+
+- **Log out** opens the "Hey Lazy!" dialog (`#discardModal`) when there is
+  work. The safe button takes focus and Escape backs out, so a stray
+  keypress cannot cost anything. `leavingOnPurpose` is set before the
+  reload so the unload guard doesn't ask a second time.
+- **Reload / tab close** goes through `beforeunload`. **The browser shows
+  its own wording there and will not accept ours** — that is a deliberate
+  anti-phishing restriction, so "Hey Lazy!" cannot appear on that one. All
+  we control is whether it asks at all.
 
 ## Sidebar branding
 

@@ -3186,18 +3186,92 @@
     }
   }
 
-  /* A reload is the honest implementation of logging out here: nothing is
-     persisted, so it clears every pasted list, upload and assignment and
-     brings the gate back, rather than hiding the app over live state. */
+  /* ---------- guarding work in progress ----------
+
+     Switching operations loses nothing — every operation's state lives in
+     a module-level object and the form is rebuilt from it, verified by
+     test. What does lose everything is a reload or closing the tab, since
+     nothing is persisted anywhere. So the guard is on exactly those, plus
+     the Log out button, which is itself a reload. */
+
+  function hasUnsavedWork() {
+    if (leave.rows.length || payroll.rows.length) return true;
+    if (att.ids.length || att.customHolidays.length) return true;
+    if (att.shifts.some((sh) => sh.ids.length)) return true;
+    if (assets.idSrc.ids.length || assetTypes.some((t) => t.isCustom)) return true;
+    if (departments.some((d) => d.checked || d.isCustom)) return true;
+    return false;
+  }
+
+  /* Set while we are deliberately reloading, so the beforeunload guard
+     doesn't ask a second time on top of our own dialog. */
+  let leavingOnPurpose = false;
+
+  function askDiscard(body, confirmLabel, onConfirm) {
+    const modal = $("#discardModal");
+    const ok = $("#discardOk");
+    const cancel = $("#discardCancel");
+    $("#discardBody").textContent = body;
+    ok.textContent = confirmLabel;
+
+    const close = () => {
+      modal.hidden = true;
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+    };
+    /* replaceWith(cloneNode) drops every previously bound handler, so
+       reopening the dialog cannot stack them up */
+    const freshOk = ok.cloneNode(true);
+    const freshCancel = cancel.cloneNode(true);
+    ok.replaceWith(freshOk);
+    cancel.replaceWith(freshCancel);
+    freshOk.addEventListener("click", () => {
+      close();
+      onConfirm();
+    });
+    freshCancel.addEventListener("click", close);
+    document.addEventListener("keydown", onKey);
+
+    modal.hidden = false;
+    /* the safe option takes focus, so a stray Enter keeps the work */
+    freshCancel.focus();
+  }
+
   function wireLogout() {
     $("#logoutBtn").addEventListener("click", () => {
-      window.location.reload();
+      if (!hasUnsavedWork()) {
+        leavingOnPurpose = true;
+        window.location.reload();
+        return;
+      }
+      askDiscard(
+        "Ekhane kaj kora ache — ID list, upload kora file, shift assignment. Log out korle shob chole jabe, karon kichu save hoy na.",
+        "Discard kore log out",
+        () => {
+          leavingOnPurpose = true;
+          window.location.reload();
+        }
+      );
+    });
+  }
+
+  /* Reload and tab-close. The browser shows its own wording here and will
+     not take ours — that is deliberate on their part, so a page cannot
+     dress up a fake message. All we control is whether it asks at all. */
+  function wireUnloadGuard() {
+    window.addEventListener("beforeunload", (e) => {
+      if (leavingOnPurpose || !hasUnsavedWork()) return;
+      e.preventDefault();
+      e.returnValue = "";
     });
   }
 
   function init() {
     wireLogin();
     wireLogout();
+    wireUnloadGuard();
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     att.from = fmtDate(monthStart);
     att.to = fmtDate(today);
