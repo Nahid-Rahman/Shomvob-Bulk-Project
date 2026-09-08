@@ -697,6 +697,13 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .preview-table td.faint { color: var(--text-faint); }
 .preview-table td.strong { color: var(--accent-strong); font-weight: 600; }
 
+/* Stacked under 860px the figure sits alone on its line, where an
+   out-of-flow video would collapse it to nothing — so give it the clip's
+   own shape, capped so it can't take over the screen. */
+@media (max-width: 859px) {
+  .gate-video { aspect-ratio: 404 / 720; max-height: 56vh; }
+}
+
 /* ---- Welcome page ---- */
 
 /* text on the left, the joke on the right; stacks on narrow screens */
@@ -944,8 +951,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   position: fixed;
   inset: 0;
   z-index: 100;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 24px;
   background: var(--bg);
   overflow-y: auto;
@@ -977,18 +985,27 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   overflow: hidden;
   background: var(--surface-2);
   border: 1px solid var(--border);
+  /* The video is taken out of flow so its portrait aspect ratio cannot
+     drive the row's height — otherwise it decides how tall the row is and
+     the card gets stretched past its content, leaving dead space and
+     mismatched bottom edges. The card sets the height; the video fills it. */
+  position: relative;
 }
 .gate-video video {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 260px;
-  object-fit: cover;
+  /* contain, not cover: the clip has its caption burned into the top of
+     the frame, and cropping to fill the box cut it off */
+  object-fit: contain;
 }
 
 .gate-card {
-  width: 100%;
-  max-width: 380px;
+  /* it is a <form>, and the UA stylesheet gives that margin-block-end: 1em
+     — 15px here, which left its bottom edge short of the video's */
+  margin: 0;
   flex: 0 1 380px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
