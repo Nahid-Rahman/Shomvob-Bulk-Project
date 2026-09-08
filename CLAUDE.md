@@ -28,6 +28,13 @@ file; `src/` holds the editable source (`app.css`, `app.js`,
 - **No `<script src="https://cdn...">` for anything** — everything is
   inlined so the page has zero external dependencies except the Google
   Fonts stylesheet link (IBM Plex Sans / IBM Plex Mono).
+- **One exception to inlining: `assets/lazy_cat.mp4`**, the video on the
+  login card. It is 1.4MB, so a data URI would put ~1.9MB of base64 ahead
+  of the login screen and nothing would paint until it all arrived. It is
+  referenced by relative path instead, which still works when `index.html`
+  is opened straight off disk and lets the video stream and cache on its
+  own. So `index.html` plus `assets/` travel together now. The logo stays
+  inlined — at 5.5KB it costs nothing.
 - File download works via plain `XLSX.writeFile()` (creates a Blob +
   triggers an anchor click) — this only works because the page is served
   from a normal origin (Vercel), not inside a sandboxed iframe. Keep it
@@ -201,6 +208,12 @@ not doing tedious things, so it does the typing for you.
 would matter if bypassed.** It gates nothing: every file the app makes is
 random test data generated in the visitor's own browser. The card says so
 in its own footnote — keep that line.
+
+The card sits on the left with the user's own cat video
+(`assets/lazy_cat.mp4`) on the right; they stack under 860px. The video is
+muted, looping and autoplaying, except under
+`prefers-reduced-motion: reduce`, where it holds the first frame and gains
+controls so playing it stays the visitor's choice.
 
 Nothing is persisted, so a reload asks again; one click clears it. Tests
 call `signIn(page)` from `tests/lib.js` straight after `page.goto`.

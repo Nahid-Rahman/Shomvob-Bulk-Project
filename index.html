@@ -956,9 +956,43 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 .gate.gone { opacity: 0; pointer-events: none; }
 
+/* login on the left, the cat on the right; stacks on a narrow screen */
+.gate-inner {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 26px;
+  width: 100%;
+  max-width: 860px;
+  flex-wrap: wrap;
+}
+
+/* The video is a separate file rather than a data URI on purpose: at
+   1.4MB, inlining it would put ~1.9MB of base64 in front of the login
+   screen and nothing would render until it all arrived. It streams and
+   caches on its own this way, and a relative path still works when
+   index.html is opened straight off disk. */
+.gate-video {
+  margin: 0;
+  flex: 0 1 380px;
+  min-width: 260px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.gate-video video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+  object-fit: cover;
+}
+
 .gate-card {
   width: 100%;
   max-width: 380px;
+  flex: 0 1 380px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -1043,6 +1077,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 </style>
 
 <div class="gate" id="loginGate">
+  <div class="gate-inner">
   <form class="gate-card" id="loginForm" autocomplete="off">
     <div class="gate-brand">
       <span class="brand-logo-wrap">
@@ -1077,6 +1112,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
       files it makes are random test data generated in your own browser.
     </p>
   </form>
+
+  <figure class="gate-video">
+    <video id="gateVideo" src="assets/lazy_cat.mp4" loop muted playsinline autoplay preload="auto"></video>
+  </figure>
+  </div>
 </div>
 
 <div class="app">
@@ -4634,6 +4674,17 @@ const OPERATIONS = [
         el.classList.remove("invalid");
       });
     });
+
+    /* A looping video is motion nobody asked for. If the visitor has said
+       they don't want it, hold the first frame and give them controls so
+       playing it stays their choice. */
+    const video = $("#gateVideo");
+    if (video && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      video.autoplay = false;
+      video.loop = false;
+      video.controls = true;
+      video.pause();
+    }
   }
 
   /* A reload is the honest implementation of logging out here: nothing is

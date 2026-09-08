@@ -25,6 +25,20 @@ const { check, state } = makeChecker();
     /Bulk Forge\s+for Shomvob HRIS/.test(await page.textContent(".gate-product")),
     await page.textContent(".gate-product"));
 
+  /* the video is a separate file, so a wrong path would fail silently —
+     wait for it to actually decode a frame */
+  await page.waitForFunction(
+    () => { const v = document.querySelector("#gateVideo"); return v && v.videoWidth > 0; },
+    { timeout: 15000 }
+  );
+  const vid = await page.evaluate(() => {
+    const v = document.querySelector("#gateVideo");
+    return { w: v.videoWidth, h: v.videoHeight, src: v.getAttribute("src") };
+  });
+  check("gate video loaded", vid.w > 0 && vid.h > 0, JSON.stringify(vid));
+  check("gate video is a separate asset, not inlined",
+    vid.src === "assets/lazy_cat.mp4", vid.src);
+
   /* the joke gate: a wrong password is refused, the right one is pre-filled */
   await page.fill("#loginPass", "definitely-not-it");
   await page.click("#loginBtn");
