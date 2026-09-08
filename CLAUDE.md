@@ -156,6 +156,21 @@ Already validated (Playwright, 25-row and 300-row batches): ID/email/
 phone uniqueness, employment-type↔probation linkage, joining-date↔DOB
 ordering, salary rounding, department↔designation consistency.
 
+A rule that applies to both card-based screens (Employee Add's
+departments, Assets Add's types): **a ticked card with nothing selected
+inside it is an error, not something to quietly skip.** It used to be
+dropped from the output silently — you could tick three departments, get
+one in the file, and never learn why. `departmentState()` and
+`assetTypeState()` split the configured cards into `final` and
+`incomplete`, and the warning names the incomplete ones. Blank custom
+rows are filtered out rather than counted, since an empty "Add
+designation" row was putting an empty string into a required column.
+
+Each of those screens also has bulk shortcuts — a labelled strip above the
+list for the whole section, and a per-card button beside the mode toggle.
+They are deliberately a different shape from the controls they act on so
+they don't read as one more option.
+
 ### Employee Attendance Add — built, tested, do not change without asking
 
 Four required columns (`Employee ID*`, `Date*`, `In Time*`, `Out Time*`)

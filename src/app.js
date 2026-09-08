@@ -164,17 +164,44 @@
     "Gender*", "Date of Birth*", "Department Name*", "Designation Name*",
   ];
 
-  function collectFinalDepartments() {
-    const out = [];
+  /* Splits the configured departments into the ones that are ready to
+     generate from and the ones the user has half-filled.
+
+     A department that is ticked but has no designation used to be dropped
+     silently — you could tick three, get one in the file, and never learn
+     why. It is an error now, named in the warning.
+
+     Blank custom designation rows are dropped rather than counted. An
+     empty "Add designation" row was passing the length check and putting
+     an empty string into Designation Name, which the template requires. */
+  function departmentState() {
+    const final = [];
+    const incomplete = [];
     for (const d of departments) {
+      const custom = d.customDesig.map((v) => String(v).trim()).filter(Boolean);
       if (d.isCustom) {
-        if (d.name.trim() && d.customDesig.length) out.push({ name: d.name.trim(), designations: d.customDesig.slice() });
+        const name = d.name.trim();
+        /* a freshly added row with nothing in it yet is noise, not an error */
+        if (!name && !custom.length) continue;
+        if (!name || !custom.length) {
+          incomplete.push(name || "your new department");
+          continue;
+        }
+        final.push({ name: name, designations: custom });
       } else if (d.checked) {
-        const desigs = d.mode === "default" ? Array.from(d.selectedDesig) : d.customDesig.slice();
-        if (desigs.length) out.push({ name: d.name, designations: desigs });
+        const desigs = d.mode === "default" ? Array.from(d.selectedDesig) : custom;
+        if (!desigs.length) {
+          incomplete.push(d.name);
+          continue;
+        }
+        final.push({ name: d.name, designations: desigs });
       }
     }
-    return out;
+    return { final: final, incomplete: incomplete };
+  }
+
+  function collectFinalDepartments() {
+    return departmentState().final;
   }
 
   function generateWorkbookRows(count, prefix, theme, finalDepartments) {
@@ -426,11 +453,16 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Department &amp; designation</h2></div>
         <p class="section-note">Pick or add departments, then set the designations for each. At least one designation in one department is needed.</p>
+        <div class="bulk-row">
+          <span class="bulk-label">Shortcut</span>
+          <button type="button" class="bulk-btn" id="deptSelectAll"></button>
+          <span class="bulk-count" id="deptSelectCount"></span>
+        </div>
         <div class="dept-list" id="deptList"></div>
         <div class="add-dept-row">
           <button type="button" class="tiny-btn" id="addDeptBtn">+ Add custom department</button>
         </div>
-        <div class="validation-banner hidden" id="deptWarning">${iconWarn()}<span>Pick at least one designation in at least one department.</span></div>
+        <div class="validation-banner hidden" id="deptWarning">${iconWarn()}<span id="deptWarningText">Pick at least one designation in at least one department.</span></div>
       </div>
     `;
   }
@@ -472,6 +504,18 @@
         updateSummary();
       });
       themeGrid.appendChild(card);
+    });
+
+    $("#deptSelectAll").addEventListener("click", () => {
+      const full = allDepartmentsFull();
+      departments.forEach((d) => {
+        if (d.isCustom) return;
+        d.checked = !full;
+        d.mode = "default";
+        d.selectedDesig = new Set(full ? [] : d.defaultDesigOptions);
+      });
+      renderDepartments();
+      updateSummary();
     });
 
     $("#addDeptBtn").addEventListener("click", () => {
@@ -553,9 +597,32 @@
     });
   }
 
+  /* Everything ticked AND every designation chosen — the state the
+     department-level shortcut toggles to and from. Ticking a department
+     without designations would only trip the warning, so the shortcut
+     fills them in too. */
+  function allDepartmentsFull() {
+    return departments
+      .filter((d) => !d.isCustom)
+      .every((d) => d.checked && d.mode === "default" && d.selectedDesig.size === d.defaultDesigOptions.length);
+  }
+
+  function renderDeptShortcut() {
+    const btn = $("#deptSelectAll");
+    if (!btn) return;
+    const defaults = departments.filter((d) => !d.isCustom);
+    const full = allDepartmentsFull();
+    btn.textContent = full
+      ? `Clear all ${defaults.length} departments`
+      : `Select all ${defaults.length} departments and their designations`;
+    const picked = departmentState().final.length;
+    $("#deptSelectCount").textContent = `${picked} ready`;
+  }
+
   function renderDepartments() {
     const list = $("#deptList");
     list.innerHTML = "";
+    renderDeptShortcut();
     departments.forEach((d) => {
       const card = document.createElement("div");
       card.className = "dept-card" + (d.checked || d.isCustom ? " checked" : "");
@@ -605,6 +672,13 @@
   function iconPlus() {
     return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>`;
   }
+  /* "A", "A and B", "A, B and C" — for naming what the user has to fix */
+  function listWords(items) {
+    if (items.length <= 1) return items[0] || "";
+    if (items.length === 2) return `${items[0]} and ${items[1]}`;
+    return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  }
+
   function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
@@ -626,7 +700,28 @@
           updateSummary();
         });
       });
-      body.appendChild(toggle);
+      /* the mode switch and this department's own shortcut share a row —
+         different shapes so it reads as a separate control, not a third mode */
+      const head = document.createElement("div");
+      head.className = "dept-body-head";
+      head.appendChild(toggle);
+
+      if (d.mode === "default") {
+        const all = d.selectedDesig.size === d.defaultDesigOptions.length;
+        const pick = document.createElement("button");
+        pick.type = "button";
+        pick.className = "bulk-btn small";
+        pick.textContent = all
+          ? `Clear all ${d.defaultDesigOptions.length}`
+          : `Select all ${d.defaultDesigOptions.length}`;
+        pick.addEventListener("click", () => {
+          d.selectedDesig = new Set(all ? [] : d.defaultDesigOptions);
+          renderDepartments();
+          updateSummary();
+        });
+        head.appendChild(pick);
+      }
+      body.appendChild(head);
 
       if (d.mode === "default") {
         const grid = document.createElement("div");
@@ -687,10 +782,22 @@
     const prefixOk = validatePrefix();
     const count = parseInt($("#countInput").value, 10);
     const prefix = $("#prefixInput").value;
-    const finalDepts = collectFinalDepartments();
-    const deptOk = finalDepts.length > 0;
+    const dept = departmentState();
+    const finalDepts = dept.final;
+    const deptOk = finalDepts.length > 0 && dept.incomplete.length === 0;
 
-    $("#deptWarning").classList.toggle("hidden", deptOk);
+    /* the shortcut's label and its "N ready" count are derived from the
+       same state, so refresh them here rather than only on a full
+       re-render — typing a custom designation doesn't trigger one */
+    renderDeptShortcut();
+
+    const warn = $("#deptWarning");
+    warn.classList.toggle("hidden", deptOk);
+    if (!deptOk) {
+      $("#deptWarningText").textContent = dept.incomplete.length
+        ? `${listWords(dept.incomplete)} ${dept.incomplete.length === 1 ? "has" : "have"} no designation picked.`
+        : "Pick at least one designation in at least one department.";
+    }
 
     const summary = $("#actionSummary");
     if (countOk && prefixOk) {
@@ -716,7 +823,12 @@
       showToast("Something's off in the batch basics.", true);
       return;
     }
-    const finalDepts = collectFinalDepartments();
+    const dept = departmentState();
+    if (dept.incomplete.length) {
+      showToast(`${listWords(dept.incomplete)} still needs a designation.`, true);
+      return;
+    }
+    const finalDepts = dept.final;
     if (!finalDepts.length) {
       showToast("Pick at least one designation in one department.", true);
       return;
@@ -2732,21 +2844,38 @@
     defaultItems: t.items,
   }));
 
-  function collectAssetTypes() {
-    const out = [];
+  /* Same split as departmentState(), for the same reason: a type that is
+     ticked but has no name picked used to be dropped without a word. */
+  function assetTypeState() {
+    const final = [];
+    const incomplete = [];
     for (const t of assetTypes) {
       const custom = t.customItems.map((n) => String(n).trim()).filter(Boolean).map((n) => [n, ""]);
       if (t.isCustom) {
-        if (t.name.trim() && custom.length) out.push({ name: t.name.trim(), items: custom });
+        const name = t.name.trim();
+        if (!name && !custom.length) continue;
+        if (!name || !custom.length) {
+          incomplete.push(name || "your new type");
+          continue;
+        }
+        final.push({ name: name, items: custom });
       } else if (t.checked) {
         const items =
           t.mode === "default"
             ? t.defaultItems.filter((it) => t.selectedItems.has(it[0]))
             : custom;
-        if (items.length) out.push({ name: t.name, items: items });
+        if (!items.length) {
+          incomplete.push(t.name);
+          continue;
+        }
+        final.push({ name: t.name, items: items });
       }
     }
-    return out;
+    return { final: final, incomplete: incomplete };
+  }
+
+  function collectAssetTypes() {
+    return assetTypeState().final;
   }
 
   /* Somewhere in the last year, never in the future. */
@@ -2850,7 +2979,7 @@
         <div class="add-dept-row">
           <button type="button" class="tiny-btn" id="addAssetTypeBtn">+ Add custom type</button>
         </div>
-        <div class="validation-banner hidden" id="assetTypeWarning">${iconWarn()}<span>Pick at least one asset name in at least one type.</span></div>
+        <div class="validation-banner hidden" id="assetTypeWarning">${iconWarn()}<span id="assetTypeWarningText">Pick at least one asset name in at least one type.</span></div>
       </div>
 
       <div class="section">
@@ -3073,14 +3202,28 @@
     const out = [];
     if (!(assets.count >= 1 && assets.count <= 5000)) out.push("asset count has to be 1–5000");
     if (!/^[A-Z]{2,6}$/.test(assets.prefix)) out.push("asset code prefix has to be 2–6 letters");
-    if (!collectAssetTypes().length) out.push("needs at least one asset name in one type");
+    const types = assetTypeState();
+    if (types.incomplete.length) {
+      out.push(`${listWords(types.incomplete)} ${types.incomplete.length === 1 ? "has" : "have"} no asset name picked`);
+    } else if (!types.final.length) {
+      out.push("needs at least one asset name in one type");
+    }
     return out;
   }
 
   function updateAssetsSummary() {
-    const types = collectAssetTypes();
+    const state = assetTypeState();
+    const types = state.final;
     const warn = $("#assetTypeWarning");
-    if (warn) warn.classList.toggle("hidden", types.length > 0);
+    const typesOk = types.length > 0 && state.incomplete.length === 0;
+    if (warn) {
+      warn.classList.toggle("hidden", typesOk);
+      if (!typesOk) {
+        $("#assetTypeWarningText").textContent = state.incomplete.length
+          ? `${listWords(state.incomplete)} ${state.incomplete.length === 1 ? "has" : "have"} no asset name picked.`
+          : "Pick at least one asset name in at least one type.";
+      }
+    }
 
     const problems = assetsProblems();
     const summary = $("#actionSummary");

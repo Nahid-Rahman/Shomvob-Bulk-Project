@@ -149,6 +149,27 @@ function todayMidnight() {
   check("C names come only from that type's pool",
     cRows.every((r) => poolNames.has(r[COL.name])));
 
+  /* a type ticked with no names left is the same silent-drop trap as
+     departments, and is now an error that says which type */
+  const firstCard = page.locator("#assetTypeList .dept-card").first();
+  const boxes = firstCard.locator(".desig-check input");
+  for (let i = 0, n = await boxes.count(); i < n; i++) {
+    const b = boxes.nth(i);
+    if (await b.isChecked()) await b.uncheck();
+  }
+  await page.waitForTimeout(200);
+  check("a type with no names blocks generating", await page.isDisabled("#generateBtn"));
+  check("and the warning names it",
+    (await page.textContent("#assetTypeWarningText")).trim() ===
+      `${DATA.DEFAULT_ASSET_TYPES[0].name} has no asset name picked.`,
+    await page.textContent("#assetTypeWarningText"));
+  /* picking a name back clears it. Unticking the type would too, but at
+     this point it is the only type left checked, so that would just trip
+     the "nothing selected at all" case instead. */
+  await boxes.first().check();
+  await page.waitForTimeout(200);
+  check("picking one name back clears the problem", !(await page.isDisabled("#generateBtn")));
+
   /* unchecking everything must block generation */
   await page.locator("#assetTypeList .dept-card").nth(0).locator(".dept-checkbox").uncheck();
   check("C no type selected disables generate", await page.isDisabled("#generateBtn"));

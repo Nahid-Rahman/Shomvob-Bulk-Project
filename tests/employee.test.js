@@ -86,6 +86,57 @@ const { check, state } = makeChecker();
     E.rows.every((r) => r[12] === "Engineering/IT" && r[13] === "QA Engineer"));
   check("filename", /^QATE_employee_bulk_upload_\d{8}\.xlsx$/.test(E.suggested), E.suggested);
 
+  /* A department ticked with no designation used to be dropped silently —
+     you could tick three, get one in the file, and never learn why. */
+  const deptWarn = async () =>
+    (await page.locator("#deptWarning").getAttribute("class")).includes("hidden")
+      ? null
+      : (await page.textContent("#deptWarningText")).trim();
+
+  await page.click('.dept-card:has-text("Marketing") .dept-checkbox');
+  await page.click('.dept-card:has-text("Finance & Accounts") .dept-checkbox');
+  await page.waitForTimeout(150);
+  check("a department with no designation blocks generating", await page.isDisabled("#generateBtn"));
+  check("and the warning names which ones",
+    (await deptWarn()) === "Marketing and Finance & Accounts have no designation picked.",
+    await deptWarn());
+
+  /* the per-department shortcut fills one of them in */
+  await page.locator('.dept-card:has-text("Marketing") .bulk-btn').click();
+  await page.waitForTimeout(150);
+  check("the per-department shortcut selects every designation",
+    (await deptWarn()) === "Finance & Accounts has no designation picked.",
+    await deptWarn());
+  check("and flips to clearing",
+    (await page.locator('.dept-card:has-text("Marketing") .bulk-btn').textContent()).trim() === "Clear all 4",
+    await page.locator('.dept-card:has-text("Marketing") .bulk-btn').textContent());
+
+  /* the section shortcut does the lot */
+  await page.click("#deptSelectAll");
+  await page.waitForTimeout(200);
+  check("the section shortcut selects everything", !(await page.isDisabled("#generateBtn")));
+  check("and reports how many are ready",
+    (await page.textContent("#deptSelectCount")).trim() === "6 ready",
+    await page.textContent("#deptSelectCount"));
+  await page.click("#deptSelectAll");
+  await page.waitForTimeout(200);
+  check("clearing it disables generating again", await page.isDisabled("#generateBtn"));
+
+  /* a blank custom designation row must not pass for one — it would put an
+     empty string into a required column */
+  await page.click('.dept-card:has-text("HR") .dept-checkbox');
+  await page.locator('.dept-card:has-text("HR") .mode-toggle button[data-mode="custom"]').click();
+  await page.locator('.dept-card:has-text("HR") .tiny-btn').click();
+  await page.waitForTimeout(200);
+  check("a blank custom designation does not count", await page.isDisabled("#generateBtn"));
+  await page.locator('.dept-card:has-text("HR") .custom-desig-row input').fill("Recruiter");
+  await page.waitForTimeout(200);
+  check("filling it in unblocks generating", !(await page.isDisabled("#generateBtn")));
+  check("the ready count keeps up while typing",
+    (await page.textContent("#deptSelectCount")).trim() === "1 ready",
+    await page.textContent("#deptSelectCount"));
+
+
   /* the dashboard cards must route to their operation */
   await page.click('.op-item:has-text("Dashboard")');
   await page.waitForSelector(".op-card-grid");
