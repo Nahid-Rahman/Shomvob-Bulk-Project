@@ -85,7 +85,7 @@ function writeFixture(file, rows, header, sheet) {
   await page.setInputFiles("#leaveFile", wrong);
   await page.waitForSelector(".toast.show");
   const toast = await page.textContent(".toast");
-  check("wrong file rejected", /pawa jayni/.test(toast), toast);
+  check("wrong file rejected", /six leave balance columns/.test(toast), toast);
   check("generate still disabled after wrong file", await page.isDisabled("#generateBtn"));
 
   /* ---------- the real shape ---------- */

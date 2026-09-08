@@ -92,7 +92,7 @@ function cellStats(rows) {
   /* ---------- a file without the identity columns is refused ---------- */
   await page.setInputFiles("#payrollFile", wrong);
   await page.waitForSelector(".toast.show");
-  check("wrong file rejected", /pawa jayni/.test(await page.textContent(".toast")));
+  check("wrong file rejected", /no Employee ID/.test(await page.textContent(".toast")));
   check("generate still disabled", await page.isDisabled("#generateBtn"));
 
   /* ---------- the real shape ---------- */

@@ -83,8 +83,10 @@ entry lives in `#homeNav`, above the "Operations" label, and is wired in
 
 Two things about it worth keeping:
 
-- **The Dashboard is the one screen in English.** Every operation's own
-  copy stays in Banglish; don't "fix" either to match the other.
+- **All UI copy is English**, with a dry, lightly self-deprecating tone
+  and the occasional emoji on a toast. The operation pages were originally
+  written in Banglish and were converted on 2026-09-08 — don't reintroduce
+  it. Banglish stays in conversation with the user, not in the product.
 - **Its numbers are real** — card costs come from each operation's own
   limits and the sample account's 110 employees, and the hero's 5h 50m is
   4,200 cells at five seconds each. They live in `OPERATION_BLURBS`

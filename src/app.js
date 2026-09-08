@@ -334,12 +334,12 @@
         <div class="page-head">
           <span class="page-eyebrow">Bulk operation</span>
           <h1 class="page-title">${op ? op.label : ""}</h1>
-          <p class="page-desc">Ei operation ekhono build hoyni. Prottekta operation-er column-wise rule confirm howar por ekta ekta kore add kora hobe.</p>
+          <p class="page-desc">This one isn't built yet. Each operation gets added once its column-by-column rules are confirmed.</p>
         </div>
         <div class="placeholder-panel">
           <div class="pp-icon">${iconClock()}</div>
           <h3>Coming soon</h3>
-          <p>Ei operation-er jonno template ar rule gula ekhono discuss kora baki. Employee Add operation ta age complete kora hocche.</p>
+          <p>The template and the rules for this one still need working through.</p>
         </div>`;
       $("#actionBar").style.display = "none";
       return;
@@ -380,7 +380,7 @@
       <div class="page-head">
         <span class="page-eyebrow">Bulk operation · 01</span>
         <h1 class="page-title">Employee Add</h1>
-        <p class="page-desc">QA-ready employee bulk-upload file generate koro. Batch size ar prefix dile baki shob field template-er rule mene automatically generate hobe.</p>
+        <p class="page-desc">Generate a QA-ready employee bulk-upload file. Give it a batch size and a prefix; every other field fills itself in, following the template's rules.</p>
         <details class="rules-card">
           <summary class="rules-summary"><span>Fixed generation rules</span><span class="chev">›</span></summary>
           <div class="rules-body">
@@ -398,7 +398,7 @@
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Batch basics</h2></div>
-        <p class="section-note">Koyta employee generate hobe ar ID-r prefix ki hobe.</p>
+        <p class="section-note">How many employees, and what their IDs should start with.</p>
         <div class="field-row">
           <div class="field">
             <label for="countInput">Number of employees</label>
@@ -418,19 +418,19 @@
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Name source</h2></div>
-        <p class="section-note">Random Bangla naam use korbe, naki ekta theme theke character naam?</p>
+        <p class="section-note">Random Bangla names, or a cast of characters?</p>
         <div class="theme-grid" id="themeGrid"></div>
         <div class="preview-row" id="namePreview"></div>
       </div>
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Department &amp; designation</h2></div>
-        <p class="section-note">Kokhono department select/add koro, protyekta-r jonno designation set koro. Kom pokkhe 1 ta department-e 1 ta designation lagbe.</p>
+        <p class="section-note">Pick or add departments, then set the designations for each. At least one designation in one department is needed.</p>
         <div class="dept-list" id="deptList"></div>
         <div class="add-dept-row">
           <button type="button" class="tiny-btn" id="addDeptBtn">+ Add custom department</button>
         </div>
-        <div class="validation-banner hidden" id="deptWarning">${iconWarn()}<span>Kom pokkhe ekta department-e ekta designation select/add korte hobe.</span></div>
+        <div class="validation-banner hidden" id="deptWarning">${iconWarn()}<span>Pick at least one designation in at least one department.</span></div>
       </div>
     `;
   }
@@ -504,7 +504,7 @@
     let ok = true;
     if (isNaN(v) || v < 10 || v > 300) {
       ok = false;
-      err.textContent = "10 theke 300-er moddhe hote hobe";
+      err.textContent = "Somewhere between 10 and 300";
       el.classList.add("invalid");
     } else {
       err.textContent = "";
@@ -520,7 +520,7 @@
     let ok = true;
     if (!/^[A-Z]{4}$/.test(v)) {
       ok = false;
-      err.textContent = "exactly 4 letters lagbe";
+      err.textContent = "Exactly 4 letters, please";
       el.classList.add("invalid");
     } else {
       err.textContent = "";
@@ -696,7 +696,7 @@
     if (countOk && prefixOk) {
       summary.innerHTML = `<strong>${count}</strong> employees · prefix <strong>${prefix}</strong> · ${NAME_THEME_LABELS[nameTheme]} · <strong>${finalDepts.length}</strong> department${finalDepts.length === 1 ? "" : "s"}`;
     } else {
-      summary.textContent = "Batch basics thik koro";
+      summary.textContent = "Fix the batch basics first";
     }
 
     $("#generateBtn").disabled = !(countOk && prefixOk && deptOk);
@@ -713,12 +713,12 @@
 
   function handleEmployeeGenerate() {
     if (!validateCount() || !validatePrefix()) {
-      showToast("Batch basics-e error ache, check koro.", true);
+      showToast("Something's off in the batch basics.", true);
       return;
     }
     const finalDepts = collectFinalDepartments();
     if (!finalDepts.length) {
-      showToast("Kom pokkhe ekta department-e ekta designation lagbe.", true);
+      showToast("Pick at least one designation in one department.", true);
       return;
     }
     const count = parseInt($("#countInput").value, 10);
@@ -726,10 +726,10 @@
     try {
       const rows = generateWorkbookRows(count, prefix, nameTheme, finalDepts);
       const filename = downloadWorkbook(rows, prefix);
-      showToast(`${filename} — ${count} employee row generate hoyeche.`);
+      showToast(`${filename} — ${count} employees, and you typed none of them 🎉`);
     } catch (err) {
       console.error(err);
-      showToast("File generate korte somoshya hoyeche. Console check koro.", true);
+      showToast("Couldn't generate the file. The console has the details.", true);
     }
   }
 
@@ -1047,29 +1047,29 @@
       <div class="page-head">
         <span class="page-eyebrow">Bulk operation · 02</span>
         <h1 class="page-title">Employee Attendance Add</h1>
-        <p class="page-desc">Employee ID, date range ar shift dile — weekend, holiday, late, absent ar overtime rule mene attendance file generate hobe.</p>
+        <p class="page-desc">Give it employee IDs, a date range and your shifts. It works out the rest — weekends, holidays, lateness, absence and overtime.</p>
         <details class="rules-card">
           <summary class="rules-summary"><span>Fixed generation rules</span><span class="chev">›</span></summary>
           <div class="rules-body">
-            <div class="rule-row"><span class="rule-col">Normal din</span><span class="rule-val">In: shift start-er 10 min age → grace-er sesh · Out: shift end → +10 min</span></div>
-            <div class="rule-row"><span class="rule-col">Late</span><span class="rule-val">grace sesh howar por 1–60 minute</span></div>
-            <div class="rule-row"><span class="rule-col">Absent</span><span class="rule-val">oi din kono row-i porbe na</span></div>
-            <div class="rule-row"><span class="rule-col">Weekend / holiday</span><span class="rule-val">kono row nei — shudhu overtime hole In = shift start, Out = start + OT</span></div>
-            <div class="rule-row"><span class="rule-col">Overtime</span><span class="rule-val">alada column na — Out Time-ke shift end-er por thele dey</span></div>
-            <div class="rule-row"><span class="rule-col">Midnight-cross shift</span><span class="rule-val">ek shift = ek row, date shift jei din shuru</span></div>
+            <div class="rule-row"><span class="rule-col">An ordinary day</span><span class="rule-val">In: 10 min before the shift → end of grace · Out: shift end → +10 min</span></div>
+            <div class="rule-row"><span class="rule-col">Late</span><span class="rule-val">1–60 minutes past the end of grace</span></div>
+            <div class="rule-row"><span class="rule-col">Absent</span><span class="rule-val">no row at all that day</span></div>
+            <div class="rule-row"><span class="rule-col">Weekend / holiday</span><span class="rule-val">nothing, unless it's overtime — then In = shift start, Out = start + OT</span></div>
+            <div class="rule-row"><span class="rule-col">Overtime</span><span class="rule-val">not a column — it just pushes Out Time past the shift's end</span></div>
+            <div class="rule-row"><span class="rule-col">Shift over midnight</span><span class="rule-val">one shift = one row, dated by the day it started</span></div>
           </div>
         </details>
       </div>
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Employee IDs</h2></div>
-        <p class="section-note">Kon employee-der attendance lagbe. Paste koro, generate koro, ba file theke nao.</p>
+        <p class="section-note">Whose attendance this is for. Paste them, generate them, or pull them from a file.</p>
         ${idSourceMarkup(att)}
       </div>
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Date range</h2></div>
-        <p class="section-note">Kon din theke kon din porjonto attendance banabe.</p>
+        <p class="section-note">Which days to cover.</p>
         <div class="field-row">
           <div class="field">
             <label for="fromDate">From</label>
@@ -1085,59 +1085,59 @@
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Shifts</h2></div>
-        <p class="section-note">Koyta shift ache, ar protita shift-er start ar end time.</p>
+        <p class="section-note">How many shifts there are, and when each one starts and ends.</p>
         <div class="field-grid-2">
           <div class="field">
-            <label for="shiftCount">Koyta shift</label>
+            <label for="shiftCount">How many shifts</label>
             <input type="number" id="shiftCount" min="1" max="10" value="${att.shiftCount}" />
-            <span class="hint">1 theke 10</span>
+            <span class="hint">1 to 10</span>
           </div>
           <div class="field">
             <label for="graceInput">Grace period (minutes)</label>
             <input type="number" id="graceInput" min="0" max="120" value="${att.grace}" />
-            <span class="hint">Ei somoy porjonto late dhora hobe na</span>
+            <span class="hint">Nobody counts as late until this runs out</span>
           </div>
         </div>
         <div class="shift-list" id="shiftList"></div>
       </div>
 
       <div class="section" id="assignSection">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Kon employee kon shift-e</h2></div>
-        <p class="section-note">Search kore click koro, ba pool theke shift-e drag koro.</p>
+        <div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Who works which shift</h2></div>
+        <p class="section-note">Search and click, or drag them out of the pool into a shift.</p>
         <div id="assignWrap"></div>
       </div>
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">5</span>Weekend</h2></div>
-        <p class="section-note">Company-r weekend kon kon bar. Oi din normally kono entry porbe na.</p>
+        <p class="section-note">Which days your weekend falls on. Normally nothing is recorded on those.</p>
         <div class="day-row" id="dayRow"></div>
       </div>
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">6</span>Holiday</h2></div>
-        <p class="section-note">Date range-er moddhe holiday ache kina.</p>
+        <p class="section-note">Whether any holidays fall inside the range.</p>
         <div class="choice-list" id="holidayChoices">
-          <label class="choice ${att.holidayMode === "govt" ? "on" : ""}"><input type="radio" name="hmode" value="govt" ${att.holidayMode === "govt" ? "checked" : ""} /><span class="choice-text"><strong>Bangladesh govt holidays</strong><span>Built-in list — 2025 ar 2026</span></span></label>
-          <label class="choice ${att.holidayMode === "govt_custom" ? "on" : ""}"><input type="radio" name="hmode" value="govt_custom" ${att.holidayMode === "govt_custom" ? "checked" : ""} /><span class="choice-text"><strong>Bangladesh govt holidays + custom dates</strong><span>Built-in list, shathe nijer date add koro</span></span></label>
-          <label class="choice ${att.holidayMode === "custom" ? "on" : ""}"><input type="radio" name="hmode" value="custom" ${att.holidayMode === "custom" ? "checked" : ""} /><span class="choice-text"><strong>Custom dates only</strong><span>Shudhu je date gula tumi dibe</span></span></label>
-          <label class="choice ${att.holidayMode === "none" ? "on" : ""}"><input type="radio" name="hmode" value="none" ${att.holidayMode === "none" ? "checked" : ""} /><span class="choice-text"><strong>No holiday</strong><span>Weekend chhara shob din kaj</span></span></label>
+          <label class="choice ${att.holidayMode === "govt" ? "on" : ""}"><input type="radio" name="hmode" value="govt" ${att.holidayMode === "govt" ? "checked" : ""} /><span class="choice-text"><strong>Shomvob HR holidays</strong><span>Built-in list, straight from Shomvob HR</span></span></label>
+          <label class="choice ${att.holidayMode === "govt_custom" ? "on" : ""}"><input type="radio" name="hmode" value="govt_custom" ${att.holidayMode === "govt_custom" ? "checked" : ""} /><span class="choice-text"><strong>Shomvob HR holidays + your own dates</strong><span>The built-in list, plus dates of your own</span></span></label>
+          <label class="choice ${att.holidayMode === "custom" ? "on" : ""}"><input type="radio" name="hmode" value="custom" ${att.holidayMode === "custom" ? "checked" : ""} /><span class="choice-text"><strong>Custom dates only</strong><span>Only the dates you add</span></span></label>
+          <label class="choice ${att.holidayMode === "none" ? "on" : ""}"><input type="radio" name="hmode" value="none" ${att.holidayMode === "none" ? "checked" : ""} /><span class="choice-text"><strong>No holiday</strong><span>Every day is a working day, weekends aside</span></span></label>
         </div>
         <div id="holidayWrap"></div>
       </div>
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">7</span>Overtime</h2></div>
-        <p class="section-note">Company-te overtime ache kina. Overtime alada column na — Out Time deri kore dey.</p>
+        <p class="section-note">Whether overtime exists here. It isn't a column — it just makes Out Time later.</p>
         <div class="seg" id="otSeg">
-          <button type="button" data-ot="no" aria-pressed="${!att.otEnabled}">Nei</button>
-          <button type="button" data-ot="yes" aria-pressed="${att.otEnabled}">Ache</button>
+          <button type="button" data-ot="no" aria-pressed="${!att.otEnabled}">No</button>
+          <button type="button" data-ot="yes" aria-pressed="${att.otEnabled}">Yes</button>
         </div>
         <div id="otWrap"></div>
       </div>
 
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">8</span>Percentage</h2></div>
-        <p class="section-note">Koto shotangsho employee late kore, absent thake, ar overtime kore.</p>
+        <div class="section-head"><h2 class="section-title"><span class="section-num">8</span>Percentages</h2></div>
+        <p class="section-note">What share of people turn up late, don't turn up, and stay on.</p>
         <div class="field-grid-2">
           <div class="field">
             <label for="latePct">Late (%)</label>
@@ -1153,7 +1153,7 @@
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">9</span>Time format</h2></div>
-        <p class="section-note">Excel-e In/Out Time kon format-e likhbe. Char tai template accept kore.</p>
+        <p class="section-note">How In/Out Time gets written. The template takes all four.</p>
         <div class="fmt-grid" id="fmtGrid">${fmtCards}</div>
       </div>
     `;
@@ -1167,7 +1167,7 @@
         <div class="field">
           <label for="idPaste">Employee ID list</label>
           <textarea id="idPaste" placeholder="HUIW0101&#10;HUIW0102&#10;HUIW0103">${escapeHtml(st.pasteText)}</textarea>
-          <span class="hint">Ek line-e ekta, ba comma / space diye — jevabe khushi. Duplicate baad chole jabe.</span>
+          <span class="hint">One per line, or comma-separated, or however they came out — duplicates get dropped.</span>
         </div>`;
       $("#idPaste").addEventListener("input", (e) => {
         st.pasteText = e.target.value;
@@ -1184,10 +1184,10 @@
           <div class="field">
             <label for="genStart">Start number</label>
             <input type="number" id="genStart" min="1" value="${st.genStart}" />
-            <span class="hint">0001 na hoye 0101 theke shuru hote pare</span>
+            <span class="hint">Real accounts don't always start at 0001</span>
           </div>
           <div class="field">
-            <label for="genCount">Koyta</label>
+            <label for="genCount">How many</label>
             <input type="number" id="genCount" min="1" max="2000" value="${st.genCount}" />
           </div>
         </div>
@@ -1215,7 +1215,7 @@
       if (up && up.options.length) {
         picker = `
           <div class="field" style="margin-top:12px">
-            <label for="colPick">Kon column-e ID ache</label>
+            <label for="colPick">Which column holds the IDs</label>
             <select id="colPick">
               ${up.options
                 .map((o, i) => `<option value="${i}" ${i === up.pick ? "selected" : ""}>${escapeHtml(o.label)} — ${o.values.length} value</option>`)
@@ -1227,7 +1227,7 @@
         <div class="field">
           <label for="idFile">Excel ba CSV file</label>
           <input type="file" id="idFile" accept=".xlsx,.xlsm,.csv,.txt" />
-          <span class="hint">${up ? escapeHtml(up.name) : "Employee Add-er generate kora file dileo cholbe — column nije-i dhore nibe"}</span>
+          <span class="hint">${up ? escapeHtml(up.name) : "An Employee Add file works too — it finds the column itself"}</span>
         </div>
         ${picker}`;
       $("#idFile").addEventListener("change", handleIdFile);
@@ -1263,11 +1263,11 @@
     let extra = "";
     if (st.idMode === "paste") {
       const p = parseIdList(st.pasteText);
-      if (p.dupes) extra = ` · <strong>${p.dupes}</strong> duplicate baad`;
+      if (p.dupes) extra = ` · <strong>${p.dupes}</strong> duplicates dropped`;
     }
     box.innerHTML = n
-      ? `<span class="tally ok"><strong>${n}</strong> employee ID ready${extra}</span>`
-      : `<span class="tally">Kono employee ID nei</span>`;
+      ? `<span class="tally ok"><strong>${n}</strong> employee IDs ready${extra}</span>`
+      : `<span class="tally">No employee IDs yet</span>`;
   }
 
   /* Turns any uploaded sheet into a list of pickable columns, so "any file"
@@ -1325,7 +1325,7 @@
         }
         const options = columnOptions(bySheet);
         if (!options.length) {
-          showToast("File-e kono ID column pawa jayni.", true);
+          showToast("Couldn't find an ID column in that file.", true);
           return;
         }
         let pick = options.findIndex((o) => /employee\s*id/i.test(o.header));
@@ -1335,13 +1335,13 @@
         recomputeIds();
         renderIdPanel();
         if (idSrc.onChange) idSrc.onChange();
-        showToast(`${file.name} — ${st.ids.length} ID pawa gelo.`);
+        showToast(`${file.name} — found ${st.ids.length} IDs.`);
       } catch (err) {
         console.error(err);
-        showToast("File porte somoshya hoyeche.", true);
+        showToast("Couldn't read that file.", true);
       }
     };
-    reader.onerror = () => showToast("File porte somoshya hoyeche.", true);
+    reader.onerror = () => showToast("Couldn't read that file.", true);
     if (isText) reader.readAsText(file);
     else reader.readAsArrayBuffer(file);
   }
@@ -1352,11 +1352,11 @@
     const from = parseDateStr(att.from),
       to = parseDateStr(att.to);
     if (!from || !to) {
-      box.innerHTML = `<span class="tally">From ar To duita-i lagbe</span>`;
+      box.innerHTML = `<span class="tally">Needs both a From and a To</span>`;
       return;
     }
     if (from > to) {
-      box.innerHTML = `<span class="tally warn">From date-ta To date-er pore</span>`;
+      box.innerHTML = `<span class="tally warn">From is after To</span>`;
       return;
     }
     let days = 0,
@@ -1382,9 +1382,9 @@
     }
 
     box.innerHTML =
-      `<span class="tally ok"><strong>${days}</strong> din · <strong>${working}</strong> working · ${weekendDays} weekend · ${holidayDays} holiday</span>` +
+      `<span class="tally ok"><strong>${days}</strong> days · <strong>${working}</strong> working · ${weekendDays} weekend · ${holidayDays} holiday</span>` +
       (missing.length
-        ? `<span class="tally warn" style="margin-left:8px">${missing.join(", ")}-er holiday list nei — custom date use koro</span>`
+        ? `<span class="tally warn" style="margin-left:8px">No holiday list for ${missing.join(", ")} — add custom dates</span>`
         : "");
   }
 
@@ -1396,7 +1396,7 @@
     if (len <= 0) len += 1440;
     const h = Math.floor(len / 60),
       m = len % 60;
-    return `${h}h${m ? " " + m + "m" : ""}${end <= start ? " · midnight cross kore" : ""}`;
+    return `${h}h${m ? " " + m + "m" : ""}${end <= start ? " · crosses midnight" : ""}`;
   }
 
   function renderShifts() {
@@ -1441,7 +1441,7 @@
     wrap.innerHTML = "";
 
     if (singleShift()) {
-      wrap.innerHTML = `<span class="tally"><strong>1</strong> shift — shob ${att.ids.length} ta employee Shift 1-e</span>`;
+      wrap.innerHTML = `<span class="tally"><strong>1</strong> shift — all ${att.ids.length} of them are on it</span>`;
       return;
     }
 
@@ -1452,12 +1452,12 @@
     pool.innerHTML = `
       <div class="pool-head">
         <span class="pool-title">Unassigned</span>
-        <span class="tally" style="margin:0"><strong>${free.length}</strong> baki</span>
+        <span class="tally" style="margin:0"><strong>${free.length}</strong> left</span>
       </div>
       <div class="pool-scroll">${
         free.length
           ? free.map((id) => `<span class="pool-chip" draggable="true" data-id="${escapeHtml(id)}">${escapeHtml(id)}</span>`).join("")
-          : `<span class="pool-empty">Shob employee assign kora hoyeche.</span>`
+          : `<span class="pool-empty">Everyone has a shift.</span>`
       }</div>`;
     $all(".pool-chip", pool).forEach((chip) => {
       chip.addEventListener("dragstart", (e) => {
@@ -1497,12 +1497,12 @@
           <span class="shift-span">${sh.in} – ${sh.out} · ${sh.ids.length} employee</span>
         </div>
         <div class="assign-search">
-          <input type="text" placeholder="ID search koro — jemon 059" data-shift="${i}" value="${escapeHtml(att.searchText[i] || "")}" />
+          <input type="text" placeholder="Search an ID — try 059" data-shift="${i}" value="${escapeHtml(att.searchText[i] || "")}" />
           <div class="search-results" data-shift="${i}"></div>
         </div>
         <div class="mini-actions">
           <button type="button" class="tiny-btn" data-act="all" data-shift="${i}">Add all matching${term ? ` (${matches.length})` : ""}</button>
-          <button type="button" class="tiny-btn" data-act="rest" data-shift="${i}">Baki shob ei shift-e (${free.length})</button>
+          <button type="button" class="tiny-btn" data-act="rest" data-shift="${i}">Put the rest here (${free.length})</button>
           <button type="button" class="tiny-btn" data-act="clear" data-shift="${i}">Clear</button>
         </div>
         <div class="assigned-row">${sh.ids
@@ -1525,7 +1525,7 @@
         results.hidden = false;
         results.innerHTML = list.length
           ? list.slice(0, 60).map((id) => `<button type="button" data-add="${escapeHtml(id)}">${escapeHtml(id)}</button>`).join("")
-          : `<div class="search-none">Match korlo na</div>`;
+          : `<div class="search-none">Nothing matches</div>`;
         $all("button[data-add]", results).forEach((b) => {
           b.addEventListener("click", () => {
             sh.ids.push(b.dataset.add);
@@ -1638,7 +1638,7 @@
       const govt = govtHolidayList().filter((h) => att.govtRemoved.indexOf(h.date) === -1);
       const box = document.createElement("div");
       box.innerHTML = `
-        <p class="sub-note">Shomvob-er HR system theke neya — <strong>${govt.length}</strong> date. Kono ta na lagle chip-er × chepe remove koro.</p>
+        <p class="sub-note">Taken from Shomvob HR — <strong>${govt.length}</strong> dates. Don't want one? Hit its ×.</p>
         <div class="preview-row">${govt
           .map(
             (h) =>
@@ -1711,8 +1711,8 @@
            <div class="field"><label for="otWeekend">Max OT — weekend (hours)</label><input type="number" id="otWeekend" min="0" max="12" value="${att.otMax.weekend}" /></div>
            <div class="field"><label for="otHoliday">Max OT — holiday (hours)</label><input type="number" id="otHoliday" min="0" max="12" value="${att.otMax.holiday}" /></div>
          </div>
-         <p class="sub-note">Weekend ar holiday-te puro time-tai overtime — In hobe shift start, Out hobe <code>start + OT</code>.</p>`
-      : `<p class="sub-note">Overtime nei — weekend ar holiday-te kono row porbe na.</p>`;
+         <p class="sub-note">On a weekend or holiday the whole day is overtime — In at shift start, Out at <code>start + OT</code>.</p>`
+      : `<p class="sub-note">No overtime — so weekends and holidays produce nothing at all.</p>`;
 
     if (att.otEnabled) {
       [["otWeekday", "weekday"], ["otWeekend", "weekend"], ["otHoliday", "holiday"]].forEach(([id, key]) => {
@@ -1836,14 +1836,14 @@
 
   function attendanceProblems() {
     const out = [];
-    if (!att.ids.length) out.push("employee ID lagbe");
+    if (!att.ids.length) out.push("needs employee IDs");
     const from = parseDateStr(att.from),
       to = parseDateStr(att.to);
-    if (!from || !to) out.push("date range lagbe");
-    else if (from > to) out.push("From date To date-er pore");
-    if (att.shifts.some((s) => parseHM(s.in) == null || parseHM(s.out) == null)) out.push("shift time lagbe");
-    if (!singleShift() && !assignedIdSet().size) out.push("kono employee shift-e assign kora hoyni");
-    if (att.weekend.length === 7) out.push("shob din weekend — kono working day nei");
+    if (!from || !to) out.push("needs a date range");
+    else if (from > to) out.push("From is after To");
+    if (att.shifts.some((s) => parseHM(s.in) == null || parseHM(s.out) == null)) out.push("needs shift times");
+    if (!singleShift() && !assignedIdSet().size) out.push("nobody is assigned to a shift yet");
+    if (att.weekend.length === 7) out.push("every day is a weekend — no working days left");
     return out;
   }
 
@@ -1859,7 +1859,7 @@
     const assigned = singleShift() ? att.ids.length : assignedIdSet().size;
     let days = 0;
     eachDate(att.from, att.to, () => days++);
-    summary.innerHTML = `<strong>${assigned}</strong> employee · <strong>${days}</strong> din · <strong>${att.shiftCount}</strong> shift · ${att.otEnabled ? "OT on" : "OT off"}`;
+    summary.innerHTML = `<strong>${assigned}</strong> employees · <strong>${days}</strong> days · <strong>${att.shiftCount}</strong> shift · ${att.otEnabled ? "OT on" : "OT off"}`;
     btn.disabled = false;
   }
 
@@ -1872,14 +1872,14 @@
     try {
       const rows = generateAttendanceRows();
       if (rows.length < 2) {
-        showToast("Kono row generate holo na — percentage ar date range check koro.", true);
+        showToast("That produced no rows at all — check the percentages and the date range.", true);
         return;
       }
       const filename = downloadAttendanceWorkbook(rows);
-      showToast(`${filename} — ${rows.length - 1} attendance row generate hoyeche.`);
+      showToast(`${filename} — ${rows.length - 1} attendance rows 🎉`);
     } catch (err) {
       console.error(err);
-      showToast("File generate korte somoshya hoyeche. Console check koro.", true);
+      showToast("Couldn't generate the file. The console has the details.", true);
     }
   }
 
@@ -2029,28 +2029,28 @@
       <div class="page-head">
         <span class="page-eyebrow">Bulk operation · 03</span>
         <h1 class="page-title">Leave Balance Add</h1>
-        <p class="page-desc">System theke export kora leave balance file ta upload koro. Employee, leave type ar allocation shob file theke-i pora hobe — shudhu <strong>Already Used Leave</strong> column ta fill kore dibo.</p>
+        <p class="page-desc">Upload the leave balance file the system exported. Employees, leave types and allocations all come from it — the only column being filled in is <strong>Already Used Leave</strong>.</p>
         <details class="rules-card">
           <summary class="rules-summary"><span>Fixed generation rules</span><span class="chev">›</span></summary>
           <div class="rules-body">
-            <div class="rule-row"><span class="rule-col">Ja pora hoy</span><span class="rule-val">Employee ID · Name · Leave Type · Total Allocated · Earned Leave</span></div>
-            <div class="rule-row"><span class="rule-col">Ja generate hoy</span><span class="rule-val">shudhu Already Used Leave</span></div>
+            <div class="rule-row"><span class="rule-col">Read from the file</span><span class="rule-val">Employee ID · Name · Leave Type · Total Allocated · Earned Leave</span></div>
+            <div class="rule-row"><span class="rule-col">Filled in</span><span class="rule-val">Already Used Leave, and nothing else</span></div>
             <div class="rule-row"><span class="rule-col">Upper bound</span><span class="rule-val">Already Used &lt; Total Allocated + Earned Leave</span></div>
             <div class="rule-row"><span class="rule-col">Step</span><span class="rule-val">0.5 — half-day leave (4, 4.5, 5, 5.5 …)</span></div>
-            <div class="rule-row"><span class="rule-col">Month onujayi</span><span class="rule-val">bochor ${prog}% pass — ceiling × ${prog}% er ${Math.round(LEAVE_BAND.low * 100)}–${Math.round(LEAVE_BAND.high * 100)}%</span></div>
-            <div class="rule-row"><span class="rule-col">Age value thakle</span><span class="rule-val">notun value tar theke beshi hobe — kokhono kombe na</span></div>
-            <div class="rule-row"><span class="rule-col">Row order</span><span class="rule-val">uploaded file-er hubohu — kono row baad jabe na</span></div>
+            <div class="rule-row"><span class="rule-col">Scaled to the date</span><span class="rule-val">${prog}% of the year gone — so ${Math.round(LEAVE_BAND.low * 100)}–${Math.round(LEAVE_BAND.high * 100)}% of ceiling × ${prog}%</span></div>
+            <div class="rule-row"><span class="rule-col">Already has a value</span><span class="rule-val">the new one is larger — leave taken never shrinks</span></div>
+            <div class="rule-row"><span class="rule-col">Row order</span><span class="rule-val">exactly as uploaded — no row is dropped</span></div>
           </div>
         </details>
       </div>
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Exported file</h2></div>
-        <p class="section-note">Shomvob theke download kora <code>leave_balance_already_used_update_*.xlsx</code> file ta dao.</p>
+        <p class="section-note">Hand over the <code>leave_balance_already_used_update_*.xlsx</code> you downloaded from Shomvob.</p>
         <div class="field">
           <label for="leaveFile">Excel file</label>
           <input type="file" id="leaveFile" accept=".xlsx,.xlsm" />
-          <span class="hint">${leave.fileName ? escapeHtml(leave.fileName) : "6 ta column lagbe — Employee ID, Employee Name, Leave Type Name, Total Allocated, Earned Leave, Already Used Leave"}</span>
+          <span class="hint">${leave.fileName ? escapeHtml(leave.fileName) : "Needs its six columns — Employee ID, Employee Name, Leave Type Name, Total Allocated, Earned Leave, Already Used Leave"}</span>
         </div>
         <div id="leaveTally"></div>
         <div class="preview-row" id="leaveTypes"></div>
@@ -2058,7 +2058,7 @@
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Preview</h2></div>
-        <p class="section-note">Generate korar age dekhe nao kon row-e ki boshbe. Prottek baar generate korle value bodlabe — random.</p>
+        <p class="section-note">See what lands where before you generate. Every run comes out different — it's random.</p>
         <div id="leavePreview"></div>
       </div>
     `;
@@ -2069,15 +2069,15 @@
     if (!box) return;
     const st = leave.stats;
     if (!st) {
-      box.innerHTML = `<span class="tally">File upload koro</span>`;
+      box.innerHTML = `<span class="tally">Upload the file</span>`;
       return;
     }
     const prog = Math.round(yearProgress() * 100);
     box.innerHTML =
       `<span class="tally ok"><strong>${st.rowCount}</strong> row · <strong>${st.employees}</strong> employee · <strong>${st.types.size}</strong> leave type</span>` +
-      `<span class="tally" style="margin-left:8px">as of <strong>${fmtDate(today)}</strong> — bochor <strong>${prog}%</strong> pass</span>` +
+      `<span class="tally" style="margin-left:8px">as of <strong>${fmtDate(today)}</strong> — <strong>${prog}%</strong> of the year gone</span>` +
       (st.withExisting
-        ? `<span class="tally warn" style="margin-left:8px"><strong>${st.withExisting}</strong> row-e age theke value ache</span>`
+        ? `<span class="tally warn" style="margin-left:8px"><strong>${st.withExisting}</strong> rows already carry a value</span>`
         : "");
   }
 
@@ -2100,7 +2100,7 @@
     const box = $("#leavePreview");
     if (!box) return;
     if (!leave.cols || !leave.rows.length) {
-      box.innerHTML = `<span class="tally">File upload korle preview ashbe</span>`;
+      box.innerHTML = `<span class="tally">Upload a file and the preview shows up</span>`;
       return;
     }
     const { rows, filled, unchanged } = generateLeaveRows();
@@ -2132,8 +2132,8 @@
           </tbody>
         </table>
       </div>
-      <span class="tally ok"><strong>${filled}</strong> row fill hobe</span>
-      ${unchanged ? `<span class="tally warn" style="margin-left:8px"><strong>${unchanged}</strong> row oporibortito thakbe — ceiling-e pouche geche</span>` : ""}`;
+      <span class="tally ok"><strong>${filled}</strong> rows will be filled</span>
+      ${unchanged ? `<span class="tally warn" style="margin-left:8px"><strong>${unchanged}</strong> rows stay as they are — already at the ceiling</span>` : ""}`;
   }
 
   function handleLeaveFile(e) {
@@ -2154,7 +2154,7 @@
           }
         }
         if (!found) {
-          showToast("Ei file-e leave balance-er 6 ta column pawa jayni.", true);
+          showToast("That file doesn't have the six leave balance columns.", true);
           return;
         }
         /* drop trailing blank rows the export sometimes carries */
@@ -2173,13 +2173,13 @@
         renderLeaveTypes();
         renderLeavePreview();
         updateSummary();
-        showToast(`${file.name} — ${leave.rows.length} row pora holo.`);
+        showToast(`${file.name} — read ${leave.rows.length} rows.`);
       } catch (err) {
         console.error(err);
-        showToast("File porte somoshya hoyeche.", true);
+        showToast("Couldn't read that file.", true);
       }
     };
-    reader.onerror = () => showToast("File porte somoshya hoyeche.", true);
+    reader.onerror = () => showToast("Couldn't read that file.", true);
     reader.readAsArrayBuffer(file);
   }
 
@@ -2191,7 +2191,7 @@
   }
 
   function leaveProblems() {
-    if (!leave.cols || !leave.rows.length) return ["exported file upload koro"];
+    if (!leave.cols || !leave.rows.length) return ["upload the exported file"];
     return [];
   }
 
@@ -2218,12 +2218,12 @@
     try {
       const result = generateLeaveRows();
       const filename = downloadLeaveWorkbook(result.rows);
-      const tail = result.unchanged ? ` (${result.unchanged} row oporibortito)` : "";
-      showToast(`${filename} — ${result.filled} row fill hoyeche${tail}.`);
+      const tail = result.unchanged ? ` (${result.unchanged} left untouched)` : "";
+      showToast(`${filename} — filled ${result.filled} rows${tail} 🎉`);
       renderLeavePreview();
     } catch (err) {
       console.error(err);
-      showToast("File generate korte somoshya hoyeche. Console check koro.", true);
+      showToast("Couldn't generate the file. The console has the details.", true);
     }
   }
 
@@ -2338,27 +2338,27 @@
       <div class="page-head">
         <span class="page-eyebrow">Bulk operation · 04</span>
         <h1 class="page-title">Payroll Custom Field Add</h1>
-        <p class="page-desc">System theke export kora custom addition/deduction file ta upload koro. Employee ar field name shob file theke pora hobe — ami shudhu amount gula boshabo.</p>
+        <p class="page-desc">Upload the custom addition/deduction file the system exported. Employees and field names all come from it — only the amounts get filled in.</p>
         <details class="rules-card">
           <summary class="rules-summary"><span>Fixed generation rules</span><span class="chev">›</span></summary>
           <div class="rules-body">
-            <div class="rule-row"><span class="rule-col">Ja pora hoy</span><span class="rule-val">Employee ID · Employee Name · protita custom field-er naam</span></div>
-            <div class="rule-row"><span class="rule-col">Ja generate hoy</span><span class="rule-val">shudhu custom field-er amount</span></div>
-            <div class="rule-row"><span class="rule-col">Sign</span><span class="rule-val">(+) ar (-) ek-i range theke — header-e sign ache, tai value positive</span></div>
-            <div class="rule-row"><span class="rule-col">Coverage</span><span class="rule-val">per-cell, tai kichu employee puropuri 0 thakbe</span></div>
-            <div class="rule-row"><span class="rule-col">Age value thakle</span><span class="rule-val">hat dibe na — oporibortito thakbe</span></div>
-            <div class="rule-row"><span class="rule-col">Row order</span><span class="rule-val">uploaded file-er hubohu</span></div>
+            <div class="rule-row"><span class="rule-col">Read from the file</span><span class="rule-val">Employee ID · Employee Name · every custom field name</span></div>
+            <div class="rule-row"><span class="rule-col">Filled in</span><span class="rule-val">the amounts, and nothing else</span></div>
+            <div class="rule-row"><span class="rule-col">Sign</span><span class="rule-val">(+) and (-) draw from one range — the header already says which way, so values stay positive</span></div>
+            <div class="rule-row"><span class="rule-col">Coverage</span><span class="rule-val">applied per cell, so some people come out entirely zero</span></div>
+            <div class="rule-row"><span class="rule-col">Already has a value</span><span class="rule-val">left alone, untouched</span></div>
+            <div class="rule-row"><span class="rule-col">Row order</span><span class="rule-val">exactly as uploaded</span></div>
           </div>
         </details>
       </div>
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Exported file</h2></div>
-        <p class="section-note">Shomvob theke download kora <code>custom-additions-deductions-*.xlsx</code> file ta dao.</p>
+        <p class="section-note">Hand over the <code>custom-additions-deductions-*.xlsx</code> you downloaded from Shomvob.</p>
         <div class="field">
           <label for="payrollFile">Excel file</label>
           <input type="file" id="payrollFile" accept=".xlsx,.xlsm" />
-          <span class="hint">${payroll.fileName ? escapeHtml(payroll.fileName) : "Employee ID ar Employee Name column lagbe, tarpor joto gula custom field ache"}</span>
+          <span class="hint">${payroll.fileName ? escapeHtml(payroll.fileName) : "Needs an Employee ID and Employee Name column, then however many custom fields you have"}</span>
         </div>
         <div id="payrollTally"></div>
         <div class="preview-row" id="payrollFields"></div>
@@ -2366,7 +2366,7 @@
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Coverage &amp; amount</h2></div>
-        <p class="section-note">Koto gulo cell-e amount boshbe, ar amount koto hobe.</p>
+        <p class="section-note">How many cells get an amount, and how big it is.</p>
         <div class="field-grid-2">
           <div class="field">
             <label for="payrollCoverage">Coverage</label>
@@ -2375,12 +2375,12 @@
                 (v) => `<option value="${v}" ${v === payroll.coverage ? "selected" : ""}>${v}%</option>`
               ).join("")}
             </select>
-            <span class="hint">Protita cell-er ei shombhabona — 100% dile puro grid bhorbe</span>
+            <span class="hint">The chance for each cell — at 100% the whole grid fills</span>
           </div>
           <div class="field">
             <label for="payrollStep">Step</label>
             <input type="number" id="payrollStep" min="1" value="${payroll.step}" />
-            <span class="hint">Amount ei ongker gunitok hobe</span>
+            <span class="hint">Amounts land on multiples of this</span>
           </div>
         </div>
         <div class="field-grid-2">
@@ -2398,7 +2398,7 @@
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Preview</h2></div>
-        <p class="section-note">Generate korar age dekhe nao. Prottek baar value bodlabe — random.</p>
+        <p class="section-note">Have a look before you generate. Every run comes out different — it's random.</p>
         <div id="payrollPreview"></div>
       </div>
     `;
@@ -2408,7 +2408,7 @@
     const box = $("#payrollTally");
     if (!box) return;
     if (!payroll.fields.length) {
-      box.innerHTML = `<span class="tally">File upload koro</span>`;
+      box.innerHTML = `<span class="tally">Upload the file</span>`;
       return;
     }
     const cells = payroll.rows.length * payroll.fields.length;
@@ -2435,7 +2435,7 @@
     const box = $("#payrollPreview");
     if (!box) return;
     if (!payroll.fields.length || !payroll.rows.length) {
-      box.innerHTML = `<span class="tally">File upload korle preview ashbe</span>`;
+      box.innerHTML = `<span class="tally">Upload a file and the preview shows up</span>`;
       return;
     }
     if (payrollProblems().length) {
@@ -2470,9 +2470,9 @@
           </tbody>
         </table>
       </div>
-      <span class="tally ok"><strong>${result.filled}</strong> cell fill hobe (${cells} er moddhe)</span>
-      ${result.kept ? `<span class="tally warn" style="margin-left:8px"><strong>${result.kept}</strong> cell-e age theke value ache — hat dibo na</span>` : ""}
-      ${result.untouchedEmployees ? `<span class="tally" style="margin-left:8px"><strong>${result.untouchedEmployees}</strong> employee puropuri 0 thakbe</span>` : ""}`;
+      <span class="tally ok"><strong>${result.filled}</strong> of ${cells} cells will be filled</span>
+      ${result.kept ? `<span class="tally warn" style="margin-left:8px"><strong>${result.kept}</strong> cells already have a value — left alone</span>` : ""}
+      ${result.untouchedEmployees ? `<span class="tally" style="margin-left:8px"><strong>${result.untouchedEmployees}</strong> people come out entirely zero</span>` : ""}`;
   }
 
   function handlePayrollFile(e) {
@@ -2493,7 +2493,7 @@
           }
         }
         if (!found) {
-          showToast("Ei file-e Employee ID / Name ar custom field column pawa jayni.", true);
+          showToast("That file has no Employee ID / Name and custom field columns.", true);
           return;
         }
         found.rows = found.rows.filter((r) => r.some((c) => c != null && String(c).trim() !== ""));
@@ -2510,13 +2510,13 @@
         renderPayrollFields();
         renderPayrollPreview();
         updateSummary();
-        showToast(`${file.name} — ${payroll.rows.length} employee, ${payroll.fields.length} field.`);
+        showToast(`${file.name} — ${payroll.rows.length} employees, ${payroll.fields.length} fields.`);
       } catch (err) {
         console.error(err);
-        showToast("File porte somoshya hoyeche.", true);
+        showToast("Couldn't read that file.", true);
       }
     };
-    reader.onerror = () => showToast("File porte somoshya hoyeche.", true);
+    reader.onerror = () => showToast("Couldn't read that file.", true);
     reader.readAsArrayBuffer(file);
   }
 
@@ -2553,15 +2553,15 @@
     const maxEl = $("#payrollMax");
     if (!err || !maxEl) return true;
     const ok = payroll.max >= payroll.min;
-    err.textContent = ok ? "" : "Max amount min-er cheye kom hote parbe na";
+    err.textContent = ok ? "" : "Max can't be below min";
     maxEl.classList.toggle("invalid", !ok);
     return ok;
   }
 
   function payrollProblems() {
-    if (!payroll.fields.length || !payroll.rows.length) return ["exported file upload koro"];
-    if (payroll.max < payroll.min) return ["max amount min-er cheye kom"];
-    if (!(payroll.step > 0)) return ["step 1 ba tar beshi hote hobe"];
+    if (!payroll.fields.length || !payroll.rows.length) return ["upload the exported file"];
+    if (payroll.max < payroll.min) return ["max amount is below min"];
+    if (!(payroll.step > 0)) return ["step has to be 1 or more"];
     return [];
   }
 
@@ -2588,12 +2588,12 @@
     try {
       const result = generatePayrollRows();
       const filename = downloadPayrollWorkbook(result.rows);
-      const tail = result.kept ? `, ${result.kept} cell oporibortito` : "";
-      showToast(`${filename} — ${result.filled} cell fill hoyeche${tail}.`);
+      const tail = result.kept ? `, ${result.kept} left untouched` : "";
+      showToast(`${filename} — filled ${result.filled} cells${tail} 🎉`);
       renderPayrollPreview();
     } catch (err) {
       console.error(err);
-      showToast("File generate korte somoshya hoyeche. Console check koro.", true);
+      showToast("Couldn't generate the file. The console has the details.", true);
     }
   }
 
@@ -2809,28 +2809,28 @@
       <div class="page-head">
         <span class="page-eyebrow">Bulk operation · 05</span>
         <h1 class="page-title">Assets Add</h1>
-        <p class="page-desc">QA-ready asset bulk-upload file generate koro. Koyta asset ar code prefix dile, type ar name apnar configure kora list theke ashbe.</p>
+        <p class="page-desc">Generate a QA-ready asset bulk-upload file. Give it a count and a code prefix; types and names come from the list you set up below.</p>
         <details class="rules-card">
           <summary class="rules-summary"><span>Fixed generation rules</span><span class="chev">›</span></summary>
           <div class="rules-body">
             <div class="rule-row"><span class="rule-col">Asset Code</span><span class="rule-val">PREFIX0001 sequential — unique</span></div>
-            <div class="rule-row"><span class="rule-col">Asset Name / Type</span><span class="rule-val">apnar select kora type theke ekta, oi type-er name pool theke ekta</span></div>
-            <div class="rule-row"><span class="rule-col">Asset Description</span><span class="rule-val">name-er sathe mile — default name-er jonno, custom name-e khali</span></div>
-            <div class="rule-row"><span class="rule-col">Asset Image</span><span class="rule-val">khali — bhua URL dile broken image link dhukbe</span></div>
-            <div class="rule-row"><span class="rule-col">Assignment</span><span class="rule-val">${ASSETS_ASSIGNED_BAND.low}–${ASSETS_ASSIGNED_BAND.high}% asset assign kora, baki gula khali</span></div>
-            <div class="rule-row"><span class="rule-col">Assigned Date</span><span class="rule-val">aaj theke 1 bochor pichhone random — kokhono future na</span></div>
+            <div class="rule-row"><span class="rule-col">Asset Name / Type</span><span class="rule-val">a type you picked, and a name from that type's own pool</span></div>
+            <div class="rule-row"><span class="rule-col">Asset Description</span><span class="rule-val">paired with the name — blank for names you type yourself</span></div>
+            <div class="rule-row"><span class="rule-col">Asset Image</span><span class="rule-val">left blank — a made-up URL would only be a broken link</span></div>
+            <div class="rule-row"><span class="rule-col">Assignment</span><span class="rule-val">${ASSETS_ASSIGNED_BAND.low}–${ASSETS_ASSIGNED_BAND.high}% get an owner, the rest stay blank</span></div>
+            <div class="rule-row"><span class="rule-col">Assigned Date</span><span class="rule-val">somewhere in the last year — never in the future</span></div>
           </div>
         </details>
       </div>
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Batch basics</h2></div>
-        <p class="section-note">Koyta asset generate hobe ar code-er prefix ki hobe.</p>
+        <p class="section-note">How many assets, and what their codes should start with.</p>
         <div class="field-row">
           <div class="field">
             <label for="assetCount">Number of assets</label>
             <input type="number" id="assetCount" min="1" max="5000" value="${assets.count}" />
-            <span class="hint">1 theke 5000</span>
+            <span class="hint">1 to 5000</span>
             <span class="error-text" id="assetCountError"></span>
           </div>
           <div class="field">
@@ -2845,17 +2845,17 @@
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Asset type &amp; name</h2></div>
-        <p class="section-note">Kon kon type-er asset banabe, ar protita type-e kon kon name. Kom pokkhe 1 ta type-e 1 ta name lagbe.</p>
+        <p class="section-note">Which kinds of asset to make, and which names in each. At least one name in one type is needed.</p>
         <div class="dept-list" id="assetTypeList"></div>
         <div class="add-dept-row">
           <button type="button" class="tiny-btn" id="addAssetTypeBtn">+ Add custom type</button>
         </div>
-        <div class="validation-banner hidden" id="assetTypeWarning">${iconWarn()}<span>Kom pokkhe ekta type-e ekta asset name select/add korte hobe.</span></div>
+        <div class="validation-banner hidden" id="assetTypeWarning">${iconWarn()}<span>Pick at least one asset name in at least one type.</span></div>
       </div>
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Assigned employee IDs</h2></div>
-        <p class="section-note">Kader ke asset assign hobe. Optional — ID na dile shob asset unassigned thakbe, karon oi duita column template-e optional.</p>
+        <p class="section-note">Who gets the assets. Optional — with no IDs everything comes out unassigned, which the template allows.</p>
         ${idSourceMarkup(assets.idSrc)}
         <div id="assetAssignNote"></div>
       </div>
@@ -2882,8 +2882,8 @@
     if (!box) return;
     const n = assets.idSrc.ids.length;
     box.innerHTML = n
-      ? `<span class="tally ok">${ASSETS_ASSIGNED_BAND.low}–${ASSETS_ASSIGNED_BAND.high}% asset <strong>${n}</strong> jon employee-r moddhe bhag hobe</span>`
-      : `<span class="tally">Kono ID nei — shob asset unassigned thakbe</span>`;
+      ? `<span class="tally ok">${ASSETS_ASSIGNED_BAND.low}–${ASSETS_ASSIGNED_BAND.high}% of them shared among <strong>${n}</strong> people</span>`
+      : `<span class="tally">No IDs — everything comes out unassigned</span>`;
   }
 
   function validateAssetCount() {
@@ -2891,7 +2891,7 @@
     const err = $("#assetCountError");
     if (!el) return true;
     const ok = assets.count >= 1 && assets.count <= 5000;
-    err.textContent = ok ? "" : "1 theke 5000-er moddhe hote hobe";
+    err.textContent = ok ? "" : "Somewhere between 1 and 5000";
     el.classList.toggle("invalid", !ok);
     return ok;
   }
@@ -2901,7 +2901,7 @@
     const err = $("#assetPrefixError");
     if (!el) return true;
     const ok = /^[A-Z]{2,6}$/.test(assets.prefix);
-    err.textContent = ok ? "" : "2 theke 6 ta letter lagbe";
+    err.textContent = ok ? "" : "2 to 6 letters";
     el.classList.toggle("invalid", !ok);
     return ok;
   }
@@ -3071,9 +3071,9 @@
 
   function assetsProblems() {
     const out = [];
-    if (!(assets.count >= 1 && assets.count <= 5000)) out.push("asset count 1–5000 hote hobe");
-    if (!/^[A-Z]{2,6}$/.test(assets.prefix)) out.push("asset code prefix 2–6 letter hote hobe");
-    if (!collectAssetTypes().length) out.push("kom pokkhe ekta type-e ekta asset name lagbe");
+    if (!(assets.count >= 1 && assets.count <= 5000)) out.push("asset count has to be 1–5000");
+    if (!/^[A-Z]{2,6}$/.test(assets.prefix)) out.push("asset code prefix has to be 2–6 letters");
+    if (!collectAssetTypes().length) out.push("needs at least one asset name in one type");
     return out;
   }
 
@@ -3108,12 +3108,12 @@
       const result = generateAssetRows();
       const filename = downloadAssetsWorkbook(result.rows);
       const tail = assets.idSrc.ids.length
-        ? ` — ${result.assigned} ta assign kora (${result.assignPct}%)`
-        : " — shob unassigned";
-      showToast(`${filename}: ${assets.count} asset row${tail}.`);
+        ? ` — ${result.assigned} assigned (${result.assignPct}%)`
+        : " — all unassigned";
+      showToast(`${filename} — ${assets.count} assets${tail} 🎉`);
     } catch (err) {
       console.error(err);
-      showToast("File generate korte somoshya hoyeche. Console check koro.", true);
+      showToast("Couldn't generate the file. The console has the details.", true);
     }
   }
 
@@ -3156,7 +3156,7 @@
         email.value.trim().toLowerCase() === DEMO_LOGIN.email &&
         pass.value === DEMO_LOGIN.password;
       if (!ok) {
-        err.textContent = "Wrong — and they were written down for you.";
+        err.textContent = "Wrong — and they were written down for you. 🙃";
         email.classList.toggle("invalid", email.value.trim().toLowerCase() !== DEMO_LOGIN.email);
         pass.classList.toggle("invalid", pass.value !== DEMO_LOGIN.password);
         return;
@@ -3247,8 +3247,8 @@
         return;
       }
       askDiscard(
-        "Ekhane kaj kora ache — ID list, upload kora file, shift assignment. Log out korle shob chole jabe, karon kichu save hoy na.",
-        "Discard kore log out",
+        "There's work here — an ID list, an uploaded file, shift assignments. Logging out throws all of it away, because nothing is saved anywhere.",
+        "Discard and log out",
         () => {
           leavingOnPurpose = true;
           window.location.reload();
