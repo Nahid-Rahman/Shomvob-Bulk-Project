@@ -709,6 +709,13 @@ input.invalid { border-color: var(--danger); }
    crowded the button against a long message. */
 .setup-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 14px; }
 
+/* The base .seg control sizes each button to its own label, which is fine
+   for three unevenly-named options (Paste/Generate/Upload) but reads as
+   lopsided for a straight either/or like Dev vs. Staging — "Dev" is a
+   third the width of "Staging" otherwise. Equal halves, full width. */
+#setupEnvSeg { display: flex; width: 100%; }
+#setupEnvSeg button { flex: 1; text-align: center; }
+
 /* ---- Sticky action bar ---- */
 .action-bar {
   border-top: 1px solid var(--border);
@@ -5327,7 +5334,7 @@ const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "act
   const setup = {
     toolEmail: null,
     toolToken: null, // Supabase access token
-    env: "dev", // "dev" | "staging" — picked alongside the tool login, then fixed
+    env: "staging", // "dev" | "staging" — picked alongside the tool login, then fixed
     companyToken: null,
     companyRefresh: null,
     companyName: null,

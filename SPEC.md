@@ -701,10 +701,13 @@ CORS was enabled on either environment.
 ### What the three states look like
 
 1. **Signed into neither** — step-one form only. `data-theme`-style
-   environment choice (`.seg`, `dev`/`staging`, default `dev`) submitted
-   together with the tool credentials, not asked for separately, since an
-   environment choice made before any login means nothing is actually
-   locked in yet.
+   environment choice (`.seg`, `dev`/`staging`, default **staging** — most
+   day-to-day work happens there, dev is the deliberate opt-in), submitted
+   together with the tool credentials rather than asked for separately,
+   since a choice made before any login means nothing is actually locked
+   in yet. The two buttons are equal-width halves rather than sized to
+   their own labels, since "Dev" and "Staging" are a straight either/or,
+   not a list where the odd one out should stand out.
 2. **Signed into the tool, not the company** — step-two form, plus the
    status strip (env badge, tool email, Sign out).
 3. **Signed into both** — a "Connected" panel naming the company, the
@@ -714,7 +717,7 @@ CORS was enabled on either environment.
 
 ### Tested
 
-Playwright, 28 checks, `tests/company-setup.test.js` — entirely against
+Playwright, 29 checks, `tests/company-setup.test.js` — entirely against
 mocked responses (`page.route`), not the live servers, so the suite has
 no dependency on a real Supabase account or on either Shomvob environment
 being reachable: the sidebar entry and hidden action bar, the environment

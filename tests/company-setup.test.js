@@ -86,7 +86,10 @@ const statusbar = (page) => page.textContent("#setupStatusBar").then((t) => t.re
     check("A sidebar has exactly one Company Setup entry", (await page.locator('.op-item:has-text("Company Setup")').count()) === 1);
     check("A the shared Generate bar is hidden on this page", (await page.locator("#actionBar").evaluate((el) => getComputedStyle(el).display)) === "none");
     check("A opens on step one, tool sign-in", (await page.locator("#setupSignInBtn").count()) === 1);
-    check("A dev is the default environment", (await page.getAttribute('#setupEnvSeg button[data-env="dev"]', "aria-pressed")) === "true");
+    check("A staging is the default environment", (await page.getAttribute('#setupEnvSeg button[data-env="staging"]', "aria-pressed")) === "true");
+    check("A the two environment buttons are equal width",
+      (await page.locator('#setupEnvSeg button[data-env="dev"]').boundingBox().then((b) => b.width)) ===
+        (await page.locator('#setupEnvSeg button[data-env="staging"]').boundingBox().then((b) => b.width)));
     check("A no page errors yet", errs.length === 0, errs.join(" | "));
     await page.close();
   }
@@ -173,7 +176,7 @@ const statusbar = (page) => page.textContent("#setupStatusBar").then((t) => t.re
     await page.click("#setupDisconnectBtn");
     await page.waitForTimeout(100);
     check("E Disconnect returns to step two", (await page.locator("#setupCoBtn").count()) === 1);
-    check("E Disconnect keeps the tool sign-in and env", (await statusbar(page)) === "Dev mahmudur@shomvob.com Sign out");
+    check("E Disconnect keeps the tool sign-in and env", (await statusbar(page)) === "Staging mahmudur@shomvob.com Sign out");
 
     await page.click("#setupSignOutBtn");
     await page.waitForTimeout(100);
@@ -198,7 +201,7 @@ const statusbar = (page) => page.textContent("#setupStatusBar").then((t) => t.re
     await page.click("#setupCoBtn");
     await page.waitForTimeout(150);
     check("F a rejected company login surfaces its own message", (await page.textContent("#setupCoError")) === "Wrong email or password.");
-    check("F the tool sign-in is untouched by a failed company login", (await statusbar(page)) === "Dev mahmudur@shomvob.com Sign out");
+    check("F the tool sign-in is untouched by a failed company login", (await statusbar(page)) === "Staging mahmudur@shomvob.com Sign out");
     await page.close();
   }
   {
@@ -216,7 +219,7 @@ const statusbar = (page) => page.textContent("#setupStatusBar").then((t) => t.re
     await page.click("#setupCoBtn");
     await page.waitForTimeout(150);
     check("F an unreachable server names itself rather than giving a bare network error",
-      (await page.textContent("#setupCoError")).startsWith("Couldn't reach Dev."));
+      (await page.textContent("#setupCoError")).startsWith("Couldn't reach Staging."));
     await page.close();
   }
 
@@ -235,7 +238,7 @@ const statusbar = (page) => page.textContent("#setupStatusBar").then((t) => t.re
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForTimeout(100);
     check("G switching pages and back keeps the tool sign-in", (await page.locator("#setupCoBtn").count()) === 1);
-    check("G and the status bar with it", (await statusbar(page)) === "Dev mahmudur@shomvob.com Sign out");
+    check("G and the status bar with it", (await statusbar(page)) === "Staging mahmudur@shomvob.com Sign out");
     await page.close();
   }
 

@@ -3377,7 +3377,7 @@
   const setup = {
     toolEmail: null,
     toolToken: null, // Supabase access token
-    env: "dev", // "dev" | "staging" — picked alongside the tool login, then fixed
+    env: "staging", // "dev" | "staging" — picked alongside the tool login, then fixed
     companyToken: null,
     companyRefresh: null,
     companyName: null,
