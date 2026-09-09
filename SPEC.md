@@ -587,6 +587,39 @@ prefix/count validation.
 Also compared against the real template directly: sheet name and all
 seven headers match exactly.
 
+## Appearance — light, dark and auto (built 2026-09-09)
+
+Not an operation, but a rule worth writing down: the picker in the sidebar
+footer has **three** states, not two.
+
+| State | `data-theme` | Behaviour |
+|-------|--------------|-----------|
+| Auto (default) | absent | follows the OS via `prefers-color-scheme` |
+| Light | `light` | pinned light regardless of the OS |
+| Dark | `dark` | pinned dark regardless of the OS |
+
+Auto exists because the page already followed the OS setting before there
+was a control; a bare light/dark switch would have removed that. It works
+by *removing* the attribute, and stores nothing — so "auto" is never a
+value in localStorage, only the absence of one.
+
+The choice persists across reloads. That is the single exception to the
+app's "nothing survives a reload" rule, which is about generated input;
+an appearance is a display preference, not data. An inline script at the
+top of the shell applies the stored value before the stylesheet loads, so
+a pinned theme never paints the wrong way first and flip.
+
+Two long-standing bugs surfaced with it: `input[type="email"]`,
+`input[type="password"]` and `input[type="file"]` had never been styled,
+so the login card's fields and both upload screens showed the browser's
+own white controls. Invisible on the light theme, obvious on the dark one.
+
+Tested: 33 checks across two browser contexts (one per OS colour scheme),
+covering each state, the pressed button, persistence across a reload,
+auto genuinely clearing the stored value, the pre-paint script applying
+before the gate is dismissed, and those three input types taking the
+theme.
+
 ## All five operations are built
 
 Nothing left to spec. Adding a sixth would follow the same route: get the

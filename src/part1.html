@@ -1,4 +1,15 @@
 <title>Bulk Forge</title>
+<script>
+  /* Runs before the stylesheet, on purpose. The appearance choice lives in
+     localStorage and app.js reads it too, but app.js only runs at the end of
+     the body — by then a stored "light" on a dark-mode machine would already
+     have painted dark and would visibly flip. This is the only place in the
+     app that duplicates a key name (bulkforge-appearance); it earns it. */
+  try {
+    var m = localStorage.getItem("bulkforge-appearance");
+    if (m === "light" || m === "dark") document.documentElement.setAttribute("data-theme", m);
+  } catch (e) {}
+</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 __APP_CSS__
@@ -63,6 +74,28 @@ __APP_CSS__
       <div id="opNav"></div>
     </nav>
     <div class="sidebar-foot">
+      <div class="appearance-row" role="group" aria-label="Appearance">
+        <span class="appearance-label">Appearance</span>
+        <div class="appearance-seg" id="appearanceSeg">
+          <button type="button" data-appearance="auto" title="Follow the system setting" aria-label="Follow the system setting">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+              <circle cx="12" cy="12" r="8.5"/>
+              <path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+          <button type="button" data-appearance="light" title="Light" aria-label="Light">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+              <circle cx="12" cy="12" r="4.2"/>
+              <path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.4 5.4l1.5 1.5M17.1 17.1l1.5 1.5M18.6 5.4l-1.5 1.5M6.9 17.1l-1.5 1.5"/>
+            </svg>
+          </button>
+          <button type="button" data-appearance="dark" title="Dark" aria-label="Dark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 14.6A8.5 8.5 0 0 1 9.4 4 8.5 8.5 0 1 0 20 14.6Z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
       <button type="button" class="logout-btn" id="logoutBtn" title="Clears everything on the page and shows the login again">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>

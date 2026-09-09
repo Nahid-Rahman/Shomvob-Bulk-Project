@@ -62,6 +62,35 @@ light/dark support via CSS custom properties (`:root`,
 lives in those three token blocks, so a rebrand is one edit. The only
 hard-coded colour outside them is `#fff` on the error toast.
 
+**Appearance picker** — three states in the sidebar footer: Auto, Light,
+Dark. It is called *appearance*, not *theme*, because `.theme-card` is
+Employee Add's name-theme picker and the two are unrelated; keep the
+names apart. Auto means **no `data-theme` attribute at all**, which is
+what the `prefers-color-scheme` block expects and is the behaviour the
+page had before the control existed — so adding the switch took nothing
+away. `wireAppearance()` in `src/app.js` owns it.
+
+Two things about it that look like duplication but are not:
+
+- **A tiny inline script at the very top of `src/part1.html` reads the
+  stored value before the stylesheet.** `app.js` runs at the end of the
+  body, and by then a stored "light" on a dark-mode machine would have
+  painted dark and would visibly flip. That script is the only place in
+  the app that repeats a key name (`bulkforge-appearance`); it earns it.
+- **This is the one thing the app persists.** The "nothing survives a
+  reload" rule is about generated input, which is data; the appearance is
+  a display preference. Every `localStorage` access is wrapped in
+  `try`/`catch` because a locked-down browser throws rather than
+  returning null.
+
+Adding the switch also exposed two controls that had **never been styled
+at all** — `input[type="email"]`, `input[type="password"]` (the login
+card) and `input[type="file"]` (both upload screens). The selector list
+only covered `text`, `number`, `date` and `time`, so those three were the
+browser's own white boxes. On the light theme that passed for correct,
+which is why it went unnoticed for so long. If you add an input of a new
+type, add it to that selector list.
+
 Typography: IBM Plex Sans (headings/body) + IBM Plex Mono (data/IDs/
 code-like values) — unchanged, and not matched to Shomvob's own fonts.
 
@@ -285,8 +314,13 @@ muted, looping and autoplaying, except under
 `prefers-reduced-motion: reduce`, where it holds the first frame and gains
 controls so playing it stays the visitor's choice.
 
-Nothing is persisted, so a reload asks again; one click clears it. Tests
-call `signIn(page)` from `tests/lib.js` straight after `page.goto`.
+Nothing is persisted, so a reload asks again; one click clears it. (The
+appearance choice is the sole exception, and it is not behind the gate.)
+Tests call `signIn(page)` from `tests/lib.js` straight after `page.goto`.
+
+There is deliberately **no appearance picker on the gate itself** — it
+lives in the sidebar, one click away, and a second copy on a card whose
+whole point is that it barely gates anything would be clutter.
 
 The **Log out** button in the sidebar footer is `location.reload()`. That
 is the honest implementation given nothing is persisted: it clears every
@@ -303,7 +337,8 @@ there is deliberately **no** warning when navigating between pages; it
 would be a false alarm.
 
 What does throw work away is a reload or closing the tab, since nothing is
-persisted. Two guards, both keyed on `hasUnsavedWork()`:
+persisted apart from the appearance choice. Two guards, both keyed on
+`hasUnsavedWork()`:
 
 - **Log out** opens the "Hey Lazy!" dialog (`#discardModal`) when there is
   work. The safe button takes focus and Escape backs out, so a stray
@@ -395,6 +430,12 @@ file, not the sources):
     python build.py
     cd tests && npm run setup   # once
     npm test
+
+Six suites, 224 checks. `appearance.test.js` is the odd one: it opens two
+contexts, one per OS colour scheme, because "auto follows the OS" cannot
+be checked from a single one. Its colour assertions read the computed
+background's average channel rather than an exact hex, so a palette tweak
+does not fail a test about the switch working.
 
 Each assertion maps to a rule in `SPEC.md`; if one fails, check `SPEC.md`
 before changing the test.

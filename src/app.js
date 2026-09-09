@@ -3462,7 +3462,55 @@
     });
   }
 
+  /* ---------- appearance ----------
+
+     "auto" means no data-theme attribute at all, leaving the
+     prefers-color-scheme block in app.css to decide — the behaviour the
+     page had before there was a control. "light" and "dark" pin it.
+
+     This is the one thing the app persists, and deliberately so: it is a
+     display preference, not data, so the "nothing survives a reload" rule
+     that governs generated input does not apply to it. Every access is
+     wrapped because a locked-down browser throws on localStorage rather
+     than returning null. */
+  const APPEARANCE_KEY = "bulkforge-appearance";
+
+  function storedAppearance() {
+    try {
+      const v = window.localStorage.getItem(APPEARANCE_KEY);
+      return v === "light" || v === "dark" ? v : "auto";
+    } catch (e) {
+      return "auto";
+    }
+  }
+
+  function applyAppearance(mode) {
+    if (mode === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", mode);
+    $all("#appearanceSeg button").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.appearance === mode))
+    );
+  }
+
+  function wireAppearance() {
+    applyAppearance(storedAppearance());
+    $all("#appearanceSeg button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const mode = btn.dataset.appearance;
+        try {
+          if (mode === "auto") window.localStorage.removeItem(APPEARANCE_KEY);
+          else window.localStorage.setItem(APPEARANCE_KEY, mode);
+        } catch (e) {
+          /* a browser refusing to store it is not worth interrupting for;
+             the choice still applies for this visit */
+        }
+        applyAppearance(mode);
+      });
+    });
+  }
+
   function init() {
+    wireAppearance();
     wireLogin();
     wireLogout();
     wireUnloadGuard();

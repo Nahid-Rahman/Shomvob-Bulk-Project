@@ -244,6 +244,53 @@ button { font-family: inherit; }
   border: 1px solid var(--sidebar-border);
 }
 
+/* Appearance picker. Three states, not two: the page followed the OS
+   setting before this control existed, and a bare light/dark switch would
+   have taken that away. "Auto" simply leaves data-theme off, which is what
+   the prefers-color-scheme token block already expects.
+
+   Named "appearance", not "theme", because .theme-card is the name-theme
+   picker on Employee Add and the two have nothing to do with each other. */
+.appearance-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.appearance-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sidebar-text-muted);
+}
+.appearance-seg {
+  display: inline-flex;
+  margin-left: auto;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 99px;
+}
+.appearance-seg button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 99px;
+  background: none;
+  color: var(--sidebar-text-muted);
+  cursor: pointer;
+}
+.appearance-seg button:hover { color: var(--sidebar-text); }
+.appearance-seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
 .logout-btn {
   display: flex;
   align-items: center;
@@ -393,7 +440,11 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 12.5px; font-weight: 600; color: var(--text); }
 .field .hint { font-size: 11.5px; color: var(--text-faint); }
-input[type="text"], input[type="number"] {
+/* email and password belong here too — they are the login card's two
+   inputs, and without them the browser's own white box was showing
+   through. On the light theme that happened to look almost right, which
+   is why it went unnoticed until the dark theme got a switch. */
+input[type="text"], input[type="number"], input[type="email"], input[type="password"] {
   font-family: var(--font-mono);
   font-size: 14px;
   padding: 9px 11px;
@@ -403,11 +454,48 @@ input[type="text"], input[type="number"] {
   color: var(--text);
   width: 100%;
 }
-input[type="text"]:focus, input[type="number"]:focus {
+input[type="text"]:focus, input[type="number"]:focus,
+input[type="email"]:focus, input[type="password"]:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   border-color: var(--accent);
 }
+/* Same story as email and password: the file picker was the browser's own
+   control, which is a white slab on a dark card. Styling the wrapper and
+   its button keeps it recognisable as a file picker while letting it take
+   the theme's colours. */
+input[type="file"] {
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-muted);
+  width: 100%;
+  cursor: pointer;
+}
+input[type="file"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+input[type="file"]::file-selector-button {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  margin-right: 10px;
+  padding: 5px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+input[type="file"]::file-selector-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 input.invalid { border-color: var(--danger); }
 .error-text { font-size: 11.5px; color: var(--danger); min-height: 14px; }
 
