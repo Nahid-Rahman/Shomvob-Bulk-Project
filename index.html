@@ -359,6 +359,17 @@ button { font-family: inherit; }
    readable 760px column they were designed at. */
 .main-inner.wide { max-width: 1100px; }
 
+/* Company Setup read noticeably lighter than the rest of the app at the
+   shared classes' default sizes — bumped here, scoped to .wide so the
+   five generators (which share .page-desc / .section-note / .tally)
+   keep the weights they were designed at. */
+.wide .page-desc { font-size: 15.5px; font-weight: 500; color: var(--text); }
+.wide .section-note { font-size: 13.5px; font-weight: 500; color: var(--text-muted); }
+.wide .tally { font-size: 13px; font-weight: 600; }
+.wide .settings-card-name { font-size: 15px; }
+.wide .settings-tab { font-size: 13.5px; font-weight: 600; }
+.setup-hint-line { margin-top: 22px; font-size: 13.5px; font-weight: 500; color: var(--text-muted); }
+
 /* An operation with a video splits the panel: form on the left at roughly
    two thirds, video on the right. The right column is sticky, so the clip
    holds the middle of the viewport while the form scrolls past it. */
@@ -718,11 +729,18 @@ input.invalid { border-color: var(--danger); }
    behind a tab strip once you open it (below), so this grid stays around
    five cards even once every module under it exists. Free-pick: no
    numbering, no arrows between cards. */
+/* grid-template-columns is set inline, one column per SETTINGS_GROUPS
+   entry — there are only ever a handful of groups (five today), so
+   they read better as one row than wrapped or capped at a fixed count. */
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 12px;
   margin-top: 18px;
+}
+@media (max-width: 900px) {
+  /* A handful of equal-width columns stops being readable once the
+     column itself gets this narrow — fall back to wrapping. */
+  .settings-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important; }
 }
 .settings-card {
   text-align: left;
@@ -2092,9 +2110,9 @@ const SETTINGS_GROUPS = [
     ],
   },
   {
-    id: "offboarding",
-    label: "Offboarding",
-    modules: [{ id: "offboard_types", label: "Offboard Types" }],
+    id: "attendance",
+    label: "Attendance",
+    modules: [{ id: "attendance_policy", label: "Attendance Policy" }],
   },
 ];
 
@@ -2609,17 +2627,17 @@ const BUSY_MESSAGES = [
   }
 
   /* One per SETTINGS_GROUPS entry, drawn in the same hand as OP_ICONS —
-     Leave and Payroll reuse their operation icons outright since they're
-     the same concept; Company/Employee/Offboarding are new but same
-     stroke weight and grid. Shown in accent green on the group cards,
-     the one deliberate splash of colour on an otherwise fairly neutral
-     admin-style page. */
+     Leave, Payroll and Attendance reuse their operation icons outright
+     since they're the same concept; Company/Employee are new but the
+     same stroke weight and grid. Shown in accent green on the group
+     cards, the one deliberate splash of colour on an otherwise fairly
+     neutral admin-style page. */
   const SETTINGS_GROUP_ICONS = {
     company: '<path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/><path d="M9 11h.01M9 14h.01M15 11h.01M15 14h.01"/>',
     employee: '<rect x="4" y="4" width="16" height="16" rx="2.5"/><circle cx="12" cy="10" r="2.5"/><path d="M7.5 17c1-2.5 3-3 4.5-3s3.5.5 4.5 3"/>',
     leave: OP_ICONS.leave_balance_add,
     payroll: OP_ICONS.payroll_field_add,
-    offboarding: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+    attendance: OP_ICONS.attendance_add,
   };
   function settingsGroupIcon(id) {
     const paths = SETTINGS_GROUP_ICONS[id];
@@ -5912,8 +5930,8 @@ const BUSY_MESSAGES = [
         <p class="section-note">Signed in to <strong>${setup.companyName}</strong> on ${env.label}, as <strong>${setup.companyUserType || "unknown type"}</strong>.</p>
         <button type="button" class="tiny-btn" id="setupDisconnectBtn">Disconnect this company</button>
       </div>
-      <p style="margin-top:22px; font-size:12.5px; color:var(--text-faint)">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
-      <div class="settings-grid">${cards}</div>
+      <p class="setup-hint-line">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
+      <div class="settings-grid" style="grid-template-columns:repeat(${SETTINGS_GROUPS.length}, 1fr)">${cards}</div>
     `;
   }
 

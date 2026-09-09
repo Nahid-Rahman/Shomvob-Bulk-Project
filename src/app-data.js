@@ -485,9 +485,9 @@ const SETTINGS_GROUPS = [
     ],
   },
   {
-    id: "offboarding",
-    label: "Offboarding",
-    modules: [{ id: "offboard_types", label: "Offboard Types" }],
+    id: "attendance",
+    label: "Attendance",
+    modules: [{ id: "attendance_policy", label: "Attendance Policy" }],
   },
 ];
 

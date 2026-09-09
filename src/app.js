@@ -427,17 +427,17 @@
   }
 
   /* One per SETTINGS_GROUPS entry, drawn in the same hand as OP_ICONS —
-     Leave and Payroll reuse their operation icons outright since they're
-     the same concept; Company/Employee/Offboarding are new but same
-     stroke weight and grid. Shown in accent green on the group cards,
-     the one deliberate splash of colour on an otherwise fairly neutral
-     admin-style page. */
+     Leave, Payroll and Attendance reuse their operation icons outright
+     since they're the same concept; Company/Employee are new but the
+     same stroke weight and grid. Shown in accent green on the group
+     cards, the one deliberate splash of colour on an otherwise fairly
+     neutral admin-style page. */
   const SETTINGS_GROUP_ICONS = {
     company: '<path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/><path d="M9 11h.01M9 14h.01M15 11h.01M15 14h.01"/>',
     employee: '<rect x="4" y="4" width="16" height="16" rx="2.5"/><circle cx="12" cy="10" r="2.5"/><path d="M7.5 17c1-2.5 3-3 4.5-3s3.5.5 4.5 3"/>',
     leave: OP_ICONS.leave_balance_add,
     payroll: OP_ICONS.payroll_field_add,
-    offboarding: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+    attendance: OP_ICONS.attendance_add,
   };
   function settingsGroupIcon(id) {
     const paths = SETTINGS_GROUP_ICONS[id];
@@ -3730,8 +3730,8 @@
         <p class="section-note">Signed in to <strong>${setup.companyName}</strong> on ${env.label}, as <strong>${setup.companyUserType || "unknown type"}</strong>.</p>
         <button type="button" class="tiny-btn" id="setupDisconnectBtn">Disconnect this company</button>
       </div>
-      <p style="margin-top:22px; font-size:12.5px; color:var(--text-faint)">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
-      <div class="settings-grid">${cards}</div>
+      <p class="setup-hint-line">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
+      <div class="settings-grid" style="grid-template-columns:repeat(${SETTINGS_GROUPS.length}, 1fr)">${cards}</div>
     `;
   }
 

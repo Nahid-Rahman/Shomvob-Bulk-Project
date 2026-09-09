@@ -277,17 +277,19 @@ async function toGrid(page, companyName = "Hogwarts") {
 
   /* ---------- H. the group grid (one card per group, never per module) ---------- */
   {
-    const page = await browser.newContext().then((c) => c.newPage());
+    const page = await browser.newContext({ viewport: { width: 1440, height: 900 } }).then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await toGrid(page);
     check("H one card per settings group", (await page.locator(".settings-card").count()) === 5);
     check("H group labels match SETTINGS_GROUPS",
       JSON.stringify(await page.locator(".settings-card-name").allTextContents()) ===
-        JSON.stringify(["Company Settings", "Employee Settings", "Leave", "Payroll", "Offboarding"]));
+        JSON.stringify(["Company Settings", "Employee Settings", "Leave", "Payroll", "Attendance"]));
     check("H every card starts at 0 done",
       (await page.locator(".tally").allTextContents()).every((t) => /^0\//.test(t.trim())));
     check("H Payroll's count reflects its real 11 modules",
       (await page.locator(".settings-card:has-text('Payroll') .tally").textContent()).trim() === "0/11 done");
+    const cardTops = await page.locator(".settings-card").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+    check("H all five group cards sit on one row at desktop width", new Set(cardTops).size === 1, JSON.stringify(cardTops));
     check("H no page errors on the grid", errs.length === 0, errs.join(" | "));
     await page.close();
   }

@@ -644,9 +644,16 @@ wizard.** Two levels, both implemented:
 - **Level 1 — the group grid.** Once connected, `setupConnectedTemplate()`
   renders one card per entry in `SETTINGS_GROUPS`
   (`src/app-data.js`) — Company Settings, Employee Settings, Leave,
-  Payroll, Offboarding — each showing an `n/total done` count for the
-  session (`groupDoneCount()`). **Clicking a card opens that group**;
-  there is no enforced order between groups.
+  Payroll, Attendance — each showing an `n/total done` count for the
+  session (`groupDoneCount()`), and always laid out in a single row
+  (`grid-template-columns: repeat(SETTINGS_GROUPS.length, 1fr)`, set
+  inline rather than a fixed number, so it stays one row whatever the
+  count is — falls back to wrapping under 900px, where equal-width
+  columns stop being legible). **Clicking a card opens that group**;
+  there is no enforced order between groups. (Offboarding filled this
+  slot in the first draft and was wrong — it isn't one of the real
+  Settings groups in the Postman collection; Attendance Settings is, and
+  had been missed entirely. Corrected 2026-09-09.)
 - **Level 2 — a group's own tabbed page**, added the same day after
   comparing two real screenshots of the actual HRIS admin (its "Company
   Settings" and "Org Structure" pages both use exactly this pattern —
@@ -704,6 +711,15 @@ elsewhere, rather than a plain white `.section`; and the active tab's
 label is accent-coloured. Deliberately did *not* add a left-border
 accent stripe on the cards — that's the one AI-slop container pattern
 this app's own design guidance calls out to avoid.
+
+A same-day follow-up: the shared `.page-desc`/`.section-note`/`.tally`
+classes read noticeably lighter here than the rest of Company Setup
+warranted. Sizes and weights are bumped via `.wide .page-desc` /
+`.wide .section-note` / `.wide .tally` / `.wide .settings-card-name` /
+`.wide .settings-tab` — scoped to the `wide` class so the five
+generators, which share those same base classes, keep the weights they
+were designed at. `.wide` only ever applies to Company Setup, so this
+can't leak.
 
 ### Company Profile — first settings module (built 2026-09-09)
 

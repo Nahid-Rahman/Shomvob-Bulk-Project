@@ -791,7 +791,7 @@ no fake spinner.
 
 ### Tested
 
-Playwright, folded into `tests/company-setup.test.js` (67 checks now
+Playwright, folded into `tests/company-setup.test.js` (68 checks now
 total): the group grid (one card per `SETTINGS_GROUPS` entry, everyone
 starting at 0 done, Payroll's count reflecting its real 11 modules), a
 group's tab strip and its coming-soon placeholder for unbuilt modules,
