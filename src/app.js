@@ -3389,6 +3389,48 @@
     return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg>`;
   }
 
+  /* `open` is a bool: the eye when the password is hidden (click to
+     reveal), the slashed eye once it's shown (click to hide again) — the
+     icon always names the action a click will take, not the current
+     state, matching how every other icon-only control in this app reads. */
+  function iconEye(open) {
+    if (open) {
+      return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    }
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 11 7 11 7a18.4 18.4 0 0 1-2.35 3.35M6.5 6.65C3.6 8.4 1 12 1 12s4 7 11 7a10.9 10.9 0 0 0 5.3-1.4M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="M1 1l22 22"/></svg>`;
+  }
+
+  /* A password field with a show/hide toggle — used for Company Setup's
+     two password inputs, both of which sit in front of a real login and
+     are worth being able to double-check before submitting, unlike the
+     joke gate's password, which is already printed on the card in plain
+     text. */
+  function pwFieldMarkup(id, label) {
+    return `
+      <div class="field">
+        <label for="${id}">${label}</label>
+        <div class="pw-wrap">
+          <input type="password" id="${id}" autocomplete="off" />
+          <button type="button" class="pw-toggle" data-target="${id}" aria-label="Show password" title="Show password">${iconEye(true)}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function wirePasswordToggles(root) {
+    $all(".pw-toggle", root).forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const input = $("#" + btn.dataset.target);
+        const willShow = input.type === "password";
+        input.type = willShow ? "text" : "password";
+        btn.innerHTML = iconEye(!willShow);
+        const label = willShow ? "Hide password" : "Show password";
+        btn.setAttribute("aria-label", label);
+        btn.title = label;
+      });
+    });
+  }
+
   /* Supabase's password grant. Supabase's Auth service sends its own CORS
      headers for every project, so — unlike the company login below —
      this one needs nothing from anyone else to work from a Vercel origin. */
@@ -3508,10 +3550,7 @@
             <label for="setupEmail">Email</label>
             <input type="email" id="setupEmail" autocomplete="off" spellcheck="false" />
           </div>
-          <div class="field">
-            <label for="setupPass">Password</label>
-            <input type="password" id="setupPass" autocomplete="off" />
-          </div>
+          ${pwFieldMarkup("setupPass", "Password")}
         </div>
         <div class="field" style="margin-top:14px">
           <label>Environment</label>
@@ -3530,6 +3569,8 @@
   }
 
   function wireSetupSignIn() {
+    wirePasswordToggles($("#setupBody"));
+
     const seg = $("#setupEnvSeg");
     $all("button", seg).forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -3574,10 +3615,7 @@
             <label for="setupCoEmail">Email</label>
             <input type="email" id="setupCoEmail" autocomplete="off" spellcheck="false" />
           </div>
-          <div class="field">
-            <label for="setupCoPass">Password</label>
-            <input type="password" id="setupCoPass" autocomplete="off" />
-          </div>
+          ${pwFieldMarkup("setupCoPass", "Password")}
         </div>
         <div class="setup-actions">
           <span class="error-text" id="setupCoError"></span>
@@ -3588,6 +3626,8 @@
   }
 
   function wireSetupCompanyLogin() {
+    wirePasswordToggles($("#setupBody"));
+
     const btn = $("#setupCoBtn");
     const err = $("#setupCoError");
     btn.addEventListener("click", async () => {

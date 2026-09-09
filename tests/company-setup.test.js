@@ -94,6 +94,21 @@ const statusbar = (page) => page.textContent("#setupStatusBar").then((t) => t.re
     await page.close();
   }
 
+  /* ---------- A2. the password show/hide toggle on step one ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    await gotoSetup(page);
+    await page.fill("#setupPass", "supersecret123");
+    check("A2 starts masked", (await page.getAttribute("#setupPass", "type")) === "password");
+    await page.click('.pw-toggle[data-target="setupPass"]');
+    check("A2 one click reveals it", (await page.getAttribute("#setupPass", "type")) === "text");
+    check("A2 the value survives the switch", (await page.inputValue("#setupPass")) === "supersecret123");
+    check("A2 the toggle now offers to hide it", (await page.getAttribute('.pw-toggle[data-target="setupPass"]', "aria-label")) === "Hide password");
+    await page.click('.pw-toggle[data-target="setupPass"]');
+    check("A2 a second click re-masks it", (await page.getAttribute("#setupPass", "type")) === "password");
+    await page.close();
+  }
+
   /* ---------- B. environment picker ---------- */
   {
     const page = await browser.newContext().then((c) => c.newPage());
@@ -140,6 +155,7 @@ const statusbar = (page) => page.textContent("#setupStatusBar").then((t) => t.re
     await page.waitForTimeout(150);
 
     check("D step two appears after tool sign-in", (await page.locator("#setupCoBtn").count()) === 1);
+    check("D step two's password field also has a show/hide toggle", (await page.locator('.pw-toggle[data-target="setupCoPass"]').count()) === 1);
     check("D status bar shows the chosen env and the tool email", (await statusbar(page)) === "Staging mahmudur@shomvob.com Sign out");
     check("D step two names the same environment", (await page.textContent("#setupBody")).includes("Staging"));
 

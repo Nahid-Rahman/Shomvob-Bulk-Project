@@ -707,9 +707,13 @@ CORS was enabled on either environment.
    since a choice made before any login means nothing is actually locked
    in yet. The two buttons are equal-width halves rather than sized to
    their own labels, since "Dev" and "Staging" are a straight either/or,
-   not a list where the odd one out should stand out.
-2. **Signed into the tool, not the company** — step-two form, plus the
-   status strip (env badge, tool email, Sign out).
+   not a list where the odd one out should stand out. Its password field
+   has a show/hide toggle (`pwFieldMarkup()`, `wirePasswordToggles()`) —
+   worth being able to double-check before a real login, unlike the joke
+   gate's password, which is already printed on the card in plain text.
+2. **Signed into the tool, not the company** — step-two form (its
+   password field has the same show/hide toggle), plus the status strip
+   (env badge, tool email, Sign out).
 3. **Signed into both** — a "Connected" panel naming the company, the
    environment and the account type, a Disconnect button (drops the
    company token only, back to state 2), and a placeholder for the
@@ -717,17 +721,19 @@ CORS was enabled on either environment.
 
 ### Tested
 
-Playwright, 29 checks, `tests/company-setup.test.js` — entirely against
+Playwright, 35 checks, `tests/company-setup.test.js` — entirely against
 mocked responses (`page.route`), not the live servers, so the suite has
 no dependency on a real Supabase account or on either Shomvob environment
 being reachable: the sidebar entry and hidden action bar, the environment
-picker, empty-field and wrong-credential handling at both logins, the
-full three-state happy path and what the status bar reads at each step,
-Disconnect vs. Sign out clearing the right amount of state, a rejected
-company login, an unreachable server naming itself rather than showing a
-bare network error, and state surviving a trip to another page and back
-(the module-level `setup` object already gives this for free, the same
-way `att`/`leave`/`payroll`/`assets` do for the five operations).
+picker (including the equal-width buttons), the password show/hide toggle
+on both steps (masks, reveals, keeps the typed value, re-masks), empty-
+field and wrong-credential handling at both logins, the full three-state
+happy path and what the status bar reads at each step, Disconnect vs.
+Sign out clearing the right amount of state, a rejected company login, an
+unreachable server naming itself rather than showing a bare network
+error, and state surviving a trip to another page and back (the module-
+level `setup` object already gives this for free, the same way
+`att`/`leave`/`payroll`/`assets` do for the five operations).
 
 The real, unmocked path (wrong password, against the actual Supabase
 project) was run by hand while building this and isn't repeated in the

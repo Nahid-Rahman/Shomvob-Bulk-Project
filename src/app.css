@@ -702,6 +702,19 @@ input.invalid { border-color: var(--danger); }
 #setupEnvSeg { display: flex; width: 100%; }
 #setupEnvSeg button { flex: 1; text-align: center; }
 
+/* Show/hide toggle on Company Setup's password fields — worth being able
+   to double-check before submitting a real login, unlike the joke gate's
+   password, which is already printed on the card in plain text. */
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-right: 36px; }
+.pw-toggle {
+  position: absolute; top: 50%; right: 4px; transform: translateY(-50%);
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border: none; background: none; color: var(--text-faint); cursor: pointer; border-radius: var(--radius-sm);
+}
+.pw-toggle:hover { color: var(--text-muted); }
+.pw-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 /* ---- Sticky action bar ---- */
 .action-bar {
   border-top: 1px solid var(--border);
