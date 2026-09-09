@@ -1458,6 +1458,34 @@
     else reader.readAsArrayBuffer(file);
   }
 
+  /* Splits the chosen range by day type, and works out how many of those
+     days could actually yield a row. A weekend or holiday only can when
+     overtime is on with both a maximum and a percentage above zero for
+     that day type — otherwise those days produce nothing at all. */
+  function rangeDayCounts() {
+    const from = parseDateStr(att.from),
+      to = parseDateStr(att.to);
+    if (!from || !to || from > to) return null;
+
+    const holidays = activeHolidaySet();
+    const weekend = new Set(att.weekend);
+    let days = 0,
+      weekendDays = 0,
+      holidayDays = 0;
+    eachDate(att.from, att.to, (d) => {
+      days++;
+      const ds = fmtDate(d);
+      if (holidays.has(ds)) holidayDays++;
+      else if (weekend.has(d.getDay())) weekendDays++;
+    });
+    const working = days - weekendDays - holidayDays;
+
+    const otOn = (kind) => att.otEnabled && att.otMax[kind] > 0 && att.otPct[kind] > 0;
+    const usable = working + (otOn("weekend") ? weekendDays : 0) + (otOn("holiday") ? holidayDays : 0);
+
+    return { days, weekendDays, holidayDays, working, usable };
+  }
+
   function renderRangeTally() {
     const box = $("#rangeTally");
     if (!box) return;
@@ -1471,18 +1499,11 @@
       box.innerHTML = `<span class="tally warn">From is after To</span>`;
       return;
     }
-    let days = 0,
-      weekendDays = 0,
-      holidayDays = 0;
-    const holidays = activeHolidaySet();
-    const weekend = new Set(att.weekend);
-    eachDate(att.from, att.to, (d) => {
-      days++;
-      const ds = fmtDate(d);
-      if (holidays.has(ds)) holidayDays++;
-      else if (weekend.has(d.getDay())) weekendDays++;
-    });
-    const working = days - weekendDays - holidayDays;
+    const counts = rangeDayCounts();
+    const days = counts.days,
+      weekendDays = counts.weekendDays,
+      holidayDays = counts.holidayDays,
+      working = counts.working;
 
     /* The holiday table only covers the years it covers. Saying so beats
        silently generating a month with no holidays in it. */
@@ -1954,8 +1975,38 @@
     if (!from || !to) out.push("needs a date range");
     else if (from > to) out.push("From is after To");
     if (att.shifts.some((s) => parseHM(s.in) == null || parseHM(s.out) == null)) out.push("needs shift times");
-    if (!singleShift() && !assignedIdSet().size) out.push("nobody is assigned to a shift yet");
+
+    /* Same rule as a half-configured department: anything the user supplied
+       has to be used, not quietly skipped. An ID left out of every shift
+       used to vanish from the output without a word — paste 20, assign 3,
+       get 3. If you don't want an ID in the file, take it off the list. */
+    if (!singleShift() && att.ids.length) {
+      const stranded = unassignedIds().length;
+      if (stranded === att.ids.length) out.push("nobody is assigned to a shift yet");
+      else if (stranded) {
+        out.push(`${stranded} employee${stranded === 1 ? " is" : "s are"} not on any shift`);
+      }
+      const empty = att.shifts
+        .map((sh, i) => (sh.ids.length ? null : i + 1))
+        .filter((n) => n !== null);
+      if (empty.length) {
+        out.push(`shift ${listWords(empty.map(String))} ${empty.length === 1 ? "has" : "have"} nobody assigned`);
+      }
+    }
+
     if (att.weekend.length === 7) out.push("every day is a weekend — no working days left");
+    else {
+      /* A range that can't produce a single row used to pass the gate and
+         fail on a toast after the click. Say it up front instead. */
+      const counts = rangeDayCounts();
+      if (counts && counts.days && !counts.usable) {
+        out.push(
+          counts.working === 0
+            ? "every day in this range is a weekend or a holiday, and overtime is off"
+            : "nothing in this range can produce a row"
+        );
+      }
+    }
     return out;
   }
 

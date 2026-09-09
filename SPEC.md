@@ -298,16 +298,33 @@ for each assigned employee:
 
 The row's date is always the date the shift **started**.
 
+### The gate refuses anything that cannot be honoured
+
+Audited 2026-09-09, after the same bug class was found in departments.
+Generating is blocked, with the reason named, when:
+
+- more than one shift exists and **any pasted ID is on none of them** —
+  the count is reported ("17 employees are not on any shift"), and if
+  none are assigned at all it says that instead;
+- **a shift has nobody assigned** — the shift numbers are listed;
+- **the range cannot produce a single row**, i.e. every day in it is a
+  weekend or a holiday and overtime is off for those day types.
+
+The alternative in each case was a smaller file than the user asked for,
+or a toast after the click. If an ID should not be in the output, the fix
+is to take it off the list, not to leave it unassigned.
+
 ### Tested
 
-Playwright, against the built `index.html`, 29 checks: sheet name and exact
+Playwright, against the built `index.html`, 39 checks: sheet name and exact
 header, filename shape, row count against working days, only the supplied
 IDs appearing, no weekend rows, dates inside range, in/out inside the
 jitter windows, all four time formats, weekend overtime placement, two
 shifts each keeping their own times with no employee in both, a
 midnight-crossing shift staying one row dated by its start day, government
-holidays producing no rows, 100% absence producing none, and 100% lateness
-landing past grace. A separate 9-check regression covers Employee Add,
+holidays producing no rows, 100% absence producing none, 100% lateness
+landing past grace, and the three gate refusals above each blocking with
+their exact wording and clearing once the input is completed. A separate 9-check regression covers Employee Add,
 which now shares the action bar.
 
 ### Outstanding

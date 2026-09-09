@@ -113,6 +113,51 @@ async function fillCommon(page, opts) {
     bRows[0] && bRows[0].join(" | "));
   check("C every row belongs to exactly one shift", aRows.length + bRows.length === C.rows.length);
 
+  /* ---------- C2. nothing the user supplied may be quietly skipped ----------
+     Same rule as a half-configured department. An ID left off every shift
+     used to vanish from the output: paste 20, assign 3, get 3 rows and no
+     warning. */
+  await gotoAttendance(page);
+  await fillCommon(page, { ids: ["AAAA0001", "AAAA0002", "AAAA0003", "AAAA0004"], from: "2026-09-07", to: "2026-09-10", shifts: 2 });
+  const summary = () => page.textContent("#actionSummary");
+  const blocked = () => page.isDisabled("#generateBtn");
+
+  check("C2 two shifts with nobody assigned is blocked", await blocked());
+  check("C2 and says so", (await summary()).trim() === "nobody is assigned to a shift yet", await summary());
+
+  await page.click('button[data-act="rest"][data-shift="0"]');
+  await page.waitForTimeout(200);
+  check("C2 an empty second shift is blocked", await blocked());
+  check("C2 and names the shift", (await summary()).trim() === "shift 2 has nobody assigned", await summary());
+
+  await page.locator("#assignWrap .shift-card").nth(0).locator('button[data-rm="AAAA0004"]').click();
+  await page.waitForTimeout(200);
+  check("C2 an unassigned employee is blocked", await blocked());
+  check("C2 and counts them",
+    (await summary()).trim() === "1 employee is not on any shift", await summary());
+
+  await page.locator("#assignWrap .shift-card").nth(1).locator(".assign-search input").fill("AAAA0004");
+  await page.waitForTimeout(150);
+  await page.locator("#assignWrap .shift-card").nth(1).locator('.search-results button[data-add="AAAA0004"]').click();
+  await page.waitForTimeout(250);
+  check("C2 everyone on a shift clears it", !(await blocked()), await summary());
+
+  /* ---------- C3. a range that cannot produce a row is refused up front ----------
+     It used to pass the gate and fail on a toast after the click. */
+  await gotoAttendance(page);
+  await fillCommon(page, { ids: ["AAAA0001"], from: "2026-09-11", to: "2026-09-12" });
+  check("C3 a Fri-Sat range with overtime off is blocked", await blocked());
+  check("C3 and explains why",
+    (await summary()).trim() === "every day in this range is a weekend or a holiday, and overtime is off",
+    await summary());
+
+  await page.click('#otSeg button[data-ot="yes"]');
+  await page.waitForTimeout(150);
+  await page.fill("#otWeekend", "4");
+  await page.fill("#otPctWeekend", "50");
+  await page.waitForTimeout(200);
+  check("C3 turning on weekend overtime unblocks it", !(await blocked()), await summary());
+
   /* ---------- D. a shift crossing midnight stays one row ---------- */
   await gotoAttendance(page);
   await fillCommon(page, { ids: ["NITE0001"], from: "2026-09-07", to: "2026-09-11" });

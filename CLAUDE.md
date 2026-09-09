@@ -156,15 +156,24 @@ Already validated (Playwright, 25-row and 300-row batches): ID/email/
 phone uniqueness, employment-type↔probation linkage, joining-date↔DOB
 ordering, salary rounding, department↔designation consistency.
 
-A rule that applies to both card-based screens (Employee Add's
-departments, Assets Add's types): **a ticked card with nothing selected
-inside it is an error, not something to quietly skip.** It used to be
+**Nothing the user configured may be quietly skipped.** This is the rule
+the whole app is now held to, not just one screen: if a choice cannot be
+honoured, generating is blocked and the reason names what is wrong. It
+started on the card-based screens (Employee Add's departments, Assets
+Add's types), where **a ticked card with nothing selected inside it** was
 dropped from the output silently — you could tick three departments, get
 one in the file, and never learn why. `departmentState()` and
 `assetTypeState()` split the configured cards into `final` and
 `incomplete`, and the warning names the incomplete ones. Blank custom
 rows are filtered out rather than counted, since an empty "Add
 designation" row was putting an empty string into a required column.
+
+An audit on 2026-09-09 found three more of the same class in Attendance
+Add, all now blocked with a named reason (see that section). When adding
+an operation, assume this class of bug is present until you have checked
+for it: for every input the user can fill, ask what happens if it is
+half-filled, and make sure the answer is a message rather than a smaller
+file.
 
 Each of those screens also has bulk shortcuts — a labelled strip above the
 list for the whole section, and a per-card button beside the mode toggle.
@@ -188,6 +197,15 @@ the parts that are easy to get wrong:
   start.
 - **A shift may cross midnight**; it stays one row, dated by the day it
   started, and its Out Time reads earlier than its In Time.
+- **An employee left off every shift is an error, not a dropped row.**
+  With more than one shift you could paste 20 IDs, assign 3, and get a
+  3-employee file with no warning. Likewise a shift with nobody on it, and
+  a range whose every day is a weekend or holiday with overtime off —
+  which used to pass the gate and fail on a toast after the click.
+  `attendanceProblems()` catches all three; `rangeDayCounts()` is the
+  shared helper that says how many days of a range could yield a row at
+  all, and `renderRangeTally()` reads the same numbers so the tally and
+  the gate can never disagree.
 - `BD_HOLIDAYS` in `app-data.js` is **2026 only, and read off Shomvob's
   own HR system** (Holiday Management → 2026 → All → Active) — not a
   government gazette, because the company's calendar is what the test data
