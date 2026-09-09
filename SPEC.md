@@ -314,11 +314,9 @@ which now shares the action bar.
 
 - Nothing on the holiday table: it is now the user's own HR calendar,
   verified against their system, 2026 only by their choice.
-- One entry may still be missing. That screen reported 25 active holidays
-  for 2026 and 24 were captured across three screenshots; the gap falls
-  between 26 Aug and 20 Oct, which the "Upcoming" filter would have hidden
-  because it is before today. Worth a look at page 3 of the unfiltered
-  list.
+- Nothing. The 25th entry that screen reported was another test row, so
+  the 28 dates here are the complete real set — same call as "Test",
+  "Chuti" and "S/B".
 
 ## Leave Balance Add — full spec (built 2026-09-07)
 
