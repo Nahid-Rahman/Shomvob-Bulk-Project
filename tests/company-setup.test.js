@@ -17,9 +17,10 @@
  * before changing the test.
  */
 const { chromium } = require("playwright");
-const { PAGE, makeChecker, report, signIn, watchPageErrors } = require("./lib");
+const { PAGE, loadAppData, makeChecker, report, signIn, watchPageErrors } = require("./lib");
 
 const { check, state } = makeChecker();
+const { BUSY_MESSAGES } = loadAppData(["BUSY_MESSAGES"]);
 
 async function gotoSetup(page) {
   await page.goto(PAGE);
@@ -380,6 +381,59 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(150);
     check("K the server's rejection message is shown as-is", (await page.textContent("#cpError")) === "Legal name already taken.");
     check("K a rejected save leaves the module undone", (await page.locator('.settings-tab[data-module="company_profile"] .op-dot').count()) === 0);
+    await page.close();
+  }
+
+  /* ---------- L. Company Setup gets the wider column, nothing else does ---------- */
+  {
+    const page = await browser.newContext({ viewport: { width: 1440, height: 900 } }).then((c) => c.newPage());
+    await page.goto(PAGE);
+    await signIn(page);
+    const dashboardWidth = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
+    await page.click('.op-item:has-text("Company Setup")');
+    await page.waitForTimeout(60);
+    const setupWidth = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
+    check("L Company Setup is wider than the default column", setupWidth > dashboardWidth, `${setupWidth} vs ${dashboardWidth}`);
+    await page.click('.op-item:has-text("Dashboard")');
+    await page.waitForTimeout(60);
+    const backToDashboard = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
+    check("L the wider column doesn't leak onto the page after it", backToDashboard === dashboardWidth, `${backToDashboard} vs ${dashboardWidth}`);
+    await page.close();
+  }
+
+  /* ---------- M. network-calling buttons show a spinner and a real BUSY_MESSAGES line ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    await page.route("**/auth/v1/token**", async (route) => {
+      await new Promise((r) => setTimeout(r, 400));
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ access_token: "t", refresh_token: "r", user: { id: "u1" } }) });
+    });
+    await gotoSetup(page);
+    await page.fill("#setupEmail", "mahmudur@shomvob.com");
+    await page.fill("#setupPass", "whatever");
+    const clickDone = page.click("#setupSignInBtn");
+    await page.waitForTimeout(150);
+    check("M shows a spinner mid-flight", (await page.locator("#setupSignInBtn .spin").count()) === 1);
+    check("M the button disables mid-flight", await page.isDisabled("#setupSignInBtn"));
+    const label = (await page.textContent("#setupSignInBtn")).trim();
+    check("M the label is one of BUSY_MESSAGES, not a placeholder string", BUSY_MESSAGES.includes(label), label);
+    await clickDone;
+    await page.waitForSelector("#setupCoBtn"); // the mocked 400ms delay hasn't necessarily elapsed yet
+    check("M a completed sign-in moves past step one", (await page.locator("#setupCoBtn").count()) === 1);
+    await page.close();
+  }
+  {
+    /* a busy button that fails restores its idle label, not a stuck spinner */
+    const page = await browser.newContext().then((c) => c.newPage());
+    await mockSupabaseFail(page);
+    await gotoSetup(page);
+    await page.fill("#setupEmail", "mahmudur@shomvob.com");
+    await page.fill("#setupPass", "wrong");
+    await page.click("#setupSignInBtn");
+    await page.waitForTimeout(150);
+    check("M a failed call clears the busy state", (await page.locator("#setupSignInBtn .spin").count()) === 0);
+    check("M and restores the plain idle label", (await page.textContent("#setupSignInBtn")).trim() === "Sign in");
+    check("M and re-enables the button", !(await page.isDisabled("#setupSignInBtn")));
     await page.close();
   }
 

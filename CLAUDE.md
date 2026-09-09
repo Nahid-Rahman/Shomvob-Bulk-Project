@@ -671,6 +671,26 @@ wizard.** Two levels, both implemented:
   worth keeping as a reference if this gets relitigated:
   https://claude.ai/code/artifact/192ba11b-5e7c-43ce-99a1-f0550e8a09bc
 
+**Company Setup gets a wider content column than the five generators**
+(`.main-inner.wide`, 1100px vs. the default 760px) — its field-rows,
+textareas and tab strip actually use the room; the generators keep the
+narrower column they were designed for readability at. `renderMain()`
+adds the `wide` class only on the `company_setup` branch and every other
+branch removes it (`paintOperation()` removes it for the five
+operations, the welcome and coming-soon branches remove it directly), so
+it can never leak onto another page.
+
+**Every button in this section that makes a real network call** —
+sign in, the company login, Company Profile's Save — shows a spinner
+plus one line from `BUSY_MESSAGES` (`app-data.js`), picked at random via
+`setBtnBusy()`/`clearBtnBusy()` in `app.js`, so a real wait always gets
+a moment of the app's own voice instead of a bare disabled button. Kept
+mostly English per the "no Banglish in the product" rule, except one
+entry kept verbatim as a deliberate wink rather than dropped outright.
+Regenerate has no real wait (it's synchronous, no network call) and
+deliberately doesn't get a fake spinner — the busy state is reserved for
+places with an actual delay to fill.
+
 ### Company Profile — first settings module (built 2026-09-09)
 
 Lives at Company Settings → Company Profile, the group's default tab.

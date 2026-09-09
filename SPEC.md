@@ -780,9 +780,18 @@ fit this module's shape. Not forgotten; a later, separate decision.
   group card's `n/total done` count updates. Failure: the server's own
   `message`, verbatim, same discipline as both logins.
 
+**Company Setup's content column is wider than the five generators'**
+(1100px vs. 760px, `.main-inner.wide`) — confirmed by test that the
+class applies only there and never leaks onto another page. **Every
+button here that makes a real network call** (both logins, Save) shows
+a spinner and a random line from `BUSY_MESSAGES`, disables itself while
+in flight, and restores its idle label on failure — confirmed by test
+for both outcomes. Regenerate has no real wait and intentionally gets
+no fake spinner.
+
 ### Tested
 
-Playwright, folded into `tests/company-setup.test.js` (65 checks now
+Playwright, folded into `tests/company-setup.test.js` (67 checks now
 total): the group grid (one card per `SETTINGS_GROUPS` entry, everyone
 starting at 0 done, Payroll's count reflecting its real 11 modules), a
 group's tab strip and its coming-soon placeholder for unbuilt modules,

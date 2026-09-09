@@ -305,6 +305,7 @@
      be filled in one operation at a time. */
   function paintOperation(root, html, opId) {
     const media = OPERATION_MEDIA[opId];
+    root.classList.remove("wide"); // only Company Setup gets the wider column
     if (!media) {
       root.classList.remove("has-media");
       root.innerHTML = html;
@@ -337,7 +338,7 @@
 
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
-      root.classList.remove("has-media");
+      root.classList.remove("has-media", "wide");
       root.innerHTML = welcomeTemplate();
       wireWelcomeEvents();
       return;
@@ -375,13 +376,14 @@
          action bar — every button it needs lives inside its own body. */
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media");
+      root.classList.add("wide");
       root.innerHTML = companySetupTemplate();
       wireCompanySetupEvents();
       return;
     }
     if (currentOp !== "employee_add") {
       const op = OPERATIONS.find((o) => o.id === currentOp);
-      root.classList.remove("has-media");
+      root.classList.remove("has-media", "wide");
       root.innerHTML = `
         <div class="page-head">
           <span class="page-eyebrow">Bulk operation</span>
@@ -3392,6 +3394,27 @@
     return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg>`;
   }
 
+  function iconSpinner() {
+    return `<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0"><path d="M12 3a9 9 0 1 0 9 9"/></svg>`;
+  }
+
+  /* Every button in Company Setup that makes a real network call goes
+     through this pair — a spinner plus one of BUSY_MESSAGES, so a real
+     wait always gets a moment of the app's own voice instead of a bare
+     disabled button. The idle label is stashed on the element itself, so
+     clearBtnBusy needs nothing passed back in — whichever branch called
+     setBtnBusy is the only thing that has to remember to call it back. */
+  function setBtnBusy(btn) {
+    if (btn.dataset.idleHtml == null) btn.dataset.idleHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `${iconSpinner()}<span>${choice(BUSY_MESSAGES)}</span>`;
+  }
+  function clearBtnBusy(btn) {
+    btn.disabled = false;
+    if (btn.dataset.idleHtml != null) btn.innerHTML = btn.dataset.idleHtml;
+    delete btn.dataset.idleHtml;
+  }
+
   /* `open` is a bool: the eye when the password is hidden (click to
      reveal), the slashed eye once it's shown (click to hide again) — the
      icon always names the action a click will take, not the current
@@ -3600,8 +3623,7 @@
         err.textContent = "Both fields are needed.";
         return;
       }
-      btn.disabled = true;
-      btn.textContent = "Signing in…";
+      setBtnBusy(btn);
       try {
         const data = await supabaseSignIn(email, pass);
         setup.toolEmail = email;
@@ -3609,8 +3631,7 @@
         renderSetupBody();
       } catch (e) {
         err.textContent = e.message;
-        btn.disabled = false;
-        btn.textContent = "Sign in";
+        clearBtnBusy(btn);
       }
     });
   }
@@ -3649,8 +3670,7 @@
         err.textContent = "Both fields are needed.";
         return;
       }
-      btn.disabled = true;
-      btn.textContent = "Signing in…";
+      setBtnBusy(btn);
       try {
         const data = await companySignIn(setup.env, identifier, pass);
         setup.companyToken = data.accessToken;
@@ -3660,8 +3680,7 @@
         renderSetupBody();
       } catch (e) {
         err.textContent = e.message;
-        btn.disabled = false;
-        btn.textContent = "Continue";
+        clearBtnBusy(btn);
       }
     });
   }
@@ -3893,8 +3912,7 @@
       companyProfile.error = "";
       companyProfile.ok = "";
       const fields = readCompanyProfileForm();
-      btn.disabled = true;
-      btn.textContent = "Saving…";
+      setBtnBusy(btn);
       try {
         await saveCompanyProfile(fields);
         companyProfile.fields = fields;

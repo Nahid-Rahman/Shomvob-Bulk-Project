@@ -555,3 +555,18 @@ const COMPANY_VISION_TEMPLATES = [
   "To help organizations grow through modern, efficient, and accessible business solutions.",
   "To build a future-focused company that creates long-term value for clients and communities.",
 ];
+
+/* Shown on a button mid-network-call (Company Setup's two logins and its
+   first real save), one picked at random so repeat clicks don't repeat
+   the same line. Mostly English, per the "no Banglish in the product"
+   rule (src/app.js was rewritten out of Banglish 2026-09-08) — carrying
+   the same joke ("doing your kamla work") in the app's own voice, with
+   one entry kept verbatim as a wink rather than dropping it outright. */
+const BUSY_MESSAGES = [
+  "Doing your dirty work…",
+  "Grinding through the boring bits…",
+  "Pretending this is hard…",
+  "Talking to the server — be nice, we're new here…",
+  "Filing this under someone else's problem. Ours, specifically…",
+  "Doing the kamla work so you don't have to…",
+];

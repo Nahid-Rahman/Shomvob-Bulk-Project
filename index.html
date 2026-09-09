@@ -354,6 +354,11 @@ button { font-family: inherit; }
 .main-scroll { flex: 1; overflow-y: auto; }
 .main-inner { max-width: 760px; margin: 0 auto; padding: 40px 32px 140px; }
 
+/* Company Setup only — its field-rows, textareas and tab strip actually
+   use the extra room; the five generators keep the narrower, more
+   readable 760px column they were designed at. */
+.main-inner.wide { max-width: 1100px; }
+
 /* An operation with a video splits the panel: form on the left at roughly
    two thirds, video on the right. The right column is sticky, so the clip
    holds the middle of the viewport while the form scrolls past it. */
@@ -799,6 +804,11 @@ input.invalid { border-color: var(--danger); }
 .generate-btn:hover { background: var(--accent-strong); }
 .generate-btn:disabled { background: var(--border-strong); color: var(--text-faint); cursor: not-allowed; }
 .generate-btn svg { flex-shrink: 0; }
+
+/* The busy state on Company Setup's network-calling buttons — see
+   setBtnBusy() in app.js. */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.8s linear infinite; }
 
 .toast {
   position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%) translateY(8px);
@@ -2145,6 +2155,21 @@ const COMPANY_VISION_TEMPLATES = [
   "To build a future-focused company that creates long-term value for clients and communities.",
 ];
 
+/* Shown on a button mid-network-call (Company Setup's two logins and its
+   first real save), one picked at random so repeat clicks don't repeat
+   the same line. Mostly English, per the "no Banglish in the product"
+   rule (src/app.js was rewritten out of Banglish 2026-09-08) — carrying
+   the same joke ("doing your kamla work") in the app's own voice, with
+   one entry kept verbatim as a wink rather than dropping it outright. */
+const BUSY_MESSAGES = [
+  "Doing your dirty work…",
+  "Grinding through the boring bits…",
+  "Pretending this is hard…",
+  "Talking to the server — be nice, we're new here…",
+  "Filing this under someone else's problem. Ours, specifically…",
+  "Doing the kamla work so you don't have to…",
+];
+
 </script>
 <script>
 /* ===== Bulk Forge — app logic ===== */
@@ -2454,6 +2479,7 @@ const COMPANY_VISION_TEMPLATES = [
      be filled in one operation at a time. */
   function paintOperation(root, html, opId) {
     const media = OPERATION_MEDIA[opId];
+    root.classList.remove("wide"); // only Company Setup gets the wider column
     if (!media) {
       root.classList.remove("has-media");
       root.innerHTML = html;
@@ -2486,7 +2512,7 @@ const COMPANY_VISION_TEMPLATES = [
 
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
-      root.classList.remove("has-media");
+      root.classList.remove("has-media", "wide");
       root.innerHTML = welcomeTemplate();
       wireWelcomeEvents();
       return;
@@ -2524,13 +2550,14 @@ const COMPANY_VISION_TEMPLATES = [
          action bar — every button it needs lives inside its own body. */
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media");
+      root.classList.add("wide");
       root.innerHTML = companySetupTemplate();
       wireCompanySetupEvents();
       return;
     }
     if (currentOp !== "employee_add") {
       const op = OPERATIONS.find((o) => o.id === currentOp);
-      root.classList.remove("has-media");
+      root.classList.remove("has-media", "wide");
       root.innerHTML = `
         <div class="page-head">
           <span class="page-eyebrow">Bulk operation</span>
@@ -5541,6 +5568,27 @@ const COMPANY_VISION_TEMPLATES = [
     return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg>`;
   }
 
+  function iconSpinner() {
+    return `<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0"><path d="M12 3a9 9 0 1 0 9 9"/></svg>`;
+  }
+
+  /* Every button in Company Setup that makes a real network call goes
+     through this pair — a spinner plus one of BUSY_MESSAGES, so a real
+     wait always gets a moment of the app's own voice instead of a bare
+     disabled button. The idle label is stashed on the element itself, so
+     clearBtnBusy needs nothing passed back in — whichever branch called
+     setBtnBusy is the only thing that has to remember to call it back. */
+  function setBtnBusy(btn) {
+    if (btn.dataset.idleHtml == null) btn.dataset.idleHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `${iconSpinner()}<span>${choice(BUSY_MESSAGES)}</span>`;
+  }
+  function clearBtnBusy(btn) {
+    btn.disabled = false;
+    if (btn.dataset.idleHtml != null) btn.innerHTML = btn.dataset.idleHtml;
+    delete btn.dataset.idleHtml;
+  }
+
   /* `open` is a bool: the eye when the password is hidden (click to
      reveal), the slashed eye once it's shown (click to hide again) — the
      icon always names the action a click will take, not the current
@@ -5749,8 +5797,7 @@ const COMPANY_VISION_TEMPLATES = [
         err.textContent = "Both fields are needed.";
         return;
       }
-      btn.disabled = true;
-      btn.textContent = "Signing in…";
+      setBtnBusy(btn);
       try {
         const data = await supabaseSignIn(email, pass);
         setup.toolEmail = email;
@@ -5758,8 +5805,7 @@ const COMPANY_VISION_TEMPLATES = [
         renderSetupBody();
       } catch (e) {
         err.textContent = e.message;
-        btn.disabled = false;
-        btn.textContent = "Sign in";
+        clearBtnBusy(btn);
       }
     });
   }
@@ -5798,8 +5844,7 @@ const COMPANY_VISION_TEMPLATES = [
         err.textContent = "Both fields are needed.";
         return;
       }
-      btn.disabled = true;
-      btn.textContent = "Signing in…";
+      setBtnBusy(btn);
       try {
         const data = await companySignIn(setup.env, identifier, pass);
         setup.companyToken = data.accessToken;
@@ -5809,8 +5854,7 @@ const COMPANY_VISION_TEMPLATES = [
         renderSetupBody();
       } catch (e) {
         err.textContent = e.message;
-        btn.disabled = false;
-        btn.textContent = "Continue";
+        clearBtnBusy(btn);
       }
     });
   }
@@ -6042,8 +6086,7 @@ const COMPANY_VISION_TEMPLATES = [
       companyProfile.error = "";
       companyProfile.ok = "";
       const fields = readCompanyProfileForm();
-      btn.disabled = true;
-      btn.textContent = "Saving…";
+      setBtnBusy(btn);
       try {
         await saveCompanyProfile(fields);
         companyProfile.fields = fields;

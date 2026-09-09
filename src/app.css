@@ -340,6 +340,11 @@ button { font-family: inherit; }
 .main-scroll { flex: 1; overflow-y: auto; }
 .main-inner { max-width: 760px; margin: 0 auto; padding: 40px 32px 140px; }
 
+/* Company Setup only — its field-rows, textareas and tab strip actually
+   use the extra room; the five generators keep the narrower, more
+   readable 760px column they were designed at. */
+.main-inner.wide { max-width: 1100px; }
+
 /* An operation with a video splits the panel: form on the left at roughly
    two thirds, video on the right. The right column is sticky, so the clip
    holds the middle of the viewport while the form scrolls past it. */
@@ -785,6 +790,11 @@ input.invalid { border-color: var(--danger); }
 .generate-btn:hover { background: var(--accent-strong); }
 .generate-btn:disabled { background: var(--border-strong); color: var(--text-faint); cursor: not-allowed; }
 .generate-btn svg { flex-shrink: 0; }
+
+/* The busy state on Company Setup's network-calling buttons — see
+   setBtnBusy() in app.js. */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.8s linear infinite; }
 
 .toast {
   position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%) translateY(8px);
