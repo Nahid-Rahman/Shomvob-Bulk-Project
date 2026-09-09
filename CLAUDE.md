@@ -627,6 +627,38 @@ generic error for both — so it assumes CORS, since that is the likelier
 story for a server that already answers Postman fine, and says so rather
 than showing a bare "network error".
 
+### Navigation model for the settings modules (confirmed 2026-09-09)
+
+Settled before any module was built, because it changes what "add a
+module" means: **the ~20 settings modules are a free-pick grouped grid
+in the main content area, never a sidebar submenu and never a numbered
+wizard.**
+
+- **The sidebar stays exactly one line — "Company Setup" — forever.**
+  Nesting ~20 items under it (mirroring the Postman collection's own
+  `00_/01_/02_.../03_...` folder numbering) was the instinctive first
+  idea and was rejected: it would make Setup's sidebar footprint dwarf
+  every one of the five Operations, and it breaks the one rule the
+  sidebar has held since phase 1 — it switches top-level pages, never a
+  page's internal workflow.
+- Once connected, the "What's next" placeholder becomes a grid of
+  module cards grouped under labels matching the Postman collection's
+  own folders (Company Settings, Employee Settings, Leave, Payroll,
+  Offboarding), each card showing a Done/Not-started dot for the
+  session. **Clicking any card opens it directly** — there is no
+  enforced order and no "step X of Y" language anywhere.
+- **Only a genuine data dependency blocks a module, and only that one
+  module** — checked live against the real company (e.g. Designation
+  needs a Department to exist, Leave Policy needs a Leave Type), never
+  by position in a list. A blocked module shows one line naming what's
+  missing plus a shortcut straight to that specific module, not a tour
+  of unrelated ones. Most of the ~20 modules have no dependency at all
+  and simply open.
+- The mockup that settled this (three states of the grid plus an
+  explicitly-rejected linear-wizard alternative, shown side by side) is
+  worth keeping as a reference if this gets relitigated:
+  https://claude.ai/code/artifact/192ba11b-5e7c-43ce-99a1-f0550e8a09bc
+
 ### What's not built yet
 
 Everything past a successful company login is a placeholder ("What's
