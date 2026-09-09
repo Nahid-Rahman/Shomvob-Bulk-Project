@@ -691,6 +691,20 @@ Regenerate has no real wait (it's synchronous, no network call) and
 deliberately doesn't get a fake spinner — the busy state is reserved for
 places with an actual delay to fill.
 
+**Colour pass (2026-09-09):** the first build of this section leaned on
+plain white/grey/black and read as flat next to the rest of the app.
+Fixed by reusing existing tokens and patterns rather than inventing
+new ones — `SETTINGS_GROUP_ICONS`/`settingsGroupIcon()` draws one accent-
+green line icon per group card (Leave and Payroll reuse their operation
+icons outright); each card's done count is the app's existing `.tally`
+component (`.tally.ok` once every module in the group is done) instead
+of plain grey text; the "Connected" banner reuses the same success-soft
+treatment `.tally.ok`/`.validation-banner` already use for status
+elsewhere, rather than a plain white `.section`; and the active tab's
+label is accent-coloured. Deliberately did *not* add a left-border
+accent stripe on the cards — that's the one AI-slop container pattern
+this app's own design guidance calls out to avoid.
+
 ### Company Profile — first settings module (built 2026-09-09)
 
 Lives at Company Settings → Company Profile, the group's default tab.

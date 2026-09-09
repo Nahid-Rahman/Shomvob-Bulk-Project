@@ -734,18 +734,26 @@ input.invalid { border-color: var(--danger); }
   font-family: var(--font-body);
 }
 .settings-card:hover { border-color: var(--accent); }
-.settings-card-name { font-size: 14px; font-weight: 600; color: var(--text); }
-.settings-card-count {
-  display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
-  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint);
+.settings-card-icon { margin-bottom: 10px; }
+.settings-card-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+
+/* A success-tinted variant of .section, reserved for the one genuinely
+   good-news banner on this page — everything else on Company Setup stays
+   neutral so this doesn't have to compete with anything. */
+.setup-connected-banner {
+  background: var(--success-soft);
+  border: 1px solid var(--success);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
 }
-.settings-card-count.all-done { color: var(--success); }
+.setup-connected-banner .section-title { color: var(--success); }
+.setup-connected-banner .section-note strong { color: var(--text); }
 
 /* The tab strip a group opens into. Modelled directly on the real HRIS
    admin's own "Company Settings" / "Org Structure" pages (screenshots,
    2026-09-09) — small bordered pills in a row, active one lifted to the
-   surface colour. Wraps rather than scrolling, since Payroll alone has
-   eleven. */
+   surface colour with an accent-coloured label. Wraps rather than
+   scrolling, since Payroll alone has eleven. */
 .settings-tabs {
   display: flex; flex-wrap: wrap; gap: 6px;
   background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
@@ -757,7 +765,7 @@ input.invalid { border-color: var(--danger); }
   padding: 8px 14px; border-radius: var(--radius-sm);
 }
 .settings-tab[aria-current="true"] {
-  background: var(--surface); border-color: var(--border); color: var(--text); font-weight: 600;
+  background: var(--surface); border-color: var(--border); color: var(--accent); font-weight: 600;
 }
 .settings-tab:hover:not([aria-current="true"]) { color: var(--text); }
 .settings-tab .op-dot { margin-right: 6px; }
@@ -2598,6 +2606,25 @@ const BUSY_MESSAGES = [
     const paths = OP_ICONS[id];
     if (!paths) return '<span class="op-dot"></span>';
     return `<svg class="op-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+  }
+
+  /* One per SETTINGS_GROUPS entry, drawn in the same hand as OP_ICONS —
+     Leave and Payroll reuse their operation icons outright since they're
+     the same concept; Company/Employee/Offboarding are new but same
+     stroke weight and grid. Shown in accent green on the group cards,
+     the one deliberate splash of colour on an otherwise fairly neutral
+     admin-style page. */
+  const SETTINGS_GROUP_ICONS = {
+    company: '<path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/><path d="M9 11h.01M9 14h.01M15 11h.01M15 14h.01"/>',
+    employee: '<rect x="4" y="4" width="16" height="16" rx="2.5"/><circle cx="12" cy="10" r="2.5"/><path d="M7.5 17c1-2.5 3-3 4.5-3s3.5.5 4.5 3"/>',
+    leave: OP_ICONS.leave_balance_add,
+    payroll: OP_ICONS.payroll_field_add,
+    offboarding: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+  };
+  function settingsGroupIcon(id) {
+    const paths = SETTINGS_GROUP_ICONS[id];
+    if (!paths) return "";
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)">${paths}</svg>`;
   }
 
   function iconClock() {
@@ -5873,13 +5900,14 @@ const BUSY_MESSAGES = [
       const all = done === g.modules.length;
       return `
         <button type="button" class="settings-card" data-group="${g.id}">
+          <div class="settings-card-icon">${settingsGroupIcon(g.id)}</div>
           <div class="settings-card-name">${g.label}</div>
-          <div class="settings-card-count${all ? " all-done" : ""}">${done}/${g.modules.length} done</div>
+          <span class="tally${all ? " ok" : ""}">${done}/${g.modules.length} <strong>done</strong></span>
         </button>
       `;
     }).join("");
     return `
-      <div class="section">
+      <div class="setup-connected-banner">
         <div class="section-head"><h2 class="section-title">${iconCheck()}Connected</h2></div>
         <p class="section-note">Signed in to <strong>${setup.companyName}</strong> on ${env.label}, as <strong>${setup.companyUserType || "unknown type"}</strong>.</p>
         <button type="button" class="tiny-btn" id="setupDisconnectBtn">Disconnect this company</button>

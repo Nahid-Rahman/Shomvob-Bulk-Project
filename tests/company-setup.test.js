@@ -285,9 +285,9 @@ async function toGrid(page, companyName = "Hogwarts") {
       JSON.stringify(await page.locator(".settings-card-name").allTextContents()) ===
         JSON.stringify(["Company Settings", "Employee Settings", "Leave", "Payroll", "Offboarding"]));
     check("H every card starts at 0 done",
-      (await page.locator(".settings-card-count").allTextContents()).every((t) => /^0\//.test(t.trim())));
+      (await page.locator(".tally").allTextContents()).every((t) => /^0\//.test(t.trim())));
     check("H Payroll's count reflects its real 11 modules",
-      (await page.locator(".settings-card:has-text('Payroll') .settings-card-count").textContent()).trim() === "0/11 done");
+      (await page.locator(".settings-card:has-text('Payroll') .tally").textContent()).trim() === "0/11 done");
     check("H no page errors on the grid", errs.length === 0, errs.join(" | "));
     await page.close();
   }
@@ -362,7 +362,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#setupBackToModules");
     await page.waitForTimeout(80);
     check("J the group card's count updates to 1/5",
-      (await page.textContent(".settings-card:has-text('Company Settings') .settings-card-count")).trim() === "1/5 done");
+      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).trim() === "1/5 done");
 
     check("J no page errors through generate/edit/regenerate/save", errs.length === 0, errs.join(" | "));
     await page.close();

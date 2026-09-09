@@ -720,18 +720,26 @@ input.invalid { border-color: var(--danger); }
   font-family: var(--font-body);
 }
 .settings-card:hover { border-color: var(--accent); }
-.settings-card-name { font-size: 14px; font-weight: 600; color: var(--text); }
-.settings-card-count {
-  display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
-  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint);
+.settings-card-icon { margin-bottom: 10px; }
+.settings-card-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+
+/* A success-tinted variant of .section, reserved for the one genuinely
+   good-news banner on this page — everything else on Company Setup stays
+   neutral so this doesn't have to compete with anything. */
+.setup-connected-banner {
+  background: var(--success-soft);
+  border: 1px solid var(--success);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
 }
-.settings-card-count.all-done { color: var(--success); }
+.setup-connected-banner .section-title { color: var(--success); }
+.setup-connected-banner .section-note strong { color: var(--text); }
 
 /* The tab strip a group opens into. Modelled directly on the real HRIS
    admin's own "Company Settings" / "Org Structure" pages (screenshots,
    2026-09-09) — small bordered pills in a row, active one lifted to the
-   surface colour. Wraps rather than scrolling, since Payroll alone has
-   eleven. */
+   surface colour with an accent-coloured label. Wraps rather than
+   scrolling, since Payroll alone has eleven. */
 .settings-tabs {
   display: flex; flex-wrap: wrap; gap: 6px;
   background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
@@ -743,7 +751,7 @@ input.invalid { border-color: var(--danger); }
   padding: 8px 14px; border-radius: var(--radius-sm);
 }
 .settings-tab[aria-current="true"] {
-  background: var(--surface); border-color: var(--border); color: var(--text); font-weight: 600;
+  background: var(--surface); border-color: var(--border); color: var(--accent); font-weight: 600;
 }
 .settings-tab:hover:not([aria-current="true"]) { color: var(--text); }
 .settings-tab .op-dot { margin-right: 6px; }

@@ -426,6 +426,25 @@
     return `<svg class="op-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
   }
 
+  /* One per SETTINGS_GROUPS entry, drawn in the same hand as OP_ICONS —
+     Leave and Payroll reuse their operation icons outright since they're
+     the same concept; Company/Employee/Offboarding are new but same
+     stroke weight and grid. Shown in accent green on the group cards,
+     the one deliberate splash of colour on an otherwise fairly neutral
+     admin-style page. */
+  const SETTINGS_GROUP_ICONS = {
+    company: '<path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/><path d="M9 11h.01M9 14h.01M15 11h.01M15 14h.01"/>',
+    employee: '<rect x="4" y="4" width="16" height="16" rx="2.5"/><circle cx="12" cy="10" r="2.5"/><path d="M7.5 17c1-2.5 3-3 4.5-3s3.5.5 4.5 3"/>',
+    leave: OP_ICONS.leave_balance_add,
+    payroll: OP_ICONS.payroll_field_add,
+    offboarding: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+  };
+  function settingsGroupIcon(id) {
+    const paths = SETTINGS_GROUP_ICONS[id];
+    if (!paths) return "";
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)">${paths}</svg>`;
+  }
+
   function iconClock() {
     return `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>`;
   }
@@ -3699,13 +3718,14 @@
       const all = done === g.modules.length;
       return `
         <button type="button" class="settings-card" data-group="${g.id}">
+          <div class="settings-card-icon">${settingsGroupIcon(g.id)}</div>
           <div class="settings-card-name">${g.label}</div>
-          <div class="settings-card-count${all ? " all-done" : ""}">${done}/${g.modules.length} done</div>
+          <span class="tally${all ? " ok" : ""}">${done}/${g.modules.length} <strong>done</strong></span>
         </button>
       `;
     }).join("");
     return `
-      <div class="section">
+      <div class="setup-connected-banner">
         <div class="section-head"><h2 class="section-title">${iconCheck()}Connected</h2></div>
         <p class="section-note">Signed in to <strong>${setup.companyName}</strong> on ${env.label}, as <strong>${setup.companyUserType || "unknown type"}</strong>.</p>
         <button type="button" class="tiny-btn" id="setupDisconnectBtn">Disconnect this company</button>
