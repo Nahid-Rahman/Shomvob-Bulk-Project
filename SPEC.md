@@ -620,7 +620,18 @@ auto genuinely clearing the stored value, the pre-paint script applying
 before the gate is dismissed, and those three input types taking the
 theme.
 
-## All five operations are built
+## All five operations are built — and the importer has accepted them
+
+**Verified against the real system on 2026-09-09.** The user uploaded
+generated files into Shomvob's HRIS himself and reported no errors. Until
+then every rule in this document was inference plus his confirmation, and
+the test suite could only prove a file matched its template's shape.
+
+That settles the open questions this spec used to carry: dates written as
+text, a midnight-crossing shift whose Out Time reads before its In Time,
+sheet naming (including the two truncated names), verbatim reproduction of
+the templates' own typos, and the untouched-column guarantee on the two
+fill-in-the-export operations. The importer took all of it.
 
 Nothing left to spec. Adding a sixth would follow the same route: get the
 real template, inspect it with `tools/probe_xlsx.py`, walk its columns and

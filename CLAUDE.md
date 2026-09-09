@@ -499,21 +499,30 @@ date/number constraints), comments, freeze panes and merged ranges. Needs
 openpyxl. Use openpyxl rather than SheetJS for this — SheetJS cannot read
 data validations, which is exactly where dropdown option lists live.
 
-## Where this stands (2026-09-07)
+## Where this stands — phase 1 complete (2026-09-09)
 
-All five operations are built, tested and pushed — 142 browser checks
-across the five suites. The app is feature-complete against the five
-templates the user supplied.
+All five operations are built, tested and pushed — 224 browser checks
+across six suites. The app is feature-complete against the five templates
+the user supplied.
 
-The holiday table is now the user's own HR calendar rather than our
-draft, so nothing in the app is knowingly guessed any more.
+The holiday table is the user's own HR calendar rather than our draft, so
+nothing in the app is knowingly guessed.
 
-What has still never been done: **no generated file has been uploaded into
-the real Shomvob HRIS.** Every rule was inferred from a template and
-confirmed in conversation, and 157 browser checks prove each file matches
-its template's shape — but the importer itself has never passed judgement.
-That is the largest remaining unknown, and worth doing before anyone
-relies on the output.
+**The generated files have been uploaded into the real Shomvob HRIS and
+the importer accepted them** — the user did that himself on 2026-09-09 and
+reported no errors. That was the project's largest unknown for its whole
+life: every rule here was inferred from a template and confirmed in
+conversation, and the test suite could only ever prove a file matched its
+template's *shape*, never that the importer would take it. It now has.
+
+So the rules in `SPEC.md` are no longer only "what the user told us" —
+they are what the system actually accepts. Treat that as the strongest
+evidence in the repo, and don't relitigate a rule against a fresh reading
+of a template. If a real upload ever does fail, fix against that error's
+actual text rather than re-deriving from the template.
+
+Phase 1 is closed. Phase 2 is a separate conversation with the user; do
+not assume its scope from what phase 1 contained.
 
 ## Adding a sixth operation
 
