@@ -627,12 +627,12 @@ generic error for both — so it assumes CORS, since that is the likelier
 story for a server that already answers Postman fine, and says so rather
 than showing a bare "network error".
 
-### Navigation model for the settings modules (confirmed 2026-09-09)
+### Navigation model for the settings modules (confirmed & built 2026-09-09)
 
 Settled before any module was built, because it changes what "add a
 module" means: **the ~20 settings modules are a free-pick grouped grid
 in the main content area, never a sidebar submenu and never a numbered
-wizard.**
+wizard.** Two levels, both implemented:
 
 - **The sidebar stays exactly one line — "Company Setup" — forever.**
   Nesting ~20 items under it (mirroring the Postman collection's own
@@ -641,49 +641,101 @@ wizard.**
   every one of the five Operations, and it breaks the one rule the
   sidebar has held since phase 1 — it switches top-level pages, never a
   page's internal workflow.
-- Once connected, the "What's next" placeholder becomes a grid of
-  module cards grouped under labels matching the Postman collection's
-  own folders (Company Settings, Employee Settings, Leave, Payroll,
-  Offboarding), each card showing a Done/Not-started dot for the
-  session. **Clicking any card opens it directly** — there is no
-  enforced order and no "step X of Y" language anywhere.
+- **Level 1 — the group grid.** Once connected, `setupConnectedTemplate()`
+  renders one card per entry in `SETTINGS_GROUPS`
+  (`src/app-data.js`) — Company Settings, Employee Settings, Leave,
+  Payroll, Offboarding — each showing an `n/total done` count for the
+  session (`groupDoneCount()`). **Clicking a card opens that group**;
+  there is no enforced order between groups.
+- **Level 2 — a group's own tabbed page**, added the same day after
+  comparing two real screenshots of the actual HRIS admin (its "Company
+  Settings" and "Org Structure" pages both use exactly this pattern —
+  recreated from that source, not invented): `setupGroupPageTemplate()`
+  shows a `.settings-tabs` strip of every module in the group, and
+  `wireSetupGroupPage()` switches between them on click with no
+  requirement to visit them in any order. A tab whose module was saved
+  this session carries a small green dot. Modules with no code behind
+  them yet render `settingsComingSoonHtml()` — the same honest
+  placeholder unbuilt operations get in `renderMain()`, just scoped to
+  one tab instead of a whole page.
 - **Only a genuine data dependency blocks a module, and only that one
   module** — checked live against the real company (e.g. Designation
   needs a Department to exist, Leave Policy needs a Leave Type), never
   by position in a list. A blocked module shows one line naming what's
   missing plus a shortcut straight to that specific module, not a tour
   of unrelated ones. Most of the ~20 modules have no dependency at all
-  and simply open.
-- The mockup that settled this (three states of the grid plus an
+  and simply open. (Not yet needed by Company Profile, which has none —
+  first real use will be whichever module needs it first.)
+- The mockup that settled level 1 (three states of the grid plus an
   explicitly-rejected linear-wizard alternative, shown side by side) is
   worth keeping as a reference if this gets relitigated:
   https://claude.ai/code/artifact/192ba11b-5e7c-43ce-99a1-f0550e8a09bc
 
+### Company Profile — first settings module (built 2026-09-09)
+
+Lives at Company Settings → Company Profile, the group's default tab.
+`PATCH {apiBase}/company-profile` with `Authorization: Bearer
+{setup.companyToken}` — the first real write this app has ever made
+into an actual company. Every field is generated, none typed by hand;
+the generation logic is the Postman collection's own pre-request
+script, ported field-for-field rather than redesigned (`app-data.js`
+holds the pools verbatim: `COMPANY_LEGAL_SUFFIXES`,
+`COMPANY_INDUSTRY_PAIRS`, `COMPANY_DOMAIN_EXTENSIONS`,
+`COMPANY_DESCRIPTION_TEMPLATES`, `COMPANY_MISSION_TEMPLATES`,
+`COMPANY_VISION_TEMPLATES`; `generateCompanyProfileFields()` in
+`app.js` is the port).
+
+- **`legalName` comes from the real connected company's own name**
+  (`setup.companyName`, from the company login response) plus a random
+  suffix — never a value the visitor typed, same principle as the
+  company login itself deciding which company this is.
+- **`tegNo`'s real meaning is unknown to everyone who has touched
+  it** — the Postman script's own author admitted as much in its
+  comments, and the user doesn't know either. A real staging company
+  was found holding free text there (`NOMUGGLESALLOWED`), so the field
+  isn't validated as numeric server-side; the 13-digit dummy pattern is
+  kept anyway because it reads as a plausible registration number for
+  QA data, which a joke string doesn't.
+- **`industry`/`businessType` are a paired pool**, so a generated
+  company never lands on an incoherent combination — the same
+  defensive shape as Employee Add's gender matching its picked name.
+- **Fields stay editable after generating.** Regenerate re-rolls
+  everything; nothing stops fixing one field by hand before Save
+  (verified by test: whatever is in the inputs at Save time is what
+  gets sent, not the last-generated object).
+- **Company Logo is deliberately left out**, on the user's call
+  (2026-09-09) — it is a multipart file upload (`PUT
+  {apiBase}/company/profile-picture`), not generated data, and doesn't
+  fit this module's shape. Revisit later; don't build it as a side
+  effect of touching this module again.
+- Success is the server's own `"Company profile saved successfully"`;
+  failure shows the server's own `message` verbatim, same discipline as
+  the two logins.
+
 ### What's not built yet
 
-Everything past a successful company login is a placeholder ("What's
-next" panel in `setupConnectedTemplate()"). The ~20 settings modules
-(company profile, departments, designations, branches, leave types and
-policies, payroll configuration, offboarding types, custom fields, and
-more) are the actual work of phase 2 and haven't been started. A working
-Postman collection covering nearly all of them already exists (the user's
-own, `HRIS Collection Automation.postman_collection.json`, kept outside
-this repo — see the note in "Adding a sixth operation"-style workflow
-below) and several of its request bodies are already built by pre-request
-scripts with the same kind of randomised-but-believable logic this app
-uses, so building each module is expected to be a port, not a fresh
-design, the same way each of the five original operations was built from
-a real template rather than guessed.
+Everything else past a successful company login. Company Profile is the
+only wired module; every other tab in every other group renders the
+`settingsComingSoonHtml()` placeholder. Bank Info, Locations (possibly =
+the Postman collection's "Branch Management" — unconfirmed, check when
+building it), Department Management, Designation Management, and the
+other four groups in full are the remaining work of phase 2. The Postman
+collection (`HRIS Collection Automation.postman_collection.json`, kept
+outside this repo) covers nearly all of them, several already built by
+pre-request scripts with the same randomised-but-believable logic this
+app uses — building each is expected to stay a port, the same way
+Company Profile was.
 
-Also not built yet, because nothing past step one currently does anything
-destructive: a run log, a Stop control, and a "Hey Lazy!"-style guard for
-leaving mid-run. The existing guard (`hasUnsavedWork()`,
-`wireUnloadGuard()`) does not cover this section at all today. It will
-need to before the first settings module ships, and it will need a second
-kind of message phase 1 has never needed — phase 1's warning always meant
-"you'll lose what you typed"; phase 2's will sometimes mean "some of this
-already happened on a real server and leaving now doesn't undo it," which
-is a different and more important thing to say correctly.
+Also not built yet: a run log, a Stop control, and a "Hey Lazy!"-style
+guard for leaving mid-run. Company Profile didn't need any of these —
+it's a single record, one PATCH, no partial state possible — so its
+absence here isn't an oversight. **The real need appears with the first
+module that loops writes** (e.g. creating several Leave Types or Bonus
+Types one at a time): that is where "some of this already happened on a
+real server and leaving now doesn't undo it" first becomes a real risk,
+and where `hasUnsavedWork()`/`wireUnloadGuard()` will need extending —
+build it alongside whichever module is first to actually loop, not
+speculatively before then.
 
 ## Adding a sixth operation
 

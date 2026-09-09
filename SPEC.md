@@ -638,11 +638,11 @@ real template, inspect it with `tools/probe_xlsx.py`, walk its columns and
 rules with the user one at a time, then add the operation to the sidebar
 and wire it into the same app shell.
 
-## Company Setup — step one only so far (built 2026-09-09)
+## Company Setup — auth plus one module so far (built 2026-09-09)
 
-Phase 2's first slice: sign-in, environment choice, and the real company
-login. No settings module writes anything yet — this is the gate in front
-of work that hasn't started. Full narrative in `CLAUDE.md`; this is the
+Phase 2's first slice: sign-in, environment choice, the real company
+login, and — as of the same day — the first settings module actually
+writing into a real company. Full narrative in `CLAUDE.md`; this is the
 request/response shape, confirmed against the real endpoints.
 
 ### Bulk Forge's own sign-in
@@ -740,10 +740,67 @@ project) was run by hand while building this and isn't repeated in the
 committed suite — a test that ships in this repo shouldn't depend on a
 live account or on outbound network being available at all.
 
-### Outstanding
+## Company Profile — first settings module (built 2026-09-09)
 
-No settings module exists yet — that is the actual work of phase 2, and
-none of it has started. Also outstanding, and needed before the first one
-ships: a run log, a way to stop a batch partway through, and a version of
-the "Hey Lazy!" guard that can say "some of this already happened on a
-real server," which today's guard has never had to say.
+Company Settings → Company Profile, the group's default tab.
+`PATCH {apiBase}/company-profile`, `Authorization: Bearer
+{setup.companyToken}`. Confirmed against the Postman collection's own
+`Company Profile` request (`HRIS Collection Automation.postman_collection.json`,
+kept outside this repo) and a real screenshot of the live staging admin
+screen for the connected test company ("Hogwarts").
+
+### Fields, and where each rule comes from
+
+| Field | Rule | Source |
+|---|---|---|
+| `legalName` | The connected company's real name (`setup.companyName`, from the company login response) + a random suffix from `COMPANY_LEGAL_SUFFIXES` (14 options: Limited, Ltd., Corporation, ...) | Postman pre-request script |
+| `tegNo` | 13-digit numeric string, first digit 1–9 | Postman pre-request script — **meaning unknown even to its author** ("tegNo er exact business meaning clear na" in its own comments) and to the user. A real company was found holding free text there (`NOMUGGLESALLOWED`), so the field takes anything server-side; the numeric pattern is kept because it reads as a real registration number for QA data |
+| `taxId` | 12-digit numeric string, first digit 1–9 (BD TIN/e-TIN-style dummy) | Postman pre-request script |
+| `industry` + `businessType` | One pair picked together from `COMPANY_INDUSTRY_PAIRS` (15 pairs, e.g. `FinTech`/`Financial Services`) — never picked independently, so the two always agree | Postman pre-request script |
+| `website` | Company name → lowercase slug (`&`→"and", non-alphanumerics stripped, `dummycompany` if that leaves nothing) + a random extension from `COMPANY_DOMAIN_EXTENSIONS` (.com/.net/.co/.io/.biz/.com.bd) | Postman pre-request script |
+| `description` / `missionStatement` / `visionStatement` | One of 5 templates each (`COMPANY_DESCRIPTION_TEMPLATES` etc.), with `{industry}`/`{businessType}` interpolated into the ones that reference them | Postman pre-request script |
+
+`companyLogo` (`PUT {apiBase}/company/profile-picture`, multipart file
+upload) is **deliberately excluded** — the user's call, 2026-09-09,
+since it needs a real image file rather than generated data and doesn't
+fit this module's shape. Not forgotten; a later, separate decision.
+
+### Behaviour
+
+- Opening the tab generates a fresh set of values once
+  (`generateCompanyProfileFields()`) and fills nine inputs (six
+  single-line, three `<textarea>` for description/mission/vision,
+  matching the real admin screen's own field types).
+- **Regenerate** re-rolls all nine. **Every field stays editable** —
+  Save sends whatever is currently in the inputs, not the
+  last-generated object, so a hand-edit before saving is never
+  silently discarded.
+- Success: the server's own `"Company profile saved successfully"`
+  shown as confirmation, the module's tab gains a done dot, and the
+  group card's `n/total done` count updates. Failure: the server's own
+  `message`, verbatim, same discipline as both logins.
+
+### Tested
+
+Playwright, folded into `tests/company-setup.test.js` (65 checks now
+total): the group grid (one card per `SETTINGS_GROUPS` entry, everyone
+starting at 0 done, Payroll's count reflecting its real 11 modules), a
+group's tab strip and its coming-soon placeholder for unbuilt modules,
+free-pick jumping between tabs in either order, legalName generated from
+the real connected company name, the industry/businessType pair always
+being one of the real pairs, Regenerate producing a different but
+still-valid 13-digit tegNo, a hand-edited field being what actually gets
+sent to the server, the done dot and group count updating after a real
+save, and a rejected save showing the server's exact message while
+leaving the module undone.
+
+## Outstanding
+
+No other settings module exists yet — that is the remaining work of
+phase 2. Also outstanding: a run log, a way to stop a batch partway
+through, and a version of the "Hey Lazy!" guard that can say "some of
+this already happened on a real server." Company Profile didn't need any
+of these (one record, one call, no partial state) — they become
+necessary at the first module that loops writes (creating several Leave
+Types or Bonus Types, for instance), and should be built alongside that
+one rather than speculatively now.

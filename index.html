@@ -709,6 +709,54 @@ input.invalid { border-color: var(--danger); }
    crowded the button against a long message. */
 .setup-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 14px; }
 
+/* One card per settings GROUP, never per module — a group's modules live
+   behind a tab strip once you open it (below), so this grid stays around
+   five cards even once every module under it exists. Free-pick: no
+   numbering, no arrows between cards. */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.settings-card {
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px 18px;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.settings-card:hover { border-color: var(--accent); }
+.settings-card-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.settings-card-count {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint);
+}
+.settings-card-count.all-done { color: var(--success); }
+
+/* The tab strip a group opens into. Modelled directly on the real HRIS
+   admin's own "Company Settings" / "Org Structure" pages (screenshots,
+   2026-09-09) — small bordered pills in a row, active one lifted to the
+   surface colour. Wraps rather than scrolling, since Payroll alone has
+   eleven. */
+.settings-tabs {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 5px; margin-top: 16px;
+}
+.settings-tab {
+  border: 1px solid transparent; background: none; cursor: pointer;
+  font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--text-muted);
+  padding: 8px 14px; border-radius: var(--radius-sm);
+}
+.settings-tab[aria-current="true"] {
+  background: var(--surface); border-color: var(--border); color: var(--text); font-weight: 600;
+}
+.settings-tab:hover:not([aria-current="true"]) { color: var(--text); }
+.settings-tab .op-dot { margin-right: 6px; }
+
 /* The base .seg control sizes each button to its own label, which is fine
    for three unevenly-named options (Paste/Generate/Upload) but reads as
    lopsided for a straight either/or like Dev vs. Staging — "Dev" is a
@@ -1965,6 +2013,137 @@ const SUPABASE_URL = "https://wtlaiidtiugxirqcxjzw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_F8HUWz-rcg9SqQgXsEcWeA_YrXilWgT";
 
 const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "active" }];
+
+/* The ~20 settings modules, two levels deep — confirmed with the user
+   2026-09-09 against real screenshots of the actual HRIS admin (not
+   invented): a group is a tabbed page (mirrors "Company Settings" and
+   "Org Structure" in the real product, each its own small tab strip), a
+   module is one tab within it. The main Company Setup view shows one
+   card per GROUP, not per module — opening a group shows its modules as
+   free-pick tabs, never a forced order.
+
+   Grouping and module order follow the real Postman collection's own
+   folders (`HRIS Collection Automation.postman_collection.json`, kept
+   outside this repo). Only `company_profile` is wired to anything today;
+   every other id exists so the tab strip is right from day one and each
+   module becomes "swap in real content for one more tab" rather than
+   "build tab machinery again". */
+const SETTINGS_GROUPS = [
+  {
+    id: "company",
+    label: "Company Settings",
+    modules: [
+      { id: "company_profile", label: "Company Profile" },
+      { id: "bank_info", label: "Bank Info" },
+      { id: "branches", label: "Locations" },
+      { id: "departments", label: "Department Management" },
+      { id: "designations", label: "Designation Management" },
+    ],
+  },
+  {
+    id: "employee",
+    label: "Employee Settings",
+    modules: [
+      { id: "custom_fields", label: "Custom Fields" },
+      { id: "required_documents", label: "Required Documents" },
+    ],
+  },
+  {
+    id: "leave",
+    label: "Leave",
+    modules: [
+      { id: "leave_types", label: "Leave Types" },
+      { id: "leave_policy", label: "Leave Policy" },
+    ],
+  },
+  {
+    id: "payroll",
+    label: "Payroll",
+    modules: [
+      { id: "payroll_general", label: "General" },
+      { id: "salary_components", label: "Salary Components" },
+      { id: "configure_salary_components", label: "Configure Salary Components" },
+      { id: "late_arrival", label: "Late Arrival" },
+      { id: "absent_deduction", label: "Absent Deduction" },
+      { id: "bonus_types", label: "Bonus Types" },
+      { id: "bonus_policy", label: "Bonus Policy" },
+      { id: "overtime", label: "Overtime" },
+      { id: "attendance_bonus", label: "Attendance Bonus" },
+      { id: "custom_addition_deduction", label: "Custom Addition/Deduction" },
+      { id: "tax", label: "Tax" },
+    ],
+  },
+  {
+    id: "offboarding",
+    label: "Offboarding",
+    modules: [{ id: "offboard_types", label: "Offboard Types" }],
+  },
+];
+
+/* ===== Company Profile — first settings module (built 2026-09-09) =====
+
+   Ported from the Postman collection's own pre-request script for
+   `PATCH /company-profile`, verbatim — every pool below is the real
+   collection's, not a fresh guess. `tegNo` is a 13-digit dummy the
+   collection's own author admitted not knowing the real meaning of
+   ("tegNo er exact business meaning clear na"); a real staging company
+   was found to hold free text there instead ("NOMUGGLESALLOWED"), so
+   the field takes anything — this numeric pattern is kept because it
+   reads as a plausible registration number for QA data, which a joke
+   string doesn't. */
+const COMPANY_LEGAL_SUFFIXES = [
+  "Limited", "Ltd.", "Corporation", "Group Limited", "Holdings Limited",
+  "Solutions Limited", "Systems Limited", "Digital Limited",
+  "Innovations Limited", "Enterprises Limited", "Industries Limited",
+  "Global Limited", "International Limited", "Software Limited",
+];
+
+/* Paired rather than two separate pools, so industry and businessType
+   always land on a coherent combination (same defensive shape as
+   Employee Add's gender matching its picked name). */
+const COMPANY_INDUSTRY_PAIRS = [
+  { industry: "HR Technology", businessType: "Technology" },
+  { industry: "ERP", businessType: "Technology" },
+  { industry: "Software Development", businessType: "Technology" },
+  { industry: "E-commerce", businessType: "Retail" },
+  { industry: "FinTech", businessType: "Financial Services" },
+  { industry: "EdTech", businessType: "Education" },
+  { industry: "HealthTech", businessType: "Healthcare" },
+  { industry: "Logistics", businessType: "Service" },
+  { industry: "Manufacturing", businessType: "Manufacturing" },
+  { industry: "Digital Marketing", businessType: "Agency" },
+  { industry: "Consultancy", businessType: "Professional Services" },
+  { industry: "Real Estate", businessType: "Property" },
+  { industry: "Retail", businessType: "Trading" },
+  { industry: "Garments", businessType: "Manufacturing" },
+  { industry: "Food and Beverage", businessType: "Consumer Goods" },
+];
+
+const COMPANY_DOMAIN_EXTENSIONS = [".com", ".net", ".co", ".io", ".biz", ".com.bd"];
+
+/* {industry}/{businessType} get interpolated in, so these read as
+   specific to the generated pair rather than generic filler. */
+const COMPANY_DESCRIPTION_TEMPLATES = [
+  "A growing {industry} focused {businessType} that provides reliable and scalable business solutions.",
+  "A professional {industry} organization working to improve operational efficiency through modern services.",
+  "A customer-focused company providing practical solutions in the {industry} sector.",
+  "An emerging business organization delivering quality services and long-term value to clients.",
+  "A dynamic company focused on innovation, service quality, and sustainable business growth.",
+];
+const COMPANY_MISSION_TEMPLATES = [
+  "To deliver reliable and user-friendly solutions that help clients improve their business operations.",
+  "To support organizations with efficient, scalable, and practical services for long-term growth.",
+  "To create value for customers by providing quality services, innovation, and dependable support.",
+  "To simplify business processes through effective solutions and professional service delivery.",
+  "To build trusted partnerships by delivering consistent quality and measurable business impact.",
+];
+const COMPANY_VISION_TEMPLATES = [
+  "To become a trusted and respected company in the {industry} industry.",
+  "To be recognized as a reliable business partner for organizations seeking sustainable growth.",
+  "To become a leading service provider known for quality, innovation, and customer satisfaction.",
+  "To help organizations grow through modern, efficient, and accessible business solutions.",
+  "To build a future-focused company that creates long-term value for clients and communities.",
+];
 
 </script>
 <script>
@@ -5353,6 +5532,9 @@ const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "act
     companyName: null,
     companyUserType: null,
     busy: false,
+    activeGroup: null, // a SETTINGS_GROUPS id, or null to show the group grid
+    activeModule: null, // a module id within activeGroup's tab strip
+    doneModules: new Set(), // module ids saved for real this session — resets on sign-out/reload like everything else here
   };
 
   function iconCheck() {
@@ -5491,6 +5673,9 @@ const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "act
         setup.companyRefresh = null;
         setup.companyName = null;
         setup.companyUserType = null;
+        setup.activeGroup = null;
+        setup.activeModule = null;
+        setup.doneModules = new Set();
         renderSetupBody();
       });
     }
@@ -5506,8 +5691,13 @@ const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "act
       wireSetupCompanyLogin();
       return;
     }
-    box.innerHTML = setupConnectedTemplate();
-    wireSetupConnected();
+    if (!setup.activeGroup) {
+      box.innerHTML = setupConnectedTemplate();
+      wireSetupConnected();
+      return;
+    }
+    box.innerHTML = setupGroupPageTemplate();
+    wireSetupGroupPage();
   }
 
   function setupSignInTemplate() {
@@ -5625,18 +5815,33 @@ const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "act
     });
   }
 
+  /* How many of a group's modules were actually saved this session — not
+     persisted, same as everything else in this section, so it resets to
+     0/N on reload, sign-out or disconnecting the company. */
+  function groupDoneCount(group) {
+    return group.modules.filter((m) => setup.doneModules.has(m.id)).length;
+  }
+
   function setupConnectedTemplate() {
     const env = ENVIRONMENTS[setup.env];
+    const cards = SETTINGS_GROUPS.map((g) => {
+      const done = groupDoneCount(g);
+      const all = done === g.modules.length;
+      return `
+        <button type="button" class="settings-card" data-group="${g.id}">
+          <div class="settings-card-name">${g.label}</div>
+          <div class="settings-card-count${all ? " all-done" : ""}">${done}/${g.modules.length} done</div>
+        </button>
+      `;
+    }).join("");
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title">${iconCheck()}Connected</h2></div>
         <p class="section-note">Signed in to <strong>${setup.companyName}</strong> on ${env.label}, as <strong>${setup.companyUserType || "unknown type"}</strong>.</p>
         <button type="button" class="tiny-btn" id="setupDisconnectBtn">Disconnect this company</button>
       </div>
-      <div class="section">
-        <div class="section-head"><h2 class="section-title">What's next</h2></div>
-        <p class="section-note">Department, designation, leave types, payroll configuration and the rest of the settings modules land here next — this is as far as phase 2 goes today.</p>
-      </div>
+      <p style="margin-top:22px; font-size:12.5px; color:var(--text-faint)">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
+      <div class="settings-grid">${cards}</div>
     `;
   }
 
@@ -5646,7 +5851,209 @@ const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "act
       setup.companyRefresh = null;
       setup.companyName = null;
       setup.companyUserType = null;
+      setup.activeGroup = null;
+      setup.activeModule = null;
+      setup.doneModules = new Set();
       renderSetupBody();
+    });
+    $all(".settings-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const group = SETTINGS_GROUPS.find((g) => g.id === card.dataset.group);
+        setup.activeGroup = group.id;
+        setup.activeModule = group.modules[0].id;
+        renderSetupBody();
+      });
+    });
+  }
+
+  /* ---------- a settings group's own tabbed page ---------- */
+
+  /* Modules with no wiring yet all get this — the same "not built yet"
+     honesty as the Coming Soon placeholder unbuilt operations get in
+     renderMain(), just scoped to one tab instead of a whole page. */
+  function settingsComingSoonHtml(mod) {
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${mod.label}</h2></div>
+        <p class="section-note">Not built yet. Each module gets added once its real request shape is confirmed against the Postman collection and, where one exists, the live admin screen.</p>
+      </div>
+    `;
+  }
+
+  function setupGroupPageTemplate() {
+    const group = SETTINGS_GROUPS.find((g) => g.id === setup.activeGroup);
+    const tabs = group.modules
+      .map(
+        (m) => `
+        <button type="button" class="settings-tab" data-module="${m.id}" aria-current="${m.id === setup.activeModule}">
+          ${setup.doneModules.has(m.id) ? '<span class="op-dot" style="background:var(--success)"></span>' : ""}${m.label}
+        </button>`
+      )
+      .join("");
+    const mod = group.modules.find((m) => m.id === setup.activeModule);
+    const body = mod.id === "company_profile" ? companyProfileTemplate() : settingsComingSoonHtml(mod);
+    return `
+      <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>
+      <h2 style="font-size:19px; margin:14px 0 0;">${group.label}</h2>
+      <div class="settings-tabs" role="tablist">${tabs}</div>
+      <div style="margin-top:16px">${body}</div>
+    `;
+  }
+
+  function wireSetupGroupPage() {
+    $("#setupBackToModules").addEventListener("click", (e) => {
+      e.preventDefault();
+      setup.activeGroup = null;
+      setup.activeModule = null;
+      renderSetupBody();
+    });
+    $all(".settings-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        setup.activeModule = tab.dataset.module;
+        renderSetupBody();
+      });
+    });
+    if (setup.activeModule === "company_profile") wireCompanyProfileEvents();
+  }
+
+  /* ---------- Company Profile — first settings module ----------
+
+     PATCH /company-profile. Every field is generated, none typed by
+     hand — legalName from the connected company's own real name (the
+     Login response's companyName, never a text field the visitor
+     controls), the rest from the Postman collection's own pools,
+     ported verbatim. Fields stay editable after generating: Regenerate
+     re-rolls everything, but nothing stops fixing one field by hand
+     before Save. */
+  const companyProfile = {
+    fields: null, // { legalName, tegNo, taxId, industry, businessType, website, description, missionStatement, visionStatement }
+    busy: false,
+    error: "",
+    ok: "",
+  };
+
+  function generateCompanyProfileFields() {
+    const suffix = choice(COMPANY_LEGAL_SUFFIXES);
+    const legalName = `${setup.companyName} ${suffix}`;
+
+    const tegNo = String(randInt(1, 9)) + Array.from({ length: 12 }, () => randInt(0, 9)).join("");
+    const taxId = String(randInt(1, 9)) + Array.from({ length: 11 }, () => randInt(0, 9)).join("");
+
+    const pair = choice(COMPANY_INDUSTRY_PAIRS);
+    const website =
+      (
+        setup.companyName
+          .toLowerCase()
+          .replace(/&/g, " and ")
+          .replace(/\band\b/g, "and")
+          .replace(/[^a-z0-9]/g, "") || "dummycompany"
+      ) + choice(COMPANY_DOMAIN_EXTENSIONS);
+
+    const fill = (tpl) => tpl.replace(/\{industry\}/g, pair.industry).replace(/\{businessType\}/g, pair.businessType);
+
+    return {
+      legalName,
+      tegNo,
+      taxId,
+      industry: pair.industry,
+      businessType: pair.businessType,
+      website,
+      description: fill(choice(COMPANY_DESCRIPTION_TEMPLATES)),
+      missionStatement: fill(choice(COMPANY_MISSION_TEMPLATES)),
+      visionStatement: fill(choice(COMPANY_VISION_TEMPLATES)),
+    };
+  }
+
+  function companyProfileTemplate() {
+    if (!companyProfile.fields) companyProfile.fields = generateCompanyProfileFields();
+    const f = companyProfile.fields;
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Company Profile</h2></div>
+        <p class="section-note">Generated from ${setup.companyName}'s own name plus the Postman collection's own pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="cpLegalName">Legal Name</label><input type="text" id="cpLegalName" value="${f.legalName}" /></div>
+          <div class="field"><label for="cpTegNo">TEG NO</label><input type="text" id="cpTegNo" value="${f.tegNo}" /></div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="cpTaxId">Tax ID</label><input type="text" id="cpTaxId" value="${f.taxId}" /></div>
+          <div class="field"><label for="cpIndustry">Industry</label><input type="text" id="cpIndustry" value="${f.industry}" /></div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="cpBusinessType">Business Type</label><input type="text" id="cpBusinessType" value="${f.businessType}" /></div>
+          <div class="field"><label for="cpWebsite">Website</label><input type="text" id="cpWebsite" value="${f.website}" /></div>
+        </div>
+        <div class="field" style="margin-top:14px"><label for="cpDescription">Description</label><textarea id="cpDescription">${f.description}</textarea></div>
+        <div class="field" style="margin-top:14px"><label for="cpMission">Mission Statement</label><textarea id="cpMission">${f.missionStatement}</textarea></div>
+        <div class="field" style="margin-top:14px"><label for="cpVision">Vision Statement</label><textarea id="cpVision">${f.visionStatement}</textarea></div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="cpRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="cpSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="cpError">${companyProfile.error}</span>
+        ${companyProfile.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyProfile.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readCompanyProfileForm() {
+    return {
+      legalName: $("#cpLegalName").value,
+      tegNo: $("#cpTegNo").value,
+      taxId: $("#cpTaxId").value,
+      industry: $("#cpIndustry").value,
+      businessType: $("#cpBusinessType").value,
+      website: $("#cpWebsite").value,
+      description: $("#cpDescription").value,
+      missionStatement: $("#cpMission").value,
+      visionStatement: $("#cpVision").value,
+    };
+  }
+
+  async function saveCompanyProfile(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/company-profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireCompanyProfileEvents() {
+    $("#cpRegenerateBtn").addEventListener("click", () => {
+      companyProfile.fields = generateCompanyProfileFields();
+      companyProfile.error = "";
+      companyProfile.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#cpSaveBtn");
+    btn.addEventListener("click", async () => {
+      companyProfile.error = "";
+      companyProfile.ok = "";
+      const fields = readCompanyProfileForm();
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      try {
+        await saveCompanyProfile(fields);
+        companyProfile.fields = fields;
+        companyProfile.ok = "Saved.";
+        setup.doneModules.add("company_profile");
+      } catch (e) {
+        companyProfile.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
     });
   }
 

@@ -3383,6 +3383,9 @@
     companyName: null,
     companyUserType: null,
     busy: false,
+    activeGroup: null, // a SETTINGS_GROUPS id, or null to show the group grid
+    activeModule: null, // a module id within activeGroup's tab strip
+    doneModules: new Set(), // module ids saved for real this session — resets on sign-out/reload like everything else here
   };
 
   function iconCheck() {
@@ -3521,6 +3524,9 @@
         setup.companyRefresh = null;
         setup.companyName = null;
         setup.companyUserType = null;
+        setup.activeGroup = null;
+        setup.activeModule = null;
+        setup.doneModules = new Set();
         renderSetupBody();
       });
     }
@@ -3536,8 +3542,13 @@
       wireSetupCompanyLogin();
       return;
     }
-    box.innerHTML = setupConnectedTemplate();
-    wireSetupConnected();
+    if (!setup.activeGroup) {
+      box.innerHTML = setupConnectedTemplate();
+      wireSetupConnected();
+      return;
+    }
+    box.innerHTML = setupGroupPageTemplate();
+    wireSetupGroupPage();
   }
 
   function setupSignInTemplate() {
@@ -3655,18 +3666,33 @@
     });
   }
 
+  /* How many of a group's modules were actually saved this session — not
+     persisted, same as everything else in this section, so it resets to
+     0/N on reload, sign-out or disconnecting the company. */
+  function groupDoneCount(group) {
+    return group.modules.filter((m) => setup.doneModules.has(m.id)).length;
+  }
+
   function setupConnectedTemplate() {
     const env = ENVIRONMENTS[setup.env];
+    const cards = SETTINGS_GROUPS.map((g) => {
+      const done = groupDoneCount(g);
+      const all = done === g.modules.length;
+      return `
+        <button type="button" class="settings-card" data-group="${g.id}">
+          <div class="settings-card-name">${g.label}</div>
+          <div class="settings-card-count${all ? " all-done" : ""}">${done}/${g.modules.length} done</div>
+        </button>
+      `;
+    }).join("");
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title">${iconCheck()}Connected</h2></div>
         <p class="section-note">Signed in to <strong>${setup.companyName}</strong> on ${env.label}, as <strong>${setup.companyUserType || "unknown type"}</strong>.</p>
         <button type="button" class="tiny-btn" id="setupDisconnectBtn">Disconnect this company</button>
       </div>
-      <div class="section">
-        <div class="section-head"><h2 class="section-title">What's next</h2></div>
-        <p class="section-note">Department, designation, leave types, payroll configuration and the rest of the settings modules land here next — this is as far as phase 2 goes today.</p>
-      </div>
+      <p style="margin-top:22px; font-size:12.5px; color:var(--text-faint)">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
+      <div class="settings-grid">${cards}</div>
     `;
   }
 
@@ -3676,7 +3702,209 @@
       setup.companyRefresh = null;
       setup.companyName = null;
       setup.companyUserType = null;
+      setup.activeGroup = null;
+      setup.activeModule = null;
+      setup.doneModules = new Set();
       renderSetupBody();
+    });
+    $all(".settings-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const group = SETTINGS_GROUPS.find((g) => g.id === card.dataset.group);
+        setup.activeGroup = group.id;
+        setup.activeModule = group.modules[0].id;
+        renderSetupBody();
+      });
+    });
+  }
+
+  /* ---------- a settings group's own tabbed page ---------- */
+
+  /* Modules with no wiring yet all get this — the same "not built yet"
+     honesty as the Coming Soon placeholder unbuilt operations get in
+     renderMain(), just scoped to one tab instead of a whole page. */
+  function settingsComingSoonHtml(mod) {
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${mod.label}</h2></div>
+        <p class="section-note">Not built yet. Each module gets added once its real request shape is confirmed against the Postman collection and, where one exists, the live admin screen.</p>
+      </div>
+    `;
+  }
+
+  function setupGroupPageTemplate() {
+    const group = SETTINGS_GROUPS.find((g) => g.id === setup.activeGroup);
+    const tabs = group.modules
+      .map(
+        (m) => `
+        <button type="button" class="settings-tab" data-module="${m.id}" aria-current="${m.id === setup.activeModule}">
+          ${setup.doneModules.has(m.id) ? '<span class="op-dot" style="background:var(--success)"></span>' : ""}${m.label}
+        </button>`
+      )
+      .join("");
+    const mod = group.modules.find((m) => m.id === setup.activeModule);
+    const body = mod.id === "company_profile" ? companyProfileTemplate() : settingsComingSoonHtml(mod);
+    return `
+      <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>
+      <h2 style="font-size:19px; margin:14px 0 0;">${group.label}</h2>
+      <div class="settings-tabs" role="tablist">${tabs}</div>
+      <div style="margin-top:16px">${body}</div>
+    `;
+  }
+
+  function wireSetupGroupPage() {
+    $("#setupBackToModules").addEventListener("click", (e) => {
+      e.preventDefault();
+      setup.activeGroup = null;
+      setup.activeModule = null;
+      renderSetupBody();
+    });
+    $all(".settings-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        setup.activeModule = tab.dataset.module;
+        renderSetupBody();
+      });
+    });
+    if (setup.activeModule === "company_profile") wireCompanyProfileEvents();
+  }
+
+  /* ---------- Company Profile — first settings module ----------
+
+     PATCH /company-profile. Every field is generated, none typed by
+     hand — legalName from the connected company's own real name (the
+     Login response's companyName, never a text field the visitor
+     controls), the rest from the Postman collection's own pools,
+     ported verbatim. Fields stay editable after generating: Regenerate
+     re-rolls everything, but nothing stops fixing one field by hand
+     before Save. */
+  const companyProfile = {
+    fields: null, // { legalName, tegNo, taxId, industry, businessType, website, description, missionStatement, visionStatement }
+    busy: false,
+    error: "",
+    ok: "",
+  };
+
+  function generateCompanyProfileFields() {
+    const suffix = choice(COMPANY_LEGAL_SUFFIXES);
+    const legalName = `${setup.companyName} ${suffix}`;
+
+    const tegNo = String(randInt(1, 9)) + Array.from({ length: 12 }, () => randInt(0, 9)).join("");
+    const taxId = String(randInt(1, 9)) + Array.from({ length: 11 }, () => randInt(0, 9)).join("");
+
+    const pair = choice(COMPANY_INDUSTRY_PAIRS);
+    const website =
+      (
+        setup.companyName
+          .toLowerCase()
+          .replace(/&/g, " and ")
+          .replace(/\band\b/g, "and")
+          .replace(/[^a-z0-9]/g, "") || "dummycompany"
+      ) + choice(COMPANY_DOMAIN_EXTENSIONS);
+
+    const fill = (tpl) => tpl.replace(/\{industry\}/g, pair.industry).replace(/\{businessType\}/g, pair.businessType);
+
+    return {
+      legalName,
+      tegNo,
+      taxId,
+      industry: pair.industry,
+      businessType: pair.businessType,
+      website,
+      description: fill(choice(COMPANY_DESCRIPTION_TEMPLATES)),
+      missionStatement: fill(choice(COMPANY_MISSION_TEMPLATES)),
+      visionStatement: fill(choice(COMPANY_VISION_TEMPLATES)),
+    };
+  }
+
+  function companyProfileTemplate() {
+    if (!companyProfile.fields) companyProfile.fields = generateCompanyProfileFields();
+    const f = companyProfile.fields;
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Company Profile</h2></div>
+        <p class="section-note">Generated from ${setup.companyName}'s own name plus the Postman collection's own pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="cpLegalName">Legal Name</label><input type="text" id="cpLegalName" value="${f.legalName}" /></div>
+          <div class="field"><label for="cpTegNo">TEG NO</label><input type="text" id="cpTegNo" value="${f.tegNo}" /></div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="cpTaxId">Tax ID</label><input type="text" id="cpTaxId" value="${f.taxId}" /></div>
+          <div class="field"><label for="cpIndustry">Industry</label><input type="text" id="cpIndustry" value="${f.industry}" /></div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="cpBusinessType">Business Type</label><input type="text" id="cpBusinessType" value="${f.businessType}" /></div>
+          <div class="field"><label for="cpWebsite">Website</label><input type="text" id="cpWebsite" value="${f.website}" /></div>
+        </div>
+        <div class="field" style="margin-top:14px"><label for="cpDescription">Description</label><textarea id="cpDescription">${f.description}</textarea></div>
+        <div class="field" style="margin-top:14px"><label for="cpMission">Mission Statement</label><textarea id="cpMission">${f.missionStatement}</textarea></div>
+        <div class="field" style="margin-top:14px"><label for="cpVision">Vision Statement</label><textarea id="cpVision">${f.visionStatement}</textarea></div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="cpRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="cpSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="cpError">${companyProfile.error}</span>
+        ${companyProfile.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyProfile.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readCompanyProfileForm() {
+    return {
+      legalName: $("#cpLegalName").value,
+      tegNo: $("#cpTegNo").value,
+      taxId: $("#cpTaxId").value,
+      industry: $("#cpIndustry").value,
+      businessType: $("#cpBusinessType").value,
+      website: $("#cpWebsite").value,
+      description: $("#cpDescription").value,
+      missionStatement: $("#cpMission").value,
+      visionStatement: $("#cpVision").value,
+    };
+  }
+
+  async function saveCompanyProfile(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/company-profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireCompanyProfileEvents() {
+    $("#cpRegenerateBtn").addEventListener("click", () => {
+      companyProfile.fields = generateCompanyProfileFields();
+      companyProfile.error = "";
+      companyProfile.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#cpSaveBtn");
+    btn.addEventListener("click", async () => {
+      companyProfile.error = "";
+      companyProfile.ok = "";
+      const fields = readCompanyProfileForm();
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      try {
+        await saveCompanyProfile(fields);
+        companyProfile.fields = fields;
+        companyProfile.ok = "Saved.";
+        setup.doneModules.add("company_profile");
+      } catch (e) {
+        companyProfile.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
     });
   }
 

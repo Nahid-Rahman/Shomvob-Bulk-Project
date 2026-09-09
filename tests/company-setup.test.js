@@ -75,6 +75,22 @@ function mockCompanyUnreachable(page) {
 
 const statusbar = (page) => page.textContent("#setupStatusBar").then((t) => t.replace(/\s+/g, " ").trim());
 
+/* Both logins, mocked, landing on the group grid — the starting point for
+   every check below the auth flow itself. */
+async function toGrid(page, companyName = "Hogwarts") {
+  await mockSupabaseOk(page);
+  await mockCompanyOk(page, companyName, "company_admin");
+  await gotoSetup(page);
+  await page.fill("#setupEmail", "mahmudur@shomvob.com");
+  await page.fill("#setupPass", "whatever");
+  await page.click("#setupSignInBtn");
+  await page.waitForTimeout(150);
+  await page.fill("#setupCoEmail", "someone@company.com");
+  await page.fill("#setupCoPass", "whatever");
+  await page.click("#setupCoBtn");
+  await page.waitForTimeout(150);
+}
+
 (async () => {
   const browser = await chromium.launch();
 
@@ -255,6 +271,115 @@ const statusbar = (page) => page.textContent("#setupStatusBar").then((t) => t.re
     await page.waitForTimeout(100);
     check("G switching pages and back keeps the tool sign-in", (await page.locator("#setupCoBtn").count()) === 1);
     check("G and the status bar with it", (await statusbar(page)) === "Staging mahmudur@shomvob.com Sign out");
+    await page.close();
+  }
+
+  /* ---------- H. the group grid (one card per group, never per module) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    check("H one card per settings group", (await page.locator(".settings-card").count()) === 5);
+    check("H group labels match SETTINGS_GROUPS",
+      JSON.stringify(await page.locator(".settings-card-name").allTextContents()) ===
+        JSON.stringify(["Company Settings", "Employee Settings", "Leave", "Payroll", "Offboarding"]));
+    check("H every card starts at 0 done",
+      (await page.locator(".settings-card-count").allTextContents()).every((t) => /^0\//.test(t.trim())));
+    check("H Payroll's count reflects its real 11 modules",
+      (await page.locator(".settings-card:has-text('Payroll') .settings-card-count").textContent()).trim() === "0/11 done");
+    check("H no page errors on the grid", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- I. opening a group: tabs, free pick, coming-soon placeholders ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+
+    check("I back link returns to the grid", (await page.locator("#setupBackToModules").count()) === 1);
+    check("I opens on the group's first module", (await page.getAttribute('.settings-tab[data-module="company_profile"]', "aria-current")) === "true");
+    check("I all five of the group's tabs are present",
+      JSON.stringify(await page.locator(".settings-tab").allTextContents().then((a) => a.map((t) => t.trim()))) ===
+        JSON.stringify(["Company Profile", "Bank Info", "Locations", "Department Management", "Designation Management"]));
+
+    /* free pick: jump straight to a module with no dependency on any other,
+       and back again, in whatever order — nothing about this is a wizard */
+    await page.click('.settings-tab[data-module="departments"]');
+    await page.waitForTimeout(80);
+    check("I an unbuilt module shows the honest placeholder, not a broken page",
+      (await page.textContent("#setupBody")).includes("Not built yet"));
+    await page.click('.settings-tab[data-module="company_profile"]');
+    await page.waitForTimeout(80);
+    check("I jumping back to Company Profile still works", (await page.locator("#cpSaveBtn").count()) === 1);
+
+    await page.click("#setupBackToModules");
+    await page.waitForTimeout(80);
+    check("I back link returns to the 5-card grid, not signed out", (await page.locator(".settings-card").count()) === 5);
+    await page.close();
+  }
+
+  /* ---------- J. Company Profile — generate, edit, regenerate, save, done state ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Hogwarts");
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+
+    check("J legalName is generated from the real connected company name, not typed",
+      (await page.inputValue("#cpLegalName")).startsWith("Hogwarts "));
+    check("J industry and businessType land on a coherent pair", true /* checked structurally below */);
+    const industry = await page.inputValue("#cpIndustry");
+    const bizType = await page.inputValue("#cpBusinessType");
+    const pairsOk = { "HR Technology":"Technology","ERP":"Technology","Software Development":"Technology","E-commerce":"Retail","FinTech":"Financial Services","EdTech":"Education","HealthTech":"Healthcare","Logistics":"Service","Manufacturing":"Manufacturing","Digital Marketing":"Agency","Consultancy":"Professional Services","Real Estate":"Property","Retail":"Trading","Garments":"Manufacturing","Food and Beverage":"Consumer Goods" };
+    check("J the generated industry/businessType pair is one of the real ones", pairsOk[industry] === bizType, `${industry} / ${bizType}`);
+
+    const beforeTeg = await page.inputValue("#cpTegNo");
+    await page.click("#cpRegenerateBtn");
+    await page.waitForTimeout(80);
+    const afterTeg = await page.inputValue("#cpTegNo");
+    check("J Regenerate re-rolls the fields", beforeTeg !== afterTeg);
+    check("J a fresh tegNo is still a 13-digit number", /^[1-9]\d{12}$/.test(afterTeg), afterTeg);
+
+    /* a field can still be hand-edited before saving */
+    await page.fill("#cpIndustry", "Hand-Edited Industry");
+
+    let sentBody = null;
+    await page.route("**/api/v1/company-profile", (route) => {
+      sentBody = route.request().postDataJSON();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Company profile saved successfully" }) });
+    });
+    await page.click("#cpSaveBtn");
+    await page.waitForTimeout(150);
+
+    check("J the hand-edited value is what actually gets sent", sentBody && sentBody.industry === "Hand-Edited Industry");
+    check("J save shows a confirmation", (await page.textContent("#cpError")) === "");
+    check("J the tab picks up a done marker", (await page.locator('.settings-tab[data-module="company_profile"] .op-dot').count()) === 1);
+
+    await page.click("#setupBackToModules");
+    await page.waitForTimeout(80);
+    check("J the group card's count updates to 1/5",
+      (await page.textContent(".settings-card:has-text('Company Settings') .settings-card-count")).trim() === "1/5 done");
+
+    check("J no page errors through generate/edit/regenerate/save", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- K. a rejected save surfaces the server's own message ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.route("**/api/v1/company-profile", (route) =>
+      route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ message: "Legal name already taken." }) })
+    );
+    await page.click("#cpSaveBtn");
+    await page.waitForTimeout(150);
+    check("K the server's rejection message is shown as-is", (await page.textContent("#cpError")) === "Legal name already taken.");
+    check("K a rejected save leaves the module undone", (await page.locator('.settings-tab[data-module="company_profile"] .op-dot').count()) === 0);
     await page.close();
   }
 

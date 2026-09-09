@@ -424,3 +424,134 @@ const SUPABASE_URL = "https://wtlaiidtiugxirqcxjzw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_F8HUWz-rcg9SqQgXsEcWeA_YrXilWgT";
 
 const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "active" }];
+
+/* The ~20 settings modules, two levels deep — confirmed with the user
+   2026-09-09 against real screenshots of the actual HRIS admin (not
+   invented): a group is a tabbed page (mirrors "Company Settings" and
+   "Org Structure" in the real product, each its own small tab strip), a
+   module is one tab within it. The main Company Setup view shows one
+   card per GROUP, not per module — opening a group shows its modules as
+   free-pick tabs, never a forced order.
+
+   Grouping and module order follow the real Postman collection's own
+   folders (`HRIS Collection Automation.postman_collection.json`, kept
+   outside this repo). Only `company_profile` is wired to anything today;
+   every other id exists so the tab strip is right from day one and each
+   module becomes "swap in real content for one more tab" rather than
+   "build tab machinery again". */
+const SETTINGS_GROUPS = [
+  {
+    id: "company",
+    label: "Company Settings",
+    modules: [
+      { id: "company_profile", label: "Company Profile" },
+      { id: "bank_info", label: "Bank Info" },
+      { id: "branches", label: "Locations" },
+      { id: "departments", label: "Department Management" },
+      { id: "designations", label: "Designation Management" },
+    ],
+  },
+  {
+    id: "employee",
+    label: "Employee Settings",
+    modules: [
+      { id: "custom_fields", label: "Custom Fields" },
+      { id: "required_documents", label: "Required Documents" },
+    ],
+  },
+  {
+    id: "leave",
+    label: "Leave",
+    modules: [
+      { id: "leave_types", label: "Leave Types" },
+      { id: "leave_policy", label: "Leave Policy" },
+    ],
+  },
+  {
+    id: "payroll",
+    label: "Payroll",
+    modules: [
+      { id: "payroll_general", label: "General" },
+      { id: "salary_components", label: "Salary Components" },
+      { id: "configure_salary_components", label: "Configure Salary Components" },
+      { id: "late_arrival", label: "Late Arrival" },
+      { id: "absent_deduction", label: "Absent Deduction" },
+      { id: "bonus_types", label: "Bonus Types" },
+      { id: "bonus_policy", label: "Bonus Policy" },
+      { id: "overtime", label: "Overtime" },
+      { id: "attendance_bonus", label: "Attendance Bonus" },
+      { id: "custom_addition_deduction", label: "Custom Addition/Deduction" },
+      { id: "tax", label: "Tax" },
+    ],
+  },
+  {
+    id: "offboarding",
+    label: "Offboarding",
+    modules: [{ id: "offboard_types", label: "Offboard Types" }],
+  },
+];
+
+/* ===== Company Profile — first settings module (built 2026-09-09) =====
+
+   Ported from the Postman collection's own pre-request script for
+   `PATCH /company-profile`, verbatim — every pool below is the real
+   collection's, not a fresh guess. `tegNo` is a 13-digit dummy the
+   collection's own author admitted not knowing the real meaning of
+   ("tegNo er exact business meaning clear na"); a real staging company
+   was found to hold free text there instead ("NOMUGGLESALLOWED"), so
+   the field takes anything — this numeric pattern is kept because it
+   reads as a plausible registration number for QA data, which a joke
+   string doesn't. */
+const COMPANY_LEGAL_SUFFIXES = [
+  "Limited", "Ltd.", "Corporation", "Group Limited", "Holdings Limited",
+  "Solutions Limited", "Systems Limited", "Digital Limited",
+  "Innovations Limited", "Enterprises Limited", "Industries Limited",
+  "Global Limited", "International Limited", "Software Limited",
+];
+
+/* Paired rather than two separate pools, so industry and businessType
+   always land on a coherent combination (same defensive shape as
+   Employee Add's gender matching its picked name). */
+const COMPANY_INDUSTRY_PAIRS = [
+  { industry: "HR Technology", businessType: "Technology" },
+  { industry: "ERP", businessType: "Technology" },
+  { industry: "Software Development", businessType: "Technology" },
+  { industry: "E-commerce", businessType: "Retail" },
+  { industry: "FinTech", businessType: "Financial Services" },
+  { industry: "EdTech", businessType: "Education" },
+  { industry: "HealthTech", businessType: "Healthcare" },
+  { industry: "Logistics", businessType: "Service" },
+  { industry: "Manufacturing", businessType: "Manufacturing" },
+  { industry: "Digital Marketing", businessType: "Agency" },
+  { industry: "Consultancy", businessType: "Professional Services" },
+  { industry: "Real Estate", businessType: "Property" },
+  { industry: "Retail", businessType: "Trading" },
+  { industry: "Garments", businessType: "Manufacturing" },
+  { industry: "Food and Beverage", businessType: "Consumer Goods" },
+];
+
+const COMPANY_DOMAIN_EXTENSIONS = [".com", ".net", ".co", ".io", ".biz", ".com.bd"];
+
+/* {industry}/{businessType} get interpolated in, so these read as
+   specific to the generated pair rather than generic filler. */
+const COMPANY_DESCRIPTION_TEMPLATES = [
+  "A growing {industry} focused {businessType} that provides reliable and scalable business solutions.",
+  "A professional {industry} organization working to improve operational efficiency through modern services.",
+  "A customer-focused company providing practical solutions in the {industry} sector.",
+  "An emerging business organization delivering quality services and long-term value to clients.",
+  "A dynamic company focused on innovation, service quality, and sustainable business growth.",
+];
+const COMPANY_MISSION_TEMPLATES = [
+  "To deliver reliable and user-friendly solutions that help clients improve their business operations.",
+  "To support organizations with efficient, scalable, and practical services for long-term growth.",
+  "To create value for customers by providing quality services, innovation, and dependable support.",
+  "To simplify business processes through effective solutions and professional service delivery.",
+  "To build trusted partnerships by delivering consistent quality and measurable business impact.",
+];
+const COMPANY_VISION_TEMPLATES = [
+  "To become a trusted and respected company in the {industry} industry.",
+  "To be recognized as a reliable business partner for organizations seeking sustainable growth.",
+  "To become a leading service provider known for quality, innovation, and customer satisfaction.",
+  "To help organizations grow through modern, efficient, and accessible business solutions.",
+  "To build a future-focused company that creates long-term value for clients and communities.",
+];
