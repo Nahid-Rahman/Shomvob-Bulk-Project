@@ -637,3 +637,104 @@ Nothing left to spec. Adding a sixth would follow the same route: get the
 real template, inspect it with `tools/probe_xlsx.py`, walk its columns and
 rules with the user one at a time, then add the operation to the sidebar
 and wire it into the same app shell.
+
+## Company Setup — step one only so far (built 2026-09-09)
+
+Phase 2's first slice: sign-in, environment choice, and the real company
+login. No settings module writes anything yet — this is the gate in front
+of work that hasn't started. Full narrative in `CLAUDE.md`; this is the
+request/response shape, confirmed against the real endpoints.
+
+### Bulk Forge's own sign-in
+
+```
+POST {SUPABASE_URL}/auth/v1/token?grant_type=password
+headers: Content-Type: application/json, apikey: {SUPABASE_ANON_KEY}
+body:   { "email": "...", "password": "..." }
+```
+
+Success (200): `{ access_token, refresh_token, user: {...} }` — only
+`access_token` is kept; the app has no use yet for `refresh_token` or a
+long-lived session, since nothing here persists across a reload anyway.
+
+Failure (400): `{ error_description }` or `{ msg }` depending on the
+GoTrue version — `supabaseSignIn()` tries `error_description` first,
+falls back to `msg`, then a generic message. Confirmed by hand against
+the real project on 2026-09-09 with a wrong password: response was
+`{ error_description: "Invalid login credentials" }` via `error_code:
+"invalid_credentials"`; the message shown was exactly the server's own
+text, not a rewritten one.
+
+### The real company login
+
+```
+POST {apiBase}/auth/login
+headers: Content-Type: application/json
+body:   { "identifier": "...", "password": "..." }
+```
+
+Where `apiBase` is `ENVIRONMENTS[env].apiBase` — never anything else.
+Identical shape to the Postman collection's `Login as Company` request
+(`HRIS Collection Automation.postman_collection.json`, kept outside this
+repo).
+
+Success (200): `{ message, data: { accessToken, refreshToken, user: { id,
+companyId, companyName, type } } }`. The four fields on `user` are the
+whole reason this call is worth making before any settings module exists:
+`companyName` and `type` are what let the page say "you are about to
+write into **Sports Academy**, as **company_admin**" using the server's
+own answer, never a value the visitor typed or a dropdown they picked.
+There is deliberately no company-selector anywhere in this flow — the
+credential *is* the company.
+
+Failure: a non-200 with `{ message }`, shown as-is.
+
+Unreachable (`fetch` throws): this is the one case with no server
+response to read, because it covers two different causes that look
+identical from the browser — the network being down, and the server not
+having this origin in its CORS allowance yet. `companySignIn()` assumes
+the latter and says so by name, since a server that already answers
+Postman fine is far more likely to be missing a CORS header than to be
+offline. Confirmed as the expected failure mode on 2026-09-09, before
+CORS was enabled on either environment.
+
+### What the three states look like
+
+1. **Signed into neither** — step-one form only. `data-theme`-style
+   environment choice (`.seg`, `dev`/`staging`, default `dev`) submitted
+   together with the tool credentials, not asked for separately, since an
+   environment choice made before any login means nothing is actually
+   locked in yet.
+2. **Signed into the tool, not the company** — step-two form, plus the
+   status strip (env badge, tool email, Sign out).
+3. **Signed into both** — a "Connected" panel naming the company, the
+   environment and the account type, a Disconnect button (drops the
+   company token only, back to state 2), and a placeholder for the
+   settings modules. The status strip gains the company name and type.
+
+### Tested
+
+Playwright, 28 checks, `tests/company-setup.test.js` — entirely against
+mocked responses (`page.route`), not the live servers, so the suite has
+no dependency on a real Supabase account or on either Shomvob environment
+being reachable: the sidebar entry and hidden action bar, the environment
+picker, empty-field and wrong-credential handling at both logins, the
+full three-state happy path and what the status bar reads at each step,
+Disconnect vs. Sign out clearing the right amount of state, a rejected
+company login, an unreachable server naming itself rather than showing a
+bare network error, and state surviving a trip to another page and back
+(the module-level `setup` object already gives this for free, the same
+way `att`/`leave`/`payroll`/`assets` do for the five operations).
+
+The real, unmocked path (wrong password, against the actual Supabase
+project) was run by hand while building this and isn't repeated in the
+committed suite — a test that ships in this repo shouldn't depend on a
+live account or on outbound network being available at all.
+
+### Outstanding
+
+No settings module exists yet — that is the actual work of phase 2, and
+none of it has started. Also outstanding, and needed before the first one
+ships: a run log, a way to stop a batch partway through, and a version of
+the "Hey Lazy!" guard that can say "some of this already happened on a
+real server," which today's guard has never had to say.

@@ -50,6 +50,15 @@
   --warning-soft: #fef8e4;
   --danger: #dc2626;
   --danger-soft: #fdecec;
+  /* Company Setup's environment badge, and nothing else. Deliberately not
+     green (the app's one accent/success colour) and not the warning gold
+     or danger red above — an environment is neither a success nor a
+     problem, it's an identity, and it needed two hues that read as
+     clearly different from each other as they do from those three. */
+  --env-dev: #2f5fd6;
+  --env-dev-soft: #e8eefc;
+  --env-staging: #8425c9;
+  --env-staging-soft: #f2e7fb;
   --sidebar-bg: #262823;
   --sidebar-text: #f2f5f3;
   --sidebar-text-muted: #9aa39c;
@@ -84,6 +93,10 @@
     --warning-soft: #33280a;
     --danger: #f05252;
     --danger-soft: #3a1717;
+    --env-dev: #6f93f0;
+    --env-dev-soft: #16213d;
+    --env-staging: #c186ec;
+    --env-staging-soft: #2a1f3e;
     --sidebar-bg: #0b0f0c;
     --sidebar-text: #e8efea;
     --sidebar-text-muted: #8b9990;
@@ -112,6 +125,10 @@
   --warning-soft: #33280a;
   --danger: #f05252;
   --danger-soft: #3a1717;
+  --env-dev: #6f93f0;
+  --env-dev-soft: #16213d;
+  --env-staging: #c186ec;
+  --env-staging-soft: #2a1f3e;
   --sidebar-bg: #0b0f0c;
   --sidebar-text: #e8efea;
   --sidebar-text-muted: #8b9990;
@@ -667,6 +684,30 @@ input.invalid { border-color: var(--danger); }
   color: var(--warning);
 }
 .validation-banner.hidden { display: none; }
+
+/* ---- Company Setup (phase 2) ---- */
+.env-badge {
+  display: inline-flex; align-items: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  padding: 4px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+.env-badge.env-dev { background: var(--env-dev-soft); color: var(--env-dev); }
+.env-badge.env-staging { background: var(--env-staging-soft); color: var(--env-staging); }
+
+.setup-statusbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 14px; margin-bottom: 20px;
+}
+.setup-who { font-size: 13px; font-weight: 600; color: var(--text); }
+.setup-statusbar .hint { margin: 0; }
+.setup-statusbar #setupSignOutBtn { margin-left: auto; }
+
+/* Stacks an error line above its submit button — .error-text and
+   .generate-btn are both inline-level, so side by side by default, which
+   crowded the button against a long message. */
+.setup-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 14px; }
 
 /* ---- Sticky action bar ---- */
 .action-bar {
@@ -1401,6 +1442,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
       <div id="homeNav"></div>
       <div class="op-nav-label">Operations</div>
       <div id="opNav"></div>
+      <div class="op-nav-label">Setup</div>
+      <div id="setupNav"></div>
     </nav>
     <div class="sidebar-foot">
       <div class="appearance-row" role="group" aria-label="Appearance">
@@ -1874,6 +1917,35 @@ const OPERATIONS = [
   { id: "assets_add", label: "Assets Add", status: "active" }
 ];
 
+/* ===== Phase 2 — Company Setup =====
+
+   Unlike every operation above, this one writes into a real Shomvob
+   environment through its actual API, gated by a real company login. It
+   is deliberately kept separate from OPERATIONS: it is not a generator,
+   it has its own two-step auth, and it is the one part of this app that
+   is not risk-free. */
+
+/* The only two servers this app will ever call, and their base URLs are
+   fixed here at build time — never a text field on the page. Adding a
+   third (or, deliberately, production) means editing this file and
+   deploying, not typing a URL in and hitting go. */
+const ENVIRONMENTS = {
+  dev: { id: "dev", label: "Dev", apiBase: "https://dev.api-hr.shomvob.com/api/v1" },
+  staging: { id: "staging", label: "Staging", apiBase: "https://staging.api-hr.shomvob.com/api/v1" },
+};
+
+/* Bulk Forge's own sign-in — the gate in front of the real company login,
+   not a replacement for it. Backed by Supabase Auth; sign-up is switched
+   off on the project, so this is really "whoever was added by hand in the
+   Supabase dashboard," not a list this file controls. The key below is
+   the publishable one — it identifies the project, it does not authorize
+   anything by itself, and it is meant to sit in a public page like this
+   one. */
+const SUPABASE_URL = "https://wtlaiidtiugxirqcxjzw.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_F8HUWz-rcg9SqQgXsEcWeA_YrXilWgT";
+
+const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "active" }];
+
 </script>
 <script>
 /* ===== Bulk Forge — app logic ===== */
@@ -2160,6 +2232,22 @@ const OPERATIONS = [
       }
       nav.appendChild(btn);
     });
+
+    const setupNav = $("#setupNav");
+    setupNav.innerHTML = "";
+    SETUP_TOOLS.forEach((op) => {
+      const btn = document.createElement("button");
+      btn.className = "op-item";
+      btn.type = "button";
+      btn.setAttribute("aria-current", String(op.id === currentOp));
+      btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span>`;
+      btn.addEventListener("click", () => {
+        currentOp = op.id;
+        renderSidebar();
+        renderMain();
+      });
+      setupNav.appendChild(btn);
+    });
   }
 
   /* Wraps an operation's form in the two-column shell when that operation
@@ -2232,6 +2320,15 @@ const OPERATIONS = [
       updateSummary();
       return;
     }
+    if (currentOp === "company_setup") {
+      /* This page has no batch to generate and so no use for the shared
+         action bar — every button it needs lives inside its own body. */
+      $("#actionBar").style.display = "none";
+      root.classList.remove("has-media");
+      root.innerHTML = companySetupTemplate();
+      wireCompanySetupEvents();
+      return;
+    }
     if (currentOp !== "employee_add") {
       const op = OPERATIONS.find((o) => o.id === currentOp);
       root.classList.remove("has-media");
@@ -2268,6 +2365,7 @@ const OPERATIONS = [
     leave_balance_add: '<rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M8 2.5v4M16 2.5v4M3 10.5h18"/><path d="M8 15h.01M12 15h.01M16 15h.01M8 18.5h.01M12 18.5h.01"/>',
     payroll_field_add: '<path d="M12 2.5v19"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
     assets_add: '<rect x="2.5" y="3.5" width="19" height="13.5" rx="2"/><path d="M8.5 21h7M12 17v4"/>',
+    company_setup: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   };
 
   function opIcon(id) {
@@ -5203,6 +5301,297 @@ const OPERATIONS = [
     if (currentOp === "payroll_field_add") return handlePayrollGenerate();
     if (currentOp === "assets_add") return handleAssetsGenerate();
     return handleEmployeeGenerate();
+  }
+
+  /* ================= Company Setup (phase 2) ================= */
+
+  /* Two logins, never one, and they are not the same kind of thing.
+
+     The first — "the tool" below — gates the whole section before any
+     real credential is ever asked for. It is Bulk Forge's own sign-in,
+     checked against Supabase Auth, and it also fixes which environment
+     the rest of this section talks to. Sign-up is switched off on that
+     project, so passing this gate really means "someone added your email
+     in the Supabase dashboard," nothing this file decides on its own.
+
+     The second — "the company" — is the real Shomvob company-admin login,
+     checked by the actual dev or staging server, and it is what decides
+     what the rest of this section can actually do. There is no separate
+     permission model layered on top of it: whatever that account can do
+     through the real HRIS is exactly what this page can do on its
+     behalf, no more.
+
+     Neither token is ever written to storage. Both live only in this
+     object, so a reload clears them exactly like every pasted ID list
+     and shift assignment elsewhere in the app. */
+  const setup = {
+    toolEmail: null,
+    toolToken: null, // Supabase access token
+    env: "dev", // "dev" | "staging" — picked alongside the tool login, then fixed
+    companyToken: null,
+    companyRefresh: null,
+    companyName: null,
+    companyUserType: null,
+    busy: false,
+  };
+
+  function iconCheck() {
+    return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg>`;
+  }
+
+  /* Supabase's password grant. Supabase's Auth service sends its own CORS
+     headers for every project, so — unlike the company login below —
+     this one needs nothing from anyone else to work from a Vercel origin. */
+  async function supabaseSignIn(email, password) {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error_description || data.msg || "Wrong email or password.");
+    }
+    return data;
+  }
+
+  /* The real Shomvob login, against whichever of the two fixed hosts was
+     picked in step one — never a third, and never a typed-in URL. */
+  async function companySignIn(envId, identifier, password) {
+    const env = ENVIRONMENTS[envId];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, password }),
+      });
+    } catch (err) {
+      /* fetch throws the same generic error for "offline" and "the server
+         refused this origin," with no way to tell them apart from here.
+         CORS is the likelier story for a server that answers Postman fine,
+         so say that rather than a bare "network error". */
+      throw new Error(
+        `Couldn't reach ${env.label}. If this is the first attempt since setting this up, its CORS allowance may not be live yet.`
+      );
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || "Wrong email or password.");
+    }
+    return data.data;
+  }
+
+  function companySetupTemplate() {
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Phase 2 · Setup</span>
+        <h1 class="page-title">Company Setup</h1>
+        <p class="page-desc">Sign in here first, then sign in again as the company you want to configure. The rest of this section does nothing until both have happened.</p>
+      </div>
+      <div id="setupStatusBar"></div>
+      <div id="setupBody"></div>
+    `;
+  }
+
+  /* A persistent strip once step one is done — which environment, which
+     tool account, and which company (once step two is done too). The
+     point of it living outside #setupBody is that it stays on screen
+     through every step past the first, so "which server am I about to
+     touch" is never something you have to scroll up to check. */
+  function setupStatusBarHtml() {
+    if (!setup.toolToken) return "";
+    const env = ENVIRONMENTS[setup.env];
+    /* The literal space between the two spans matters even though the
+       flex gap already separates them visually — without it, selecting or
+       copying this line (or a screen reader reading it) glues the company
+       name straight onto the parenthetical. */
+    const company = setup.companyName
+      ? ` <span class="setup-who">${setup.companyName}</span> <span class="hint">(${setup.companyUserType || "unknown type"})</span>`
+      : "";
+    return `
+      <div class="setup-statusbar">
+        <span class="env-badge env-${env.id}">${env.label}</span>
+        <span class="setup-who">${setup.toolEmail}</span>${company}
+        <button type="button" class="tiny-btn" id="setupSignOutBtn">Sign out</button>
+      </div>
+    `;
+  }
+
+  function renderSetupBody() {
+    $("#setupStatusBar").innerHTML = setupStatusBarHtml();
+    const signOutBtn = $("#setupSignOutBtn");
+    if (signOutBtn) {
+      signOutBtn.addEventListener("click", () => {
+        setup.toolEmail = null;
+        setup.toolToken = null;
+        setup.companyToken = null;
+        setup.companyRefresh = null;
+        setup.companyName = null;
+        setup.companyUserType = null;
+        renderSetupBody();
+      });
+    }
+
+    const box = $("#setupBody");
+    if (!setup.toolToken) {
+      box.innerHTML = setupSignInTemplate();
+      wireSetupSignIn();
+      return;
+    }
+    if (!setup.companyToken) {
+      box.innerHTML = setupCompanyLoginTemplate();
+      wireSetupCompanyLogin();
+      return;
+    }
+    box.innerHTML = setupConnectedTemplate();
+    wireSetupConnected();
+  }
+
+  function setupSignInTemplate() {
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Sign in to Bulk Forge</h2></div>
+        <p class="section-note">Your own Bulk Forge account — separate from your Shomvob login, and separate again from the company you'll sign into next.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="setupEmail">Email</label>
+            <input type="email" id="setupEmail" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label for="setupPass">Password</label>
+            <input type="password" id="setupPass" autocomplete="off" />
+          </div>
+        </div>
+        <div class="field" style="margin-top:14px">
+          <label>Environment</label>
+          <div class="seg" id="setupEnvSeg" role="group" aria-label="Environment">
+            <button type="button" data-env="dev" aria-pressed="${setup.env === "dev"}">Dev</button>
+            <button type="button" data-env="staging" aria-pressed="${setup.env === "staging"}">Staging</button>
+          </div>
+          <span class="hint">Everything past this point runs against this server for the rest of this session. There's no third option, and no field to type a URL into — on purpose.</span>
+        </div>
+        <div class="setup-actions">
+          <span class="error-text" id="setupError"></span>
+          <button type="button" class="generate-btn" id="setupSignInBtn">Sign in</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireSetupSignIn() {
+    const seg = $("#setupEnvSeg");
+    $all("button", seg).forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setup.env = btn.dataset.env;
+        $all("button", seg).forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+      });
+    });
+
+    const btn = $("#setupSignInBtn");
+    const err = $("#setupError");
+    btn.addEventListener("click", async () => {
+      const email = $("#setupEmail").value.trim();
+      const pass = $("#setupPass").value;
+      err.textContent = "";
+      if (!email || !pass) {
+        err.textContent = "Both fields are needed.";
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Signing in…";
+      try {
+        const data = await supabaseSignIn(email, pass);
+        setup.toolEmail = email;
+        setup.toolToken = data.access_token;
+        renderSetupBody();
+      } catch (e) {
+        err.textContent = e.message;
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+      }
+    });
+  }
+
+  function setupCompanyLoginTemplate() {
+    const env = ENVIRONMENTS[setup.env];
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Sign in as the company</h2></div>
+        <p class="section-note">The company-admin login for the ${env.label} company you want to configure. This is checked by the real Shomvob ${env.label} server, and it decides everything past this point.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="setupCoEmail">Email</label>
+            <input type="email" id="setupCoEmail" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label for="setupCoPass">Password</label>
+            <input type="password" id="setupCoPass" autocomplete="off" />
+          </div>
+        </div>
+        <div class="setup-actions">
+          <span class="error-text" id="setupCoError"></span>
+          <button type="button" class="generate-btn" id="setupCoBtn">Continue</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireSetupCompanyLogin() {
+    const btn = $("#setupCoBtn");
+    const err = $("#setupCoError");
+    btn.addEventListener("click", async () => {
+      const identifier = $("#setupCoEmail").value.trim();
+      const pass = $("#setupCoPass").value;
+      err.textContent = "";
+      if (!identifier || !pass) {
+        err.textContent = "Both fields are needed.";
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Signing in…";
+      try {
+        const data = await companySignIn(setup.env, identifier, pass);
+        setup.companyToken = data.accessToken;
+        setup.companyRefresh = data.refreshToken;
+        setup.companyName = data.user.companyName;
+        setup.companyUserType = data.user.type;
+        renderSetupBody();
+      } catch (e) {
+        err.textContent = e.message;
+        btn.disabled = false;
+        btn.textContent = "Continue";
+      }
+    });
+  }
+
+  function setupConnectedTemplate() {
+    const env = ENVIRONMENTS[setup.env];
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${iconCheck()}Connected</h2></div>
+        <p class="section-note">Signed in to <strong>${setup.companyName}</strong> on ${env.label}, as <strong>${setup.companyUserType || "unknown type"}</strong>.</p>
+        <button type="button" class="tiny-btn" id="setupDisconnectBtn">Disconnect this company</button>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">What's next</h2></div>
+        <p class="section-note">Department, designation, leave types, payroll configuration and the rest of the settings modules land here next — this is as far as phase 2 goes today.</p>
+      </div>
+    `;
+  }
+
+  function wireSetupConnected() {
+    $("#setupDisconnectBtn").addEventListener("click", () => {
+      setup.companyToken = null;
+      setup.companyRefresh = null;
+      setup.companyName = null;
+      setup.companyUserType = null;
+      renderSetupBody();
+    });
+  }
+
+  function wireCompanySetupEvents() {
+    renderSetupBody();
   }
 
   /* ================= The joke gate ================= */

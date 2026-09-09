@@ -395,3 +395,32 @@ const OPERATIONS = [
   { id: "payroll_field_add", label: "Payroll Custom Field Add", status: "active" },
   { id: "assets_add", label: "Assets Add", status: "active" }
 ];
+
+/* ===== Phase 2 — Company Setup =====
+
+   Unlike every operation above, this one writes into a real Shomvob
+   environment through its actual API, gated by a real company login. It
+   is deliberately kept separate from OPERATIONS: it is not a generator,
+   it has its own two-step auth, and it is the one part of this app that
+   is not risk-free. */
+
+/* The only two servers this app will ever call, and their base URLs are
+   fixed here at build time — never a text field on the page. Adding a
+   third (or, deliberately, production) means editing this file and
+   deploying, not typing a URL in and hitting go. */
+const ENVIRONMENTS = {
+  dev: { id: "dev", label: "Dev", apiBase: "https://dev.api-hr.shomvob.com/api/v1" },
+  staging: { id: "staging", label: "Staging", apiBase: "https://staging.api-hr.shomvob.com/api/v1" },
+};
+
+/* Bulk Forge's own sign-in — the gate in front of the real company login,
+   not a replacement for it. Backed by Supabase Auth; sign-up is switched
+   off on the project, so this is really "whoever was added by hand in the
+   Supabase dashboard," not a list this file controls. The key below is
+   the publishable one — it identifies the project, it does not authorize
+   anything by itself, and it is meant to sit in a public page like this
+   one. */
+const SUPABASE_URL = "https://wtlaiidtiugxirqcxjzw.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_F8HUWz-rcg9SqQgXsEcWeA_YrXilWgT";
+
+const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "active" }];

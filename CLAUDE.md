@@ -521,8 +521,137 @@ evidence in the repo, and don't relitigate a rule against a fresh reading
 of a template. If a real upload ever does fail, fix against that error's
 actual text rather than re-deriving from the template.
 
-Phase 1 is closed. Phase 2 is a separate conversation with the user; do
-not assume its scope from what phase 1 contained.
+Phase 1 is closed. Phase 2 — Company Setup — started 2026-09-09; see its
+own section below. Its scope came from a separate conversation with the
+user; don't assume the rest of it from what phase 1 contained.
+
+## Phase 2 — Company Setup (started 2026-09-09)
+
+Phase 1 generates files for a human to upload by hand. Phase 2 is a
+different kind of thing: a sidebar page, under **Setup** rather than
+**Operations**, that calls a real Shomvob environment's own API directly
+and writes into a real test company — departments, designations,
+branches, leave types, payroll configuration, and eventually the rest of
+what a fresh company needs before anyone can use it. `currentOp ===
+"company_setup"`, routed in `renderMain()` like any other page, but nothing
+else about it is like the other five.
+
+**This is the one part of the app that is not risk-free**, and every
+decision below follows from that one fact.
+
+### Two logins, not one
+
+The section is gated twice, and the two gates are not the same kind of
+thing:
+
+1. **Bulk Forge's own sign-in** — email + password, checked against
+   Supabase Auth (`supabaseSignIn()`). This is what decides *who may open
+   this section at all*, and it also fixes which environment the rest of
+   the session talks to (picked in the same form, via the `.seg` control
+   also used for e.g. the ID-source picker elsewhere). Sign-up is switched
+   off on the Supabase project (`Authentication → Sign In / Providers →
+   Allow new users to sign up`, unchecked), so passing this gate really
+   means "someone added this email in the Supabase dashboard by hand" —
+   nothing in this repo controls that list, and nothing here should try
+   to.
+2. **The real company login** — once step one passes, a second form asks
+   for a company-admin email + password, checked by the actual Shomvob
+   dev or staging server (`companySignIn()`, `POST {apiBase}/auth/login`).
+   This is what decides *what the section can actually do*: there is no
+   separate permission model layered on top of it. Whatever that account
+   can do through the real HRIS is exactly what this page can do on its
+   behalf, no more — the page inherits the account's permissions rather
+   than asserting any of its own.
+
+Both tokens live only in the module-level `setup` object and are **never
+written to storage** — no `localStorage`, no cookie. A reload clears them
+exactly like every pasted ID list and shift assignment elsewhere in the
+app; there was never a decision to make about "should this survive a
+reload" the way there was for the appearance choice, because a token is
+not a preference. Signing out (`#setupSignOutBtn`, always visible once
+signed in) clears both. Disconnecting (`#setupDisconnectBtn`, only once a
+company is signed in) clears only the company token, keeping the tool
+sign-in and environment, so switching to a different test company doesn't
+mean signing into Bulk Forge itself again.
+
+### Two servers, fixed at build time, never a text field
+
+`ENVIRONMENTS` in `src/app-data.js` is the complete list — `dev` and
+`staging`, each with its own `apiBase`. **There is no third option and no
+field anywhere to type a URL into.** Adding an environment, or ever
+pointing this at production, means editing that file and running
+`python build.py`, not something that can happen by clicking around the
+page. This is deliberate: a tool whose whole second half is "write data
+into a real company" should not have a path from "I mistyped a URL" to
+"I just flooded production."
+
+The environment picked in step one is shown for the rest of the session
+in a persistent strip above the page body (`#setupStatusBar`,
+`setupStatusBarHtml()`) — an `.env-badge`, coloured by environment (`--env-
+dev` / `--env-staging` tokens in `src/app.css`, blue and purple). Those
+are new hues, not reused from the existing palette: not the app's one
+green (reserved for accent/success), not the warning gold, not the danger
+red — an environment is an identity, not a verdict, and needed to read as
+clearly different from all three of those as it does from the other
+environment. The strip is meant to answer "which server am I about to
+touch" without having to scroll up, which is the whole reason it lives
+outside `#setupBody` and survives every step past the first.
+
+### The Supabase project itself
+
+Project `Shomvob Bulk Generation`, org `Shomvob SQA` (a shared team
+account, not any one person's). `SUPABASE_URL` and `SUPABASE_ANON_KEY` in
+`src/app-data.js` are the **publishable** key — safe in a public page by
+design, since it identifies the project rather than authorizing anything
+by itself. The `service_role` key must never appear anywhere in this
+repo; it bypasses the row-level security this project doesn't even need
+yet, since there are no tables — this integration only ever uses the Auth
+service.
+
+The project has no tables and doesn't need any: the "allowlist" *is* the
+Supabase user list. Anyone the user adds by hand in the dashboard
+(Authentication → Users) can sign in; nobody else can, because sign-up is
+off. If an audit log of who ran what against which environment is ever
+wanted, that would need a table and RLS — deliberately not built yet,
+since nothing past step one currently needs one.
+
+### CORS
+
+Supabase's Auth endpoint sends its own CORS headers for every project, so
+step one works from the deployed Vercel origin with nothing extra. Step
+two does not: `dev.api-hr.shomvob.com` and `staging.api-hr.shomvob.com`
+each need to answer the page's origin's requests, which is a change on
+their side, not this repo's. `companySignIn()` cannot tell an actual
+network failure apart from a CORS rejection — `fetch` throws the same
+generic error for both — so it assumes CORS, since that is the likelier
+story for a server that already answers Postman fine, and says so rather
+than showing a bare "network error".
+
+### What's not built yet
+
+Everything past a successful company login is a placeholder ("What's
+next" panel in `setupConnectedTemplate()"). The ~20 settings modules
+(company profile, departments, designations, branches, leave types and
+policies, payroll configuration, offboarding types, custom fields, and
+more) are the actual work of phase 2 and haven't been started. A working
+Postman collection covering nearly all of them already exists (the user's
+own, `HRIS Collection Automation.postman_collection.json`, kept outside
+this repo — see the note in "Adding a sixth operation"-style workflow
+below) and several of its request bodies are already built by pre-request
+scripts with the same kind of randomised-but-believable logic this app
+uses, so building each module is expected to be a port, not a fresh
+design, the same way each of the five original operations was built from
+a real template rather than guessed.
+
+Also not built yet, because nothing past step one currently does anything
+destructive: a run log, a Stop control, and a "Hey Lazy!"-style guard for
+leaving mid-run. The existing guard (`hasUnsavedWork()`,
+`wireUnloadGuard()`) does not cover this section at all today. It will
+need to before the first settings module ships, and it will need a second
+kind of message phase 1 has never needed — phase 1's warning always meant
+"you'll lose what you typed"; phase 2's will sometimes mean "some of this
+already happened on a real server and leaving now doesn't undo it," which
+is a different and more important thing to say correctly.
 
 ## Adding a sixth operation
 
