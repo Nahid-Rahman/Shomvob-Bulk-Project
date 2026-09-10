@@ -2255,6 +2255,303 @@ const BANK_SHORT_CODE_MAP = {
 
 const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
 
+/* ===== Locations (Postman: "Branch Management") — third settings module
+   (built 2026-09-10) =====
+
+   Ported from the Postman collection's own pre-request script for
+   `POST /company/branches`, verbatim. The real product's own sidebar
+   calls this screen "Locations" (2026-09-09 screenshot); the Postman
+   folder calls it "Branch Management" — same endpoint, different label,
+   kept as "Locations" in SETTINGS_GROUPS to match what a user actually
+   sees. */
+const OFFICE_NAMES = [
+  "Head Office", "Zonal Office", "Regional Office", "Branch Office", "Corporate Office",
+  "Sales Office", "Operations Office", "Field Office", "Admin Office", "Support Office",
+  "Business Center", "Service Center",
+];
+
+/* district/city/address/zipCode always travel together — same paired-pool
+   discipline as everything else generated in this app. */
+const BD_LOCATION_PRESETS = [
+  { district: "Dhaka", city: "Dhaka", address: "Baridhara DOHS", zipCode: "1206" },
+  { district: "Dhaka", city: "Dhaka", address: "Gulshan Avenue", zipCode: "1212" },
+  { district: "Dhaka", city: "Dhaka", address: "Banani", zipCode: "1213" },
+  { district: "Dhaka", city: "Dhaka", address: "Motijheel Commercial Area", zipCode: "1000" },
+  { district: "Dhaka", city: "Dhaka", address: "Uttara Sector 7", zipCode: "1230" },
+  { district: "Chattogram", city: "Chattogram", address: "Agrabad Commercial Area", zipCode: "4100" },
+  { district: "Chattogram", city: "Chattogram", address: "GEC Circle", zipCode: "4000" },
+  { district: "Sylhet", city: "Sylhet", address: "Zindabazar", zipCode: "3100" },
+  { district: "Khulna", city: "Khulna", address: "Sonadanga", zipCode: "9100" },
+  { district: "Rajshahi", city: "Rajshahi", address: "Shaheb Bazar", zipCode: "6100" },
+  { district: "Bogura", city: "Bogura", address: "Satmatha", zipCode: "5800" },
+  { district: "Cumilla", city: "Cumilla", address: "Kandirpar", zipCode: "3500" },
+  { district: "Narayanganj", city: "Narayanganj", address: "Chashara", zipCode: "1400" },
+  { district: "Gazipur", city: "Gazipur", address: "Gazipur Chowrasta", zipCode: "1700" },
+  { district: "Mymensingh", city: "Mymensingh", address: "Town Hall Area", zipCode: "2200" },
+  { district: "Rangpur", city: "Rangpur", address: "Jahaj Company Mor", zipCode: "5400" },
+];
+
+/* When isGeolocation is on, coordinates are a small random offset from
+   Baridhara DOHS — the Postman script's own reference point, not ours. */
+const BARIDHARA_BASE_LATITUDE = 23.812007684570396;
+const BARIDHARA_BASE_LONGITUDE = 90.41516296328736;
+const BRANCH_RADIUS_OPTIONS = [100, 150, 200, 250, 300, 350, 400, 450, 500];
+
+/* ===== Department Management — fourth settings module (built 2026-09-10) ===== */
+const DEPARTMENT_NAMES = [
+  "Human Resources", "Talent Acquisition", "Recruitment", "People Operations", "Administration",
+  "Finance", "Accounts", "Payroll", "Sales", "Business Development", "Marketing",
+  "Digital Marketing", "Customer Support", "Client Success", "Operations", "Product",
+  "Engineering", "Software Development", "Quality Assurance", "IT Support", "Data Analytics",
+  "Research and Development", "Legal", "Compliance", "Procurement", "Supply Chain",
+  "Training and Development", "Corporate Affairs", "Strategy", "Design", "Content", "Partnerships",
+];
+
+/* ===== Designation Management — fifth settings module (built 2026-09-10) =====
+
+   The one module so far with a REAL live dependency: the Postman
+   collection's own "Get Active Departments" step throws if there's
+   nothing to attach a designation to ("Age Get Active Departments API
+   run korte hobe") — this app checks the same thing live against
+   /departments/active rather than assuming a department exists. */
+const DESIGNATION_NAMES = ["Executive", "Senior Executive", "Assistant Manager", "Manager"];
+
+/* ===== Custom Fields — sixth settings module (built 2026-09-10) =====
+
+   `type` and `fieldName` always travel together (a "Blood Group" field
+   is never typed "number") — same paired-pool discipline as everywhere
+   else. Only `enum` carries `choicePool`; `enableFilter` only ever
+   applies to `checkbox`/`enum` in the real API, so it's forced false for
+   every other type rather than randomised across the board. */
+const CUSTOM_FIELD_PRESETS = [
+  { fieldName: "NID Number", type: "text" },
+  { fieldName: "Passport Number", type: "text" },
+  { fieldName: "Father Name", type: "text" },
+  { fieldName: "Mother Name", type: "text" },
+  { fieldName: "Emergency Contact Number", type: "text" },
+  { fieldName: "LinkedIn Profile", type: "text" },
+  { fieldName: "Present Address", type: "long_text" },
+  { fieldName: "Permanent Address", type: "long_text" },
+  { fieldName: "Career Objective", type: "long_text" },
+  { fieldName: "Skills Summary", type: "long_text" },
+  { fieldName: "Previous Work Details", type: "long_text" },
+  { fieldName: "Personal Bio", type: "long_text" },
+  { fieldName: "Years of Experience", type: "number" },
+  { fieldName: "Expected Salary", type: "number" },
+  { fieldName: "Current Salary", type: "number" },
+  { fieldName: "Number of Dependents", type: "number" },
+  { fieldName: "Notice Period in Days", type: "number" },
+  { fieldName: "Are you married?", type: "checkbox" },
+  { fieldName: "Do you have previous work experience?", type: "checkbox" },
+  { fieldName: "Do you have a driving license?", type: "checkbox" },
+  { fieldName: "Are you willing to relocate?", type: "checkbox" },
+  { fieldName: "Do you agree with company policy?", type: "checkbox" },
+  { fieldName: "Select what describes you?", type: "enum", choicePool: ["Dedicated", "Hardworking", "Punctual", "Team Player", "Quick Learner", "Self Motivated", "Creative"] },
+  { fieldName: "Employment Type", type: "enum", choicePool: ["Full-time", "Part-time", "Contractual", "Intern", "Probationary", "Remote"] },
+  { fieldName: "Education Level", type: "enum", choicePool: ["SSC", "HSC", "Diploma", "Bachelor", "Master", "PhD"] },
+  { fieldName: "Preferred Work Location", type: "enum", choicePool: ["Dhaka", "Chattogram", "Sylhet", "Khulna", "Rajshahi", "Remote"] },
+  { fieldName: "T-Shirt Size", type: "enum", choicePool: ["XS", "S", "M", "L", "XL", "XXL"] },
+  { fieldName: "Blood Group", type: "enum", choicePool: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
+];
+const CUSTOM_FIELD_STATUSES = ["Active", "Inactive"];
+
+/* ===== Required Documents — seventh settings module (built 2026-09-10) =====
+
+   Note the lowercase status values ("active"/"inactive") — this endpoint's
+   own convention, different from every Active/Inactive-capitalized status
+   elsewhere in this app. Kept exactly as the Postman body sends it. */
+const REQUIRED_DOCUMENT_NAMES = [
+  "Passport", "National ID", "Birth Certificate", "TIN Certificate", "Academic Certificate",
+  "Experience Certificate", "Police Clearance", "Medical Certificate", "Bank Statement",
+  "Driving License", "Profile Photo", "Resume", "Appointment Letter",
+  "Previous Employment Letter", "Nominee NID",
+];
+const REQUIRED_DOCUMENT_TYPES = ["file", "text"];
+const REQUIRED_DOCUMENT_STATUSES = ["active", "inactive"];
+
+/* ===== Leave Types — eighth settings module (built 2026-09-10) =====
+
+   Ported from the Postman collection's own six leave-type pre-request
+   scripts. Four ("normal" leave — Annual, Casual, Sick, Unmarried) share
+   one large, identical rule set (consecutive/monthly limits, prorata,
+   accrual, backdating, documents, carry-forward, sandwich and bridge
+   rules, leave-reset cycle) and differ only in name and eligibility.
+   Two (Maternity, Paternity) are "special entitlement" leave — a much
+   smaller, mostly-fixed body built around an instance count and a fixed
+   per-instance day count, with almost every normal-leave field forced
+   off. `special` on each kind picks which generator runs.
+
+   Scope note, deliberate: only name and the three headline toggles
+   (consecutive/monthly limit + carry-forward, each with their day count)
+   are exposed as editable fields for normal leave — not all ~15
+   booleans the real body carries. Everything else is still generated
+   correctly per the script's own conditional logic, just not surfaced as
+   its own input row; the user flagged Leave as the one place a 5% chance
+   of needing rework was already expected. */
+const LEAVE_TYPE_KINDS = [
+  { id: "annual", name: "Annual Leave", genderEligibility: "all", maritalStatusEligibility: "all", special: false },
+  { id: "casual", name: "Casual Leave", genderEligibility: "all", maritalStatusEligibility: "all", special: false },
+  { id: "sick", name: "Sick Leave", genderEligibility: "all", maritalStatusEligibility: "all", special: false },
+  { id: "unmarried", name: "Unmarried Leave", genderEligibility: "all", maritalStatusEligibility: "unmarried", special: false },
+  { id: "maternity", name: "Maternity Leave", genderEligibility: "female", maritalStatusEligibility: "married", special: true, seMaxDaysPerInstance: 120 },
+  { id: "paternity", name: "Paternity Leave", genderEligibility: "male", maritalStatusEligibility: "married", special: true, seMaxDaysPerInstance: 14 },
+];
+
+/* ===== Leave Policy — ninth settings module, the second with a real dependency =====
+
+   POST /leave-policies needs at least one leave type to attach — the
+   Postman script itself throws if none exist ("leaveTypesAll not
+   found... run GET all leave types API first"), same shape of rule as
+   Designation needing a Department. */
+const LEAVE_POLICY_NAMES = ["Default Leave Policy", "Company Leave Policy"];
+const LEAVE_POLICY_DESCRIPTION =
+  "This policy defines the company-wide leave rules and determines how employees can receive and use their leave entitlements.";
+const LEAVE_POLICY_EMPLOYEE_TYPES = ["Permanent", "Part-time", "Intern", "Contractual", "Probationary"];
+const LEAVE_POLICY_CATEGORIES = ["Standard", "Emergency", "Special"];
+const LEAVE_POLICY_STANDARD_DAYS = [10, 12, 15];
+
+/* ===== Attendance Policy — Attendance group's only module (2026-09-10) =====
+
+   POST /attendance/policy/create. The Postman collection's own body tab
+   is a bare `{}` — a note in its pre-request script says so explicitly
+   ("Body tab e raw JSON mode e just {} rakhlei hobe") — because that
+   script calls `pm.request.body.update()` and overwrites it at request
+   time. The real body is everything below, ported from that script, not
+   the empty object the static tab shows. Same "headline fields only"
+   scoping as Leave Types: title and weekend days are editable, shifts/
+   overtime/break/early-check-in are generated correctly per the script's
+   own conditional logic but not surfaced as individual inputs — the user
+   flagged this module specifically as the one certain to need rework. */
+const ATTENDANCE_SHIFT_NAME_OPTIONS = ["Default Shift", "Morning Shift", "Office Shift", "Special Shift", "Flexible Shift"];
+const ATTENDANCE_SHIFT_START_HOURS = [8, 9, 10, 11];
+const ATTENDANCE_SHIFT_WORK_HOURS = [6, 7, 8, 9];
+const ATTENDANCE_GRACE_MINUTES = [5, 10, 15, 20, 30];
+const ATTENDANCE_WEEKEND_OPTIONS = [["FRI"], ["SAT"], ["FRI", "SAT"]];
+const ATTENDANCE_OVERTIME_MAX_MINUTES = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300];
+const ATTENDANCE_OVERTIME_COOLDOWN_MINUTES = [15, 30];
+const ATTENDANCE_OVERTIME_SLOT_MINUTES = [30, 60, 90];
+const ATTENDANCE_EARLY_CHECKIN_LIMITS = [30, 60, 90, 120];
+
+/* ===== Payroll — 11 modules, all ported from the Postman collection's own
+   "Payroll Settings" folder (2026-09-10). The user's own call ahead of
+   building this: 2-3 of these are already known to need rework once
+   tried against a real environment, and Tax specifically is expected to
+   need an entirely new API — confirmed true below, not a guess. Every
+   pool here is the script's own, ported verbatim. */
+
+/* General — POST /payroll/configuration/payroll-cycle. No dependency. */
+const PAYROLL_CYCLE_OPTIONS = [
+  { value: "calendar_month", weight: 55 },
+  { value: "fixed_date", weight: 40 },
+  { value: "bi_weekly", weight: 5 },
+];
+
+/* Salary Components — POST /payroll/configuration/salary-components. No
+   dependency. These 4 are the Postman collection's own fixed examples
+   (each its own request, not a generated name) — status/tax-countable/
+   pro-rata are the only randomised fields per the script. */
+const SALARY_COMPONENT_PRESETS = [
+  { name: "Medical Allowance", description: "Allowance provided to support employee medical and healthcare-related expenses." },
+  { name: "House Rent Allowance", description: "Allowance provided to support employee house rent or accommodation-related expenses." },
+  { name: "Mobile Allowance", description: "Allowance provided to support employee mobile phone and communication expenses." },
+  { name: "Internet Allowance", description: "Allowance provided to support employee Internet expenses." },
+];
+
+/* Configure Salary Components — PUT /payroll/configuration/non-paygrade-structure.
+   Needs at least 2 Active salary components — the collection's own script
+   throws without them ("salaryComponent1Id or salaryComponent2Id missing").
+   Splits always sum to 100, the script's own fixed set. */
+const SALARY_STRUCTURE_SPLITS = [
+  { basic: 50, c1: 20, c2: 30 },
+  { basic: 50, c1: 25, c2: 25 },
+  { basic: 55, c1: 20, c2: 25 },
+  { basic: 55, c1: 25, c2: 20 },
+  { basic: 60, c1: 15, c2: 25 },
+  { basic: 60, c1: 20, c2: 20 },
+  { basic: 65, c1: 15, c2: 20 },
+  { basic: 65, c1: 20, c2: 15 },
+  { basic: 70, c1: 10, c2: 20 },
+  { basic: 70, c1: 15, c2: 15 },
+];
+
+/* Late Arrival, Absent Deduction — both need at least one Leave Type,
+   same rule the collection enforces on itself, reusing the existing
+   Leave Type dependency infrastructure. */
+const PAYROLL_SALARY_BASIS_OPTIONS = ["Deduction of per day Basic Salary", "Deduction of per day Gross Salary"];
+
+/* Bonus Types — POST /bonus/configuration/types. No dependency. Fixed
+   pool, same discipline as Salary Components — only status/icon are
+   randomised, never the name/description. */
+const BONUS_TYPE_ICON_OPTIONS = ["gift", "calendar", "grid", "hierarchy", "target", "medal", "trophy", "chart", "arrows"];
+const BONUS_TYPE_PRESETS = [
+  { typeName: "Eid Bonus", status: "Active", description: "Bonus type used for Eid festival bonus configuration." },
+  { typeName: "Bangla New Year Bonus", status: "Active", description: "Bonus type used for Bangla New Year bonus configuration." },
+  { typeName: "Special Bonus", status: "Active", description: "Bonus type used for special employee bonus configuration." },
+  { typeName: "Inactive Test Bonus", status: "Inactive", description: "Bonus type used to verify inactive bonus type creation." },
+];
+
+/* Bonus Policy — POST /bonus/configuration/policies. Needs at least one
+   Bonus Type. The collection's own fully-specified example is Eid Ul
+   Fitr (fixed Gross basis, fixed 50%) — generalised here to any bonus
+   type the company has, since this module lets the visitor pick which
+   one rather than hardcoding Eid. */
+const BONUS_POLICY_NAMES = ["Eid Ul Fitr Bonus Policy", "Eid Ul Adha Bonus Policy", "Bangla New Year Bonus Policy", "Special Bonus Policy"];
+const BONUS_POLICY_PAYMENT_METHODS = [
+  { value: "off_cycle_payment", weight: 90 },
+  { value: "with_regular_payroll", weight: 10 },
+];
+const BONUS_POLICY_TENURE_ENABLED = [
+  { value: true, weight: 80 },
+  { value: false, weight: 20 },
+];
+const BONUS_POLICY_TENURE_UNITS = [
+  { value: "months", weight: 70 },
+  { value: "days", weight: 20 },
+  { value: "years", weight: 10 },
+];
+
+/* Overtime — POST /payroll/configuration/overtime. No dependency. */
+const OVERTIME_CALCULATION_TYPES = [
+  { value: "Fixed Rate", weight: 50 },
+  { value: "Multiplier of Salary", weight: 50 },
+];
+const OVERTIME_SPECIAL_ENABLED = [
+  { value: "Enable", weight: 80 },
+  { value: "Disable", weight: 20 },
+];
+const OVERTIME_FIXED_RATE_RANGES = { regular: [800, 1000, 1200], weekend: [1000, 1200, 1500], holiday: [1200, 1500, 2000] };
+const OVERTIME_MULTIPLIERS = [1.5, 2];
+const OVERTIME_BASED_ON = ["Basic", "Gross"];
+
+/* Attendance Bonus — POST /payroll/configuration/attendance-bonus. No
+   dependency. */
+const ATTENDANCE_BONUS_COUNT_ON_TYPES = [
+  { value: "Percentage", weight: 70 },
+  { value: "Days", weight: 30 },
+];
+const ATTENDANCE_BONUS_PERCENTAGE_VALUES = [50, 60, 70, 80, 90];
+const ATTENDANCE_BONUS_DAYS_VALUES = [10, 12, 15];
+const ATTENDANCE_BONUS_CALCULATION_TYPES = [
+  { value: "Fixed Rate", weight: 50 },
+  { value: "Percentage of Salary", weight: 50 },
+];
+const ATTENDANCE_BONUS_FIXED_RATES = [1000, 1500, 2000];
+const ATTENDANCE_BONUS_PERCENTAGES = [5, 10, 15, 20];
+
+/* Custom Addition/Deduction — POST /payroll/configuration/custom-fields.
+   No dependency. Names are the collection's own fixed examples, paired
+   by type so an Addition never gets a Deduction-shaped name. */
+const CUSTOM_ADDITION_NAMES = ["Mobile Allowance", "Internet Allowance"];
+const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
+
+/* Tax — PATCH /payroll/configuration/tax-rules/toggle/Enable. The one
+   place the collection genuinely stops short: this is an enable/disable
+   toggle only, no request body, and there is no companion endpoint
+   anywhere in the collection for creating an actual tax bracket or rule.
+   Built as exactly what exists; flagged in the module's own copy rather
+   than papering over the gap with an invented body. This is the "payroll
+   needs a new API" case the user predicted before this group was built. */
+
 </script>
 <script>
 /* ===== Bulk Forge — app logic ===== */
@@ -2294,6 +2591,18 @@ const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
       [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
+  }
+  /* options: [{ value, weight }, ...] — ports the Postman collection's own
+     pickWeighted() helper, reused by every Payroll module built from a
+     script that weights its own random choices. */
+  function weightedChoice(options) {
+    const total = options.reduce((sum, o) => sum + o.weight, 0);
+    let roll = Math.random() * total;
+    for (const o of options) {
+      if (roll < o.weight) return o.value;
+      roll -= o.weight;
+    }
+    return options[0].value;
   }
   function pad4(n) {
     return String(n).padStart(4, "0");
@@ -5828,6 +6137,7 @@ const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
         setup.activeGroup = null;
         setup.activeModule = null;
         setup.doneModules = new Set();
+        resetModuleState();
         renderSetupBody();
       });
     }
@@ -6003,6 +6313,7 @@ const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
       setup.activeGroup = null;
       setup.activeModule = null;
       setup.doneModules = new Set();
+      resetModuleState();
       renderSetupBody();
     });
     $all(".settings-card").forEach((card) => {
@@ -6035,6 +6346,25 @@ const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
   const SETTINGS_MODULE_HANDLERS = {
     company_profile: { template: companyProfileTemplate, wire: wireCompanyProfileEvents },
     bank_info: { template: bankInfoTemplate, wire: wireBankInfoEvents },
+    branches: { template: branchTemplate, wire: wireBranchEvents },
+    departments: { template: departmentModuleTemplate, wire: wireDepartmentModuleEvents },
+    designations: { template: designationTemplate, wire: wireDesignationEvents },
+    custom_fields: { template: customFieldTemplate, wire: wireCustomFieldEvents },
+    required_documents: { template: requiredDocumentTemplate, wire: wireRequiredDocumentEvents },
+    leave_types: { template: leaveTypeTemplate, wire: wireLeaveTypeEvents },
+    leave_policy: { template: leavePolicyTemplate, wire: wireLeavePolicyEvents },
+    payroll_general: { template: payrollGeneralTemplate, wire: wirePayrollGeneralEvents },
+    salary_components: { template: salaryComponentTemplate, wire: wireSalaryComponentEvents },
+    configure_salary_components: { template: salaryStructureTemplate, wire: wireSalaryStructureEvents },
+    late_arrival: { template: lateArrivalTemplate, wire: wireLateArrivalEvents },
+    absent_deduction: { template: absentDeductionTemplate, wire: wireAbsentDeductionEvents },
+    bonus_types: { template: bonusTypeTemplate, wire: wireBonusTypeEvents },
+    bonus_policy: { template: bonusPolicyTemplate, wire: wireBonusPolicyEvents },
+    overtime: { template: overtimeTemplate, wire: wireOvertimeEvents },
+    attendance_bonus: { template: attendanceBonusTemplate, wire: wireAttendanceBonusEvents },
+    custom_addition_deduction: { template: customAdditionDeductionTemplate, wire: wireCustomAdditionDeductionEvents },
+    tax: { template: payrollTaxTemplate, wire: wirePayrollTaxEvents },
+    attendance_policy: { template: attendancePolicyTemplate, wire: wireAttendancePolicyEvents },
   };
 
   function setupGroupPageTemplate() {
@@ -6068,6 +6398,16 @@ const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
     $all(".settings-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
         setup.activeModule = tab.dataset.module;
+        renderSetupBody();
+      });
+    });
+    /* Wired once here rather than per module — any module's dependency
+       notice can point at any other module without its own wiring. */
+    $all(".dep-shortcut").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        setup.activeGroup = link.dataset.group;
+        setup.activeModule = link.dataset.module;
         renderSetupBody();
       });
     });
@@ -6346,6 +6686,2605 @@ const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
     });
+  }
+
+  /* ---------- Locations (Postman: "Branch Management") — third module ----------
+
+     POST /company/branches. Same generate/edit/regenerate/save shape.
+     isGeolocation is a real either/or — off means latitude, longitude and
+     radiusInMeters travel as null, not as zeroes or omitted keys, exactly
+     as the Postman script sends them. Toggling it regenerates or clears
+     the three geo fields; nothing else about the form changes. */
+  const companyBranch = { fields: null, error: "", ok: "" };
+
+  function randomBaridharaOffset() {
+    return {
+      latitude: Number((BARIDHARA_BASE_LATITUDE + (Math.random() - 0.5) * 0.006).toFixed(15)),
+      longitude: Number((BARIDHARA_BASE_LONGITUDE + (Math.random() - 0.5) * 0.006).toFixed(15)),
+      radiusInMeters: choice(BRANCH_RADIUS_OPTIONS),
+    };
+  }
+
+  function generateBranchFields() {
+    const loc = choice(BD_LOCATION_PRESETS);
+    const isGeolocation = Math.random() < 0.5;
+    const geo = isGeolocation ? randomBaridharaOffset() : { latitude: null, longitude: null, radiusInMeters: null };
+    return {
+      officeName: choice(OFFICE_NAMES),
+      district: loc.district,
+      city: loc.city,
+      address: loc.address,
+      zipCode: loc.zipCode,
+      isGeolocation,
+      ...geo,
+    };
+  }
+
+  function branchTemplate() {
+    if (!companyBranch.fields) companyBranch.fields = generateBranchFields();
+    const f = companyBranch.fields;
+    const geoFieldsHtml = f.isGeolocation
+      ? `
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="brLat">Latitude</label><input type="text" id="brLat" value="${f.latitude}" /></div>
+          <div class="field"><label for="brLng">Longitude</label><input type="text" id="brLng" value="${f.longitude}" /></div>
+        </div>
+        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)"><label for="brRadius">Radius (meters)</label><input type="text" id="brRadius" value="${f.radiusInMeters}" /></div>
+      `
+      : "";
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Locations</h2></div>
+        <p class="section-note">Generated from the Postman collection's own office-name and BD-location pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="brOfficeName">Office Name</label><input type="text" id="brOfficeName" value="${f.officeName}" /></div>
+          <div class="field"><label for="brDistrict">District</label><input type="text" id="brDistrict" value="${f.district}" /></div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="brCity">City</label><input type="text" id="brCity" value="${f.city}" /></div>
+          <div class="field"><label for="brZip">Zip Code</label><input type="text" id="brZip" value="${f.zipCode}" /></div>
+        </div>
+        <div class="field" style="margin-top:14px"><label for="brAddress">Address</label><input type="text" id="brAddress" value="${f.address}" /></div>
+        <div class="field" style="margin-top:14px">
+          <label>Has Geolocation</label>
+          <div class="seg" id="brGeoSeg" role="group" aria-label="Has geolocation">
+            <button type="button" data-geo="yes" aria-pressed="${f.isGeolocation}">Yes</button>
+            <button type="button" data-geo="no" aria-pressed="${!f.isGeolocation}">No</button>
+          </div>
+        </div>
+        ${geoFieldsHtml}
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="brRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="brSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="brError">${companyBranch.error}</span>
+        ${companyBranch.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyBranch.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readBranchForm() {
+    const isGeolocation = companyBranch.fields.isGeolocation;
+    return {
+      officeName: $("#brOfficeName").value,
+      district: $("#brDistrict").value,
+      city: $("#brCity").value,
+      zipCode: $("#brZip").value,
+      address: $("#brAddress").value,
+      isGeolocation,
+      latitude: isGeolocation ? Number($("#brLat").value) : null,
+      longitude: isGeolocation ? Number($("#brLng").value) : null,
+      radiusInMeters: isGeolocation ? Number($("#brRadius").value) : null,
+    };
+  }
+
+  async function saveBranch(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/company/branches`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireBranchEvents() {
+    $all("#brGeoSeg button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const wantsGeo = btn.dataset.geo === "yes";
+        companyBranch.fields.isGeolocation = wantsGeo;
+        Object.assign(companyBranch.fields, wantsGeo ? randomBaridharaOffset() : { latitude: null, longitude: null, radiusInMeters: null });
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    });
+
+    $("#brRegenerateBtn").addEventListener("click", () => {
+      companyBranch.fields = generateBranchFields();
+      companyBranch.error = "";
+      companyBranch.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#brSaveBtn");
+    btn.addEventListener("click", async () => {
+      companyBranch.error = "";
+      companyBranch.ok = "";
+      const fields = readBranchForm();
+      setBtnBusy(btn);
+      try {
+        await saveBranch(fields);
+        companyBranch.fields = fields;
+        companyBranch.ok = "Saved.";
+        setup.doneModules.add("branches");
+      } catch (e) {
+        companyBranch.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Department Management — fourth module ----------
+
+     POST /departments. code/parentId/businessLineId/departmentHeadId are
+     always the fixed values the Postman body sends — nothing generates
+     them, since the script never varies them either. The script also
+     tracks already-used names per company to avoid duplicates across
+     repeated CI runs; that's Postman's own test-fixture bookkeeping and
+     doesn't apply here — one generated department at a time, same as
+     every other module, no dedup list to maintain. */
+  const companyDepartment = { fields: null, error: "", ok: "" };
+
+  function generateDepartmentFields() {
+    return {
+      name: choice(DEPARTMENT_NAMES),
+      code: "",
+      status: "Active",
+      parentId: null,
+      businessLineId: null,
+      departmentHeadId: null,
+    };
+  }
+
+  function departmentModuleTemplate() {
+    if (!companyDepartment.fields) companyDepartment.fields = generateDepartmentFields();
+    const f = companyDepartment.fields;
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Department Management</h2></div>
+        <p class="section-note">Generated from the Postman collection's own department-name pool. Regenerate re-rolls it; the name can still be edited by hand before saving.</p>
+        <div class="field"><label for="deptModName">Department Name</label><input type="text" id="deptModName" value="${f.name}" /></div>
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="deptModRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="deptModSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="deptModError">${companyDepartment.error}</span>
+        ${companyDepartment.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDepartment.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readDepartmentModuleForm() {
+    return { ...companyDepartment.fields, name: $("#deptModName").value };
+  }
+
+  async function saveDepartmentModule(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/departments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireDepartmentModuleEvents() {
+    $("#deptModRegenerateBtn").addEventListener("click", () => {
+      companyDepartment.fields = generateDepartmentFields();
+      companyDepartment.error = "";
+      companyDepartment.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#deptModSaveBtn");
+    btn.addEventListener("click", async () => {
+      companyDepartment.error = "";
+      companyDepartment.ok = "";
+      const fields = readDepartmentModuleForm();
+      setBtnBusy(btn);
+      try {
+        await saveDepartmentModule(fields);
+        companyDepartment.fields = fields;
+        companyDepartment.ok = "Saved.";
+        setup.doneModules.add("departments");
+        /* A department just came into existence for real, so Designation's
+           cached "does this company have any" check (if it ran already)
+           is stale — clear it so the next visit re-checks live instead of
+           still reporting zero. */
+        companyDesignation.departments = null;
+      } catch (e) {
+        companyDepartment.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- shared: modules with a real dependency on another one ----------
+
+     Only a genuine data dependency ever blocks a module, and only that
+     one — never a fixed order. Designation is the first: the Postman
+     collection encodes the exact same rule itself (its own script
+     throws "Age Get Active Departments API run korte hobe" if the
+     queue it depends on was never built), so this isn't a rule we're
+     inventing, it's one the real API already enforces implicitly. */
+
+  /* GET helper for "does the company have any of X" checks — same
+     Authorization/error shape as every write here, just no body. */
+  async function fetchCompanyResource(path) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}${path}`, {
+        headers: { Authorization: `Bearer ${setup.companyToken}` },
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || "The server rejected this.");
+    return Array.isArray(data.data) ? data.data : [];
+  }
+
+  /* The calm inline notice a blocked module shows — one named prerequisite
+     and a shortcut straight to it, never a tour of unrelated modules.
+     `.dep-shortcut` clicks are wired once, centrally, in
+     wireSetupGroupPage() rather than per module. */
+  function dependencyNoticeHtml(missingLabel, groupId, moduleId) {
+    return `
+      <div style="display:flex; gap:9px; align-items:flex-start; border-radius:6px; padding:12px 14px; font-size:13px; border:1px solid var(--warning); background:var(--warning-soft); color:var(--warning);">
+        ${iconWarn()}
+        <div>
+          <div style="font-weight:600;">This company doesn't have a ${missingLabel} yet.</div>
+          <a href="#" class="dep-shortcut" data-group="${groupId}" data-module="${moduleId}" style="display:inline-block; margin-top:8px; font-weight:600; font-size:13px;">Add a ${missingLabel} first →</a>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ---------- Designation Management — fifth module, the first with a real dependency ----------
+
+     POST /designations. Checks GET /departments/active live before
+     showing a form at all — the exact same rule the Postman collection's
+     own script enforces on itself. `departments` is null until checked
+     once (then cached for the rest of this company session — see
+     saveDepartmentModule() for the one place that invalidates it), an
+     empty array once checked with genuinely none, or the real list. */
+  const companyDesignation = { departments: null, loadError: "", fields: null, error: "", ok: "" };
+
+  function generateDesignationFields(depts) {
+    return { name: choice(DESIGNATION_NAMES), departmentId: depts[0].id, status: "Active" };
+  }
+
+  async function loadDesignationDependency() {
+    try {
+      companyDesignation.departments = await fetchCompanyResource("/departments/active");
+    } catch (e) {
+      companyDesignation.departments = null;
+      companyDesignation.loadError = e.message;
+    }
+  }
+
+  function designationTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">5</span>Designation Management</h2></div>`;
+    if (companyDesignation.loadError) {
+      return `
+        <div class="section">
+          ${head}
+          <span class="error-text">${companyDesignation.loadError}</span>
+          <div class="setup-actions" style="margin-top:10px"><button type="button" class="tiny-btn" id="desigRetryBtn">Try again</button></div>
+        </div>
+      `;
+    }
+    if (companyDesignation.departments === null) {
+      return `<div class="section">${head}<p class="section-note">Checking this company's departments…</p></div>`;
+    }
+    if (companyDesignation.departments.length === 0) {
+      return `
+        <div class="section">
+          ${head}
+          <p class="section-note">A designation attaches to a department — this company doesn't have one yet.</p>
+          ${dependencyNoticeHtml("Department", "company", "departments")}
+        </div>
+      `;
+    }
+    const depts = companyDesignation.departments;
+    if (!companyDesignation.fields || !depts.some((d) => d.id === companyDesignation.fields.departmentId)) {
+      companyDesignation.fields = generateDesignationFields(depts);
+    }
+    const f = companyDesignation.fields;
+    const options = depts.map((d) => `<option value="${d.id}" ${d.id === f.departmentId ? "selected" : ""}>${d.name}</option>`).join("");
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the Postman collection's own designation-name pool, attached to a real department from this company. Regenerate re-rolls the name; any field can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="desigName">Designation Name</label><input type="text" id="desigName" value="${f.name}" /></div>
+          <div class="field"><label for="desigDept">Department</label><select id="desigDept">${options}</select></div>
+        </div>
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="desigRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="desigSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="desigError">${companyDesignation.error}</span>
+        ${companyDesignation.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDesignation.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readDesignationForm() {
+    return { name: $("#desigName").value, departmentIds: [$("#desigDept").value], status: "Active" };
+  }
+
+  async function saveDesignation(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/designations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireDesignationEvents() {
+    if (companyDesignation.departments === null && !companyDesignation.loadError) {
+      loadDesignationDependency().then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    const retryBtn = $("#desigRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        companyDesignation.loadError = "";
+        companyDesignation.departments = null;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    if (!companyDesignation.departments || companyDesignation.departments.length === 0) return; // .dep-shortcut is wired centrally
+
+    $("#desigDept").addEventListener("change", (e) => {
+      companyDesignation.fields.departmentId = e.target.value;
+    });
+    $("#desigRegenerateBtn").addEventListener("click", () => {
+      companyDesignation.fields = generateDesignationFields(companyDesignation.departments);
+      companyDesignation.error = "";
+      companyDesignation.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#desigSaveBtn");
+    btn.addEventListener("click", async () => {
+      companyDesignation.error = "";
+      companyDesignation.ok = "";
+      const fields = readDesignationForm();
+      setBtnBusy(btn);
+      try {
+        await saveDesignation(fields);
+        companyDesignation.fields = { name: fields.name, departmentId: fields.departmentIds[0], status: fields.status };
+        companyDesignation.ok = "Saved.";
+        setup.doneModules.add("designations");
+      } catch (e) {
+        companyDesignation.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Custom Fields — sixth module ----------
+
+     POST /company-settings/employee-custom-fields. fieldName/type are a
+     paired preset (a "Blood Group" field is never typed "number"), same
+     discipline as Bank Info's short codes. enableFilter only ever
+     applies to checkbox/enum in the real API, so it's forced false for
+     every other type rather than randomised across the board; choices
+     only exists at all for type "enum". */
+  const customField = { fields: null, error: "", ok: "" };
+
+  function generateCustomFieldFields() {
+    const preset = choice(CUSTOM_FIELD_PRESETS);
+    const fields = {
+      fieldName: preset.fieldName,
+      type: preset.type,
+      enableFilter: preset.type === "checkbox" || preset.type === "enum" ? Math.random() < 0.5 : false,
+      shownAsColumn: Math.random() < 0.5,
+      status: choice(CUSTOM_FIELD_STATUSES),
+    };
+    if (preset.type === "enum") {
+      fields.choices = shuffle(preset.choicePool).slice(0, randInt(3, Math.min(5, preset.choicePool.length)));
+    }
+    return fields;
+  }
+
+  function customFieldTemplate() {
+    if (!customField.fields) customField.fields = generateCustomFieldFields();
+    const f = customField.fields;
+    const choicesHtml = f.choices
+      ? `<div class="field" style="margin-top:14px"><label for="cfChoices">Choices (comma-separated)</label><input type="text" id="cfChoices" value="${f.choices.join(", ")}" /></div>`
+      : "";
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Custom Fields</h2></div>
+        <p class="section-note">Generated from the Postman collection's own field-type pool. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="cfName">Field Name</label><input type="text" id="cfName" value="${f.fieldName}" /></div>
+          <div class="field"><label for="cfType">Type</label><input type="text" id="cfType" value="${f.type}" /></div>
+        </div>
+        ${choicesHtml}
+        <div class="field-row" style="margin-top:14px">
+          <div class="field">
+            <label>Enable Filter</label>
+            <div class="seg" id="cfFilterSeg" role="group" aria-label="Enable filter">
+              <button type="button" data-val="yes" aria-pressed="${f.enableFilter}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.enableFilter}">No</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Shown As Column</label>
+            <div class="seg" id="cfColumnSeg" role="group" aria-label="Shown as column">
+              <button type="button" data-val="yes" aria-pressed="${f.shownAsColumn}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.shownAsColumn}">No</button>
+            </div>
+          </div>
+        </div>
+        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)">
+          <label>Status</label>
+          <div class="seg" id="cfStatusSeg" role="group" aria-label="Status">
+            <button type="button" data-val="Active" aria-pressed="${f.status === "Active"}">Active</button>
+            <button type="button" data-val="Inactive" aria-pressed="${f.status === "Inactive"}">Inactive</button>
+          </div>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="cfRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="cfSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="cfError">${customField.error}</span>
+        ${customField.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${customField.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readCustomFieldForm() {
+    const body = {
+      fieldName: $("#cfName").value,
+      type: $("#cfType").value,
+      enableFilter: customField.fields.enableFilter,
+      shownAsColumn: customField.fields.shownAsColumn,
+      status: customField.fields.status,
+    };
+    if (customField.fields.choices) {
+      body.options = { choices: $("#cfChoices").value.split(",").map((s) => s.trim()).filter(Boolean) };
+    }
+    return body;
+  }
+
+  async function saveCustomField(body) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/company-settings/employee-custom-fields`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireCustomFieldEvents() {
+    const rerender = () => {
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    };
+    $all("#cfFilterSeg button").forEach((btn) => btn.addEventListener("click", () => { customField.fields.enableFilter = btn.dataset.val === "yes"; rerender(); }));
+    $all("#cfColumnSeg button").forEach((btn) => btn.addEventListener("click", () => { customField.fields.shownAsColumn = btn.dataset.val === "yes"; rerender(); }));
+    $all("#cfStatusSeg button").forEach((btn) => btn.addEventListener("click", () => { customField.fields.status = btn.dataset.val; rerender(); }));
+
+    $("#cfRegenerateBtn").addEventListener("click", () => {
+      customField.fields = generateCustomFieldFields();
+      customField.error = "";
+      customField.ok = "";
+      rerender();
+    });
+
+    const btn = $("#cfSaveBtn");
+    btn.addEventListener("click", async () => {
+      customField.error = "";
+      customField.ok = "";
+      const body = readCustomFieldForm();
+      setBtnBusy(btn);
+      try {
+        await saveCustomField(body);
+        customField.fields.fieldName = body.fieldName;
+        customField.fields.type = body.type;
+        if (body.options) customField.fields.choices = body.options.choices;
+        customField.ok = "Saved.";
+        setup.doneModules.add("custom_fields");
+      } catch (e) {
+        customField.error = e.message;
+      }
+      rerender();
+    });
+  }
+
+  /* ---------- Required Documents — seventh module ----------
+
+     POST /required-documents. Note the lowercase status values
+     ("active"/"inactive") — this endpoint's own convention, kept exactly
+     as the Postman body sends it rather than normalised to match every
+     other module's capitalised Active/Inactive. */
+  const requiredDocument = { fields: null, error: "", ok: "" };
+
+  function generateRequiredDocumentFields() {
+    return {
+      name: choice(REQUIRED_DOCUMENT_NAMES),
+      type: choice(REQUIRED_DOCUMENT_TYPES),
+      status: choice(REQUIRED_DOCUMENT_STATUSES),
+      isRequired: Math.random() < 0.5,
+    };
+  }
+
+  function requiredDocumentTemplate() {
+    if (!requiredDocument.fields) requiredDocument.fields = generateRequiredDocumentFields();
+    const f = requiredDocument.fields;
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Required Documents</h2></div>
+        <p class="section-note">Generated from the Postman collection's own document-name pool. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="rdName">Document Name</label><input type="text" id="rdName" value="${f.name}" /></div>
+          <div class="field">
+            <label>Type</label>
+            <div class="seg" id="rdTypeSeg" role="group" aria-label="Type">
+              <button type="button" data-val="file" aria-pressed="${f.type === "file"}">File</button>
+              <button type="button" data-val="text" aria-pressed="${f.type === "text"}">Text</button>
+            </div>
+          </div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field">
+            <label>Status</label>
+            <div class="seg" id="rdStatusSeg" role="group" aria-label="Status">
+              <button type="button" data-val="active" aria-pressed="${f.status === "active"}">Active</button>
+              <button type="button" data-val="inactive" aria-pressed="${f.status === "inactive"}">Inactive</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Is Required</label>
+            <div class="seg" id="rdRequiredSeg" role="group" aria-label="Is required">
+              <button type="button" data-val="yes" aria-pressed="${f.isRequired}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.isRequired}">No</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="rdRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="rdSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="rdError">${requiredDocument.error}</span>
+        ${requiredDocument.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${requiredDocument.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readRequiredDocumentForm() {
+    return {
+      name: $("#rdName").value,
+      type: requiredDocument.fields.type,
+      status: requiredDocument.fields.status,
+      isRequired: requiredDocument.fields.isRequired,
+    };
+  }
+
+  async function saveRequiredDocument(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/required-documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireRequiredDocumentEvents() {
+    const rerender = () => {
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    };
+    $all("#rdTypeSeg button").forEach((btn) => btn.addEventListener("click", () => { requiredDocument.fields.type = btn.dataset.val; rerender(); }));
+    $all("#rdStatusSeg button").forEach((btn) => btn.addEventListener("click", () => { requiredDocument.fields.status = btn.dataset.val; rerender(); }));
+    $all("#rdRequiredSeg button").forEach((btn) => btn.addEventListener("click", () => { requiredDocument.fields.isRequired = btn.dataset.val === "yes"; rerender(); }));
+
+    $("#rdRegenerateBtn").addEventListener("click", () => {
+      requiredDocument.fields = generateRequiredDocumentFields();
+      requiredDocument.error = "";
+      requiredDocument.ok = "";
+      rerender();
+    });
+
+    const btn = $("#rdSaveBtn");
+    btn.addEventListener("click", async () => {
+      requiredDocument.error = "";
+      requiredDocument.ok = "";
+      const fields = readRequiredDocumentForm();
+      setBtnBusy(btn);
+      try {
+        await saveRequiredDocument(fields);
+        requiredDocument.fields.name = fields.name;
+        requiredDocument.ok = "Saved.";
+        setup.doneModules.add("required_documents");
+      } catch (e) {
+        requiredDocument.error = e.message;
+      }
+      rerender();
+    });
+  }
+
+  /* ---------- Leave Types — eighth module ----------
+
+     POST /leave-types. Four kinds ("normal" leave) share one large rule
+     set ported verbatim from the Postman collection's own script; two
+     ("special entitlement" leave — Maternity, Paternity) use a much
+     smaller, mostly-fixed body. Only name and the three headline limits
+     (consecutive/monthly/carry-forward, each with a day count) are
+     exposed as editable fields for normal leave — everything else is
+     still generated per the script's own conditional logic, just not
+     surfaced as its own input row. See the note in app-data.js. */
+  const leaveType = { kindId: "annual", fields: null, error: "", ok: "" };
+
+  function generateNormalLeaveTypeBody(kind) {
+    const consecutiveLimit = Math.random() < 0.5;
+    const monthlyLimit = Math.random() < 0.5;
+    const allowBackdatedLeave = Math.random() < 0.5;
+    const documentRequired = Math.random() < 0.5;
+    const carryForwardEnabled = Math.random() < 0.5;
+    const carryForwardIsExpiry = carryForwardEnabled ? Math.random() < 0.5 : false;
+    const sandwichRuleEnabled = Math.random() < 0.5;
+    const isBridge = Math.random() < 0.5;
+    const leaveResetCycle = choice(["calendar_year", "employee_anniversary", "custom_date"]);
+    return {
+      name: kind.name,
+      genderEligibility: kind.genderEligibility,
+      maritalStatusEligibility: kind.maritalStatusEligibility,
+      consecutiveLimit,
+      consecutiveDays: consecutiveLimit ? randInt(5, 10) : 5,
+      monthlyLimit,
+      monthlyLimitDays: monthlyLimit ? randInt(7, 12) : 7,
+      prorataCalculation: Math.random() < 0.5,
+      accrualStartType: choice(["joining_date", "confirmation_date", "custom"]),
+      accrualStartMonths: randInt(3, 5),
+      allowBackdatedLeave,
+      backdatedLeaveDays: allowBackdatedLeave ? choice([30, 60, 90]) : 30,
+      documentRequired,
+      documentThresholdDays: documentRequired ? randInt(3, 6) : 2,
+      carryForwardEnabled,
+      maxCarryForwardDays: carryForwardEnabled ? randInt(5, 15) : 10,
+      carryForwardIsExpiry,
+      carryForwardExpiryDays: carryForwardIsExpiry ? randInt(90, 120) : 12,
+      sandwichRuleEnabled,
+      sandwichMode: sandwichRuleEnabled ? choice(["optional", "direct_cut"]) : "direct_cut",
+      sandwichIncludeWeekend: sandwichRuleEnabled ? Math.random() < 0.5 : true,
+      sandwichIncludeHoliday: sandwichRuleEnabled ? Math.random() < 0.5 : true,
+      sandwichIncludeCompanyEvent: false,
+      isBridge,
+      bridgeMode: isBridge ? choice(["direct", "optional"]) : "direct",
+      isLeaveReset: true,
+      leaveResetCycle,
+      fiscalYearStartMonth: leaveResetCycle === "calendar_year" ? 4 : null,
+      customResetMonth: leaveResetCycle === "custom_date" ? randInt(1, 12) : null,
+      customResetDay: leaveResetCycle === "custom_date" ? 1 : null,
+      specialEntitlementEnabled: false,
+      deductionPriority: [{ sourceKind: "requested" }],
+      isUnpaid: false,
+    };
+  }
+
+  function generateSpecialLeaveTypeBody(kind) {
+    const seMaxInstances = choice([2, 3]);
+    return {
+      name: kind.name,
+      genderEligibility: kind.genderEligibility,
+      maritalStatusEligibility: kind.maritalStatusEligibility,
+      consecutiveLimit: false,
+      consecutiveDays: 5,
+      monthlyLimit: false,
+      monthlyLimitDays: 7,
+      prorataCalculation: false,
+      accrualStartType: "joining_date",
+      accrualStartMonths: 3,
+      allowBackdatedLeave: false,
+      backdatedLeaveDays: 30,
+      documentRequired: false,
+      documentThresholdDays: 2,
+      carryForwardEnabled: false,
+      maxCarryForwardDays: 10,
+      carryForwardIsExpiry: false,
+      carryForwardExpiryDays: 12,
+      sandwichRuleEnabled: false,
+      sandwichMode: "direct_cut",
+      sandwichIncludeWeekend: true,
+      sandwichIncludeHoliday: true,
+      sandwichIncludeCompanyEvent: false,
+      isBridge: false,
+      bridgeMode: "direct",
+      isLeaveReset: false,
+      specialEntitlementEnabled: true,
+      seMaxInstances,
+      seMaxDaysPerInstance: kind.seMaxDaysPerInstance,
+      seMaxTotalDays: seMaxInstances * kind.seMaxDaysPerInstance,
+      seRequireDocument: Math.random() < 0.5,
+      deductionPriority: [{ sourceKind: "requested" }],
+      isUnpaid: false,
+    };
+  }
+
+  function generateLeaveTypeBody(kindId) {
+    const kind = LEAVE_TYPE_KINDS.find((k) => k.id === kindId);
+    return kind.special ? generateSpecialLeaveTypeBody(kind) : generateNormalLeaveTypeBody(kind);
+  }
+
+  function leaveTypeTemplate() {
+    if (!leaveType.fields) leaveType.fields = generateLeaveTypeBody(leaveType.kindId);
+    const f = leaveType.fields;
+    const kindOptions = LEAVE_TYPE_KINDS.map((k) => `<option value="${k.id}" ${k.id === leaveType.kindId ? "selected" : ""}>${k.name}</option>`).join("");
+
+    let detailsHtml;
+    if (f.specialEntitlementEnabled) {
+      detailsHtml = `
+        <div class="field-row" style="margin-top:14px">
+          <div class="field">
+            <label>Instances Per Year</label>
+            <div class="seg" id="ltInstancesSeg" role="group" aria-label="Instances per year">
+              <button type="button" data-val="2" aria-pressed="${f.seMaxInstances === 2}">2</button>
+              <button type="button" data-val="3" aria-pressed="${f.seMaxInstances === 3}">3</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Require Document</label>
+            <div class="seg" id="ltDocSeg" role="group" aria-label="Require document">
+              <button type="button" data-val="yes" aria-pressed="${f.seRequireDocument}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.seRequireDocument}">No</button>
+            </div>
+          </div>
+        </div>
+        <p class="section-note" style="margin-top:10px">${f.seMaxDaysPerInstance} days per instance, ${f.seMaxTotalDays} total across ${f.seMaxInstances} instances a year — fixed for this leave type.</p>
+      `;
+    } else {
+      detailsHtml = `
+        <div class="field-row" style="margin-top:14px">
+          <div class="field">
+            <label>Consecutive Day Limit</label>
+            <div class="seg" id="ltConsecutiveSeg" role="group" aria-label="Consecutive day limit">
+              <button type="button" data-val="yes" aria-pressed="${f.consecutiveLimit}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.consecutiveLimit}">No</button>
+            </div>
+          </div>
+          ${f.consecutiveLimit ? `<div class="field"><label for="ltConsecutiveDays">Max Consecutive Days</label><input type="text" id="ltConsecutiveDays" value="${f.consecutiveDays}" /></div>` : ""}
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field">
+            <label>Monthly Limit</label>
+            <div class="seg" id="ltMonthlySeg" role="group" aria-label="Monthly limit">
+              <button type="button" data-val="yes" aria-pressed="${f.monthlyLimit}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.monthlyLimit}">No</button>
+            </div>
+          </div>
+          ${f.monthlyLimit ? `<div class="field"><label for="ltMonthlyDays">Max Days Per Month</label><input type="text" id="ltMonthlyDays" value="${f.monthlyLimitDays}" /></div>` : ""}
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field">
+            <label>Carry Forward</label>
+            <div class="seg" id="ltCarrySeg" role="group" aria-label="Carry forward">
+              <button type="button" data-val="yes" aria-pressed="${f.carryForwardEnabled}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.carryForwardEnabled}">No</button>
+            </div>
+          </div>
+          ${f.carryForwardEnabled ? `<div class="field"><label for="ltCarryDays">Max Carry-Forward Days</label><input type="text" id="ltCarryDays" value="${f.maxCarryForwardDays}" /></div>` : ""}
+        </div>
+        <p class="section-note" style="margin-top:10px">Prorata, accrual, backdating, document requirement, sandwich/bridge rules and the reset cycle are generated the same way the Postman collection's own script does — Regenerate re-rolls them, they're just not each their own field here.</p>
+      `;
+    }
+
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Leave Types</h2></div>
+        <p class="section-note">Generated from the Postman collection's own leave-type rules. Pick a kind, then Regenerate re-rolls its details; name and the headline limits can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="ltKind">Kind</label><select id="ltKind">${kindOptions}</select></div>
+          <div class="field"><label for="ltName">Name</label><input type="text" id="ltName" value="${f.name}" /></div>
+        </div>
+        ${detailsHtml}
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="ltRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="ltSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="ltError">${leaveType.error}</span>
+        ${leaveType.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${leaveType.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readLeaveTypeForm() {
+    const f = { ...leaveType.fields, name: $("#ltName").value };
+    if (!f.specialEntitlementEnabled) {
+      if (f.consecutiveLimit) f.consecutiveDays = Number($("#ltConsecutiveDays").value);
+      if (f.monthlyLimit) f.monthlyLimitDays = Number($("#ltMonthlyDays").value);
+      if (f.carryForwardEnabled) f.maxCarryForwardDays = Number($("#ltCarryDays").value);
+    }
+    return f;
+  }
+
+  async function saveLeaveType(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/leave-types`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireLeaveTypeEvents() {
+    const rerender = () => {
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    };
+
+    $("#ltKind").addEventListener("change", (e) => {
+      leaveType.kindId = e.target.value;
+      leaveType.fields = generateLeaveTypeBody(leaveType.kindId);
+      leaveType.error = "";
+      leaveType.ok = "";
+      rerender();
+    });
+
+    const consecutiveSeg = $("#ltConsecutiveSeg");
+    if (consecutiveSeg) $all("button", consecutiveSeg).forEach((btn) => btn.addEventListener("click", () => { leaveType.fields.consecutiveLimit = btn.dataset.val === "yes"; rerender(); }));
+    const monthlySeg = $("#ltMonthlySeg");
+    if (monthlySeg) $all("button", monthlySeg).forEach((btn) => btn.addEventListener("click", () => { leaveType.fields.monthlyLimit = btn.dataset.val === "yes"; rerender(); }));
+    const carrySeg = $("#ltCarrySeg");
+    if (carrySeg) {
+      $all("button", carrySeg).forEach((btn) =>
+        btn.addEventListener("click", () => {
+          leaveType.fields.carryForwardEnabled = btn.dataset.val === "yes";
+          if (!leaveType.fields.carryForwardEnabled) leaveType.fields.carryForwardIsExpiry = false;
+          rerender();
+        })
+      );
+    }
+    const instancesSeg = $("#ltInstancesSeg");
+    if (instancesSeg) {
+      $all("button", instancesSeg).forEach((btn) =>
+        btn.addEventListener("click", () => {
+          leaveType.fields.seMaxInstances = Number(btn.dataset.val);
+          leaveType.fields.seMaxTotalDays = leaveType.fields.seMaxInstances * leaveType.fields.seMaxDaysPerInstance;
+          rerender();
+        })
+      );
+    }
+    const docSeg = $("#ltDocSeg");
+    if (docSeg) $all("button", docSeg).forEach((btn) => btn.addEventListener("click", () => { leaveType.fields.seRequireDocument = btn.dataset.val === "yes"; rerender(); }));
+
+    $("#ltRegenerateBtn").addEventListener("click", () => {
+      leaveType.fields = generateLeaveTypeBody(leaveType.kindId);
+      leaveType.error = "";
+      leaveType.ok = "";
+      rerender();
+    });
+
+    const btn = $("#ltSaveBtn");
+    btn.addEventListener("click", async () => {
+      leaveType.error = "";
+      leaveType.ok = "";
+      const fields = readLeaveTypeForm();
+      setBtnBusy(btn);
+      try {
+        await saveLeaveType(fields);
+        leaveType.fields = fields;
+        leaveType.ok = "Saved.";
+        setup.doneModules.add("leave_types");
+        /* A leave type now exists for real — Leave Policy's cached
+           dependency check (if it ran already) is stale. */
+        leavePolicy.leaveTypes = null;
+      } catch (e) {
+        leaveType.error = e.message;
+      }
+      rerender();
+    });
+  }
+
+  /* ---------- Leave Policy — ninth module, the second with a real dependency ----------
+
+     POST /leave-policies needs at least one leave type to attach — same
+     shape of rule as Designation needing a Department, and the Postman
+     script enforces it on itself the same way ("leaveTypesAll not
+     found... run GET all leave types API first"). Which leave types get
+     included, and their category/days, are auto-selected the way the
+     script does (a random subset, minimum 3 or however many exist) —
+     Regenerate re-rolls the selection; name and status are the exposed
+     editable fields. */
+  const leavePolicy = { leaveTypes: null, loadError: "", fields: null, error: "", ok: "" };
+
+  async function loadLeavePolicyDependency() {
+    try {
+      leavePolicy.leaveTypes = await fetchCompanyResource("/leave-types");
+    } catch (e) {
+      leavePolicy.leaveTypes = null;
+      leavePolicy.loadError = e.message;
+    }
+  }
+
+  function generateLeavePolicyFields(leaveTypes) {
+    const minCount = Math.min(3, leaveTypes.length);
+    const count = randInt(minCount, leaveTypes.length);
+    const selected = shuffle(leaveTypes).slice(0, count);
+    const leaveTypesBody = selected.map((lt) => {
+      const hasSpecialDays = lt.seMaxDaysPerInstance !== null && lt.seMaxDaysPerInstance !== undefined;
+      return {
+        leaveTypeId: lt.id,
+        category: hasSpecialDays ? "Special" : choice(LEAVE_POLICY_CATEGORIES),
+        days: hasSpecialDays ? Number(lt.seMaxDaysPerInstance) : choice(LEAVE_POLICY_STANDARD_DAYS),
+        carryForward: false,
+      };
+    });
+    return {
+      name: choice(LEAVE_POLICY_NAMES),
+      description: LEAVE_POLICY_DESCRIPTION,
+      departmentIds: [],
+      employeeTypes: LEAVE_POLICY_EMPLOYEE_TYPES,
+      status: "Active",
+      leaveTypes: leaveTypesBody,
+    };
+  }
+
+  function leavePolicyTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Leave Policy</h2></div>`;
+    if (leavePolicy.loadError) {
+      return `
+        <div class="section">
+          ${head}
+          <span class="error-text">${leavePolicy.loadError}</span>
+          <div class="setup-actions" style="margin-top:10px"><button type="button" class="tiny-btn" id="lpRetryBtn">Try again</button></div>
+        </div>
+      `;
+    }
+    if (leavePolicy.leaveTypes === null) {
+      return `<div class="section">${head}<p class="section-note">Checking this company's leave types…</p></div>`;
+    }
+    if (leavePolicy.leaveTypes.length === 0) {
+      return `
+        <div class="section">
+          ${head}
+          <p class="section-note">A policy attaches to leave types — this company doesn't have any yet.</p>
+          ${dependencyNoticeHtml("Leave Type", "leave", "leave_types")}
+        </div>
+      `;
+    }
+    if (!leavePolicy.fields) leavePolicy.fields = generateLeavePolicyFields(leavePolicy.leaveTypes);
+    const f = leavePolicy.fields;
+    const rows = f.leaveTypes
+      .map((lt) => {
+        const src = leavePolicy.leaveTypes.find((x) => x.id === lt.leaveTypeId);
+        return `<span class="tally" style="margin-top:6px; margin-right:6px">${src ? src.name : lt.leaveTypeId} <strong>${lt.category} · ${lt.days}d</strong></span>`;
+      })
+      .join("");
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the Postman collection's own policy-composition rule, drawing on this company's real leave types. Regenerate re-rolls which leave types are included and their category/days; name and status can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="lpName">Name</label><input type="text" id="lpName" value="${f.name}" /></div>
+          <div class="field">
+            <label>Status</label>
+            <div class="seg" id="lpStatusSeg" role="group" aria-label="Status">
+              <button type="button" data-val="Active" aria-pressed="${f.status === "Active"}">Active</button>
+              <button type="button" data-val="Inactive" aria-pressed="${f.status === "Inactive"}">Inactive</button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <label style="font-size:12.5px; font-weight:600; color:var(--text); display:block; margin-bottom:8px;">Included Leave Types (${f.leaveTypes.length} of ${leavePolicy.leaveTypes.length})</label>
+          <div style="display:flex; flex-wrap:wrap;">${rows}</div>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="lpRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="lpSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="lpError">${leavePolicy.error}</span>
+        ${leavePolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${leavePolicy.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readLeavePolicyForm() {
+    return { ...leavePolicy.fields, name: $("#lpName").value };
+  }
+
+  async function saveLeavePolicy(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/leave-policies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireLeavePolicyEvents() {
+    if (leavePolicy.leaveTypes === null && !leavePolicy.loadError) {
+      loadLeavePolicyDependency().then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    const retryBtn = $("#lpRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        leavePolicy.loadError = "";
+        leavePolicy.leaveTypes = null;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    if (!leavePolicy.leaveTypes || leavePolicy.leaveTypes.length === 0) return; // .dep-shortcut is wired centrally
+
+    $all("#lpStatusSeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        leavePolicy.fields.status = btn.dataset.val;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
+
+    $("#lpRegenerateBtn").addEventListener("click", () => {
+      leavePolicy.fields = generateLeavePolicyFields(leavePolicy.leaveTypes);
+      leavePolicy.error = "";
+      leavePolicy.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#lpSaveBtn");
+    btn.addEventListener("click", async () => {
+      leavePolicy.error = "";
+      leavePolicy.ok = "";
+      const fields = readLeavePolicyForm();
+      setBtnBusy(btn);
+      try {
+        await saveLeavePolicy(fields);
+        leavePolicy.fields = fields;
+        leavePolicy.ok = "Saved.";
+        setup.doneModules.add("leave_policy");
+      } catch (e) {
+        leavePolicy.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ===================================================================
+     Payroll — 11 modules ported from the Postman collection's own
+     "Payroll Settings" folder. Three real dependencies live here:
+     Configure Salary Components needs ≥2 Active salary components, Late
+     Arrival and Absent Deduction each need ≥1 Leave Type (reusing the
+     existing dependency infra and, for the latter, the existing
+     `/leave-types` fetch). Every module follows the same generate/edit/
+     regenerate/save shape as the rest of the app. Tax is the one place
+     the collection itself stops short — see the note in app-data.js.
+     =================================================================== */
+
+  /* ---------- General — POST /payroll/configuration/payroll-cycle ---------- */
+  const payrollGeneral = { fields: null, error: "", ok: "" };
+
+  function generatePayrollGeneralFields() {
+    const payrollCycle = weightedChoice(PAYROLL_CYCLE_OPTIONS);
+    const body = { payrollCycle };
+    function addThresholdRules() {
+      body.thresholdRuleEnabled = Math.random() < 0.5;
+      if (body.thresholdRuleEnabled) {
+        body.thresholdDays = randInt(5, 10);
+        body.thresholdNotifyEmployee = Math.random() < 0.5;
+        body.thresholdNotifyHr = Math.random() < 0.5;
+        body.thresholdLogDecisions = Math.random() < 0.5;
+      }
+    }
+    if (payrollCycle === "calendar_month") addThresholdRules();
+    if (payrollCycle === "fixed_date") {
+      body.fixedStartDay = randInt(1, 28);
+      addThresholdRules();
+    }
+    if (payrollCycle === "bi_weekly") {
+      const now = new Date();
+      body.biWeeklyStartDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    }
+    return body;
+  }
+
+  function payrollGeneralTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">1</span>General</h2></div>`;
+    if (!payrollGeneral.fields) payrollGeneral.fields = generatePayrollGeneralFields();
+    const f = payrollGeneral.fields;
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the Postman collection's own pay-cycle picker — calendar month is most common, fixed date next, bi-weekly rare. Regenerate re-rolls which cycle and its conditional fields.</p>
+        <div class="field-row">
+          <div class="field">
+            <label>Payroll Cycle</label>
+            <div class="seg" id="pgCycleSeg" role="group" aria-label="Payroll cycle">
+              <button type="button" data-val="calendar_month" aria-pressed="${f.payrollCycle === "calendar_month"}">Calendar Month</button>
+              <button type="button" data-val="fixed_date" aria-pressed="${f.payrollCycle === "fixed_date"}">Fixed Date</button>
+              <button type="button" data-val="bi_weekly" aria-pressed="${f.payrollCycle === "bi_weekly"}">Bi-weekly</button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:6px;">
+          ${f.fixedStartDay ? `<span class="tally">Fixed start day <strong>${f.fixedStartDay}</strong></span>` : ""}
+          ${f.biWeeklyStartDate ? `<span class="tally">Bi-weekly start <strong>${f.biWeeklyStartDate}</strong></span>` : ""}
+          ${f.thresholdRuleEnabled ? `<span class="tally">Threshold <strong>${f.thresholdDays} days</strong></span>` : ""}
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="pgRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="pgSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="pgError">${payrollGeneral.error}</span>
+        ${payrollGeneral.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${payrollGeneral.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  async function savePayrollGeneral(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/payroll/configuration/payroll-cycle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wirePayrollGeneralEvents() {
+    $all("#pgCycleSeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const payrollCycle = btn.dataset.val;
+        payrollGeneral.fields = { payrollCycle };
+        if (payrollCycle === "calendar_month" || payrollCycle === "fixed_date") {
+          if (payrollCycle === "fixed_date") payrollGeneral.fields.fixedStartDay = randInt(1, 28);
+          payrollGeneral.fields.thresholdRuleEnabled = Math.random() < 0.5;
+          if (payrollGeneral.fields.thresholdRuleEnabled) {
+            payrollGeneral.fields.thresholdDays = randInt(5, 10);
+            payrollGeneral.fields.thresholdNotifyEmployee = Math.random() < 0.5;
+            payrollGeneral.fields.thresholdNotifyHr = Math.random() < 0.5;
+            payrollGeneral.fields.thresholdLogDecisions = Math.random() < 0.5;
+          }
+        } else {
+          const now = new Date();
+          payrollGeneral.fields.biWeeklyStartDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+        }
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
+
+    $("#pgRegenerateBtn").addEventListener("click", () => {
+      payrollGeneral.fields = generatePayrollGeneralFields();
+      payrollGeneral.error = "";
+      payrollGeneral.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#pgSaveBtn");
+    btn.addEventListener("click", async () => {
+      payrollGeneral.error = "";
+      payrollGeneral.ok = "";
+      setBtnBusy(btn);
+      try {
+        await savePayrollGeneral(payrollGeneral.fields);
+        payrollGeneral.ok = "Saved.";
+        setup.doneModules.add("payroll_general");
+      } catch (e) {
+        payrollGeneral.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Salary Components — POST /payroll/configuration/salary-components ---------- */
+  const salaryComponent = { presetIdx: 0, fields: null, error: "", ok: "" };
+
+  function generateSalaryComponentFields(presetIdx) {
+    const preset = SALARY_COMPONENT_PRESETS[presetIdx];
+    return {
+      name: preset.name,
+      description: preset.description,
+      status: Math.random() < 0.9 ? "Active" : "Inactive",
+      countableAsTaxComponent: Math.random() < 0.1,
+      proRataEnabled: Math.random() < 0.9,
+    };
+  }
+
+  function salaryComponentTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Salary Components</h2></div>`;
+    if (!salaryComponent.fields) salaryComponent.fields = generateSalaryComponentFields(salaryComponent.presetIdx);
+    const f = salaryComponent.fields;
+    const options = SALARY_COMPONENT_PRESETS.map((p, i) => `<option value="${i}" ${i === salaryComponent.presetIdx ? "selected" : ""}>${p.name}</option>`).join("");
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">The Postman collection's own 4 fixed components, one request each — status, tax-countability and pro-rata are the only randomised fields.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="scPreset">Component</label>
+            <select id="scPreset">${options}</select>
+          </div>
+          <div class="field">
+            <label>Status</label>
+            <div class="seg" id="scStatusSeg" role="group" aria-label="Status">
+              <button type="button" data-val="Active" aria-pressed="${f.status === "Active"}">Active</button>
+              <button type="button" data-val="Inactive" aria-pressed="${f.status === "Inactive"}">Inactive</button>
+            </div>
+          </div>
+        </div>
+        <p class="section-note" style="margin-top:8px">${f.description}</p>
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <span class="tally">Countable as tax component <strong>${f.countableAsTaxComponent ? "yes" : "no"}</strong></span>
+          <span class="tally">Pro-rata <strong>${f.proRataEnabled ? "yes" : "no"}</strong></span>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="scRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="scSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="scError">${salaryComponent.error}</span>
+        ${salaryComponent.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${salaryComponent.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  async function saveSalaryComponent(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/payroll/configuration/salary-components`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireSalaryComponentEvents() {
+    $("#scPreset").addEventListener("change", (e) => {
+      salaryComponent.presetIdx = Number(e.target.value);
+      salaryComponent.fields = generateSalaryComponentFields(salaryComponent.presetIdx);
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    $all("#scStatusSeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        salaryComponent.fields.status = btn.dataset.val;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
+
+    $("#scRegenerateBtn").addEventListener("click", () => {
+      salaryComponent.fields = generateSalaryComponentFields(salaryComponent.presetIdx);
+      salaryComponent.error = "";
+      salaryComponent.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#scSaveBtn");
+    btn.addEventListener("click", async () => {
+      salaryComponent.error = "";
+      salaryComponent.ok = "";
+      setBtnBusy(btn);
+      try {
+        await saveSalaryComponent(salaryComponent.fields);
+        salaryComponent.ok = "Saved.";
+        setup.doneModules.add("salary_components");
+        companySalaryStructure.components = null;
+      } catch (e) {
+        salaryComponent.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Configure Salary Components — PUT /payroll/configuration/non-paygrade-structure ----------
+     The third real dependency: needs at least 2 Active salary components,
+     same "throw without it" rule the collection enforces on itself. */
+  const companySalaryStructure = { components: null, loadError: "", fields: null, error: "", ok: "" };
+
+  async function loadSalaryStructureDependency() {
+    try {
+      const all = await fetchCompanyResource("/payroll/configuration/salary-components?status=Active&limit=100");
+      companySalaryStructure.components = (all || []).filter((c) => c.status === "Active");
+    } catch (e) {
+      companySalaryStructure.components = null;
+      companySalaryStructure.loadError = e.message;
+    }
+  }
+
+  function generateSalaryStructureFields(components) {
+    const split = choice(SALARY_STRUCTURE_SPLITS);
+    const picked = shuffle(components).slice(0, 2);
+    return {
+      basicSalaryPercentage: split.basic,
+      proRataEnabled: true,
+      components: [
+        { salaryComponentId: picked[0].id, percentage: split.c1 },
+        { salaryComponentId: picked[1].id, percentage: split.c2 },
+      ],
+      deletedComponentIds: [],
+    };
+  }
+
+  function salaryStructureTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Configure Salary Components</h2></div>`;
+    if (companySalaryStructure.loadError) {
+      return `
+        <div class="section">
+          ${head}
+          <span class="error-text">${companySalaryStructure.loadError}</span>
+          <div class="setup-actions" style="margin-top:10px"><button type="button" class="tiny-btn" id="ssRetryBtn">Try again</button></div>
+        </div>
+      `;
+    }
+    if (companySalaryStructure.components === null) {
+      return `<div class="section">${head}<p class="section-note">Checking this company's salary components…</p></div>`;
+    }
+    if (companySalaryStructure.components.length < 2) {
+      return `
+        <div class="section">
+          ${head}
+          <p class="section-note">A non-paygrade structure splits basic salary across at least 2 active salary components — this company has ${companySalaryStructure.components.length} so far.</p>
+          ${dependencyNoticeHtml("second Active Salary Component", "payroll", "salary_components")}
+        </div>
+      `;
+    }
+    if (!companySalaryStructure.fields) companySalaryStructure.fields = generateSalaryStructureFields(companySalaryStructure.components);
+    const f = companySalaryStructure.fields;
+    const nameFor = (id) => (companySalaryStructure.components.find((c) => c.id === id) || {}).name || id;
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the Postman collection's own split table — basic and the two components always sum to 100%. Regenerate re-rolls the split and which two components are used.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <span class="tally">Basic <strong>${f.basicSalaryPercentage}%</strong></span>
+          <span class="tally">${nameFor(f.components[0].salaryComponentId)} <strong>${f.components[0].percentage}%</strong></span>
+          <span class="tally">${nameFor(f.components[1].salaryComponentId)} <strong>${f.components[1].percentage}%</strong></span>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="ssRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="ssSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="ssError">${companySalaryStructure.error}</span>
+        ${companySalaryStructure.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companySalaryStructure.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  async function saveSalaryStructure(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/payroll/configuration/non-paygrade-structure`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 200 && res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireSalaryStructureEvents() {
+    if (companySalaryStructure.components === null && !companySalaryStructure.loadError) {
+      loadSalaryStructureDependency().then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    const retryBtn = $("#ssRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        companySalaryStructure.loadError = "";
+        companySalaryStructure.components = null;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    if (!companySalaryStructure.components || companySalaryStructure.components.length < 2) return; // .dep-shortcut wired centrally
+
+    $("#ssRegenerateBtn").addEventListener("click", () => {
+      companySalaryStructure.fields = generateSalaryStructureFields(companySalaryStructure.components);
+      companySalaryStructure.error = "";
+      companySalaryStructure.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#ssSaveBtn");
+    btn.addEventListener("click", async () => {
+      companySalaryStructure.error = "";
+      companySalaryStructure.ok = "";
+      setBtnBusy(btn);
+      try {
+        await saveSalaryStructure(companySalaryStructure.fields);
+        companySalaryStructure.ok = "Saved.";
+        setup.doneModules.add("configure_salary_components");
+      } catch (e) {
+        companySalaryStructure.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Late Arrival, Absent Deduction — both need ≥1 Leave Type ---------- */
+  const lateArrival = { leaveTypes: null, loadError: "", fields: null, error: "", ok: "" };
+  const absentDeduction = { leaveTypes: null, loadError: "", fields: null, error: "", ok: "" };
+
+  function generateLateArrivalFields(leaveTypes) {
+    const lt = choice(leaveTypes);
+    const latePenaltyEnabled = Math.random() < 0.5;
+    return {
+      lateThresholdEnabled: true,
+      monthlyLateLimit: randInt(3, 7),
+      latePenaltyEnabled,
+      repeatedLatePenaltyEnabled: !latePenaltyEnabled,
+      latePenaltyThresholdDays: randInt(2, 5),
+      latePenaltyDeductionType: choice(["Salary", "Leave"]),
+      latePenaltyLeaveType: lt.id,
+      latePenaltySalaryType: choice(PAYROLL_SALARY_BASIS_OPTIONS),
+      _leaveTypeName: lt.name,
+    };
+  }
+
+  function lateArrivalTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Late Arrival</h2></div>`;
+    if (lateArrival.loadError) {
+      return `<div class="section">${head}<span class="error-text">${lateArrival.loadError}</span><div class="setup-actions" style="margin-top:10px"><button type="button" class="tiny-btn" id="laRetryBtn">Try again</button></div></div>`;
+    }
+    if (lateArrival.leaveTypes === null) {
+      return `<div class="section">${head}<p class="section-note">Checking this company's leave types…</p></div>`;
+    }
+    if (lateArrival.leaveTypes.length === 0) {
+      return `<div class="section">${head}<p class="section-note">Late arrival can deduct from a leave type — this company doesn't have any yet.</p>${dependencyNoticeHtml("Leave Type", "leave", "leave_types")}</div>`;
+    }
+    if (!lateArrival.fields) lateArrival.fields = generateLateArrivalFields(lateArrival.leaveTypes);
+    const f = lateArrival.fields;
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the Postman collection's own late-arrival rule — deduction type, its two enable flags and the deduction basis all follow the script's own logic.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <span class="tally">Monthly late limit <strong>${f.monthlyLateLimit}</strong></span>
+          <span class="tally">${f.latePenaltyEnabled ? "Late penalty" : "Repeated late penalty"} <strong>enabled</strong></span>
+          <span class="tally">Threshold <strong>${f.latePenaltyThresholdDays} days</strong></span>
+          <span class="tally">Deduction type <strong>${f.latePenaltyDeductionType}</strong></span>
+          <span class="tally">Leave type <strong>${f._leaveTypeName}</strong></span>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="laRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="laSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="laError">${lateArrival.error}</span>
+        ${lateArrival.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${lateArrival.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  async function saveLateArrival(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    const { _leaveTypeName, ...body } = fields;
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/payroll/configuration/deduction-settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireLateArrivalEvents() {
+    if (lateArrival.leaveTypes === null && !lateArrival.loadError) {
+      loadLeaveTypeDependencyInto(lateArrival).then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    const retryBtn = $("#laRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        lateArrival.loadError = "";
+        lateArrival.leaveTypes = null;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    if (!lateArrival.leaveTypes || lateArrival.leaveTypes.length === 0) return;
+
+    $("#laRegenerateBtn").addEventListener("click", () => {
+      lateArrival.fields = generateLateArrivalFields(lateArrival.leaveTypes);
+      lateArrival.error = "";
+      lateArrival.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#laSaveBtn");
+    btn.addEventListener("click", async () => {
+      lateArrival.error = "";
+      lateArrival.ok = "";
+      setBtnBusy(btn);
+      try {
+        await saveLateArrival(lateArrival.fields);
+        lateArrival.ok = "Saved.";
+        setup.doneModules.add("late_arrival");
+      } catch (e) {
+        lateArrival.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* Shared by Late Arrival and Absent Deduction — both need the same
+     "at least one leave type exists" check, fetched independently so
+     each module's cache invalidates on its own schedule. */
+  async function loadLeaveTypeDependencyInto(state) {
+    try {
+      state.leaveTypes = await fetchCompanyResource("/leave-types");
+    } catch (e) {
+      state.leaveTypes = null;
+      state.loadError = e.message;
+    }
+  }
+
+  function generateAbsentDeductionFields(leaveTypes) {
+    const lt = choice(leaveTypes);
+    const repeatedAbsentPenaltyEnabled = Math.random() < 0.5;
+    return {
+      enabled: true,
+      ruleBasedOn: repeatedAbsentPenaltyEnabled ? "consecutive_absent_days" : "total_absent_days",
+      thresholdDays: randInt(2, 5),
+      absentDeductionType: choice(["salary_deduction", "leave_deduction"]),
+      absentDeductionSalaryBasis: choice(PAYROLL_SALARY_BASIS_OPTIONS),
+      absentDeductionLeaveType: lt.id,
+      _leaveTypeName: lt.name,
+    };
+  }
+
+  function absentDeductionTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">5</span>Absent Deduction</h2></div>`;
+    if (absentDeduction.loadError) {
+      return `<div class="section">${head}<span class="error-text">${absentDeduction.loadError}</span><div class="setup-actions" style="margin-top:10px"><button type="button" class="tiny-btn" id="adRetryBtn">Try again</button></div></div>`;
+    }
+    if (absentDeduction.leaveTypes === null) {
+      return `<div class="section">${head}<p class="section-note">Checking this company's leave types…</p></div>`;
+    }
+    if (absentDeduction.leaveTypes.length === 0) {
+      return `<div class="section">${head}<p class="section-note">Absent deduction can deduct from a leave type — this company doesn't have any yet.</p>${dependencyNoticeHtml("Leave Type", "leave", "leave_types")}</div>`;
+    }
+    if (!absentDeduction.fields) absentDeduction.fields = generateAbsentDeductionFields(absentDeduction.leaveTypes);
+    const f = absentDeduction.fields;
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the Postman collection's own absent-deduction rule.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <span class="tally">Rule based on <strong>${f.ruleBasedOn.replace(/_/g, " ")}</strong></span>
+          <span class="tally">Threshold <strong>${f.thresholdDays} days</strong></span>
+          <span class="tally">Deduction type <strong>${f.absentDeductionType.replace(/_/g, " ")}</strong></span>
+          <span class="tally">Leave type <strong>${f._leaveTypeName}</strong></span>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="adRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="adSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="adError">${absentDeduction.error}</span>
+        ${absentDeduction.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${absentDeduction.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  async function saveAbsentDeduction(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    const { _leaveTypeName, ...body } = fields;
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/payroll/configuration/absent-deduction-settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireAbsentDeductionEvents() {
+    if (absentDeduction.leaveTypes === null && !absentDeduction.loadError) {
+      loadLeaveTypeDependencyInto(absentDeduction).then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    const retryBtn = $("#adRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        absentDeduction.loadError = "";
+        absentDeduction.leaveTypes = null;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    if (!absentDeduction.leaveTypes || absentDeduction.leaveTypes.length === 0) return;
+
+    $("#adRegenerateBtn").addEventListener("click", () => {
+      absentDeduction.fields = generateAbsentDeductionFields(absentDeduction.leaveTypes);
+      absentDeduction.error = "";
+      absentDeduction.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#adSaveBtn");
+    btn.addEventListener("click", async () => {
+      absentDeduction.error = "";
+      absentDeduction.ok = "";
+      setBtnBusy(btn);
+      try {
+        await saveAbsentDeduction(absentDeduction.fields);
+        absentDeduction.ok = "Saved.";
+        setup.doneModules.add("absent_deduction");
+      } catch (e) {
+        absentDeduction.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Bonus Types — POST /bonus/configuration/types ---------- */
+  const bonusType = { presetIdx: 0, fields: null, error: "", ok: "" };
+
+  function generateBonusTypeFields(presetIdx) {
+    const preset = BONUS_TYPE_PRESETS[presetIdx];
+    return { typeName: preset.typeName, status: preset.status, icon: choice(BONUS_TYPE_ICON_OPTIONS), description: preset.description };
+  }
+
+  function bonusTypeTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">6</span>Bonus Types</h2></div>`;
+    if (!bonusType.fields) bonusType.fields = generateBonusTypeFields(bonusType.presetIdx);
+    const f = bonusType.fields;
+    const options = BONUS_TYPE_PRESETS.map((p, i) => `<option value="${i}" ${i === bonusType.presetIdx ? "selected" : ""}>${p.typeName}</option>`).join("");
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">The Postman collection's own 4 fixed bonus types, one request each — only the icon is randomised.</p>
+        <div class="field-row">
+          <div class="field"><label for="btPreset">Bonus Type</label><select id="btPreset">${options}</select></div>
+        </div>
+        <p class="section-note" style="margin-top:8px">${f.description}</p>
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <span class="tally">Status <strong>${f.status}</strong></span>
+          <span class="tally">Icon <strong>${f.icon}</strong></span>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="btRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="btSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="btError">${bonusType.error}</span>
+        ${bonusType.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${bonusType.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  async function saveBonusType(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/bonus/configuration/types`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireBonusTypeEvents() {
+    $("#btPreset").addEventListener("change", (e) => {
+      bonusType.presetIdx = Number(e.target.value);
+      bonusType.fields = generateBonusTypeFields(bonusType.presetIdx);
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    $("#btRegenerateBtn").addEventListener("click", () => {
+      bonusType.fields = generateBonusTypeFields(bonusType.presetIdx);
+      bonusType.error = "";
+      bonusType.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#btSaveBtn");
+    btn.addEventListener("click", async () => {
+      bonusType.error = "";
+      bonusType.ok = "";
+      setBtnBusy(btn);
+      try {
+        await saveBonusType(bonusType.fields);
+        bonusType.ok = "Saved.";
+        setup.doneModules.add("bonus_types");
+        bonusPolicy.bonusTypes = null;
+      } catch (e) {
+        bonusType.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Bonus Policy — POST /bonus/configuration/policies ----------
+     The fourth real dependency: needs at least one Bonus Type. */
+  const bonusPolicy = { bonusTypes: null, loadError: "", fields: null, error: "", ok: "" };
+
+  async function loadBonusPolicyDependency() {
+    try {
+      bonusPolicy.bonusTypes = await fetchCompanyResource("/bonus/configuration/types");
+    } catch (e) {
+      bonusPolicy.bonusTypes = null;
+      bonusPolicy.loadError = e.message;
+    }
+  }
+
+  function generateBonusPolicyFields(bonusTypes) {
+    const bt = choice(bonusTypes);
+    const tenureEnabled = weightedChoice(BONUS_POLICY_TENURE_ENABLED);
+    const f = {
+      name: choice(BONUS_POLICY_NAMES),
+      bonusTypeId: bt.id,
+      calculationBasis: "Gross",
+      bonusPercentage: choice([25, 50, 100]),
+      paymentMethod: weightedChoice(BONUS_POLICY_PAYMENT_METHODS),
+      departmentIds: [],
+      employmentStatuses: [],
+      tenureEnabled,
+      gradeLevelEnabled: false,
+      _bonusTypeName: bt.typeName,
+    };
+    if (tenureEnabled) {
+      const unit = weightedChoice(BONUS_POLICY_TENURE_UNITS);
+      f.minimumTenureUnit = unit;
+      f.minimumTenureValue = unit === "months" ? choice([3, 6]) : unit === "days" ? choice([90, 180]) : 1;
+    }
+    return f;
+  }
+
+  function bonusPolicyTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">7</span>Bonus Policy</h2></div>`;
+    if (bonusPolicy.loadError) {
+      return `<div class="section">${head}<span class="error-text">${bonusPolicy.loadError}</span><div class="setup-actions" style="margin-top:10px"><button type="button" class="tiny-btn" id="bpRetryBtn">Try again</button></div></div>`;
+    }
+    if (bonusPolicy.bonusTypes === null) {
+      return `<div class="section">${head}<p class="section-note">Checking this company's bonus types…</p></div>`;
+    }
+    if (bonusPolicy.bonusTypes.length === 0) {
+      return `<div class="section">${head}<p class="section-note">A policy attaches to a bonus type — this company doesn't have any yet.</p>${dependencyNoticeHtml("Bonus Type", "payroll", "bonus_types")}</div>`;
+    }
+    if (!bonusPolicy.fields) bonusPolicy.fields = generateBonusPolicyFields(bonusPolicy.bonusTypes);
+    const f = bonusPolicy.fields;
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the Postman collection's own policy rule, drawing on this company's real bonus types. Name and bonus percentage can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="bpName">Name</label><input type="text" id="bpName" value="${f.name}" /></div>
+          <div class="field"><label for="bpPercentage">Bonus %</label><input type="number" id="bpPercentage" value="${f.bonusPercentage}" min="1" max="200" /></div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+          <span class="tally">Bonus type <strong>${f._bonusTypeName}</strong></span>
+          <span class="tally">Basis <strong>${f.calculationBasis}</strong></span>
+          <span class="tally">Payment method <strong>${f.paymentMethod.replace(/_/g, " ")}</strong></span>
+          ${f.tenureEnabled ? `<span class="tally">Min. tenure <strong>${f.minimumTenureValue} ${f.minimumTenureUnit}</strong></span>` : ""}
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="bpRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="bpSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="bpError">${bonusPolicy.error}</span>
+        ${bonusPolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${bonusPolicy.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readBonusPolicyForm() {
+    const { _bonusTypeName, ...rest } = bonusPolicy.fields;
+    return { ...rest, name: $("#bpName").value, bonusPercentage: Number($("#bpPercentage").value) };
+  }
+
+  async function saveBonusPolicy(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/bonus/configuration/policies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireBonusPolicyEvents() {
+    if (bonusPolicy.bonusTypes === null && !bonusPolicy.loadError) {
+      loadBonusPolicyDependency().then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    const retryBtn = $("#bpRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        bonusPolicy.loadError = "";
+        bonusPolicy.bonusTypes = null;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    if (!bonusPolicy.bonusTypes || bonusPolicy.bonusTypes.length === 0) return;
+
+    $("#bpRegenerateBtn").addEventListener("click", () => {
+      bonusPolicy.fields = generateBonusPolicyFields(bonusPolicy.bonusTypes);
+      bonusPolicy.error = "";
+      bonusPolicy.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#bpSaveBtn");
+    btn.addEventListener("click", async () => {
+      bonusPolicy.error = "";
+      bonusPolicy.ok = "";
+      const fields = readBonusPolicyForm();
+      setBtnBusy(btn);
+      try {
+        await saveBonusPolicy(fields);
+        bonusPolicy.fields = { ...fields, _bonusTypeName: bonusPolicy.fields._bonusTypeName };
+        bonusPolicy.ok = "Saved.";
+        setup.doneModules.add("bonus_policy");
+      } catch (e) {
+        bonusPolicy.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Overtime — POST /payroll/configuration/overtime ---------- */
+  const overtime = { fields: null, error: "", ok: "" };
+
+  function buildOvertimeCalcFields(target, rateType) {
+    const calculationType = weightedChoice(OVERTIME_CALCULATION_TYPES);
+    target.calculationType = calculationType;
+    if (calculationType === "Fixed Rate") {
+      target.fixedRate = choice(OVERTIME_FIXED_RATE_RANGES[rateType]);
+    } else {
+      target.multiplier = choice(OVERTIME_MULTIPLIERS);
+      target.basedOn = choice(OVERTIME_BASED_ON);
+    }
+  }
+
+  function buildSpecialOvertimeBlock(rateType) {
+    const overtimeEnabled = weightedChoice(OVERTIME_SPECIAL_ENABLED);
+    if (overtimeEnabled === "Disable") return { overtimeEnabled: "Disable" };
+    const block = { overtimeEnabled: "Enable", dailyHourLimit: choice([6, 8]) };
+    buildOvertimeCalcFields(block, rateType);
+    return block;
+  }
+
+  function generateOvertimeFields() {
+    const regularDailyHourLimit = choice([3, 4, 5]);
+    const defaultBlock = { dailyHourLimit: regularDailyHourLimit, monthlyHourLimit: regularDailyHourLimit * 20 };
+    buildOvertimeCalcFields(defaultBlock, "regular");
+    return {
+      overtimeEnabled: "Enable",
+      default: defaultBlock,
+      weekend: buildSpecialOvertimeBlock("weekend"),
+      holiday: buildSpecialOvertimeBlock("holiday"),
+    };
+  }
+
+  function overtimeSummaryChip(label, block) {
+    if (block.overtimeEnabled === "Disable") return `<span class="tally">${label} <strong>Disabled</strong></span>`;
+    const rate = block.calculationType === "Fixed Rate" ? `৳${block.fixedRate}/hr` : `${block.multiplier}x ${block.basedOn}`;
+    return `<span class="tally">${label} <strong>${rate}</strong></span>`;
+  }
+
+  function overtimeTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">8</span>Overtime</h2></div>`;
+    if (!overtime.fields) overtime.fields = generateOvertimeFields();
+    const f = overtime.fields;
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the Postman collection's own overtime script — regular overtime is always on; weekend and holiday are independently randomised, each 80% likely enabled.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          ${overtimeSummaryChip("Regular", f.default)}
+          ${overtimeSummaryChip("Weekend", f.weekend)}
+          ${overtimeSummaryChip("Holiday", f.holiday)}
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="otRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="otSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="otError">${overtime.error}</span>
+        ${overtime.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${overtime.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  async function saveOvertime(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/payroll/configuration/overtime`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireOvertimeEvents() {
+    $("#otRegenerateBtn").addEventListener("click", () => {
+      overtime.fields = generateOvertimeFields();
+      overtime.error = "";
+      overtime.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#otSaveBtn");
+    btn.addEventListener("click", async () => {
+      overtime.error = "";
+      overtime.ok = "";
+      setBtnBusy(btn);
+      try {
+        await saveOvertime(overtime.fields);
+        overtime.ok = "Saved.";
+        setup.doneModules.add("overtime");
+      } catch (e) {
+        overtime.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Attendance Bonus — POST /payroll/configuration/attendance-bonus ---------- */
+  const attendanceBonusCfg = { fields: null, error: "", ok: "" };
+
+  function generateAttendanceBonusFields() {
+    const bonusCountOnType = weightedChoice(ATTENDANCE_BONUS_COUNT_ON_TYPES);
+    const bonusCountOnValue = bonusCountOnType === "Percentage" ? choice(ATTENDANCE_BONUS_PERCENTAGE_VALUES) : choice(ATTENDANCE_BONUS_DAYS_VALUES);
+    const calculationType = weightedChoice(ATTENDANCE_BONUS_CALCULATION_TYPES);
+    const calculations = { enabled: "Disable", calculationType };
+    if (calculationType === "Fixed Rate") {
+      calculations.fixedRate = choice(ATTENDANCE_BONUS_FIXED_RATES);
+      calculations.percentage = null;
+      calculations.basedOn = null;
+    } else {
+      calculations.fixedRate = null;
+      calculations.percentage = choice(ATTENDANCE_BONUS_PERCENTAGES);
+      calculations.basedOn = choice(OVERTIME_BASED_ON);
+    }
+    return { attendanceBonusEnabled: "Enable", bonusCountOn: { type: bonusCountOnType, value: bonusCountOnValue }, calculations };
+  }
+
+  function attendanceBonusTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">9</span>Attendance Bonus</h2></div>`;
+    if (!attendanceBonusCfg.fields) attendanceBonusCfg.fields = generateAttendanceBonusFields();
+    const f = attendanceBonusCfg.fields;
+    const calcSummary = f.calculations.calculationType === "Fixed Rate" ? `৳${f.calculations.fixedRate}` : `${f.calculations.percentage}% of ${f.calculations.basedOn}`;
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the Postman collection's own attendance-bonus script. Note: the script itself always sends the calculation block's own "enabled" flag as Disable regardless of the outer toggle — kept as-is rather than corrected, since matching the script matters more than assuming it's a typo.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <span class="tally">Counted on <strong>${f.bonusCountOn.type} · ${f.bonusCountOn.value}${f.bonusCountOn.type === "Percentage" ? "%" : " days"}</strong></span>
+          <span class="tally">Calculation <strong>${calcSummary}</strong></span>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="abRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="abSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="abError">${attendanceBonusCfg.error}</span>
+        ${attendanceBonusCfg.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${attendanceBonusCfg.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  async function saveAttendanceBonus(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/payroll/configuration/attendance-bonus`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireAttendanceBonusEvents() {
+    $("#abRegenerateBtn").addEventListener("click", () => {
+      attendanceBonusCfg.fields = generateAttendanceBonusFields();
+      attendanceBonusCfg.error = "";
+      attendanceBonusCfg.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#abSaveBtn");
+    btn.addEventListener("click", async () => {
+      attendanceBonusCfg.error = "";
+      attendanceBonusCfg.ok = "";
+      setBtnBusy(btn);
+      try {
+        await saveAttendanceBonus(attendanceBonusCfg.fields);
+        attendanceBonusCfg.ok = "Saved.";
+        setup.doneModules.add("attendance_bonus");
+      } catch (e) {
+        attendanceBonusCfg.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Custom Addition/Deduction — POST /payroll/configuration/custom-fields ---------- */
+  const customAdditionDeduction = { type: "Addition", fields: null, error: "", ok: "" };
+
+  function generateCustomAdditionDeductionFields(type) {
+    const name = choice(type === "Addition" ? CUSTOM_ADDITION_NAMES : CUSTOM_DEDUCTION_NAMES);
+    return { name, type, carryingNext: Math.random() < 0.5 };
+  }
+
+  function customAdditionDeductionTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">10</span>Custom Addition/Deduction</h2></div>`;
+    if (!customAdditionDeduction.fields) customAdditionDeduction.fields = generateCustomAdditionDeductionFields(customAdditionDeduction.type);
+    const f = customAdditionDeduction.fields;
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">The Postman collection's own fixed names, paired by type.</p>
+        <div class="field-row">
+          <div class="field">
+            <label>Type</label>
+            <div class="seg" id="cadTypeSeg" role="group" aria-label="Type">
+              <button type="button" data-val="Addition" aria-pressed="${f.type === "Addition"}">Addition</button>
+              <button type="button" data-val="Deduction" aria-pressed="${f.type === "Deduction"}">Deduction</button>
+            </div>
+          </div>
+          <div class="field"><label for="cadName">Name</label><input type="text" id="cadName" value="${f.name}" /></div>
+        </div>
+        <span class="tally" style="margin-top:8px">Carry forward <strong>${f.carryingNext ? "yes" : "no"}</strong></span>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="cadRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="cadSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="cadError">${customAdditionDeduction.error}</span>
+        ${customAdditionDeduction.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${customAdditionDeduction.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readCustomAdditionDeductionForm() {
+    return { ...customAdditionDeduction.fields, name: $("#cadName").value };
+  }
+
+  async function saveCustomAdditionDeduction(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/payroll/configuration/custom-fields`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireCustomAdditionDeductionEvents() {
+    $all("#cadTypeSeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        customAdditionDeduction.fields.name = $("#cadName").value;
+        customAdditionDeduction.type = btn.dataset.val;
+        customAdditionDeduction.fields = generateCustomAdditionDeductionFields(customAdditionDeduction.type);
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
+
+    $("#cadRegenerateBtn").addEventListener("click", () => {
+      customAdditionDeduction.fields = generateCustomAdditionDeductionFields(customAdditionDeduction.type);
+      customAdditionDeduction.error = "";
+      customAdditionDeduction.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#cadSaveBtn");
+    btn.addEventListener("click", async () => {
+      customAdditionDeduction.error = "";
+      customAdditionDeduction.ok = "";
+      const fields = readCustomAdditionDeductionForm();
+      setBtnBusy(btn);
+      try {
+        await saveCustomAdditionDeduction(fields);
+        customAdditionDeduction.fields = fields;
+        customAdditionDeduction.ok = "Saved.";
+        setup.doneModules.add("custom_addition_deduction");
+      } catch (e) {
+        customAdditionDeduction.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Tax — PATCH /payroll/configuration/tax-rules/toggle/Enable ----------
+     The Postman collection has no endpoint anywhere for creating an actual
+     tax bracket or rule — only this enable/disable toggle. Built as
+     exactly what exists; the module says so rather than inventing a body
+     for an endpoint that isn't in the collection. This is the "Payroll
+     needs a new API" gap the user predicted before this group was built. */
+  const payrollTax = { error: "", ok: "" };
+
+  function payrollTaxTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">11</span>Tax</h2></div>`;
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note"><strong>Scope note:</strong> the Postman collection only has an enable/disable toggle for tax rules — there's no endpoint anywhere in it for actually creating a tax bracket or rule. This button calls exactly what exists; configuring real tax brackets needs an API this collection doesn't have yet.</p>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="generate-btn" id="ptSaveBtn">Enable Tax on ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="ptError">${payrollTax.error}</span>
+        ${payrollTax.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${payrollTax.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  async function savePayrollTax() {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/payroll/configuration/tax-rules/toggle/Enable`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${setup.companyToken}` },
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 200) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wirePayrollTaxEvents() {
+    const btn = $("#ptSaveBtn");
+    btn.addEventListener("click", async () => {
+      payrollTax.error = "";
+      payrollTax.ok = "";
+      setBtnBusy(btn);
+      try {
+        await savePayrollTax();
+        payrollTax.ok = "Saved.";
+        setup.doneModules.add("tax");
+      } catch (e) {
+        payrollTax.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ===== Attendance Policy — the Attendance group's only module ===== */
+  const attendancePolicy = { fields: null, error: "", ok: "" };
+
+  function generateShiftTime() {
+    const startHour = choice(ATTENDANCE_SHIFT_START_HOURS);
+    const totalWorkingHours = choice(ATTENDANCE_SHIFT_WORK_HOURS);
+    const endHour = startHour + totalWorkingHours;
+    const pad2 = (n) => String(n).padStart(2, "0");
+    return { workStartTime: `${pad2(startHour)}:00`, workEndTime: `${pad2(endHour)}:00`, totalWorkingHours };
+  }
+
+  function generateAttendancePolicyFields() {
+    const policyNumber = String(Date.now()).slice(-5);
+    const shiftCount = randInt(1, 3);
+    const shifts = [];
+    for (let i = 0; i < shiftCount; i++) {
+      const t = generateShiftTime();
+      shifts.push({
+        name: `${choice(ATTENDANCE_SHIFT_NAME_OPTIONS)} ${i + 1}`,
+        workStartTime: t.workStartTime,
+        workEndTime: t.workEndTime,
+        gracePeriodMinutes: choice(ATTENDANCE_GRACE_MINUTES),
+        totalWorkingHours: t.totalWorkingHours,
+        halfDayHours: Math.ceil(t.totalWorkingHours / 2),
+        isDefault: i === 0,
+      });
+    }
+
+    const overtimeEnabled = Math.random() < 0.5;
+    const overtimeConfigs = { isEnabled: overtimeEnabled };
+    if (overtimeEnabled) {
+      overtimeConfigs.hasMaxOvertime = Math.random() < 0.5;
+      if (overtimeConfigs.hasMaxOvertime) overtimeConfigs.maxOvertimeMinutes = choice(ATTENDANCE_OVERTIME_MAX_MINUTES);
+      overtimeConfigs.hasCooldown = Math.random() < 0.5;
+      if (overtimeConfigs.hasCooldown) overtimeConfigs.cooldownMinutes = choice(ATTENDANCE_OVERTIME_COOLDOWN_MINUTES);
+      overtimeConfigs.hasSlotDuration = Math.random() < 0.5;
+      if (overtimeConfigs.hasSlotDuration) overtimeConfigs.slotDurationMinutes = choice(ATTENDANCE_OVERTIME_SLOT_MINUTES);
+    }
+
+    const breakEnabled = Math.random() < 0.5;
+    const breakConfig = { breakEnabled };
+    if (breakEnabled) {
+      breakConfig.maxDurationMinutes = randInt(1, 480);
+      breakConfig.breakStartAfterMinutes = randInt(0, 720);
+      breakConfig.allowMultipleBreaks = Math.random() < 0.5;
+      breakConfig.maxBreakPerDay = randInt(1, 10);
+    } else {
+      breakConfig.allowMultipleBreaks = true;
+      breakConfig.maxBreakPerDay = 5;
+    }
+
+    return {
+      title: `Office Standard Policy ${policyNumber}`,
+      description: `Default attendance policy for standard working hours and weekends ${policyNumber}`,
+      shifts,
+      weekendDays: choice(ATTENDANCE_WEEKEND_OPTIONS),
+      overtimeConfigs,
+      earlyCheckInLimit: choice(ATTENDANCE_EARLY_CHECKIN_LIMITS),
+      breakConfig,
+    };
+  }
+
+  function attendancePolicyTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Attendance Policy</h2></div>`;
+    if (!attendancePolicy.fields) attendancePolicy.fields = generateAttendancePolicyFields();
+    const f = attendancePolicy.fields;
+    const shiftRows = f.shifts
+      .map((s) => `<span class="tally" style="margin-top:6px; margin-right:6px">${s.name}${s.isDefault ? " · default" : ""} <strong>${s.workStartTime}–${s.workEndTime}</strong></span>`)
+      .join("");
+    const weekendKey = JSON.stringify(f.weekendDays);
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the Postman collection's own pre-request script — shifts, overtime and break rules are rolled per its logic. Only the title and weekend days are exposed here for hand-editing; regenerate to re-roll everything else.</p>
+        <div class="field-row">
+          <div class="field"><label for="apTitle">Title</label><input type="text" id="apTitle" value="${f.title}" /></div>
+          <div class="field">
+            <label>Weekend Days</label>
+            <div class="seg" id="apWeekendSeg" role="group" aria-label="Weekend days">
+              <button type="button" data-val='["FRI"]' aria-pressed="${weekendKey === '["FRI"]'}">Friday</button>
+              <button type="button" data-val='["SAT"]' aria-pressed="${weekendKey === '["SAT"]'}">Saturday</button>
+              <button type="button" data-val='["FRI","SAT"]' aria-pressed="${weekendKey === '["FRI","SAT"]'}">Fri + Sat</button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <label style="font-size:12.5px; font-weight:600; color:var(--text); display:block; margin-bottom:8px;">Shifts (${f.shifts.length})</label>
+          <div style="display:flex; flex-wrap:wrap;">${shiftRows}</div>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="apRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="apSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="apError">${attendancePolicy.error}</span>
+        ${attendancePolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${attendancePolicy.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readAttendancePolicyForm() {
+    return { ...attendancePolicy.fields, title: $("#apTitle").value };
+  }
+
+  async function saveAttendancePolicy(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/attendance/policy/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireAttendancePolicyEvents() {
+    $all("#apWeekendSeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        attendancePolicy.fields.title = $("#apTitle").value;
+        attendancePolicy.fields.weekendDays = JSON.parse(btn.dataset.val);
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
+
+    $("#apRegenerateBtn").addEventListener("click", () => {
+      attendancePolicy.fields = generateAttendancePolicyFields();
+      attendancePolicy.error = "";
+      attendancePolicy.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#apSaveBtn");
+    btn.addEventListener("click", async () => {
+      attendancePolicy.error = "";
+      attendancePolicy.ok = "";
+      const fields = readAttendancePolicyForm();
+      setBtnBusy(btn);
+      try {
+        await saveAttendancePolicy(fields);
+        attendancePolicy.fields = fields;
+        attendancePolicy.ok = "Saved.";
+        setup.doneModules.add("attendance_policy");
+      } catch (e) {
+        attendancePolicy.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* Every per-module cache (generated fields, fetched dependency data,
+     in-flight error/ok text) gets wiped here — called on both Sign out
+     and Disconnect. Without it, a module's last-generated values from
+     company A would still be sitting there, unregenerated, the moment
+     you connect to company B; `companyProfile.fields` is only ever
+     (re)built when it's null, so nothing would prompt a fresh generate.
+     A new module's state object gets added to this list, not left out
+     of it — the bug it fixes is silent by nature, so there's no test
+     that catches forgetting a line here except one written on purpose. */
+  function resetModuleState() {
+    companyProfile.fields = null;
+    companyProfile.error = "";
+    companyProfile.ok = "";
+    bankInfo.fields = null;
+    bankInfo.error = "";
+    bankInfo.ok = "";
+    companyBranch.fields = null;
+    companyBranch.error = "";
+    companyBranch.ok = "";
+    companyDepartment.fields = null;
+    companyDepartment.error = "";
+    companyDepartment.ok = "";
+    companyDesignation.departments = null;
+    companyDesignation.loadError = "";
+    companyDesignation.fields = null;
+    companyDesignation.error = "";
+    companyDesignation.ok = "";
+    customField.fields = null;
+    customField.error = "";
+    customField.ok = "";
+    requiredDocument.fields = null;
+    requiredDocument.error = "";
+    requiredDocument.ok = "";
+    leaveType.kindId = "annual";
+    leaveType.fields = null;
+    leaveType.error = "";
+    leaveType.ok = "";
+    leavePolicy.leaveTypes = null;
+    leavePolicy.loadError = "";
+    leavePolicy.fields = null;
+    leavePolicy.error = "";
+    leavePolicy.ok = "";
+    attendancePolicy.fields = null;
+    attendancePolicy.error = "";
+    attendancePolicy.ok = "";
+    payrollGeneral.fields = null;
+    payrollGeneral.error = "";
+    payrollGeneral.ok = "";
+    salaryComponent.presetIdx = 0;
+    salaryComponent.fields = null;
+    salaryComponent.error = "";
+    salaryComponent.ok = "";
+    companySalaryStructure.components = null;
+    companySalaryStructure.loadError = "";
+    companySalaryStructure.fields = null;
+    companySalaryStructure.error = "";
+    companySalaryStructure.ok = "";
+    lateArrival.leaveTypes = null;
+    lateArrival.loadError = "";
+    lateArrival.fields = null;
+    lateArrival.error = "";
+    lateArrival.ok = "";
+    absentDeduction.leaveTypes = null;
+    absentDeduction.loadError = "";
+    absentDeduction.fields = null;
+    absentDeduction.error = "";
+    absentDeduction.ok = "";
+    bonusType.presetIdx = 0;
+    bonusType.fields = null;
+    bonusType.error = "";
+    bonusType.ok = "";
+    bonusPolicy.bonusTypes = null;
+    bonusPolicy.loadError = "";
+    bonusPolicy.fields = null;
+    bonusPolicy.error = "";
+    bonusPolicy.ok = "";
+    overtime.fields = null;
+    overtime.error = "";
+    overtime.ok = "";
+    attendanceBonusCfg.fields = null;
+    attendanceBonusCfg.error = "";
+    attendanceBonusCfg.ok = "";
+    customAdditionDeduction.type = "Addition";
+    customAdditionDeduction.fields = null;
+    customAdditionDeduction.error = "";
+    customAdditionDeduction.ok = "";
+    payrollTax.error = "";
+    payrollTax.ok = "";
   }
 
   function wireCompanySetupEvents() {

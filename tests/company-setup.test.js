@@ -22,6 +22,9 @@ const { PAGE, loadAppData, makeChecker, report, signIn, watchPageErrors } = requ
 const { check, state } = makeChecker();
 const { BUSY_MESSAGES } = loadAppData(["BUSY_MESSAGES"]);
 const { BANK_NAMES, BANK_SHORT_CODE_MAP } = loadAppData(["BANK_NAMES", "BANK_SHORT_CODE_MAP"]);
+const { OFFICE_NAMES, DEPARTMENT_NAMES, DESIGNATION_NAMES } = loadAppData(["OFFICE_NAMES", "DEPARTMENT_NAMES", "DESIGNATION_NAMES"]);
+const { CUSTOM_FIELD_PRESETS, REQUIRED_DOCUMENT_NAMES } = loadAppData(["CUSTOM_FIELD_PRESETS", "REQUIRED_DOCUMENT_NAMES"]);
+const { LEAVE_TYPE_KINDS } = loadAppData(["LEAVE_TYPE_KINDS"]);
 
 async function gotoSetup(page) {
   await page.goto(PAGE);
@@ -308,12 +311,11 @@ async function toGrid(page, companyName = "Hogwarts") {
       JSON.stringify(await page.locator(".settings-tab").allTextContents().then((a) => a.map((t) => t.trim()))) ===
         JSON.stringify(["Company Profile", "Bank Info", "Locations", "Department Management", "Designation Management"]));
 
-    /* free pick: jump straight to a module with no dependency on any other,
-       and back again, in whatever order — nothing about this is a wizard */
+    /* free pick: jump straight to another built module and back again, in
+       whatever order — nothing about this is a wizard */
     await page.click('.settings-tab[data-module="departments"]');
     await page.waitForTimeout(80);
-    check("I an unbuilt module shows the honest placeholder, not a broken page",
-      (await page.textContent("#setupBody")).includes("Not built yet"));
+    check("I jumping straight to another tab works with no forced order", (await page.locator("#deptModSaveBtn").count()) === 1);
     await page.click('.settings-tab[data-module="company_profile"]');
     await page.waitForTimeout(80);
     check("I jumping back to Company Profile still works", (await page.locator("#cpSaveBtn").count()) === 1);
@@ -321,6 +323,12 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#setupBackToModules");
     await page.waitForTimeout(80);
     check("I back link returns to the 5-card grid, not signed out", (await page.locator(".settings-card").count()) === 5);
+
+    /* Every module in every group is now built (Payroll was the last),
+       so settingsComingSoonHtml()'s fallback has no reachable gap left
+       to exercise through normal navigation — it stays in the code for
+       whenever a 21st module is added, same as renderMain()'s own
+       "Coming soon" branch after all five operations were built. */
     await page.close();
   }
 
@@ -502,6 +510,722 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("M a failed call clears the busy state", (await page.locator("#setupSignInBtn .spin").count()) === 0);
     check("M and restores the plain idle label", (await page.textContent("#setupSignInBtn")).trim() === "Sign in");
     check("M and re-enables the button", !(await page.isDisabled("#setupSignInBtn")));
+    await page.close();
+  }
+
+  /* ---------- P. Locations (Branch Management) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="branches"]');
+    await page.waitForTimeout(80);
+
+    const officeName = await page.inputValue("#brOfficeName");
+    check("P the generated office name is one of the real ones", OFFICE_NAMES.includes(officeName), officeName);
+
+    const geoOn = (await page.getAttribute('#brGeoSeg button[data-geo="yes"]', "aria-pressed")) === "true";
+    check("P geo fields are present exactly when geolocation is on", (await page.locator("#brLat").count()) === (geoOn ? 1 : 0));
+
+    // force geolocation off, confirm fields disappear and stay null on save
+    if (geoOn) await page.click('#brGeoSeg button[data-geo="no"]');
+    else await page.click('#brGeoSeg button[data-geo="yes"]').then(() => page.click('#brGeoSeg button[data-geo="no"]'));
+    await page.waitForTimeout(60);
+    check("P turning geolocation off removes the geo fields", (await page.locator("#brLat").count()) === 0);
+
+    let sentOff = null;
+    await page.route("**/api/v1/company/branches", (route) => {
+      sentOff = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Branch created successfully" }) });
+    });
+    await page.click("#brSaveBtn");
+    await page.waitForTimeout(150);
+    check("P geolocation-off sends null lat/lng/radius, not zero or omitted",
+      sentOff && sentOff.latitude === null && sentOff.longitude === null && sentOff.radiusInMeters === null, JSON.stringify(sentOff));
+    check("P the tab picks up a done marker", (await page.locator('.settings-tab[data-module="branches"] .op-dot').count()) === 1);
+    check("P no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+  {
+    // geolocation on: confirm real numbers get sent, not null
+    const page = await browser.newContext().then((c) => c.newPage());
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="branches"]');
+    await page.waitForTimeout(80);
+    const alreadyOn = (await page.getAttribute('#brGeoSeg button[data-geo="yes"]', "aria-pressed")) === "true";
+    if (!alreadyOn) await page.click('#brGeoSeg button[data-geo="yes"]');
+    await page.waitForTimeout(60);
+    let sentOn = null;
+    await page.route("**/api/v1/company/branches", (route) => {
+      sentOn = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success" }) });
+    });
+    await page.click("#brSaveBtn");
+    await page.waitForTimeout(150);
+    check("P geolocation-on sends real numbers for lat/lng/radius",
+      sentOn && typeof sentOn.latitude === "number" && typeof sentOn.longitude === "number" && typeof sentOn.radiusInMeters === "number",
+      JSON.stringify(sentOn));
+    await page.close();
+  }
+
+  /* ---------- Q. Department Management ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="departments"]');
+    await page.waitForTimeout(80);
+
+    const deptName = await page.inputValue("#deptModName");
+    check("Q the generated department is one of the real ones", DEPARTMENT_NAMES.includes(deptName), deptName);
+
+    await page.fill("#deptModName", "Hand-Edited Dept");
+    let sent = null;
+    await page.route("**/api/v1/departments", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", data: { name: sent.name, status: "Active" } }) });
+    });
+    await page.click("#deptModSaveBtn");
+    await page.waitForTimeout(150);
+    check("Q the hand-edited name is what actually gets sent", sent && sent.name === "Hand-Edited Dept");
+    check("Q the fixed fields match the Postman body exactly",
+      sent && sent.code === "" && sent.status === "Active" && sent.parentId === null && sent.businessLineId === null && sent.departmentHeadId === null,
+      JSON.stringify(sent));
+    check("Q the tab picks up a done marker", (await page.locator('.settings-tab[data-module="departments"] .op-dot').count()) === 1);
+    check("Q no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- R. Designation Management — the dependency flow ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+
+    // no departments yet
+    await page.route("**/api/v1/departments/active", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
+    );
+    await page.click('.settings-tab[data-module="designations"]');
+    await page.waitForTimeout(200);
+    check("R blocked with a named, specific reason", (await page.textContent("#setupBody")).includes("doesn't have a Department yet"));
+    check("R the shortcut names the one real prerequisite, not a tour", (await page.locator(".dep-shortcut").count()) === 1);
+
+    await page.click(".dep-shortcut");
+    await page.waitForTimeout(80);
+    check("R the shortcut jumps straight to Department Management", (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "departments");
+
+    // save a real department — this is what should invalidate the cached "empty" check
+    await page.route("**/api/v1/departments", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", data: { name: "Engineering", status: "Active" } }) });
+    });
+    await page.click("#deptModSaveBtn");
+    await page.waitForTimeout(150);
+
+    await page.unroute("**/api/v1/departments/active");
+    await page.route("**/api/v1/departments/active", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "d1", name: "Engineering" }, { id: "d2", name: "Sales" }] }) })
+    );
+    await page.click('.settings-tab[data-module="designations"]');
+    await page.waitForSelector("#desigName", { timeout: 5000 });
+    check("R saving the prerequisite invalidates the cached check — the form appears without a reload", true);
+
+    const desigName = await page.inputValue("#desigName");
+    check("R the generated designation is one of the real four", DESIGNATION_NAMES.includes(desigName), desigName);
+    check("R the department select lists the real departments",
+      JSON.stringify(await page.locator("#desigDept option").allTextContents()) === JSON.stringify(["Engineering", "Sales"]));
+
+    await page.selectOption("#desigDept", { label: "Sales" });
+    let sent = null;
+    await page.route("**/api/v1/designations", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Designation created successfully" }) });
+    });
+    await page.click("#desigSaveBtn");
+    await page.waitForTimeout(150);
+    check("R the picked department is what's actually sent, as departmentIds", sent && JSON.stringify(sent.departmentIds) === '["d2"]', JSON.stringify(sent));
+    check("R the tab picks up a done marker", (await page.locator('.settings-tab[data-module="designations"] .op-dot').count()) === 1);
+    check("R no page errors through the whole dependency flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- S. disconnecting clears every module's cached state, not just tokens ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    await toGrid(page, "Hogwarts");
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    const firstLegalName = await page.inputValue("#cpLegalName"); // generates + caches companyProfile.fields
+    check("S sanity: legalName is generated from Hogwarts", firstLegalName.startsWith("Hogwarts "));
+
+    await page.click("#setupBackToModules");
+    await page.waitForTimeout(80);
+    await page.click("#setupDisconnectBtn");
+    await page.waitForTimeout(80);
+
+    // reconnect as a different company
+    await mockCompanyOk(page, "Wayne Enterprises", "company_admin");
+    await page.fill("#setupCoEmail", "wayne@company.com");
+    await page.fill("#setupCoPass", "whatever");
+    await page.click("#setupCoBtn");
+    await page.waitForTimeout(150);
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    const secondLegalName = await page.inputValue("#cpLegalName");
+    check("S a new company after Disconnect gets its own generated fields, not the last company's",
+      secondLegalName.startsWith("Wayne Enterprises "), secondLegalName);
+    await page.close();
+  }
+
+  /* ---------- T. Custom Fields ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Employee Settings')");
+    await page.waitForTimeout(100);
+
+    const cfName = await page.inputValue("#cfName");
+    const cfType = await page.inputValue("#cfType");
+    const preset = CUSTOM_FIELD_PRESETS.find((p) => p.fieldName === cfName);
+    check("T the generated field is one of the real presets, with its matching type", preset && preset.type === cfType, `${cfName}/${cfType}`);
+
+    if (preset.type === "checkbox" || preset.type === "enum") {
+      check("T enableFilter is a real toggle for checkbox/enum types", (await page.locator("#cfFilterSeg").count()) === 1);
+    }
+    check("T choices only appear for an enum-type field", (await page.locator("#cfChoices").count()) === (preset.type === "enum" ? 1 : 0));
+
+    let sent = null;
+    await page.route("**/api/v1/company-settings/employee-custom-fields", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Custom field created successfully" }) });
+    });
+    await page.click("#cfSaveBtn");
+    await page.waitForTimeout(150);
+    if (preset.type !== "enum") {
+      check("T a non-enum field sends no options key at all", sent && !("options" in sent), JSON.stringify(sent));
+    } else {
+      check("T an enum field sends options.choices from its own pool",
+        sent && Array.isArray(sent.options && sent.options.choices) && sent.options.choices.every((c) => preset.choicePool.includes(c)),
+        JSON.stringify(sent));
+    }
+    check("T the tab picks up a done marker", (await page.locator('.settings-tab[data-module="custom_fields"] .op-dot').count()) === 1);
+    check("T no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- U. Required Documents ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Employee Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="required_documents"]');
+    await page.waitForTimeout(80);
+
+    const rdName = await page.inputValue("#rdName");
+    check("U the generated document is one of the real ones", REQUIRED_DOCUMENT_NAMES.includes(rdName), rdName);
+
+    // force a known combination so the payload is fully predictable
+    await page.click('#rdTypeSeg button[data-val="file"]');
+    await page.click('#rdStatusSeg button[data-val="active"]');
+    await page.click('#rdRequiredSeg button[data-val="yes"]');
+
+    let sent = null;
+    await page.route("**/api/v1/required-documents", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Resource created successfully" }) });
+    });
+    await page.click("#rdSaveBtn");
+    await page.waitForTimeout(150);
+    check("U status is sent lowercase, this endpoint's own convention", sent && sent.status === "active", JSON.stringify(sent));
+    check("U isRequired is sent as a real JSON boolean, not a string", sent && sent.isRequired === true, JSON.stringify(sent));
+    check("U type reflects the toggle actually clicked", sent && sent.type === "file");
+    check("U the tab picks up a done marker", (await page.locator('.settings-tab[data-module="required_documents"] .op-dot').count()) === 1);
+    check("U no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- V. Leave Types — normal and special-entitlement kinds ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Leave')");
+    await page.waitForTimeout(100);
+
+    check("V opens on Annual Leave with the normal-leave toggles", (await page.locator("#ltConsecutiveSeg").count()) === 1);
+    check("V special-entitlement fields are absent for a normal kind", (await page.locator("#ltInstancesSeg").count()) === 0);
+
+    await page.selectOption("#ltKind", "paternity");
+    await page.waitForTimeout(60);
+    check("V switching to a special-entitlement kind swaps the fields", (await page.locator("#ltInstancesSeg").count()) === 1);
+    check("V and the normal-leave toggles are gone", (await page.locator("#ltConsecutiveSeg").count()) === 0);
+
+    let sent = null;
+    await page.route("**/api/v1/leave-types", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave type created successfully" }) });
+    });
+    await page.click("#ltSaveBtn");
+    await page.waitForTimeout(150);
+    const kind = LEAVE_TYPE_KINDS.find((k) => k.id === "paternity");
+    check("V paternity sends the fixed gender/marital eligibility", sent && sent.genderEligibility === "male" && sent.maritalStatusEligibility === "married");
+    check("V paternity sends its fixed per-instance day count", sent && sent.seMaxDaysPerInstance === kind.seMaxDaysPerInstance, JSON.stringify(sent));
+    check("V normal-leave fields are all forced off for a special-entitlement kind",
+      sent && sent.consecutiveLimit === false && sent.monthlyLimit === false && sent.sandwichRuleEnabled === false && sent.isBridge === false && sent.isLeaveReset === false);
+    check("V the tab picks up a done marker", (await page.locator('.settings-tab[data-module="leave_types"] .op-dot').count()) === 1);
+    check("V no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- W. Leave Policy — the second real dependency flow ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Leave')");
+    await page.waitForTimeout(100);
+
+    await page.route("**/api/v1/leave-types", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
+    );
+    await page.click('.settings-tab[data-module="leave_policy"]');
+    await page.waitForTimeout(200);
+    check("W blocked with a named reason when no leave types exist", (await page.textContent("#setupBody")).includes("doesn't have any yet"));
+    check("W the shortcut jumps to Leave Types", (await page.locator(".dep-shortcut").count()) === 1);
+
+    await page.click(".dep-shortcut");
+    await page.waitForTimeout(80);
+    check("W shortcut lands on the right tab", (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "leave_types");
+
+    await page.route("**/api/v1/leave-types", (route) => {
+      if (route.request().method() === "POST") {
+        route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave type created successfully" }) });
+      } else route.continue();
+    });
+    await page.click("#ltSaveBtn");
+    await page.waitForTimeout(150);
+
+    await page.unroute("**/api/v1/leave-types");
+    await page.route("**/api/v1/leave-types", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "success", data: [
+          { id: "lt1", name: "Annual Leave", seMaxDaysPerInstance: null },
+          { id: "lt2", name: "Sick Leave", seMaxDaysPerInstance: null },
+          { id: "lt3", name: "Maternity Leave", seMaxDaysPerInstance: 120 },
+        ] }),
+      });
+    });
+    await page.click('.settings-tab[data-module="leave_policy"]');
+    await page.waitForSelector("#lpName", { timeout: 5000 });
+    check("W saving the prerequisite invalidates the cache — the form appears without a reload", true);
+    check("W at least 3 (or however many exist) leave types are included",
+      (await page.locator(".tally").count()) >= 3);
+
+    let sent = null;
+    await page.route("**/api/v1/leave-policies", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave policy created successfully" }) });
+    });
+    await page.click("#lpSaveBtn");
+    await page.waitForTimeout(150);
+    check("W the special-entitlement leave type is forced into the Special category with its fixed days",
+      sent && sent.leaveTypes.some((lt) => lt.leaveTypeId === "lt3" && lt.category === "Special" && lt.days === 120), JSON.stringify(sent));
+    check("W departmentIds is empty — company-wide by default", sent && Array.isArray(sent.departmentIds) && sent.departmentIds.length === 0);
+    check("W the tab picks up a done marker", (await page.locator('.settings-tab[data-module="leave_policy"] .op-dot').count()) === 1);
+    check("W no page errors through the whole flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- X. Attendance Policy — the Attendance group's only module ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Attendance')");
+    await page.waitForSelector("#apTitle", { timeout: 5000 });
+    check("X lands directly on the group's only module", (await page.locator('.settings-tab[data-module="attendance_policy"][aria-current="true"]').count()) === 1);
+    check("X at least one shift is generated", (await page.locator(".tally").count()) >= 1);
+
+    const titleBefore = await page.inputValue("#apTitle");
+    await page.click("#apRegenerateBtn");
+    await page.waitForTimeout(60);
+    const titleAfter = await page.inputValue("#apTitle");
+    check("X regenerate re-rolls the title (policy number changes)", titleBefore !== titleAfter);
+
+    await page.fill("#apTitle", "Hand-Edited Policy Title");
+    await page.click('#apWeekendSeg button[data-val=\'["SAT"]\']');
+    await page.waitForTimeout(60);
+    check("X weekend toggle is reflected as pressed", (await page.getAttribute('#apWeekendSeg button[data-val=\'["SAT"]\']', "aria-pressed")) === "true");
+    check("X hand-edited title survived the weekend re-render", (await page.inputValue("#apTitle")) === "Hand-Edited Policy Title");
+
+    let sent = null;
+    await page.route("**/api/v1/attendance/policy/create", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Company-wide policy created successfully!" }) });
+    });
+    await page.click("#apSaveBtn");
+    await page.waitForTimeout(150);
+    check("X the hand-edited title, not a regenerated one, is what's sent", sent && sent.title === "Hand-Edited Policy Title");
+    check("X weekendDays reflects the picked toggle", sent && JSON.stringify(sent.weekendDays) === '["SAT"]');
+    check("X shifts/overtime/break still carry the generated shape", sent && Array.isArray(sent.shifts) && sent.shifts.length >= 1 && typeof sent.overtimeConfigs === "object" && typeof sent.breakConfig === "object");
+    await page.click("#setupBackToModules");
+    await page.waitForTimeout(60);
+    check("X the group's card shows 1/1 done", (await page.textContent(".settings-card:has-text('Attendance') .tally")).includes("1/1"));
+    check("X no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- Y. Payroll: General — payroll cycle picker ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.waitForSelector("#pgCycleSeg", { timeout: 5000 });
+    check("Y lands on Payroll's first module", (await page.locator('.settings-tab[data-module="payroll_general"][aria-current="true"]').count()) === 1);
+
+    await page.click('#pgCycleSeg button[data-val="fixed_date"]');
+    await page.waitForTimeout(60);
+    check("Y switching to fixed_date shows a fixed start day chip", (await page.textContent("#setupBody")).includes("Fixed start day"));
+
+    await page.click('#pgCycleSeg button[data-val="bi_weekly"]');
+    await page.waitForTimeout(60);
+    check("Y switching to bi_weekly shows a bi-weekly start date chip, no threshold", (await page.textContent("#setupBody")).includes("Bi-weekly start"));
+
+    let sent = null;
+    await page.route("**/api/v1/payroll/configuration/payroll-cycle", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Pay cycle updated. Current period recalculated." }) });
+    });
+    await page.click("#pgSaveBtn");
+    await page.waitForTimeout(150);
+    check("Y bi_weekly sends a biWeeklyStartDate, no threshold fields", sent && sent.payrollCycle === "bi_weekly" && /^\d{4}-\d{2}-01$/.test(sent.biWeeklyStartDate) && sent.thresholdRuleEnabled === undefined, JSON.stringify(sent));
+    check("Y the tab picks up a done marker", (await page.locator('.settings-tab[data-module="payroll_general"] .op-dot').count()) === 1);
+    check("Y no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- Z. Payroll: Salary Components — fixed preset pool ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.click('.settings-tab[data-module="salary_components"]');
+    await page.waitForSelector("#scPreset", { timeout: 5000 });
+    check("Z defaults to the first preset (Medical Allowance)", (await page.locator("#scPreset").inputValue()) === "0");
+    check("Z shows that preset's real description", (await page.textContent("#setupBody")).includes("medical and healthcare-related expenses"));
+
+    await page.selectOption("#scPreset", "1");
+    await page.waitForTimeout(60);
+    check("Z switching preset shows House Rent Allowance's description", (await page.textContent("#setupBody")).includes("house rent or accommodation-related expenses"));
+
+    let sent = null;
+    await page.route("**/api/v1/payroll/configuration/salary-components", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: `Salary component "${sent.name}" created successfully!`, data: { id: "sc-1" } }) });
+    });
+    await page.click("#scSaveBtn");
+    await page.waitForTimeout(150);
+    check("Z sends the real fixed name, not a generated one", sent && sent.name === "House Rent Allowance");
+    check("Z the tab picks up a done marker", (await page.locator('.settings-tab[data-module="salary_components"] .op-dot').count()) === 1);
+    check("Z no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AA. Payroll: Configure Salary Components — the third real dependency ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+
+    await page.route("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "sc-1", name: "Medical Allowance", status: "Active" }] }) })
+    );
+    await page.click('.settings-tab[data-module="configure_salary_components"]');
+    await page.waitForTimeout(200);
+    check("AA blocked with a named reason when fewer than 2 active components exist", (await page.textContent("#setupBody")).includes("this company has 1 so far"));
+    check("AA the shortcut jumps to Salary Components", (await page.locator(".dep-shortcut").count()) === 1);
+    await page.click(".dep-shortcut");
+    await page.waitForTimeout(80);
+    check("AA shortcut lands on the right tab", (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "salary_components");
+
+    await page.route("**/api/v1/payroll/configuration/salary-components", (route) => {
+      if (route.request().method() === "POST") {
+        route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Salary component created successfully!", data: { id: "sc-2" } }) });
+      } else route.continue();
+    });
+    await page.click("#scSaveBtn");
+    await page.waitForTimeout(150);
+
+    await page.unroute("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100");
+    await page.route("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [
+        { id: "sc-1", name: "Medical Allowance", status: "Active" },
+        { id: "sc-2", name: "House Rent Allowance", status: "Active" },
+      ] }) })
+    );
+    await page.click('.settings-tab[data-module="configure_salary_components"]');
+    await page.waitForSelector(".settings-tabs", { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Basic"), { timeout: 5000 });
+    check("AA saving the prerequisite invalidates the cache — the split now appears", (await page.textContent("#setupBody")).includes("House Rent Allowance"));
+
+    let sent = null;
+    await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Salary structure created successfully" }) });
+    });
+    await page.click("#ssSaveBtn");
+    await page.waitForTimeout(150);
+    check("AA the split always sums to 100", sent && sent.basicSalaryPercentage + sent.components[0].percentage + sent.components[1].percentage === 100, JSON.stringify(sent));
+    check("AA both real component IDs are used, not invented ones", sent && sent.components.every((c) => ["sc-1", "sc-2"].includes(c.salaryComponentId)));
+    check("AA the tab picks up a done marker", (await page.locator('.settings-tab[data-module="configure_salary_components"] .op-dot').count()) === 1);
+    check("AA no page errors through the whole flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AB. Payroll: Late Arrival, Absent Deduction — both need a Leave Type ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+
+    await page.route("**/api/v1/leave-types", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "lt1", name: "Annual Leave" }] }) });
+    });
+    await page.click('.settings-tab[data-module="late_arrival"]');
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Monthly late limit"), { timeout: 5000 });
+    check("AB Late Arrival resolves its own leave-type dependency", (await page.textContent("#setupBody")).includes("Annual Leave"));
+
+    let laSent = null;
+    await page.route("**/api/v1/payroll/configuration/deduction-settings", (route) => {
+      laSent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Deduction settings updated successfully" }) });
+    });
+    await page.click("#laSaveBtn");
+    await page.waitForTimeout(150);
+    check("AB exactly one of the two late-penalty flags is true", laSent && (laSent.latePenaltyEnabled !== laSent.repeatedLatePenaltyEnabled));
+    check("AB the internal leave-type-name field never reaches the request", laSent && laSent._leaveTypeName === undefined);
+    check("AB latePenaltyLeaveType carries the real leave type id", laSent && laSent.latePenaltyLeaveType === "lt1");
+
+    await page.click('.settings-tab[data-module="absent_deduction"]');
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Rule based on"), { timeout: 5000 });
+    let adSent = null;
+    await page.route("**/api/v1/payroll/configuration/absent-deduction-settings", (route) => {
+      adSent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Absent deduction settings updated successfully" }) });
+    });
+    await page.click("#adSaveBtn");
+    await page.waitForTimeout(150);
+    check("AB Absent Deduction resolves the dependency independently of Late Arrival", adSent && adSent.absentDeductionLeaveType === "lt1");
+    check("AB ruleBasedOn matches the real script's two values", adSent && ["consecutive_absent_days", "total_absent_days"].includes(adSent.ruleBasedOn));
+    check("AB both tabs picked up done markers", (await page.locator('.settings-tab[data-module="late_arrival"] .op-dot').count()) === 1 && (await page.locator('.settings-tab[data-module="absent_deduction"] .op-dot').count()) === 1);
+    check("AB no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AC. Payroll: Bonus Types — fixed preset pool ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.click('.settings-tab[data-module="bonus_types"]');
+    await page.waitForSelector("#btPreset", { timeout: 5000 });
+    check("AC defaults to Eid Bonus", (await page.locator("#btPreset").inputValue()) === "0");
+
+    await page.selectOption("#btPreset", "3");
+    await page.waitForTimeout(60);
+    check("AC the 4th preset (Inactive Test Bonus) shows Inactive status", (await page.textContent("#setupBody")).includes("Inactive"));
+
+    let sent = null;
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Bonus type created successfully." }) });
+    });
+    await page.click("#btSaveBtn");
+    await page.waitForTimeout(150);
+    check("AC sends the real fixed name and status, not generated ones", sent && sent.typeName === "Inactive Test Bonus" && sent.status === "Inactive");
+    check("AC the tab picks up a done marker", (await page.locator('.settings-tab[data-module="bonus_types"] .op-dot').count()) === 1);
+    check("AC no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AD. Payroll: Bonus Policy — the fourth real dependency ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+    });
+    await page.click('.settings-tab[data-module="bonus_policy"]');
+    await page.waitForTimeout(200);
+    check("AD blocked with a named reason when no bonus types exist", (await page.textContent("#setupBody")).includes("doesn't have any yet"));
+    await page.click(".dep-shortcut");
+    await page.waitForTimeout(80);
+    check("AD shortcut jumps to Bonus Types", (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "bonus_types");
+
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() === "POST") {
+        route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Bonus type created successfully." }) });
+      } else route.continue();
+    });
+    await page.click("#btSaveBtn");
+    await page.waitForTimeout(150);
+
+    await page.unroute("**/api/v1/bonus/configuration/types");
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "bt-1", typeName: "Eid Bonus", status: "Active" }] }) });
+    });
+    await page.click('.settings-tab[data-module="bonus_policy"]');
+    await page.waitForSelector("#bpName", { timeout: 5000 });
+    check("AD saving the prerequisite invalidates the cache — the form appears", (await page.textContent("#setupBody")).includes("Eid Bonus"));
+
+    await page.fill("#bpName", "Hand-Edited Policy Name");
+    let sent = null;
+    await page.route("**/api/v1/bonus/configuration/policies", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Bonus policy created successfully." }) });
+    });
+    await page.click("#bpSaveBtn");
+    await page.waitForTimeout(150);
+    check("AD the hand-edited name, not a generated one, is what's sent", sent && sent.name === "Hand-Edited Policy Name");
+    check("AD bonusTypeId is the real fetched id", sent && sent.bonusTypeId === "bt-1");
+    check("AD the internal bonus-type-name field never reaches the request", sent && sent._bonusTypeName === undefined);
+    check("AD the tab picks up a done marker", (await page.locator('.settings-tab[data-module="bonus_policy"] .op-dot').count()) === 1);
+    check("AD no page errors through the whole flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AE. Payroll: Overtime ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.click('.settings-tab[data-module="overtime"]');
+    await page.waitForSelector("#otSaveBtn", { timeout: 5000 });
+
+    let sent = null;
+    await page.route("**/api/v1/payroll/configuration/overtime", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Overtime settings configured successfully!" }) });
+    });
+    await page.click("#otSaveBtn");
+    await page.waitForTimeout(150);
+    check("AE regular overtime is always enabled", sent && sent.overtimeEnabled === "Enable" && sent.default.dailyHourLimit >= 3 && sent.default.dailyHourLimit <= 5);
+    check("AE monthly limit is exactly daily x20", sent && sent.default.monthlyHourLimit === sent.default.dailyHourLimit * 20);
+    check("AE weekend/holiday blocks are independently either Enable or Disable",
+      sent && ["Enable", "Disable"].includes(sent.weekend.overtimeEnabled) && ["Enable", "Disable"].includes(sent.holiday.overtimeEnabled));
+    check("AE the tab picks up a done marker", (await page.locator('.settings-tab[data-module="overtime"] .op-dot').count()) === 1);
+    check("AE no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AF. Payroll: Attendance Bonus ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.click('.settings-tab[data-module="attendance_bonus"]');
+    await page.waitForSelector("#abSaveBtn", { timeout: 5000 });
+
+    let sent = null;
+    await page.route("**/api/v1/payroll/configuration/attendance-bonus", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Attendance bonus settings configured successfully!" }) });
+    });
+    await page.click("#abSaveBtn");
+    await page.waitForTimeout(150);
+    check("AF attendanceBonusEnabled is always Enable", sent && sent.attendanceBonusEnabled === "Enable");
+    check("AF calculations.enabled is always Disable, matching the script's own quirk", sent && sent.calculations.enabled === "Disable");
+    check("AF exactly one of fixedRate/percentage is set, matching calculationType",
+      sent && (sent.calculations.calculationType === "Fixed Rate" ? (sent.calculations.fixedRate !== null && sent.calculations.percentage === null) : (sent.calculations.fixedRate === null && sent.calculations.percentage !== null)));
+    check("AF the tab picks up a done marker", (await page.locator('.settings-tab[data-module="attendance_bonus"] .op-dot').count()) === 1);
+    check("AF no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AG. Payroll: Custom Addition/Deduction — paired name pools ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.click('.settings-tab[data-module="custom_addition_deduction"]');
+    await page.waitForSelector("#cadSaveBtn", { timeout: 5000 });
+    check("AG defaults to Addition with an addition-shaped name",
+      ["Mobile Allowance", "Internet Allowance"].includes(await page.inputValue("#cadName")));
+
+    await page.click('#cadTypeSeg button[data-val="Deduction"]');
+    await page.waitForTimeout(60);
+    check("AG switching to Deduction picks a deduction-shaped name",
+      ["Late Fee", "Device Penalty"].includes(await page.inputValue("#cadName")));
+
+    await page.fill("#cadName", "Custom Hand-Typed Deduction");
+    let sent = null;
+    await page.route("**/api/v1/payroll/configuration/custom-fields", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Resource created successfully" }) });
+    });
+    await page.click("#cadSaveBtn");
+    await page.waitForTimeout(150);
+    check("AG the hand-typed name, not a pool one, is what's sent", sent && sent.name === "Custom Hand-Typed Deduction" && sent.type === "Deduction");
+    check("AG the tab picks up a done marker", (await page.locator('.settings-tab[data-module="custom_addition_deduction"] .op-dot').count()) === 1);
+    check("AG no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AH. Payroll: Tax — the one place the collection stops short ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.click('.settings-tab[data-module="tax"]');
+    await page.waitForSelector("#ptSaveBtn", { timeout: 5000 });
+    check("AH the scope gap is named in the module's own copy", (await page.textContent("#setupBody")).includes("doesn't have yet"));
+
+    let method = null;
+    await page.route("**/api/v1/payroll/configuration/tax-rules/toggle/Enable", (route) => {
+      method = route.request().method();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Tax rules action updated successfully" }) });
+    });
+    await page.click("#ptSaveBtn");
+    await page.waitForTimeout(150);
+    check("AH calls PATCH, matching the collection's own request", method === "PATCH");
+    await page.click("#setupBackToModules");
+    await page.waitForTimeout(60);
+    check("AH the group's card reflects this session's own single save (each test block is a fresh context)", (await page.textContent(".settings-card:has-text('Payroll') .tally")).includes("1/11"));
+    check("AH no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

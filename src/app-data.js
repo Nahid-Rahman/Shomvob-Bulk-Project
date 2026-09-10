@@ -624,3 +624,300 @@ const BANK_SHORT_CODE_MAP = {
 };
 
 const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
+
+/* ===== Locations (Postman: "Branch Management") — third settings module
+   (built 2026-09-10) =====
+
+   Ported from the Postman collection's own pre-request script for
+   `POST /company/branches`, verbatim. The real product's own sidebar
+   calls this screen "Locations" (2026-09-09 screenshot); the Postman
+   folder calls it "Branch Management" — same endpoint, different label,
+   kept as "Locations" in SETTINGS_GROUPS to match what a user actually
+   sees. */
+const OFFICE_NAMES = [
+  "Head Office", "Zonal Office", "Regional Office", "Branch Office", "Corporate Office",
+  "Sales Office", "Operations Office", "Field Office", "Admin Office", "Support Office",
+  "Business Center", "Service Center",
+];
+
+/* district/city/address/zipCode always travel together — same paired-pool
+   discipline as everything else generated in this app. */
+const BD_LOCATION_PRESETS = [
+  { district: "Dhaka", city: "Dhaka", address: "Baridhara DOHS", zipCode: "1206" },
+  { district: "Dhaka", city: "Dhaka", address: "Gulshan Avenue", zipCode: "1212" },
+  { district: "Dhaka", city: "Dhaka", address: "Banani", zipCode: "1213" },
+  { district: "Dhaka", city: "Dhaka", address: "Motijheel Commercial Area", zipCode: "1000" },
+  { district: "Dhaka", city: "Dhaka", address: "Uttara Sector 7", zipCode: "1230" },
+  { district: "Chattogram", city: "Chattogram", address: "Agrabad Commercial Area", zipCode: "4100" },
+  { district: "Chattogram", city: "Chattogram", address: "GEC Circle", zipCode: "4000" },
+  { district: "Sylhet", city: "Sylhet", address: "Zindabazar", zipCode: "3100" },
+  { district: "Khulna", city: "Khulna", address: "Sonadanga", zipCode: "9100" },
+  { district: "Rajshahi", city: "Rajshahi", address: "Shaheb Bazar", zipCode: "6100" },
+  { district: "Bogura", city: "Bogura", address: "Satmatha", zipCode: "5800" },
+  { district: "Cumilla", city: "Cumilla", address: "Kandirpar", zipCode: "3500" },
+  { district: "Narayanganj", city: "Narayanganj", address: "Chashara", zipCode: "1400" },
+  { district: "Gazipur", city: "Gazipur", address: "Gazipur Chowrasta", zipCode: "1700" },
+  { district: "Mymensingh", city: "Mymensingh", address: "Town Hall Area", zipCode: "2200" },
+  { district: "Rangpur", city: "Rangpur", address: "Jahaj Company Mor", zipCode: "5400" },
+];
+
+/* When isGeolocation is on, coordinates are a small random offset from
+   Baridhara DOHS — the Postman script's own reference point, not ours. */
+const BARIDHARA_BASE_LATITUDE = 23.812007684570396;
+const BARIDHARA_BASE_LONGITUDE = 90.41516296328736;
+const BRANCH_RADIUS_OPTIONS = [100, 150, 200, 250, 300, 350, 400, 450, 500];
+
+/* ===== Department Management — fourth settings module (built 2026-09-10) ===== */
+const DEPARTMENT_NAMES = [
+  "Human Resources", "Talent Acquisition", "Recruitment", "People Operations", "Administration",
+  "Finance", "Accounts", "Payroll", "Sales", "Business Development", "Marketing",
+  "Digital Marketing", "Customer Support", "Client Success", "Operations", "Product",
+  "Engineering", "Software Development", "Quality Assurance", "IT Support", "Data Analytics",
+  "Research and Development", "Legal", "Compliance", "Procurement", "Supply Chain",
+  "Training and Development", "Corporate Affairs", "Strategy", "Design", "Content", "Partnerships",
+];
+
+/* ===== Designation Management — fifth settings module (built 2026-09-10) =====
+
+   The one module so far with a REAL live dependency: the Postman
+   collection's own "Get Active Departments" step throws if there's
+   nothing to attach a designation to ("Age Get Active Departments API
+   run korte hobe") — this app checks the same thing live against
+   /departments/active rather than assuming a department exists. */
+const DESIGNATION_NAMES = ["Executive", "Senior Executive", "Assistant Manager", "Manager"];
+
+/* ===== Custom Fields — sixth settings module (built 2026-09-10) =====
+
+   `type` and `fieldName` always travel together (a "Blood Group" field
+   is never typed "number") — same paired-pool discipline as everywhere
+   else. Only `enum` carries `choicePool`; `enableFilter` only ever
+   applies to `checkbox`/`enum` in the real API, so it's forced false for
+   every other type rather than randomised across the board. */
+const CUSTOM_FIELD_PRESETS = [
+  { fieldName: "NID Number", type: "text" },
+  { fieldName: "Passport Number", type: "text" },
+  { fieldName: "Father Name", type: "text" },
+  { fieldName: "Mother Name", type: "text" },
+  { fieldName: "Emergency Contact Number", type: "text" },
+  { fieldName: "LinkedIn Profile", type: "text" },
+  { fieldName: "Present Address", type: "long_text" },
+  { fieldName: "Permanent Address", type: "long_text" },
+  { fieldName: "Career Objective", type: "long_text" },
+  { fieldName: "Skills Summary", type: "long_text" },
+  { fieldName: "Previous Work Details", type: "long_text" },
+  { fieldName: "Personal Bio", type: "long_text" },
+  { fieldName: "Years of Experience", type: "number" },
+  { fieldName: "Expected Salary", type: "number" },
+  { fieldName: "Current Salary", type: "number" },
+  { fieldName: "Number of Dependents", type: "number" },
+  { fieldName: "Notice Period in Days", type: "number" },
+  { fieldName: "Are you married?", type: "checkbox" },
+  { fieldName: "Do you have previous work experience?", type: "checkbox" },
+  { fieldName: "Do you have a driving license?", type: "checkbox" },
+  { fieldName: "Are you willing to relocate?", type: "checkbox" },
+  { fieldName: "Do you agree with company policy?", type: "checkbox" },
+  { fieldName: "Select what describes you?", type: "enum", choicePool: ["Dedicated", "Hardworking", "Punctual", "Team Player", "Quick Learner", "Self Motivated", "Creative"] },
+  { fieldName: "Employment Type", type: "enum", choicePool: ["Full-time", "Part-time", "Contractual", "Intern", "Probationary", "Remote"] },
+  { fieldName: "Education Level", type: "enum", choicePool: ["SSC", "HSC", "Diploma", "Bachelor", "Master", "PhD"] },
+  { fieldName: "Preferred Work Location", type: "enum", choicePool: ["Dhaka", "Chattogram", "Sylhet", "Khulna", "Rajshahi", "Remote"] },
+  { fieldName: "T-Shirt Size", type: "enum", choicePool: ["XS", "S", "M", "L", "XL", "XXL"] },
+  { fieldName: "Blood Group", type: "enum", choicePool: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
+];
+const CUSTOM_FIELD_STATUSES = ["Active", "Inactive"];
+
+/* ===== Required Documents — seventh settings module (built 2026-09-10) =====
+
+   Note the lowercase status values ("active"/"inactive") — this endpoint's
+   own convention, different from every Active/Inactive-capitalized status
+   elsewhere in this app. Kept exactly as the Postman body sends it. */
+const REQUIRED_DOCUMENT_NAMES = [
+  "Passport", "National ID", "Birth Certificate", "TIN Certificate", "Academic Certificate",
+  "Experience Certificate", "Police Clearance", "Medical Certificate", "Bank Statement",
+  "Driving License", "Profile Photo", "Resume", "Appointment Letter",
+  "Previous Employment Letter", "Nominee NID",
+];
+const REQUIRED_DOCUMENT_TYPES = ["file", "text"];
+const REQUIRED_DOCUMENT_STATUSES = ["active", "inactive"];
+
+/* ===== Leave Types — eighth settings module (built 2026-09-10) =====
+
+   Ported from the Postman collection's own six leave-type pre-request
+   scripts. Four ("normal" leave — Annual, Casual, Sick, Unmarried) share
+   one large, identical rule set (consecutive/monthly limits, prorata,
+   accrual, backdating, documents, carry-forward, sandwich and bridge
+   rules, leave-reset cycle) and differ only in name and eligibility.
+   Two (Maternity, Paternity) are "special entitlement" leave — a much
+   smaller, mostly-fixed body built around an instance count and a fixed
+   per-instance day count, with almost every normal-leave field forced
+   off. `special` on each kind picks which generator runs.
+
+   Scope note, deliberate: only name and the three headline toggles
+   (consecutive/monthly limit + carry-forward, each with their day count)
+   are exposed as editable fields for normal leave — not all ~15
+   booleans the real body carries. Everything else is still generated
+   correctly per the script's own conditional logic, just not surfaced as
+   its own input row; the user flagged Leave as the one place a 5% chance
+   of needing rework was already expected. */
+const LEAVE_TYPE_KINDS = [
+  { id: "annual", name: "Annual Leave", genderEligibility: "all", maritalStatusEligibility: "all", special: false },
+  { id: "casual", name: "Casual Leave", genderEligibility: "all", maritalStatusEligibility: "all", special: false },
+  { id: "sick", name: "Sick Leave", genderEligibility: "all", maritalStatusEligibility: "all", special: false },
+  { id: "unmarried", name: "Unmarried Leave", genderEligibility: "all", maritalStatusEligibility: "unmarried", special: false },
+  { id: "maternity", name: "Maternity Leave", genderEligibility: "female", maritalStatusEligibility: "married", special: true, seMaxDaysPerInstance: 120 },
+  { id: "paternity", name: "Paternity Leave", genderEligibility: "male", maritalStatusEligibility: "married", special: true, seMaxDaysPerInstance: 14 },
+];
+
+/* ===== Leave Policy — ninth settings module, the second with a real dependency =====
+
+   POST /leave-policies needs at least one leave type to attach — the
+   Postman script itself throws if none exist ("leaveTypesAll not
+   found... run GET all leave types API first"), same shape of rule as
+   Designation needing a Department. */
+const LEAVE_POLICY_NAMES = ["Default Leave Policy", "Company Leave Policy"];
+const LEAVE_POLICY_DESCRIPTION =
+  "This policy defines the company-wide leave rules and determines how employees can receive and use their leave entitlements.";
+const LEAVE_POLICY_EMPLOYEE_TYPES = ["Permanent", "Part-time", "Intern", "Contractual", "Probationary"];
+const LEAVE_POLICY_CATEGORIES = ["Standard", "Emergency", "Special"];
+const LEAVE_POLICY_STANDARD_DAYS = [10, 12, 15];
+
+/* ===== Attendance Policy — Attendance group's only module (2026-09-10) =====
+
+   POST /attendance/policy/create. The Postman collection's own body tab
+   is a bare `{}` — a note in its pre-request script says so explicitly
+   ("Body tab e raw JSON mode e just {} rakhlei hobe") — because that
+   script calls `pm.request.body.update()` and overwrites it at request
+   time. The real body is everything below, ported from that script, not
+   the empty object the static tab shows. Same "headline fields only"
+   scoping as Leave Types: title and weekend days are editable, shifts/
+   overtime/break/early-check-in are generated correctly per the script's
+   own conditional logic but not surfaced as individual inputs — the user
+   flagged this module specifically as the one certain to need rework. */
+const ATTENDANCE_SHIFT_NAME_OPTIONS = ["Default Shift", "Morning Shift", "Office Shift", "Special Shift", "Flexible Shift"];
+const ATTENDANCE_SHIFT_START_HOURS = [8, 9, 10, 11];
+const ATTENDANCE_SHIFT_WORK_HOURS = [6, 7, 8, 9];
+const ATTENDANCE_GRACE_MINUTES = [5, 10, 15, 20, 30];
+const ATTENDANCE_WEEKEND_OPTIONS = [["FRI"], ["SAT"], ["FRI", "SAT"]];
+const ATTENDANCE_OVERTIME_MAX_MINUTES = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300];
+const ATTENDANCE_OVERTIME_COOLDOWN_MINUTES = [15, 30];
+const ATTENDANCE_OVERTIME_SLOT_MINUTES = [30, 60, 90];
+const ATTENDANCE_EARLY_CHECKIN_LIMITS = [30, 60, 90, 120];
+
+/* ===== Payroll — 11 modules, all ported from the Postman collection's own
+   "Payroll Settings" folder (2026-09-10). The user's own call ahead of
+   building this: 2-3 of these are already known to need rework once
+   tried against a real environment, and Tax specifically is expected to
+   need an entirely new API — confirmed true below, not a guess. Every
+   pool here is the script's own, ported verbatim. */
+
+/* General — POST /payroll/configuration/payroll-cycle. No dependency. */
+const PAYROLL_CYCLE_OPTIONS = [
+  { value: "calendar_month", weight: 55 },
+  { value: "fixed_date", weight: 40 },
+  { value: "bi_weekly", weight: 5 },
+];
+
+/* Salary Components — POST /payroll/configuration/salary-components. No
+   dependency. These 4 are the Postman collection's own fixed examples
+   (each its own request, not a generated name) — status/tax-countable/
+   pro-rata are the only randomised fields per the script. */
+const SALARY_COMPONENT_PRESETS = [
+  { name: "Medical Allowance", description: "Allowance provided to support employee medical and healthcare-related expenses." },
+  { name: "House Rent Allowance", description: "Allowance provided to support employee house rent or accommodation-related expenses." },
+  { name: "Mobile Allowance", description: "Allowance provided to support employee mobile phone and communication expenses." },
+  { name: "Internet Allowance", description: "Allowance provided to support employee Internet expenses." },
+];
+
+/* Configure Salary Components — PUT /payroll/configuration/non-paygrade-structure.
+   Needs at least 2 Active salary components — the collection's own script
+   throws without them ("salaryComponent1Id or salaryComponent2Id missing").
+   Splits always sum to 100, the script's own fixed set. */
+const SALARY_STRUCTURE_SPLITS = [
+  { basic: 50, c1: 20, c2: 30 },
+  { basic: 50, c1: 25, c2: 25 },
+  { basic: 55, c1: 20, c2: 25 },
+  { basic: 55, c1: 25, c2: 20 },
+  { basic: 60, c1: 15, c2: 25 },
+  { basic: 60, c1: 20, c2: 20 },
+  { basic: 65, c1: 15, c2: 20 },
+  { basic: 65, c1: 20, c2: 15 },
+  { basic: 70, c1: 10, c2: 20 },
+  { basic: 70, c1: 15, c2: 15 },
+];
+
+/* Late Arrival, Absent Deduction — both need at least one Leave Type,
+   same rule the collection enforces on itself, reusing the existing
+   Leave Type dependency infrastructure. */
+const PAYROLL_SALARY_BASIS_OPTIONS = ["Deduction of per day Basic Salary", "Deduction of per day Gross Salary"];
+
+/* Bonus Types — POST /bonus/configuration/types. No dependency. Fixed
+   pool, same discipline as Salary Components — only status/icon are
+   randomised, never the name/description. */
+const BONUS_TYPE_ICON_OPTIONS = ["gift", "calendar", "grid", "hierarchy", "target", "medal", "trophy", "chart", "arrows"];
+const BONUS_TYPE_PRESETS = [
+  { typeName: "Eid Bonus", status: "Active", description: "Bonus type used for Eid festival bonus configuration." },
+  { typeName: "Bangla New Year Bonus", status: "Active", description: "Bonus type used for Bangla New Year bonus configuration." },
+  { typeName: "Special Bonus", status: "Active", description: "Bonus type used for special employee bonus configuration." },
+  { typeName: "Inactive Test Bonus", status: "Inactive", description: "Bonus type used to verify inactive bonus type creation." },
+];
+
+/* Bonus Policy — POST /bonus/configuration/policies. Needs at least one
+   Bonus Type. The collection's own fully-specified example is Eid Ul
+   Fitr (fixed Gross basis, fixed 50%) — generalised here to any bonus
+   type the company has, since this module lets the visitor pick which
+   one rather than hardcoding Eid. */
+const BONUS_POLICY_NAMES = ["Eid Ul Fitr Bonus Policy", "Eid Ul Adha Bonus Policy", "Bangla New Year Bonus Policy", "Special Bonus Policy"];
+const BONUS_POLICY_PAYMENT_METHODS = [
+  { value: "off_cycle_payment", weight: 90 },
+  { value: "with_regular_payroll", weight: 10 },
+];
+const BONUS_POLICY_TENURE_ENABLED = [
+  { value: true, weight: 80 },
+  { value: false, weight: 20 },
+];
+const BONUS_POLICY_TENURE_UNITS = [
+  { value: "months", weight: 70 },
+  { value: "days", weight: 20 },
+  { value: "years", weight: 10 },
+];
+
+/* Overtime — POST /payroll/configuration/overtime. No dependency. */
+const OVERTIME_CALCULATION_TYPES = [
+  { value: "Fixed Rate", weight: 50 },
+  { value: "Multiplier of Salary", weight: 50 },
+];
+const OVERTIME_SPECIAL_ENABLED = [
+  { value: "Enable", weight: 80 },
+  { value: "Disable", weight: 20 },
+];
+const OVERTIME_FIXED_RATE_RANGES = { regular: [800, 1000, 1200], weekend: [1000, 1200, 1500], holiday: [1200, 1500, 2000] };
+const OVERTIME_MULTIPLIERS = [1.5, 2];
+const OVERTIME_BASED_ON = ["Basic", "Gross"];
+
+/* Attendance Bonus — POST /payroll/configuration/attendance-bonus. No
+   dependency. */
+const ATTENDANCE_BONUS_COUNT_ON_TYPES = [
+  { value: "Percentage", weight: 70 },
+  { value: "Days", weight: 30 },
+];
+const ATTENDANCE_BONUS_PERCENTAGE_VALUES = [50, 60, 70, 80, 90];
+const ATTENDANCE_BONUS_DAYS_VALUES = [10, 12, 15];
+const ATTENDANCE_BONUS_CALCULATION_TYPES = [
+  { value: "Fixed Rate", weight: 50 },
+  { value: "Percentage of Salary", weight: 50 },
+];
+const ATTENDANCE_BONUS_FIXED_RATES = [1000, 1500, 2000];
+const ATTENDANCE_BONUS_PERCENTAGES = [5, 10, 15, 20];
+
+/* Custom Addition/Deduction — POST /payroll/configuration/custom-fields.
+   No dependency. Names are the collection's own fixed examples, paired
+   by type so an Addition never gets a Deduction-shaped name. */
+const CUSTOM_ADDITION_NAMES = ["Mobile Allowance", "Internet Allowance"];
+const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
+
+/* Tax — PATCH /payroll/configuration/tax-rules/toggle/Enable. The one
+   place the collection genuinely stops short: this is an enable/disable
+   toggle only, no request body, and there is no companion endpoint
+   anywhere in the collection for creating an actual tax bracket or rule.
+   Built as exactly what exists; flagged in the module's own copy rather
+   than papering over the gap with an invented body. This is the "payroll
+   needs a new API" case the user predicted before this group was built. */

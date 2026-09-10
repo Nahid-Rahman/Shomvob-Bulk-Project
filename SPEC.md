@@ -844,14 +844,255 @@ arriving as a genuine JS `number` in that request (not a numeric
 string), the done dot and group count updating after a real save, and a
 mocked `200` response being treated as a rejection rather than a success.
 
+## Locations, Department Management, Designation Management (built 2026-09-10)
+
+All three in Company Settings, ported verbatim from the Postman
+collection. "Locations" is the real product's own label for this screen
+(confirmed against a 2026-09-09 admin screenshot); Postman's folder name
+for the same endpoint is "Branch Management".
+
+### Locations — `POST /company/branches`
+
+| Field | Rule |
+|---|---|
+| `officeName` | One of 12 generic office labels (`OFFICE_NAMES`) |
+| `district` / `city` / `address` / `zipCode` | One of 16 real BD location presets (`BD_LOCATION_PRESETS`), always picked together so they never disagree |
+| `isGeolocation` | Random true/false |
+| `latitude` / `longitude` / `radiusInMeters` | If `isGeolocation`: a small random offset from Baridhara DOHS (`BARIDHARA_BASE_LATITUDE`/`_LONGITUDE`) and one of 9 radius options (`BRANCH_RADIUS_OPTIONS`, 100–500m). If not: **all three `null`**, never `0` or omitted |
+
+Toggling geolocation in the UI regenerates or clears those three fields
+live. Success: `"Branch created successfully"` (201).
+
+### Department Management — `POST /departments`
+
+| Field | Rule |
+|---|---|
+| `name` | One of 32 generic department names (`DEPARTMENT_NAMES`) |
+| `code` | Always `""` |
+| `status` | Always `"Active"` |
+| `parentId` / `businessLineId` / `departmentHeadId` | Always `null` |
+
+The Postman script also tracks already-used department names per company
+(via an environment-stored list) to avoid duplicates across repeated CI
+runs. That's test-fixture bookkeeping for a suite that runs the same
+flow over and over against the same company — it doesn't apply to a
+settings module that generates one record at a time, so it wasn't
+ported; nothing stops generating the same name twice here.
+
+### Designation Management — `POST /designations` — the first module with a real dependency
+
+A designation must attach to a department. The Postman collection
+enforces this on itself — its own "Get Active Departments" pre-request
+script throws if none exist ("Age Get Active Departments API run korte
+hobe") — so this app checks the same thing live rather than assuming a
+department exists:
+
+1. On opening the tab, `GET /departments/active` via `fetchCompanyResource()`.
+2. **Zero departments** → the module shows `dependencyNoticeHtml("Department", "company", "departments")`
+   instead of a form: one line naming what's missing, one shortcut
+   straight to Department Management. Nothing else in the group is
+   touched or implied to be blocked.
+3. **One or more** → a form: `name` from `DESIGNATION_NAMES` (4 options:
+   Executive, Senior Executive, Assistant Manager, Manager), a `<select>`
+   of the company's real departments (defaulting to the first),
+   `status` fixed to `"Active"`. Body sent: `{ name, departmentIds:
+   [selectedId], status }`.
+
+The department list is cached for the rest of the company session once
+fetched (`companyDesignation.departments`), so reopening the tab doesn't
+re-check every time — and `saveDepartmentModule()`'s success handler
+explicitly clears that cache (`companyDesignation.departments = null`),
+so creating a department and coming straight back to Designation shows
+the real, current list without needing a reload. Success: `"Designation
+created successfully"` (201).
+
+### Shared: `fetchCompanyResource()` and `dependencyNoticeHtml()`
+
+The GET-with-bearer-token counterpart to every module's save call, and
+the calm inline notice + shortcut a blocked module shows. `.dep-shortcut`
+links are wired once, centrally, in `wireSetupGroupPage()` — any module's
+notice can point at any other module without its own click handler.
+Designation is the first user; Leave Policy needing a Leave Type looks
+like the next, going by the Postman collection's own shape.
+
+### Fixed the same day: stale module state across a Disconnect
+
+Found while building the third module: `companyProfile.fields` (and
+`bankInfo.fields`) were only ever regenerated when null, so disconnecting
+from one company and connecting to another left the first company's
+generated values sitting in the form. `resetModuleState()` now clears
+every module's cache from both Sign out and Disconnect. Tested:
+disconnecting a company and connecting a different one regenerates a
+fresh, correctly-prefixed `legalName` rather than keeping the old one's.
+
+### Tested
+
+Playwright, folded into `tests/company-setup.test.js`: the generated
+office name/department name/designation name are each one of the real
+pool, geolocation-off sending `null` for all three geo fields and
+geolocation-on sending real numbers (both checked as actual JS types,
+not just presence), a hand-edited department name reaching the real
+request, the full dependency flow (blocked → shortcut → save the
+prerequisite → cache invalidates → real list appears → the *picked*
+department, not the first one, is what's sent), and the cross-company
+state-reset fix.
+
+## Custom Fields, Required Documents (built 2026-09-10)
+
+Both Employee Settings.
+
+### Custom Fields — `POST /company-settings/employee-custom-fields`
+
+`fieldName`/`type` come from a paired pool (`CUSTOM_FIELD_PRESETS`), so a
+text-typed field never gets an enum's shape. `enableFilter` is only ever
+generated `true` for `checkbox`/`enum` types — the other types have no
+real filter option in the product. `options.choices` (nested under
+`options`, matching the real body) is only generated for `enum`, picked
+via `shuffle()` from that preset's own `choicePool` so the choices read
+as belonging to the field name rather than random words. `status` comes
+from `CUSTOM_FIELD_STATUSES`. Success: 201.
+
+### Required Documents — `POST /required-documents`
+
+`name`/`type`/`status` from their own pools (`REQUIRED_DOCUMENT_NAMES`,
+`REQUIRED_DOCUMENT_TYPES`, `REQUIRED_DOCUMENT_STATUSES`). One thing
+confirmed against the literal Postman body rather than assumed: `status`
+is sent lowercase (`"active"`/`"inactive"`) here, unlike Custom Fields'
+casing — the two modules don't share a status pool. Success: 201.
+
+## Leave Types, Leave Policy (built 2026-09-10)
+
+Both in the Leave group — the most complex pair ported so far, and the
+one place a scoping decision was made on purpose rather than by omission.
+
+### Leave Types — `POST /leave-types`
+
+Six kinds (`LEAVE_TYPE_KINDS`): four normal (consecutive/monthly limits,
+sandwich rule, bridge, reset — all real toggles) and two
+special-entitlement (Maternity, Paternity — fixed gender/marital
+eligibility and a fixed per-instance day cap; every normal-leave toggle
+is forced `false` for these, never a user choice). Picking a kind swaps
+the whole detail section rather than showing every field for every kind.
+**Only headline fields are exposed as editable inputs** — the remaining
+~15-field body per kind is still generated correctly
+(`generateNormalLeaveTypeBody()`/`generateSpecialLeaveTypeBody()`, ported
+from the script) but not given its own input row. Deliberate scoping
+given the size of the real body, flagged to the user as one of the areas
+likeliest to need a rework pass once tried against a real environment.
+Success: 201.
+
+### Leave Policy — `POST /leave-policies`
+
+The second real dependency (Designation→Department was the first): needs
+at least one Leave Type to exist
+(`fetchCompanyResource("/leave-types")`), same notice/shortcut/cache-
+invalidate-on-save pattern — `saveLeaveType()`'s success handler nulls
+`leavePolicy.leaveTypes`, mirroring `saveDepartmentModule()` nulling
+`companyDesignation.departments`. Every real leave type the company has
+is included in the generated policy, each given a `category`/`days`
+pair; a special-entitlement leave type (`seMaxDaysPerInstance` set) is
+always forced into `"Special"` with that type's own fixed day count
+rather than a random category/day pick, so the policy can't contradict
+the leave type it describes. `departmentIds` sent empty (company-wide) —
+no per-department targeting UI, same "headline fields only" scoping as
+above. Success: 201.
+
+### Tested
+
+Folded into `tests/company-setup.test.js`: kind-switching swaps the
+right fields, a special-entitlement kind's body has every normal-leave
+toggle forced off and the fixed eligibility/day values the script always
+sends, the full Leave Policy dependency flow (blocked → shortcut → save
+a leave type → cache invalidates → real leave-type list appears →
+generated policy correctly derives category/days per leave type,
+including forcing the special-entitlement one into `"Special"`), and
+done-marker/no-page-error checks for both.
+
+## Attendance Policy (built 2026-09-10)
+
+Attendance group's only module — `POST /attendance/policy/create`. The
+collection's static body tab shows `{}` with a comment saying to leave
+it that way; a pre-request script overwrites the real body at request
+time (title, description, 1-3 shifts, weekend days, overtime config,
+early check-in limit, break config — all ported, `ATTENDANCE_*` pools in
+`app-data.js`). Only title and weekend days are exposed as editable
+inputs, same "headline fields only" scoping as Leave Types — flagged to
+the user as the module most certain to need rework.
+
+Bug found and fixed under test: the weekend-day seg toggle re-rendered
+the tab from the cached fields object, silently discarding a
+hand-edited title typed just before the click. Fixed by reading
+`$("#apTitle").value` into the fields object before that re-render, same
+as Save already did. Worth checking whether any other seg-toggle handler
+in the app has the same gap — not audited beyond this one module.
+
+## Payroll — all 11 modules (built 2026-09-10)
+
+Every module in the Postman collection's own "Payroll Settings" folder.
+Four real dependencies live here — General, Salary Components, Bonus
+Types, Overtime, Attendance Bonus, Custom Addition/Deduction and Tax have
+none.
+
+- **General** — `POST /payroll/configuration/payroll-cycle`. Cycle
+  weighted 55% calendar_month / 40% fixed_date / 5% bi_weekly
+  (`weightedChoice()`, the app's first weighted-random helper, ported
+  from the collection's own `pickWeighted()`), each with its own
+  conditional fields (threshold rules, fixed start day, bi-weekly start
+  date).
+- **Salary Components** — `POST /payroll/configuration/salary-components`.
+  4 fixed presets (Medical/House Rent/Mobile/Internet Allowance) — the
+  collection's own 4 separate example requests. Only status (90% Active),
+  tax-countability (10% true) and pro-rata (90% true) are randomised.
+- **Configure Salary Components — needs 2 Active salary components**,
+  not 1 (the collection's own script throws without both). Splits always
+  sum to 100 from a fixed 10-row table (`SALARY_STRUCTURE_SPLITS`).
+- **Late Arrival, Absent Deduction** — each needs ≥1 Leave Type, same
+  rule as Leave Policy, but each keeps its own independent fetch/cache
+  rather than sharing one — tested that saving one doesn't invalidate the
+  other's.
+- **Bonus Types** — `POST /bonus/configuration/types`. 4 fixed presets
+  (Eid/Bangla New Year/Special/Inactive Test Bonus), only icon randomised.
+- **Bonus Policy — needs ≥1 Bonus Type.** The collection's own fully-
+  specified example hardcodes Eid's bonus type with a fixed 50%/Gross;
+  generalised here to whichever bonus type the company actually has, with
+  name and percentage left editable.
+- **Overtime** — `POST /payroll/configuration/overtime`. Regular always
+  enabled; weekend and holiday independently rolled (80% enabled each),
+  each choosing Fixed Rate or Multiplier of Salary on its own.
+- **Attendance Bonus** — `POST /payroll/configuration/attendance-bonus`.
+  `calculations.enabled` is always sent `"Disable"` regardless of the
+  outer toggle — the collection's own comment says this is intentional
+  API behaviour, kept as-is rather than treated as a typo.
+- **Custom Addition/Deduction** — `POST /payroll/configuration/custom-fields`.
+  Name pools paired by type so switching Addition/Deduction always
+  re-rolls a type-appropriate name.
+- **Tax — the one place the collection stops short.**
+  `PATCH /payroll/configuration/tax-rules/toggle/Enable` is an
+  enable/disable toggle only; there is no endpoint in the collection for
+  creating an actual tax bracket or rule. This is the "Payroll needs a
+  new API" gap the user predicted before this group was built — the
+  module's own on-page copy names the gap rather than inventing a body.
+
+### Tested
+
+Folded into `tests/company-setup.test.js`: all four dependency flows
+(Configure Salary Components, Bonus Policy, and the two independent
+Leave Type dependents) end to end, weighted-random fields land on real
+values, fixed-preset modules send the real name/description rather than
+anything generated, hand-edited fields survive a re-render and reach the
+request, and every module's tab picks up a done marker.
+
 ## Outstanding
 
-Locations, Department Management, Designation Management and the other
-four groups in full are the remaining work of phase 2. Also outstanding:
-a run log, a way to stop a batch partway through, and a version of the
-"Hey Lazy!" guard that can say "some of this already happened on a real
-server." Neither Company Profile nor Bank Info needed any of these (one
-record, one call each, no partial state) — they become necessary at the
-first module that loops writes (creating several Leave Types or Bonus
-Types, for instance), and should be built alongside that one rather than
-speculatively now.
+Nothing — every module in every settings group is built. Two to three
+were expected to need a rework pass once tried against a real
+environment (the user's own estimate, given before this push started):
+Attendance Policy "sure," Payroll's Tax module confirmed exactly as
+predicted, and a small chance in Leave Types/Department/Designation.
+
+Still outstanding regardless: a run log, a way to stop a batch partway
+through, and a version of the "Hey Lazy!" guard that can say "some of
+this already happened on a real server." None of the modules built
+needed these (one record, one call each, no partial state) — they become
+necessary at the first module that loops writes, and should be built
+alongside that one rather than speculatively now.
