@@ -3582,41 +3582,61 @@
 
   function companySetupTemplate() {
     return `
-      <div class="page-head">
-        <span class="page-eyebrow">Phase 2 · Setup</span>
-        <h1 class="page-title">Company Setup</h1>
-        <p class="page-desc">Sign in here first, then sign in again as the company you want to configure. The rest of this section does nothing until both have happened.</p>
-      </div>
+      <div id="setupPageHead">${setupPageHeadHtml()}</div>
       <div id="setupStatusBar"></div>
       <div id="setupBody"></div>
     `;
   }
 
+  /* The eyebrow/title/instructional paragraph only earn their place
+     before anyone has signed in — once connected, "Sign in here first,
+     then sign in again..." is stale instructions for a step already
+     done, and it was sitting above the statusbar (which already says
+     exactly who's connected to what) every single screen past login.
+     Re-rendered alongside the statusbar in renderSetupBody() so it
+     reacts immediately to sign-in/sign-out without a page navigation. */
+  function setupPageHeadHtml() {
+    if (setup.toolToken) return "";
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Phase 2 · Setup</span>
+        <h1 class="page-title">Company Setup</h1>
+        <p class="page-desc">Sign in here first, then sign in again as the company you want to configure. The rest of this section does nothing until both have happened.</p>
+      </div>
+    `;
+  }
+
   /* A persistent strip once step one is done — which environment, which
-     tool account, and which company (once step two is done too). The
-     point of it living outside #setupBody is that it stays on screen
-     through every step past the first, so "which server am I about to
-     touch" is never something you have to scroll up to check. */
+     company (once step two is done too), and as what role. The point of
+     it living outside #setupBody is that it stays on screen through
+     every step past the first, so "which server am I about to touch" is
+     never something you have to scroll up to check. Company + role lead
+     since that's the identity that actually matters for safety here; the
+     tool sign-in email is secondary and sits on the right, small. */
   function setupStatusBarHtml() {
     if (!setup.toolToken) return "";
     const env = ENVIRONMENTS[setup.env];
-    /* The literal space between the two spans matters even though the
-       flex gap already separates them visually — without it, selecting or
-       copying this line (or a screen reader reading it) glues the company
-       name straight onto the parenthetical. */
+    const companyIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${SETTINGS_GROUP_ICONS.company}</svg>`;
+    /* Literal spaces between these spans matter, same reason as the
+       one on the hint below: flex `gap` only separates them visually,
+       so without an actual space character, selecting or copying this
+       line (or a screen reader reading it) glues "Staging" straight
+       onto the company name. */
     const company = setup.companyName
-      ? ` <span class="setup-who">${setup.companyName}</span> <span class="hint">(${setup.companyUserType || "unknown type"})</span>`
+      ? ` <span class="setup-divider">·</span> ${companyIcon}<span class="setup-who">${setup.companyName}</span> <span class="hint">(${setup.companyUserType || "unknown type"})</span>`
       : "";
     return `
       <div class="setup-statusbar">
-        <span class="env-badge env-${env.id}">${env.label}</span>
-        <span class="setup-who">${setup.toolEmail}</span>${company}
+        <span class="env-badge env-${env.id}">${env.label}</span>${company}
+        <span class="setup-statusbar-spacer"></span>
+        <span class="setup-email">${setup.toolEmail}</span>
         <button type="button" class="tiny-btn" id="setupSignOutBtn">Sign out</button>
       </div>
     `;
   }
 
   function renderSetupBody() {
+    $("#setupPageHead").innerHTML = setupPageHeadHtml();
     $("#setupStatusBar").innerHTML = setupStatusBarHtml();
     const signOutBtn = $("#setupSignOutBtn");
     if (signOutBtn) {

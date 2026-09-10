@@ -187,7 +187,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     check("D reaches the connected state", (await page.locator("#setupDisconnectBtn").count()) === 1);
     check("D status bar adds the company name and user type",
-      (await statusbar(page)) === "Staging mahmudur@shomvob.com Sports Academy (company_admin) Sign out");
+      (await statusbar(page)) === "Staging · Sports Academy (company_admin) mahmudur@shomvob.com Sign out");
     check("D the connected copy names the company, env and role",
       (await page.textContent("#setupBody")).replace(/\s+/g, " ").includes("Signed in to Sports Academy on Staging, as company_admin"));
 

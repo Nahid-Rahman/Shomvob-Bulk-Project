@@ -609,6 +609,26 @@ environment. The strip is meant to answer "which server am I about to
 touch" without having to scroll up, which is the whole reason it lives
 outside `#setupBody` and survives every step past the first.
 
+**Revised the same way twice, on user feedback (2026-09-10):** the strip
+originally trailed the company name and role at the end, after the
+tool's own sign-in email, and sat under a static "Company Setup" title +
+"Sign in here first, then sign in again..." paragraph that never
+changed once you'd done exactly that. Both were flagged as clutter once
+actually connected and looking at a module: the instructional paragraph
+is stale advice for a step already finished, and the strip buried the
+one thing that matters most for safety — which real company you're
+about to write into — behind your own email address.
+
+Fixed by making the whole `.page-head` (`setupPageHeadHtml()`) render
+nothing once `setup.toolToken` exists — it only ever earns its place
+pre-login — and reordering the strip so the environment badge and
+company name (with a small building icon, `SETTINGS_GROUP_ICONS.company`
+reused at 15px) lead at full weight, with the tool's own email pushed to
+the far side via a flexible spacer and shown small and muted next to
+Sign out. Both are re-rendered from `renderSetupBody()` now, alongside
+the strip, so they react immediately to sign-in/sign-out without needing
+a page navigation away and back.
+
 ### The Supabase project itself
 
 Project `Shomvob Bulk Generation`, org `Shomvob SQA` (a shared team
