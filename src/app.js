@@ -6975,30 +6975,8 @@
   /* ===== Attendance Policy — the Attendance group's only module ===== */
   const attendancePolicy = { fields: null, error: "", ok: "" };
 
-  function generateShiftTime() {
-    const startHour = choice(ATTENDANCE_SHIFT_START_HOURS);
-    const totalWorkingHours = choice(ATTENDANCE_SHIFT_WORK_HOURS);
-    const endHour = startHour + totalWorkingHours;
-    const pad2 = (n) => String(n).padStart(2, "0");
-    return { workStartTime: `${pad2(startHour)}:00`, workEndTime: `${pad2(endHour)}:00`, totalWorkingHours };
-  }
-
   function generateAttendancePolicyFields() {
     const policyNumber = String(Date.now()).slice(-5);
-    const shiftCount = randInt(1, 3);
-    const shifts = [];
-    for (let i = 0; i < shiftCount; i++) {
-      const t = generateShiftTime();
-      shifts.push({
-        name: `${choice(ATTENDANCE_SHIFT_NAME_OPTIONS)} ${i + 1}`,
-        workStartTime: t.workStartTime,
-        workEndTime: t.workEndTime,
-        gracePeriodMinutes: choice(ATTENDANCE_GRACE_MINUTES),
-        totalWorkingHours: t.totalWorkingHours,
-        halfDayHours: Math.ceil(t.totalWorkingHours / 2),
-        isDefault: i === 0,
-      });
-    }
 
     const overtimeEnabled = Math.random() < 0.5;
     const overtimeConfigs = { isEnabled: overtimeEnabled };
@@ -7023,14 +7001,26 @@
       breakConfig.maxBreakPerDay = 5;
     }
 
+    const fixedBreakEnabled = Math.random() < 0.5;
+    const fixedBreakSettings = {
+      fixedBreakEnabled,
+      durationMinutes: fixedBreakEnabled ? choice(ATTENDANCE_FIXED_BREAK_MINUTES) : 60,
+    };
+
+    // Real API rule: maxCheckOutLimit must be >= maxOvertimeMinutes when set.
+    let maxCheckOutLimit = choice(ATTENDANCE_MAX_CHECKOUT_LIMITS);
+    if (overtimeConfigs.hasMaxOvertime && maxCheckOutLimit < overtimeConfigs.maxOvertimeMinutes) {
+      maxCheckOutLimit = overtimeConfigs.maxOvertimeMinutes;
+    }
+
     return {
       title: `Office Standard Policy ${policyNumber}`,
-      description: `Default attendance policy for standard working hours and weekends ${policyNumber}`,
-      shifts,
-      weekendDays: choice(ATTENDANCE_WEEKEND_OPTIONS),
+      description: `Default attendance policy for standard working hours ${policyNumber}`,
       overtimeConfigs,
       earlyCheckInLimit: choice(ATTENDANCE_EARLY_CHECKIN_LIMITS),
+      maxCheckOutLimit,
       breakConfig,
+      fixedBreakSettings,
     };
   }
 
@@ -7038,28 +7028,24 @@
     const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Attendance Policy</h2></div>`;
     if (!attendancePolicy.fields) attendancePolicy.fields = generateAttendancePolicyFields();
     const f = attendancePolicy.fields;
-    const shiftRows = f.shifts
-      .map((s) => `<span class="tally" style="margin-top:6px; margin-right:6px">${s.name}${s.isDefault ? " · default" : ""} <strong>${s.workStartTime}–${s.workEndTime}</strong></span>`)
-      .join("");
-    const weekendKey = JSON.stringify(f.weekendDays);
+    const chip = (label) => `<span class="tally" style="margin-top:6px; margin-right:6px">${label}</span>`;
+    const settingsChips = [
+      chip(`Overtime ${f.overtimeConfigs.isEnabled ? "on" : "off"}`),
+      chip(`Early check-in ${f.earlyCheckInLimit}m`),
+      chip(`Max check-out ${f.maxCheckOutLimit}m`),
+      chip(`Break ${f.breakConfig.breakEnabled ? "on" : "off"}`),
+      chip(`Deduct break ${f.fixedBreakSettings.fixedBreakEnabled ? "on" : "off"}`),
+    ].join("");
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated the same way QA's own test script rolls it — shifts, overtime and break rules are rolled per its logic. Only the title and weekend days are exposed here for hand-editing; regenerate to re-roll everything else.</p>
+        <p class="section-note">Generated the same way QA's own test script rolls it — overtime, break and check-in/check-out limits are rolled per its logic. Only the title is exposed here for hand-editing; regenerate to re-roll everything else.</p>
         <div class="field-row">
           <div class="field"><label for="apTitle">Title</label><input type="text" id="apTitle" value="${f.title}" /></div>
-          <div class="field">
-            <label>Weekend Days</label>
-            <div class="seg" id="apWeekendSeg" role="group" aria-label="Weekend days">
-              <button type="button" data-val='["FRI"]' aria-pressed="${weekendKey === '["FRI"]'}">Friday</button>
-              <button type="button" data-val='["SAT"]' aria-pressed="${weekendKey === '["SAT"]'}">Saturday</button>
-              <button type="button" data-val='["FRI","SAT"]' aria-pressed="${weekendKey === '["FRI","SAT"]'}">Fri + Sat</button>
-            </div>
-          </div>
         </div>
         <div style="margin-top:14px">
-          <label style="font-size:12.5px; font-weight:600; color:var(--text); display:block; margin-bottom:8px;">Shifts (${f.shifts.length})</label>
-          <div style="display:flex; flex-wrap:wrap;">${shiftRows}</div>
+          <label style="font-size:12.5px; font-weight:600; color:var(--text); display:block; margin-bottom:8px;">Generated settings</label>
+          <div style="display:flex; flex-wrap:wrap;">${settingsChips}</div>
         </div>
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
@@ -7095,15 +7081,6 @@
   }
 
   function wireAttendancePolicyEvents() {
-    $all("#apWeekendSeg button").forEach((btn) =>
-      btn.addEventListener("click", () => {
-        attendancePolicy.fields.title = $("#apTitle").value;
-        attendancePolicy.fields.weekendDays = JSON.parse(btn.dataset.val);
-        $("#setupBody").innerHTML = setupGroupPageTemplate();
-        wireSetupGroupPage();
-      })
-    );
-
     $("#apRegenerateBtn").addEventListener("click", () => {
       attendancePolicy.fields = generateAttendancePolicyFields();
       attendancePolicy.error = "";

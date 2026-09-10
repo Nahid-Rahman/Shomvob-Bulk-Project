@@ -870,7 +870,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click(".settings-card:has-text('Attendance')");
     await page.waitForSelector("#apTitle", { timeout: 5000 });
     check("X lands directly on the group's only module", (await page.locator('.settings-tab[data-module="attendance_policy"][aria-current="true"]').count()) === 1);
-    check("X at least one shift is generated", (await page.locator(".tally").count()) >= 1);
+    check("X generated settings chips are shown", (await page.locator(".tally").count()) >= 1);
 
     const titleBefore = await page.inputValue("#apTitle");
     await page.click("#apRegenerateBtn");
@@ -879,10 +879,6 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("X regenerate re-rolls the title (policy number changes)", titleBefore !== titleAfter);
 
     await page.fill("#apTitle", "Hand-Edited Policy Title");
-    await page.click('#apWeekendSeg button[data-val=\'["SAT"]\']');
-    await page.waitForTimeout(60);
-    check("X weekend toggle is reflected as pressed", (await page.getAttribute('#apWeekendSeg button[data-val=\'["SAT"]\']', "aria-pressed")) === "true");
-    check("X hand-edited title survived the weekend re-render", (await page.inputValue("#apTitle")) === "Hand-Edited Policy Title");
 
     let sent = null;
     await page.route("**/api/v1/attendance/policy/create", (route) => {
@@ -892,8 +888,16 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#apSaveBtn");
     await page.waitForTimeout(150);
     check("X the hand-edited title, not a regenerated one, is what's sent", sent && sent.title === "Hand-Edited Policy Title");
-    check("X weekendDays reflects the picked toggle", sent && JSON.stringify(sent.weekendDays) === '["SAT"]');
-    check("X shifts/overtime/break still carry the generated shape", sent && Array.isArray(sent.shifts) && sent.shifts.length >= 1 && typeof sent.overtimeConfigs === "object" && typeof sent.breakConfig === "object");
+    check("X no shifts/weekendDays are sent (real API rejects both)", sent && sent.shifts === undefined && sent.weekendDays === undefined);
+    check(
+      "X maxCheckOutLimit/fixedBreakSettings carry the real shape",
+      sent && typeof sent.maxCheckOutLimit === "number" && typeof sent.fixedBreakSettings === "object" && typeof sent.fixedBreakSettings.fixedBreakEnabled === "boolean"
+    );
+    check("X overtime/break still carry the generated shape", sent && typeof sent.overtimeConfigs === "object" && typeof sent.breakConfig === "object");
+    check(
+      "X maxCheckOutLimit is never less than maxOvertimeMinutes when set",
+      sent && (!sent.overtimeConfigs.hasMaxOvertime || sent.maxCheckOutLimit >= sent.overtimeConfigs.maxOvertimeMinutes)
+    );
     await page.click("#setupBackToModules");
     await page.waitForTimeout(60);
     check("X the group's card shows 1/1 done", (await page.textContent(".settings-card:has-text('Attendance') .tally")).includes("1/1"));

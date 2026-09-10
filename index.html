@@ -2482,27 +2482,30 @@ const LEAVE_POLICY_EMPLOYEE_TYPES = ["Permanent", "Part-time", "Intern", "Contra
 const LEAVE_POLICY_CATEGORIES = ["Standard", "Emergency", "Special"];
 const LEAVE_POLICY_STANDARD_DAYS = [10, 12, 15];
 
-/* ===== Attendance Policy — Attendance group's only module (2026-09-10) =====
+/* ===== Attendance Policy — Attendance group's only module (2026-09-10,
+   real shape re-derived 2026-09-10) =====
 
-   POST /attendance/policy/create. The Postman collection's own body tab
-   is a bare `{}` — a note in its pre-request script says so explicitly
-   ("Body tab e raw JSON mode e just {} rakhlei hobe") — because that
-   script calls `pm.request.body.update()` and overwrites it at request
-   time. The real body is everything below, ported from that script, not
-   the empty object the static tab shows. Same "headline fields only"
-   scoping as Leave Types: title and weekend days are editable, shifts/
-   overtime/break/early-check-in are generated correctly per the script's
-   own conditional logic but not surfaced as individual inputs — the user
-   flagged this module specifically as the one certain to need rework. */
-const ATTENDANCE_SHIFT_NAME_OPTIONS = ["Default Shift", "Morning Shift", "Office Shift", "Special Shift", "Flexible Shift"];
-const ATTENDANCE_SHIFT_START_HOURS = [8, 9, 10, 11];
-const ATTENDANCE_SHIFT_WORK_HOURS = [6, 7, 8, 9];
-const ATTENDANCE_GRACE_MINUTES = [5, 10, 15, 20, 30];
-const ATTENDANCE_WEEKEND_OPTIONS = [["FRI"], ["SAT"], ["FRI", "SAT"]];
+   POST /attendance/policy/create. The Postman collection's own script
+   (`shifts`/`weekendDays`) does NOT match the real API — confirmed broken
+   in a live verification pass the same day (see CLAUDE.md). The real
+   shape below was re-derived from a known-good real payload plus the
+   actual "Create Default Attendance Policy" admin screen, both supplied
+   by the user: no `shifts`, no `weekendDays` at all (this is a single
+   company-wide policy, not a per-shift one) — replaced by two fields the
+   script had no concept of, `maxCheckOutLimit` (paired with
+   `earlyCheckInLimit`) and `fixedBreakSettings` (the "Deduct Break
+   Configuration" toggle, a sibling of `breakConfig`'s "Break Time
+   Configuration" toggle). overtimeConfigs/earlyCheckInLimit/breakConfig
+   keep the script's own shape unchanged — confirmed correct against the
+   real payload. Same "headline fields only" scoping as Leave Types: only
+   title is exposed as an editable input, everything else is generated
+   correctly per the rules below but not surfaced as its own input row. */
 const ATTENDANCE_OVERTIME_MAX_MINUTES = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300];
 const ATTENDANCE_OVERTIME_COOLDOWN_MINUTES = [15, 30];
 const ATTENDANCE_OVERTIME_SLOT_MINUTES = [30, 60, 90];
 const ATTENDANCE_EARLY_CHECKIN_LIMITS = [30, 60, 90, 120];
+const ATTENDANCE_MAX_CHECKOUT_LIMITS = [60, 90, 120, 150, 180, 210, 240, 270, 300];
+const ATTENDANCE_FIXED_BREAK_MINUTES = [30, 45, 60, 90];
 
 /* ===== Payroll — 11 modules, all ported from the Postman collection's own
    "Payroll Settings" folder (2026-09-10). The user's own call ahead of
@@ -9603,30 +9606,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   /* ===== Attendance Policy — the Attendance group's only module ===== */
   const attendancePolicy = { fields: null, error: "", ok: "" };
 
-  function generateShiftTime() {
-    const startHour = choice(ATTENDANCE_SHIFT_START_HOURS);
-    const totalWorkingHours = choice(ATTENDANCE_SHIFT_WORK_HOURS);
-    const endHour = startHour + totalWorkingHours;
-    const pad2 = (n) => String(n).padStart(2, "0");
-    return { workStartTime: `${pad2(startHour)}:00`, workEndTime: `${pad2(endHour)}:00`, totalWorkingHours };
-  }
-
   function generateAttendancePolicyFields() {
     const policyNumber = String(Date.now()).slice(-5);
-    const shiftCount = randInt(1, 3);
-    const shifts = [];
-    for (let i = 0; i < shiftCount; i++) {
-      const t = generateShiftTime();
-      shifts.push({
-        name: `${choice(ATTENDANCE_SHIFT_NAME_OPTIONS)} ${i + 1}`,
-        workStartTime: t.workStartTime,
-        workEndTime: t.workEndTime,
-        gracePeriodMinutes: choice(ATTENDANCE_GRACE_MINUTES),
-        totalWorkingHours: t.totalWorkingHours,
-        halfDayHours: Math.ceil(t.totalWorkingHours / 2),
-        isDefault: i === 0,
-      });
-    }
 
     const overtimeEnabled = Math.random() < 0.5;
     const overtimeConfigs = { isEnabled: overtimeEnabled };
@@ -9651,14 +9632,26 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       breakConfig.maxBreakPerDay = 5;
     }
 
+    const fixedBreakEnabled = Math.random() < 0.5;
+    const fixedBreakSettings = {
+      fixedBreakEnabled,
+      durationMinutes: fixedBreakEnabled ? choice(ATTENDANCE_FIXED_BREAK_MINUTES) : 60,
+    };
+
+    // Real API rule: maxCheckOutLimit must be >= maxOvertimeMinutes when set.
+    let maxCheckOutLimit = choice(ATTENDANCE_MAX_CHECKOUT_LIMITS);
+    if (overtimeConfigs.hasMaxOvertime && maxCheckOutLimit < overtimeConfigs.maxOvertimeMinutes) {
+      maxCheckOutLimit = overtimeConfigs.maxOvertimeMinutes;
+    }
+
     return {
       title: `Office Standard Policy ${policyNumber}`,
-      description: `Default attendance policy for standard working hours and weekends ${policyNumber}`,
-      shifts,
-      weekendDays: choice(ATTENDANCE_WEEKEND_OPTIONS),
+      description: `Default attendance policy for standard working hours ${policyNumber}`,
       overtimeConfigs,
       earlyCheckInLimit: choice(ATTENDANCE_EARLY_CHECKIN_LIMITS),
+      maxCheckOutLimit,
       breakConfig,
+      fixedBreakSettings,
     };
   }
 
@@ -9666,28 +9659,24 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Attendance Policy</h2></div>`;
     if (!attendancePolicy.fields) attendancePolicy.fields = generateAttendancePolicyFields();
     const f = attendancePolicy.fields;
-    const shiftRows = f.shifts
-      .map((s) => `<span class="tally" style="margin-top:6px; margin-right:6px">${s.name}${s.isDefault ? " · default" : ""} <strong>${s.workStartTime}–${s.workEndTime}</strong></span>`)
-      .join("");
-    const weekendKey = JSON.stringify(f.weekendDays);
+    const chip = (label) => `<span class="tally" style="margin-top:6px; margin-right:6px">${label}</span>`;
+    const settingsChips = [
+      chip(`Overtime ${f.overtimeConfigs.isEnabled ? "on" : "off"}`),
+      chip(`Early check-in ${f.earlyCheckInLimit}m`),
+      chip(`Max check-out ${f.maxCheckOutLimit}m`),
+      chip(`Break ${f.breakConfig.breakEnabled ? "on" : "off"}`),
+      chip(`Deduct break ${f.fixedBreakSettings.fixedBreakEnabled ? "on" : "off"}`),
+    ].join("");
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated the same way QA's own test script rolls it — shifts, overtime and break rules are rolled per its logic. Only the title and weekend days are exposed here for hand-editing; regenerate to re-roll everything else.</p>
+        <p class="section-note">Generated the same way QA's own test script rolls it — overtime, break and check-in/check-out limits are rolled per its logic. Only the title is exposed here for hand-editing; regenerate to re-roll everything else.</p>
         <div class="field-row">
           <div class="field"><label for="apTitle">Title</label><input type="text" id="apTitle" value="${f.title}" /></div>
-          <div class="field">
-            <label>Weekend Days</label>
-            <div class="seg" id="apWeekendSeg" role="group" aria-label="Weekend days">
-              <button type="button" data-val='["FRI"]' aria-pressed="${weekendKey === '["FRI"]'}">Friday</button>
-              <button type="button" data-val='["SAT"]' aria-pressed="${weekendKey === '["SAT"]'}">Saturday</button>
-              <button type="button" data-val='["FRI","SAT"]' aria-pressed="${weekendKey === '["FRI","SAT"]'}">Fri + Sat</button>
-            </div>
-          </div>
         </div>
         <div style="margin-top:14px">
-          <label style="font-size:12.5px; font-weight:600; color:var(--text); display:block; margin-bottom:8px;">Shifts (${f.shifts.length})</label>
-          <div style="display:flex; flex-wrap:wrap;">${shiftRows}</div>
+          <label style="font-size:12.5px; font-weight:600; color:var(--text); display:block; margin-bottom:8px;">Generated settings</label>
+          <div style="display:flex; flex-wrap:wrap;">${settingsChips}</div>
         </div>
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
@@ -9723,15 +9712,6 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function wireAttendancePolicyEvents() {
-    $all("#apWeekendSeg button").forEach((btn) =>
-      btn.addEventListener("click", () => {
-        attendancePolicy.fields.title = $("#apTitle").value;
-        attendancePolicy.fields.weekendDays = JSON.parse(btn.dataset.val);
-        $("#setupBody").innerHTML = setupGroupPageTemplate();
-        wireSetupGroupPage();
-      })
-    );
-
     $("#apRegenerateBtn").addEventListener("click", () => {
       attendancePolicy.fields = generateAttendancePolicyFields();
       attendancePolicy.error = "";

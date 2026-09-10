@@ -1177,48 +1177,72 @@ came with a deliberate scoping decision, not an oversight:
   department targeting UI here, matching the "headline fields only"
   scoping above.
 
-### Attendance Policy (built 2026-09-10)
+### Attendance Policy (built 2026-09-10, real shape fixed 2026-09-10)
 
 Attendance group's only module. `POST /attendance/policy/create` — and
 the one place the collection's own static body tab is actively
 misleading: it shows a bare `{}`, with a comment saying to leave it that
 way, because a pre-request script calls `pm.request.body.update()` and
-overwrites it at request time. The real body — title, description,
-1-3 shifts, weekend days, overtime config, early check-in limit, break
-config — is ported from that script (`ATTENDANCE_*` pools in
-`app-data.js`; `generateAttendancePolicyFields()` in `app.js`), not the
-empty object the tab shows. Same "headline fields only" scoping as Leave
-Types: title and weekend days are editable, everything else is generated
-correctly per the script but not surfaced as its own input row — the
-user flagged this module specifically as certain to need rework.
+overwrites it at request time. The script's own version of the real body
+— title, description, 1-3 shifts, weekend days, overtime config, early
+check-in limit, break config — was ported first and confirmed broken
+against the real API the same day (below).
 
-One real bug found and fixed while testing this module: toggling weekend
-days re-renders the whole tab body, and the input's `value=` attribute
-is sourced from the cached fields object — so a hand-edited title typed
-just before a weekend click was silently overwritten by the last-
-generated title on re-render. Fixed by having the weekend handler read
-`$("#apTitle").value` into the fields object before re-rendering, the
-same discipline Save already used. **This same class of bug likely
-exists in any other module whose seg-toggle handler re-renders without
-first snapshotting sibling text-input values** (e.g. Locations' geo
-toggle) — not audited across the whole app, since nothing else surfaced
-it under test; worth a pass if it's ever reported.
+One real bug found and fixed while the shifts/weekendDays version of this
+module still existed: toggling weekend days re-rendered the whole tab
+body, and the input's `value=` attribute was sourced from the cached
+fields object — so a hand-edited title typed just before a weekend click
+was silently overwritten by the last-generated title on re-render. Fixed
+at the time by having the weekend handler read `$("#apTitle").value` into
+the fields object before re-rendering, the same discipline Save already
+used. The weekend toggle no longer exists (below), but **this same class
+of bug likely exists in any other module whose seg-toggle handler
+re-renders without first snapshotting sibling text-input values** (e.g.
+Locations' geo toggle) — not audited across the whole app, since nothing
+else surfaced it under test; worth a pass if it's ever reported.
 
 **Confirmed genuinely broken against the real API, 2026-09-10** (live
 verification pass, real temporary company-admin credentials, never
-written to any file): `POST /attendance/policy/create` rejects `shifts`
-and `weekendDays` outright as unknown properties, and — once those are
-dropped — rejects the request again with `"Max check-out limit (0
+written to any file): `POST /attendance/policy/create` rejected `shifts`
+and `weekendDays` outright as unknown properties, and — once those were
+dropped — rejected the request again with `"Max check-out limit (0
 minutes) must be equal to or greater than the maximum overtime duration
-(120 minutes)"`, naming a required field the ported script has no
-concept of at all. This is exactly the rework the user predicted before
-this module was even built ("Attendance er ta sure rework kora lagbe")
-— confirmed true, not fixed yet. The real shape needs to be re-derived
-from the live API (or updated Postman collection) rather than guessed
-at further; `title`/`description`/`overtimeConfigs`/`earlyCheckInLimit`/
-`breakConfig` were NOT flagged as wrong, so whatever replaces
-`shifts`/`weekendDays` (and adds the missing check-out-limit field) is
-probably the only real gap.
+(120 minutes)"`, naming a required field the ported script had no concept
+of at all.
+
+**Fixed the same day**, once the user supplied a known-good real payload
+and a screenshot of the actual "Create Default Attendance Policy" admin
+screen (no Postman collection update was ever found — this module's real
+shape simply isn't in that collection anywhere). Both confirmed: this is
+a single company-wide policy, not a per-shift one — **`shifts` and
+`weekendDays` don't exist in the real shape at all**, not "wrong," just
+absent. Two fields replace them, both new concepts the ported script had
+no idea existed:
+
+- **`maxCheckOutLimit`** (top-level, minutes) — the admin screen's "Max
+  Check-out Limit" Hour+Mins fields, siblings of "Early Check-in Limit"
+  (`earlyCheckInLimit`, unchanged). Generated from
+  `ATTENDANCE_MAX_CHECKOUT_LIMITS`, clamped up to
+  `overtimeConfigs.maxOvertimeMinutes` when `hasMaxOvertime` is set — the
+  real API's own rule, confirmed by the error text above, is that this
+  can never be smaller than the max overtime duration.
+- **`fixedBreakSettings`** (`{ fixedBreakEnabled, durationMinutes }`) —
+  the admin screen's "Deduct Break Configuration" toggle ("Choose how
+  break time will impact the total working hours"), a sibling of
+  `breakConfig`'s own "Break Time Configuration" toggle, not a field
+  inside it. `durationMinutes` defaults to `60` when off, matching the
+  real payload's own default.
+
+`overtimeConfigs`/`earlyCheckInLimit`/`breakConfig` keep the script's
+exact original shape — confirmed correct against the real payload, so
+those were never the problem. `generateAttendancePolicyFields()` in
+`app.js` and the `ATTENDANCE_*` pools in `app-data.js` reflect the fixed
+shape; `generateShiftTime()` and the shift/weekend pools are gone
+entirely rather than left unused. Same "headline fields only" scoping as
+before: only `title` is exposed as an editable input (there's nothing
+left to toggle now that weekend days don't exist), everything else is
+generated correctly per the rules above and shown read-only as a row of
+summary chips instead of the old per-shift tally row.
 
 ### Payroll — all 11 modules (built 2026-09-10)
 
@@ -1270,8 +1294,10 @@ this group alone — more than the rest of the app combined:
   settings would never pay out."` So there *is* a real cross-group
   dependency on Attendance Policy having overtime enabled — just not one
   this module checks or surfaces yet, unlike Designation→Department or
-  Leave Policy→Leave Type. Not fixed yet, since Attendance Policy itself
-  is already confirmed broken (above) and needs sorting out first.
+  Leave Policy→Leave Type. Not fixed yet — Attendance Policy's own real
+  shape is now fixed (above), so this is the one remaining open item:
+  add the same `fetchCompanyResource()`/`dependencyNoticeHtml()` pattern
+  here, checking for an Attendance Policy with overtime enabled.
 - **Attendance Bonus** — `POST /payroll/configuration/attendance-bonus`.
   One quirk kept deliberately rather than "fixed": the script always
   sends `calculations.enabled: "Disable"` regardless of the outer
@@ -1315,14 +1341,18 @@ having a bank record from earlier use, not a shape problem with what
 this app sends.
 
 **Confirmed broken and fixed the same day:** Locations (`officeName` →
-`name`, above).
+`name`, above), and Attendance Policy (`shifts`/`weekendDays` replaced by
+`maxCheckOutLimit`/`fixedBreakSettings`, above — fixed once the user
+supplied a known-good real payload and an admin-screen screenshot on a
+second machine, since no Postman collection ever had the real shape).
 
-**Confirmed broken, not fixed yet:** Attendance Policy's real shape has
-diverged from the ported script (above), and Payroll Overtime has an
-undocumented real dependency on it (above). Both were already the
-user's own predicted "2-3 modules will need rework" before this whole
-build push started — this pass turned that prediction into two
-specific, named findings instead of a vague expectation.
+**Confirmed broken, not fixed yet:** Payroll Overtime has an
+undocumented real dependency on Attendance Policy having overtime
+enabled (above) — a real cross-group dependency this app doesn't check
+or surface yet, unlike Designation→Department or Leave Policy→Leave
+Type. This and Attendance Policy's own shape were already the user's
+own predicted "2-3 modules will need rework" before this whole build
+push started.
 
 ### What's not built yet
 
@@ -1331,11 +1361,14 @@ handler; `settingsComingSoonHtml()`'s fallback has no reachable gap left
 under normal navigation and stays in the code the same way `renderMain()`'s
 own "Coming soon" branch did after phase 1's five operations were built.
 
-Two to three of the ~20 modules are expected to need a rework pass once
+Two to three of the ~20 modules were expected to need a rework pass once
 tried against a real environment — the user's own estimate, given before
-this build push started (2026-09-10): Attendance Policy "sure," Payroll's
-Tax module confirmed exactly as predicted, and a small chance in Leave
-Types/Department/Designation. Treat that as expected, not a sign
+this build push started (2026-09-10): Attendance Policy "sure" (now
+fixed, above), Payroll's Tax module confirmed exactly as predicted (still
+just an enable/disable toggle, no create-bracket endpoint exists), and a
+small chance in Leave Types/Department/Designation (none surfaced).
+Payroll Overtime's dependency on Attendance Policy is the one remaining
+open item from that estimate. Treat all of this as expected, not a sign
 something here was rushed carelessly.
 
 **A sanitized copy of the full Postman collection** (passwords and

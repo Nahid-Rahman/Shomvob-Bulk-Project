@@ -780,27 +780,30 @@ const LEAVE_POLICY_EMPLOYEE_TYPES = ["Permanent", "Part-time", "Intern", "Contra
 const LEAVE_POLICY_CATEGORIES = ["Standard", "Emergency", "Special"];
 const LEAVE_POLICY_STANDARD_DAYS = [10, 12, 15];
 
-/* ===== Attendance Policy — Attendance group's only module (2026-09-10) =====
+/* ===== Attendance Policy — Attendance group's only module (2026-09-10,
+   real shape re-derived 2026-09-10) =====
 
-   POST /attendance/policy/create. The Postman collection's own body tab
-   is a bare `{}` — a note in its pre-request script says so explicitly
-   ("Body tab e raw JSON mode e just {} rakhlei hobe") — because that
-   script calls `pm.request.body.update()` and overwrites it at request
-   time. The real body is everything below, ported from that script, not
-   the empty object the static tab shows. Same "headline fields only"
-   scoping as Leave Types: title and weekend days are editable, shifts/
-   overtime/break/early-check-in are generated correctly per the script's
-   own conditional logic but not surfaced as individual inputs — the user
-   flagged this module specifically as the one certain to need rework. */
-const ATTENDANCE_SHIFT_NAME_OPTIONS = ["Default Shift", "Morning Shift", "Office Shift", "Special Shift", "Flexible Shift"];
-const ATTENDANCE_SHIFT_START_HOURS = [8, 9, 10, 11];
-const ATTENDANCE_SHIFT_WORK_HOURS = [6, 7, 8, 9];
-const ATTENDANCE_GRACE_MINUTES = [5, 10, 15, 20, 30];
-const ATTENDANCE_WEEKEND_OPTIONS = [["FRI"], ["SAT"], ["FRI", "SAT"]];
+   POST /attendance/policy/create. The Postman collection's own script
+   (`shifts`/`weekendDays`) does NOT match the real API — confirmed broken
+   in a live verification pass the same day (see CLAUDE.md). The real
+   shape below was re-derived from a known-good real payload plus the
+   actual "Create Default Attendance Policy" admin screen, both supplied
+   by the user: no `shifts`, no `weekendDays` at all (this is a single
+   company-wide policy, not a per-shift one) — replaced by two fields the
+   script had no concept of, `maxCheckOutLimit` (paired with
+   `earlyCheckInLimit`) and `fixedBreakSettings` (the "Deduct Break
+   Configuration" toggle, a sibling of `breakConfig`'s "Break Time
+   Configuration" toggle). overtimeConfigs/earlyCheckInLimit/breakConfig
+   keep the script's own shape unchanged — confirmed correct against the
+   real payload. Same "headline fields only" scoping as Leave Types: only
+   title is exposed as an editable input, everything else is generated
+   correctly per the rules below but not surfaced as its own input row. */
 const ATTENDANCE_OVERTIME_MAX_MINUTES = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300];
 const ATTENDANCE_OVERTIME_COOLDOWN_MINUTES = [15, 30];
 const ATTENDANCE_OVERTIME_SLOT_MINUTES = [30, 60, 90];
 const ATTENDANCE_EARLY_CHECKIN_LIMITS = [30, 60, 90, 120];
+const ATTENDANCE_MAX_CHECKOUT_LIMITS = [60, 90, 120, 150, 180, 210, 240, 270, 300];
+const ATTENDANCE_FIXED_BREAK_MINUTES = [30, 45, 60, 90];
 
 /* ===== Payroll — 11 modules, all ported from the Postman collection's own
    "Payroll Settings" folder (2026-09-10). The user's own call ahead of
