@@ -469,6 +469,28 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
 }
 .section-note { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; margin-bottom: 16px; }
 
+/* Per-module watermark (Company Setup only) — a large, faint icon in the
+   corner of each settings module's own card. `currentColor` resolves to
+   var(--text) and opacity does the fading, so it stays correctly subtle
+   in light, dark and auto alike; nothing here is a fixed colour. Scoped
+   to `.wide .section` (Company Setup's own wide column) so the five
+   generator operations, which share the plain `.section` class, are
+   never affected. z-index: -1 needs its own stacking context to land
+   behind the card's text instead of the whole page, which is what the
+   z-index: 0 on the host establishes. */
+.wide .section { position: relative; z-index: 0; overflow: hidden; }
+.module-watermark {
+  position: absolute;
+  right: -18px;
+  bottom: -18px;
+  width: 120px;
+  height: 120px;
+  color: var(--text);
+  opacity: 0.055;
+  z-index: -1;
+  pointer-events: none;
+}
+
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 12.5px; font-weight: 600; color: var(--text); }

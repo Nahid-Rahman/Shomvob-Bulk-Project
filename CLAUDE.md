@@ -733,6 +733,30 @@ generators, which share those same base classes, keep the weights they
 were designed at. `.wide` only ever applies to Company Setup, so this
 can't leak.
 
+**Per-module watermark (2026-09-10):** each of the 21 settings modules
+now carries its own large, faint line-icon in the bottom-right corner of
+its content card (`SETTINGS_MODULE_ICONS`/`settingsModuleWatermarkHtml()`
+in `app.js`) — a bank icon for Bank Info, a map pin for Locations, a
+percent sign for Tax, and so on, one distinct glyph per module rather
+than reusing its group's icon. Injected **once, centrally**, in
+`setupGroupPageTemplate()`: every module template's returned HTML,
+whichever of its own states (ready/loading/error/blocked-on-dependency)
+is currently rendering, opens with the same literal `<div class="section">`,
+so a single `body.replace('<div class="section">', ...)` right after
+`handler.template()` runs plants the right module's watermark without
+editing all 21 templates individually. Themeable for free — the SVG uses
+`stroke="currentColor"` with no fill, `.module-watermark` sets
+`color: var(--text)` and a low `opacity`, so it reads correctly faint in
+light, dark and auto without a single hex value; verified with
+Playwright screenshots in both `colorScheme: "light"` and `"dark"`
+contexts. `.wide .section` gets `position: relative; z-index: 0;
+overflow: hidden` so the watermark clips to its own card's rounded
+corner and stacks *behind* that card's own text (a negative z-index
+needs its own stacking context to land behind text instead of the whole
+page, which the host's `z-index: 0` establishes) — scoped to `.wide` so
+the five generator operations, which share the plain `.section` class,
+are completely unaffected.
+
 ### Company Profile — first settings module (built 2026-09-09)
 
 Lives at Company Settings → Company Profile, the group's default tab.

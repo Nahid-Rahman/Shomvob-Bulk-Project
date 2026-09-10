@@ -483,6 +483,28 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
 }
 .section-note { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; margin-bottom: 16px; }
 
+/* Per-module watermark (Company Setup only) — a large, faint icon in the
+   corner of each settings module's own card. `currentColor` resolves to
+   var(--text) and opacity does the fading, so it stays correctly subtle
+   in light, dark and auto alike; nothing here is a fixed colour. Scoped
+   to `.wide .section` (Company Setup's own wide column) so the five
+   generator operations, which share the plain `.section` class, are
+   never affected. z-index: -1 needs its own stacking context to land
+   behind the card's text instead of the whole page, which is what the
+   z-index: 0 on the host establishes. */
+.wide .section { position: relative; z-index: 0; overflow: hidden; }
+.module-watermark {
+  position: absolute;
+  right: -18px;
+  bottom: -18px;
+  width: 120px;
+  height: 120px;
+  color: var(--text);
+  opacity: 0.055;
+  z-index: -1;
+  pointer-events: none;
+}
+
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 12.5px; font-weight: 600; color: var(--text); }
@@ -3011,6 +3033,45 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     const paths = SETTINGS_GROUP_ICONS[id];
     if (!paths) return "";
     return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)">${paths}</svg>`;
+  }
+
+  /* One per settings module — a large, low-opacity watermark in the
+     corner of that module's own card, so each module reads as its own
+     "place" rather than an identical grey box with a different label.
+     Drawn in the same hand as SETTINGS_GROUP_ICONS but each module gets
+     its own glyph rather than reusing its group's. Uses `currentColor`
+     (set to var(--text) at render time) and pure opacity rather than a
+     fixed hex, so it stays legible and correctly faint in light, dark and
+     auto — nothing here is theme-specific. Injected once, centrally, in
+     setupGroupPageTemplate() rather than by editing all 21 module
+     templates individually. */
+  const SETTINGS_MODULE_ICONS = {
+    company_profile: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M7 16c.5-1.5 1.5-2 2-2s1.5.5 2 2"/><path d="M14 10h4M14 14h4"/>',
+    bank_info: '<path d="M4 10l8-5 8 5"/><path d="M5 10v9M9 10v9M15 10v9M19 10v9"/><path d="M3 19h18"/>',
+    branches: '<path d="M12 21s7-6.5 7-11a7 7 0 1 0-14 0c0 4.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/>',
+    departments: '<circle cx="12" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><path d="M12 7v4M12 11H6v6M12 11h6v6"/>',
+    designations: '<circle cx="12" cy="9" r="5"/><path d="M9 13.5 7 21l5-3 5 3-2-7.5"/>',
+    custom_fields: '<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="1.6" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="7" cy="17" r="1.6" fill="currentColor" stroke="none"/>',
+    required_documents: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M9.5 13.5l2 2 4-4"/>',
+    leave_types: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16"/><path d="M9 3v3M15 3v3"/><path d="M9 14l2 2 4-4"/>',
+    leave_policy: '<path d="M12 3l7 3v6c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V6l7-3Z"/><path d="M9 12h6M9 15h4"/>',
+    payroll_general: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',
+    salary_components: '<ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/><path d="M5 12v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6"/>',
+    configure_salary_components: '<circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/>',
+    late_arrival: '<circle cx="12" cy="13" r="7"/><path d="M12 9v4l3 2"/><path d="M9 3h6"/>',
+    absent_deduction: '<circle cx="10" cy="8" r="3"/><path d="M4 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><path d="M16 11h5"/>',
+    bonus_types: '<rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M4 9h16M12 9v11"/><path d="M12 9c-1.5 0-3-1-3-2.5S10 4 12 6c0-2 1.5-3.5 3-2.5S13.5 9 12 9Z"/>',
+    bonus_policy: '<rect x="4" y="10" width="16" height="10" rx="1.5"/><path d="M4 10h16"/><path d="M9 5c0-1 .8-1.5 1.5-1 .6.4.8 1.3.5 2M15 5c0-1-.8-1.5-1.5-1-.6.4-.8 1.3-.5 2"/><path d="M9 14h6"/>',
+    overtime: '<circle cx="11" cy="13" r="7"/><path d="M11 9v4l3 2"/><path d="M18 4v4M16 6h4"/>',
+    attendance_bonus: '<circle cx="10" cy="13" r="6.5"/><path d="M10 9.5v3.5l2.5 1.5"/><path d="M17 3.5l1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5 2.2-.3z"/>',
+    custom_addition_deduction: '<circle cx="8" cy="8" r="5"/><path d="M8 5.5v5M5.5 8h5"/><circle cx="16" cy="16" r="5"/><path d="M13.5 16h5"/>',
+    tax: '<circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/><path d="M18 6 6 18"/>',
+    attendance_policy: '<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18"/><path d="M8 3v3M16 3v3"/><circle cx="15.5" cy="15" r="3.2"/><path d="M15.5 13.3V15l1.3.9"/>',
+  };
+  function settingsModuleWatermarkHtml(moduleId) {
+    const paths = SETTINGS_MODULE_ICONS[moduleId];
+    if (!paths) return "";
+    return `<svg class="module-watermark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
   }
 
   function iconClock() {
@@ -6379,7 +6440,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       .join("");
     const mod = group.modules.find((m) => m.id === setup.activeModule);
     const handler = SETTINGS_MODULE_HANDLERS[mod.id];
-    const body = handler ? handler.template() : settingsComingSoonHtml(mod);
+    let body = handler ? handler.template() : settingsComingSoonHtml(mod);
+    /* Every module template's returned HTML opens with the same literal
+       `<div class="section">`, whichever of its own states (ready,
+       loading, error, blocked-on-dependency) is currently rendering — so
+       the module's watermark can be injected once, centrally, right here,
+       rather than editing all 21 templates to carry it themselves. */
+    if (handler) {
+      body = body.replace('<div class="section">', `<div class="section">${settingsModuleWatermarkHtml(mod.id)}`);
+    }
     return `
       <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>
       <h2 style="font-size:19px; margin:14px 0 0;">${group.label}</h2>
