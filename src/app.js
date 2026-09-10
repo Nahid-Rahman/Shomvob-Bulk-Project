@@ -3959,6 +3959,12 @@
     const pass = $("#loginPass");
     const err = $("#loginError");
 
+    /* Same toggle as Company Setup's two password fields — the credential
+       is already printed in plain text a few lines down (#gateCreds), so
+       this is consistency more than necessity, but it's the one password
+       field on the page that never got it. */
+    wirePasswordToggles(gate);
+
     /* pre-filled, because making you type them would rather miss the point */
     email.value = DEMO_LOGIN.email;
     pass.value = DEMO_LOGIN.password;

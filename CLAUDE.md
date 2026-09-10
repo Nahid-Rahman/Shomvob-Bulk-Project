@@ -318,6 +318,14 @@ Nothing is persisted, so a reload asks again; one click clears it. (The
 appearance choice is the sole exception, and it is not behind the gate.)
 Tests call `signIn(page)` from `tests/lib.js` straight after `page.goto`.
 
+**`#loginPass` has the same show/hide toggle as Company Setup's password
+fields** (2026-09-10, `pwFieldMarkup()`'s markup hand-written into
+`part1.html` since the gate is static shell, not JS-templated; wired via
+`wirePasswordToggles(gate)` in `wireLogin()`). Consistency rather than
+necessity — the credential is already printed in plain text a few lines
+down in `#gateCreds`. Tested in `tests/gate.test.js`, the one suite that
+inspects the gate's own DOM before signing in.
+
 There is deliberately **no appearance picker on the gate itself** — it
 lives in the sidebar, one click away, and a second copy on a card whose
 whole point is that it barely gates anything would be clutter.
@@ -431,11 +439,15 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Six suites, 224 checks. `appearance.test.js` is the odd one: it opens two
+Eight suites, 300 checks. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
 background's average channel rather than an exact hex, so a palette tweak
-does not fail a test about the switch working.
+does not fail a test about the switch working. `company-setup.test.js`
+mocks every network call (`page.route()`) rather than touching the real
+Supabase project or either Shomvob environment. `gate.test.js` is the
+only suite that inspects the login gate's own DOM before signing in —
+every other suite clears it immediately via `signIn(page)`.
 
 Each assertion maps to a rule in `SPEC.md`; if one fails, check `SPEC.md`
 before changing the test.

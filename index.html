@@ -1512,7 +1512,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     </div>
     <div class="field">
       <label for="loginPass">Password</label>
-      <input type="password" id="loginPass" autocomplete="off" />
+      <div class="pw-wrap">
+        <input type="password" id="loginPass" autocomplete="off" />
+        <button type="button" class="pw-toggle" data-target="loginPass" aria-label="Show password" title="Show password">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
     </div>
 
     <span class="error-text" id="loginError"></span>
@@ -6158,6 +6163,12 @@ const BUSY_MESSAGES = [
     const email = $("#loginEmail");
     const pass = $("#loginPass");
     const err = $("#loginError");
+
+    /* Same toggle as Company Setup's two password fields — the credential
+       is already printed in plain text a few lines down (#gateCreds), so
+       this is consistency more than necessity, but it's the one password
+       field on the page that never got it. */
+    wirePasswordToggles(gate);
 
     /* pre-filled, because making you type them would rather miss the point */
     email.value = DEMO_LOGIN.email;
