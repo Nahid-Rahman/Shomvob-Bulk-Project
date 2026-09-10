@@ -3942,7 +3942,7 @@
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title">${mod.label}</h2></div>
-        <p class="section-note">Not built yet. Each module gets added once its real request shape is confirmed against the QA test script and, where one exists, the live admin screen.</p>
+        <p class="section-note">Not built yet. Each module gets added once its real request shape is confirmed against the muggle-friendly magic scroll and, where one exists, the live admin screen.</p>
       </div>
     `;
   }
@@ -4100,7 +4100,7 @@
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Company Profile</h2></div>
-        <p class="section-note">Generated from ${setup.companyName}'s own name plus the QA test script's own pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from ${setup.companyName}'s own name plus the muggle-friendly magic scroll's own pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
         <div class="field-row">
           <div class="field"><label for="cpLegalName">Legal Name</label><input type="text" id="cpLegalName" value="${f.legalName}" /></div>
           <div class="field"><label for="cpTegNo">TEG NO</label><input type="text" id="cpTegNo" value="${f.tegNo}" /></div>
@@ -4237,7 +4237,7 @@
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Bank Info</h2></div>
-        <p class="section-note">Generated from the QA test script's own bank list and short-code map. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own bank list and short-code map. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
         <div class="field-row">
           <div class="field"><label for="biBankName">Bank Name</label><input type="text" id="biBankName" value="${f.bankName}" /></div>
           <div class="field"><label for="biAccountNumber">Account Number</label><input type="text" id="biAccountNumber" value="${f.accountNumber}" /></div>
@@ -4368,7 +4368,7 @@
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Locations</h2></div>
-        <p class="section-note">Generated from the QA test script's own office-name and BD-location pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own office-name and BD-location pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
         <div class="field-row">
           <div class="field"><label for="brOfficeName">Office Name</label><input type="text" id="brOfficeName" value="${f.officeName}" /></div>
           <div class="field"><label for="brDistrict">District</label><input type="text" id="brDistrict" value="${f.district}" /></div>
@@ -4510,7 +4510,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the QA test script's own department-name pool. Regenerate re-rolls it; the name can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own department-name pool. Regenerate re-rolls it; the name can still be edited by hand before saving.</p>
         <div class="field"><label for="deptModName">Department Name</label><input type="text" id="deptModName" value="${f.name}" /></div>
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="tiny-btn" id="deptModRegenerateBtn">↻ Regenerate</button>
@@ -4838,7 +4838,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the QA test script's own designation-name pool, attached to a real department from this company. Regenerate re-rolls the name; any field can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own designation-name pool, attached to a real department from this company. Regenerate re-rolls the name; any field can still be edited by hand before saving.</p>
         <div class="field-row">
           <div class="field"><label for="desigName">Designation Name</label><input type="text" id="desigName" value="${f.name}" /></div>
           <div class="field"><label for="desigDept">Department</label><select id="desigDept">${options}</select></div>
@@ -5005,7 +5005,7 @@
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Custom Fields</h2></div>
-        <p class="section-note">Generated from the QA test script's own field-type pool. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own field-type pool. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
         <div class="field-row">
           <div class="field"><label for="cfName">Field Name</label><input type="text" id="cfName" value="${f.fieldName}" /></div>
           <div class="field"><label for="cfType">Type</label><input type="text" id="cfType" value="${f.type}" /></div>
@@ -5136,7 +5136,7 @@
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Required Documents</h2></div>
-        <p class="section-note">Generated from the QA test script's own document-name pool. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own document-name pool. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
         <div class="field-row">
           <div class="field"><label for="rdName">Document Name</label><input type="text" id="rdName" value="${f.name}" /></div>
           <div class="field">
@@ -5396,14 +5396,14 @@
           </div>
           ${f.carryForwardEnabled ? `<div class="field"><label for="ltCarryDays">Max Carry-Forward Days</label><input type="text" id="ltCarryDays" value="${f.maxCarryForwardDays}" /></div>` : ""}
         </div>
-        <p class="section-note" style="margin-top:10px">Prorata, accrual, backdating, document requirement, sandwich/bridge rules and the reset cycle are generated the same way the QA test script does it — Regenerate re-rolls them, they're just not each their own field here.</p>
+        <p class="section-note" style="margin-top:10px">Prorata, accrual, backdating, document requirement, sandwich/bridge rules and the reset cycle are generated the same way the muggle-friendly magic scroll does it — Regenerate re-rolls them, they're just not each their own field here.</p>
       `;
     }
 
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Leave Types</h2></div>
-        <p class="section-note">Generated from the QA test script's own leave-type rules. Pick a kind, then Regenerate re-rolls its details; name and the headline limits can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own leave-type rules. Pick a kind, then Regenerate re-rolls its details; name and the headline limits can still be edited by hand before saving.</p>
         <div class="field-row">
           <div class="field"><label for="ltKind">Kind</label><select id="ltKind">${kindOptions}</select></div>
           <div class="field"><label for="ltName">Name</label><input type="text" id="ltName" value="${f.name}" /></div>
@@ -5595,7 +5595,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the QA test script's own policy-composition rule, drawing on this company's real leave types. Regenerate re-rolls which leave types are included and their category/days; name and status can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own policy-composition rule, drawing on this company's real leave types. Regenerate re-rolls which leave types are included and their category/days; name and status can still be edited by hand before saving.</p>
         <div class="field-row">
           <div class="field"><label for="lpName">Name</label><input type="text" id="lpName" value="${f.name}" /></div>
           <div class="field">
@@ -5743,7 +5743,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the QA test script's own pay-cycle picker — calendar month is most common, fixed date next, bi-weekly rare. Regenerate re-rolls which cycle and its conditional fields.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own pay-cycle picker — calendar month is most common, fixed date next, bi-weekly rare. Regenerate re-rolls which cycle and its conditional fields.</p>
         <div class="field-row">
           <div class="field">
             <label>Payroll Cycle</label>
@@ -5858,7 +5858,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">The QA test script's own 4 fixed components, one request each — status, tax-countability and pro-rata are the only randomised fields.</p>
+        <p class="section-note">The muggle-friendly magic scroll's own 4 fixed components, one request each — status, tax-countability and pro-rata are the only randomised fields.</p>
         <div class="field-row">
           <div class="field">
             <label for="scPreset">Component</label>
@@ -6006,7 +6006,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the QA test script's own split table — basic and the two components always sum to 100%. Regenerate re-rolls the split and which two components are used.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own split table — basic and the two components always sum to 100%. Regenerate re-rolls the split and which two components are used.</p>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">
           <span class="tally">Basic <strong>${f.basicSalaryPercentage}%</strong></span>
           <span class="tally">${nameFor(f.components[0].salaryComponentId)} <strong>${f.components[0].percentage}%</strong></span>
@@ -6122,7 +6122,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the QA test script's own late-arrival rule — deduction type, its two enable flags and the deduction basis all follow the script's own logic.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own late-arrival rule — deduction type, its two enable flags and the deduction basis all follow the scroll's own logic.</p>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">
           <span class="tally">Monthly late limit <strong>${f.monthlyLateLimit}</strong></span>
           <span class="tally">${f.latePenaltyEnabled ? "Late penalty" : "Repeated late penalty"} <strong>enabled</strong></span>
@@ -6247,7 +6247,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the QA test script's own absent-deduction rule.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own absent-deduction rule.</p>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">
           <span class="tally">Rule based on <strong>${f.ruleBasedOn.replace(/_/g, " ")}</strong></span>
           <span class="tally">Threshold <strong>${f.thresholdDays} days</strong></span>
@@ -6345,7 +6345,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">The QA test script's own 4 fixed bonus types, one request each — only the icon is randomised.</p>
+        <p class="section-note">The muggle-friendly magic scroll's own 4 fixed bonus types, one request each — only the icon is randomised.</p>
         <div class="field-row">
           <div class="field"><label for="btPreset">Bonus Type</label><select id="btPreset">${options}</select></div>
         </div>
@@ -6469,7 +6469,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the QA test script's own policy rule, drawing on this company's real bonus types. Name and bonus percentage can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own policy rule, drawing on this company's real bonus types. Name and bonus percentage can still be edited by hand before saving.</p>
         <div class="field-row">
           <div class="field"><label for="bpName">Name</label><input type="text" id="bpName" value="${f.name}" /></div>
           <div class="field"><label for="bpPercentage">Bonus %</label><input type="number" id="bpPercentage" value="${f.bonusPercentage}" min="1" max="200" /></div>
@@ -6608,7 +6608,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the QA test script's own overtime rules — regular overtime is always on; weekend and holiday are independently randomised, each 80% likely enabled.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own overtime rules — regular overtime is always on; weekend and holiday are independently randomised, each 80% likely enabled.</p>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">
           ${overtimeSummaryChip("Regular", f.default)}
           ${overtimeSummaryChip("Weekend", f.weekend)}
@@ -6697,7 +6697,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the QA test script's own attendance-bonus script. Note: the script itself always sends the calculation block's own "enabled" flag as Disable regardless of the outer toggle — kept as-is rather than corrected, since matching the script matters more than assuming it's a typo.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own attendance-bonus rules. Note: the scroll itself always sends the calculation block's own "enabled" flag as Disable regardless of the outer toggle — kept as-is rather than corrected, since matching the scroll matters more than assuming it's a typo.</p>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">
           <span class="tally">Counted on <strong>${f.bonusCountOn.type} · ${f.bonusCountOn.value}${f.bonusCountOn.type === "Percentage" ? "%" : " days"}</strong></span>
           <span class="tally">Calculation <strong>${calcSummary}</strong></span>
@@ -6772,7 +6772,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">The QA test script's own fixed names, paired by type.</p>
+        <p class="section-note">The muggle-friendly magic scroll's own fixed names, paired by type.</p>
         <div class="field-row">
           <div class="field">
             <label>Type</label>
@@ -6868,7 +6868,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note"><strong>Scope note:</strong> the QA test script only has an enable/disable toggle for tax rules — there's no endpoint anywhere in it for actually creating a tax bracket or rule. This button calls exactly what exists; configuring real tax brackets needs an API this script doesn't have yet.</p>
+        <p class="section-note"><strong>Scope note:</strong> the muggle-friendly magic scroll only has an enable/disable toggle for tax rules — there's no endpoint anywhere in it for actually creating a tax bracket or rule. This button calls exactly what exists; configuring real tax brackets needs an API this scroll doesn't have yet.</p>
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="generate-btn" id="ptSaveBtn">Enable Tax on ${ENVIRONMENTS[setup.env].label}</button>
