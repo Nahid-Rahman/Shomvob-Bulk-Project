@@ -551,6 +551,8 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(150);
     check("P geolocation-off sends null lat/lng/radius, not zero or omitted",
       sentOff && sentOff.latitude === null && sentOff.longitude === null && sentOff.radiusInMeters === null, JSON.stringify(sentOff));
+    check("P the real API's field is `name`, not `officeName` — confirmed live against staging 2026-09-10",
+      sentOff && sentOff.name === officeName && !("officeName" in sentOff), JSON.stringify(sentOff));
     check("P the tab picks up a done marker", (await page.locator('.settings-tab[data-module="branches"] .op-dot').count()) === 1);
     check("P no page errors", errs.length === 0, errs.join(" | "));
     await page.close();

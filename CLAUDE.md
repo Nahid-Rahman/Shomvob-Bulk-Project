@@ -439,7 +439,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eight suites, 483 checks. `appearance.test.js` is the odd one: it opens two
+Eight suites, 484 checks. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
 background's average channel rather than an exact hex, so a palette tweak
@@ -986,6 +986,15 @@ endpoint "Branch Management" — confirmed, not left as a guess.
   DOHS (`BARIDHARA_BASE_LATITUDE`/`_LONGITUDE`, the script's own
   reference point). Toggling it in the UI regenerates or nulls those
   three fields live; tested both directions send the right JS types.
+  **A real bug, found and fixed 2026-09-10** in a live verification pass
+  against Shomvob staging (real, temporary company-admin credentials,
+  used only in-memory for that session and never written to any file):
+  the Postman collection's own script sends `officeName`, but the real
+  API rejects it outright ("property officeName should not exist") and
+  wants `name`. Kept `officeName` as the internal field name everywhere
+  else in this module (the pool, the label, the state) since it's a
+  clearer label than a bare "name" for a branch — `saveBranch()` renames
+  it to `name` only at the point of building the actual request body.
 - **Department Management** — `POST /departments`. `code`,
   `parentId`, `businessLineId`, `departmentHeadId` are fixed values the
   script always sends, never generated. The script also de-duplicates
@@ -1195,6 +1204,22 @@ first snapshotting sibling text-input values** (e.g. Locations' geo
 toggle) — not audited across the whole app, since nothing else surfaced
 it under test; worth a pass if it's ever reported.
 
+**Confirmed genuinely broken against the real API, 2026-09-10** (live
+verification pass, real temporary company-admin credentials, never
+written to any file): `POST /attendance/policy/create` rejects `shifts`
+and `weekendDays` outright as unknown properties, and — once those are
+dropped — rejects the request again with `"Max check-out limit (0
+minutes) must be equal to or greater than the maximum overtime duration
+(120 minutes)"`, naming a required field the ported script has no
+concept of at all. This is exactly the rework the user predicted before
+this module was even built ("Attendance er ta sure rework kora lagbe")
+— confirmed true, not fixed yet. The real shape needs to be re-derived
+from the live API (or updated Postman collection) rather than guessed
+at further; `title`/`description`/`overtimeConfigs`/`earlyCheckInLimit`/
+`breakConfig` were NOT flagged as wrong, so whatever replaces
+`shifts`/`weekendDays` (and adds the missing check-out-limit field) is
+probably the only real gap.
+
 ### Payroll — all 11 modules (built 2026-09-10)
 
 Every module in the Postman collection's own "Payroll Settings" folder,
@@ -1238,7 +1263,15 @@ this group alone — more than the rest of the app combined:
   overtime is always enabled; weekend and holiday are independently
   rolled (80% enabled each), each with its own Fixed Rate/Multiplier
   choice, ported from the script's own nested `buildSpecialOvertimeBlock()`
-  logic. No dependency.
+  logic. Documented as "no dependency" when built — **found live,
+  2026-09-10, that this isn't quite true**: the real API rejected a
+  structurally-correct request with `"Enable overtime on an attendance
+  policy first. Without it no overtime is recorded, so these payroll
+  settings would never pay out."` So there *is* a real cross-group
+  dependency on Attendance Policy having overtime enabled — just not one
+  this module checks or surfaces yet, unlike Designation→Department or
+  Leave Policy→Leave Type. Not fixed yet, since Attendance Policy itself
+  is already confirmed broken (above) and needs sorting out first.
 - **Attendance Bonus** — `POST /payroll/configuration/attendance-bonus`.
   One quirk kept deliberately rather than "fixed": the script always
   sends `calculations.enabled: "Disable"` regardless of the outer
@@ -1261,6 +1294,35 @@ this group alone — more than the rest of the app combined:
 `weightedChoice(options)` (`app.js`) is new shared infrastructure — every
 Payroll module whose script weights its own random choices uses it
 rather than reimplementing the roll.
+
+### A live verification pass against the real staging API (2026-09-10)
+
+Every module up to this point had only ever been checked against the
+Postman collection's own text and Playwright's mocked responses — never
+against the real, running Shomvob staging server. The user offered a
+real, disposable staging company's credentials for exactly this; they
+were used only in-memory, for this one verification pass, in terminal
+`curl` commands never written to any file, and are not recorded here or
+anywhere else in the repo.
+
+**Confirmed correct, byte-for-byte, against the real API:** Company
+Profile, Department Management, Designation Management, Leave Types
+(normal kind), Leave Policy, Custom Fields, Required Documents, Tax,
+Bonus Types, Salary Components, Custom Addition/Deduction. Bank Info's
+fields are also confirmed correct — a real attempt hit a `500` with a
+Postgres unique-constraint error, but that's the *test company* already
+having a bank record from earlier use, not a shape problem with what
+this app sends.
+
+**Confirmed broken and fixed the same day:** Locations (`officeName` →
+`name`, above).
+
+**Confirmed broken, not fixed yet:** Attendance Policy's real shape has
+diverged from the ported script (above), and Payroll Overtime has an
+undocumented real dependency on it (above). Both were already the
+user's own predicted "2-3 modules will need rework" before this whole
+build push started — this pass turned that prediction into two
+specific, named findings instead of a vague expectation.
 
 ### What's not built yet
 

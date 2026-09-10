@@ -4422,12 +4422,21 @@
 
   async function saveBranch(fields) {
     const env = ENVIRONMENTS[setup.env];
+    /* The real API's field is `name`, not `officeName` — confirmed live
+       against Shomvob staging on 2026-09-10 (a validation error named
+       both: "property officeName should not exist" and "Branch name is
+       required"). Kept as `officeName` everywhere else in this module
+       (the pool, the label, the state) since that's a clearer label for
+       a branch/office than a bare "name" would be — only renamed here,
+       at the point of actually building the request body. */
+    const { officeName, ...rest } = fields;
+    const payload = { name: officeName, ...rest };
     let res;
     try {
       res = await fetch(`${env.apiBase}/company/branches`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
-        body: JSON.stringify(fields),
+        body: JSON.stringify(payload),
       });
     } catch (e) {
       throw new Error(`Couldn't reach ${env.label}.`);

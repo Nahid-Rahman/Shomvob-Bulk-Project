@@ -863,6 +863,14 @@ for the same endpoint is "Branch Management".
 Toggling geolocation in the UI regenerates or clears those three fields
 live. Success: `"Branch created successfully"` (201).
 
+**The field is sent as `name`, not `officeName`.** The Postman
+collection's own script uses `officeName`; a live check against Shomvob
+staging (2026-09-10) showed the real API rejects it outright
+("property officeName should not exist") and requires `name`. Kept
+`officeName` as the internal field name (state, pool, label) since it
+reads better in the UI — only renamed at the point `saveBranch()`
+builds the actual request body.
+
 ### Department Management — `POST /departments`
 
 | Field | Rule |
