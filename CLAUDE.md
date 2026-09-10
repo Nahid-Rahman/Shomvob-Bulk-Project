@@ -439,7 +439,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eight suites, 465 checks. `appearance.test.js` is the odd one: it opens two
+Eight suites, 466 checks. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
 background's average channel rather than an exact hex, so a palette tweak
@@ -575,44 +575,49 @@ thing:
    behalf, no more — the page inherits the account's permissions rather
    than asserting any of its own.
 
-Both tokens live in the module-level `setup` object, **and, since
-2026-09-10, in `sessionStorage`** (`restoreSetupSession()`/
-`persistSetupSession()`, `SETUP_SESSION_KEY`). Originally neither token
-was written to storage at all — no `localStorage`, no cookie, a reload
-cleared them exactly like every pasted ID list elsewhere in the app, on
-the reasoning that a token isn't a preference. In practice that meant an
-accidental refresh two or three screens into Company Setup cost both
-logins and whatever tab you were on, forcing a re-type of two real
-passwords — flagged directly as a workflow cost outweighing whatever
-safety the reset bought, since the actual security boundary here is the
-two servers being fixed at build time and Supabase sign-up being off, not
-whether a token survives a keystroke.
+Both tokens live only in the module-level `setup` object and are
+**never written to storage** — no `localStorage`, no cookie, no
+`sessionStorage`. A reload clears them unconditionally, every time, on
+purpose.
 
-`sessionStorage` rather than `localStorage` is the deliberate middle
-ground: it survives a reload, same as the appearance choice, but — unlike
-the appearance choice — clears the moment the tab closes, so a real
-company session never becomes a standing file on disk. `restoreSetupSession()`
-runs once, synchronously, right after `setup` is declared, so the very
-first render already reflects a restored session — no flash of the
-sign-in form before snapping to connected. `persistSetupSession()` is
-called from the one place nearly every meaningful mutation already routes
-through, `renderSetupBody()`, rather than being sprinkled across every
-click handler; it also doubles as the clear — called with no `toolToken`,
-it removes the stored entry outright, which is what both Sign out and a
-plain page load after signing out do.
+**This was tried the other way for a few hours on 2026-09-10** — both
+tokens persisted to `sessionStorage`, so a reload wouldn't force two
+real passwords to be retyped, which had been flagged as a real workflow
+cost. Reverted the same day, on further reflection from the same
+conversation: the joke gate in front of this whole section is exactly
+that, a joke — one click, credentials printed on the card. If the two
+*real* logins (Supabase tool sign-in, real company admin) survive a
+reload too, the section's actual security boundary quietly becomes "is
+the tab still open," which isn't a call Bulk Forge should make on the
+user's behalf. Both logins are back to memory-only, gone on any reload,
+same as before sessionStorage was ever tried here.
 
-**What does *not* survive, on purpose, same as before:** every per-module
-generated-but-unsaved field (`companyProfile.fields` and its ~20
-siblings) and `doneModules`'s green dots. Only the two logins,
-environment, and which group/module tab you were on are carried across —
-enough to stop a refresh from costing two real logins, not an attempt to
-make the whole session durable. Signing out (`#setupSignOutBtn`, always
-visible once signed in) clears both tokens and the stored entry.
-Disconnecting (`#setupDisconnectBtn`, only once a company is signed in)
-clears only the company token, keeping the tool sign-in and environment
-persisted, so switching to a different test company doesn't mean signing
-into Bulk Forge itself again — and a reload mid-way through picking a new
-company still doesn't lose the tool sign-in either.
+**What *is* kept, deliberately, in a separate, token-free key**
+(`SETUP_LAST_SESSION_KEY`, `saveLastSetupSession()`/
+`loadLastSetupSession()`/`clearLastSetupSession()`): which
+company/environment was last connected, and which modules were actually
+saved there (`doneModules`, as a plain array — no tokens, nothing that
+grants access on its own). Two things use it:
+
+- **The sign-in form itself**, when this key is present, shows a named
+  reminder — "You were connected to **X** on Y before this reload — both
+  logins are required again on purpose, every time" — so losing the
+  connection reads as an explained, expected thing rather than an
+  unexplained blank form. This is the answer to "can we at least say why
+  you're being logged out" once the sessionStorage convenience itself
+  was ruled out.
+- **Reconnecting to the exact same company on the exact same
+  environment** restores `doneModules`, so the green dots reappear and a
+  batch of real writes doesn't lose its own progress indicator just
+  because the session that made them ended. Reconnecting to a
+  *different* company gets a clean 0/N, on purpose — done-dots from one
+  company are meaningless for another. `saveLastSetupSession()` is
+  called from `wireSetupGroupPage()` rather than `renderSetupBody()`,
+  because every module's own save handler re-renders by calling that
+  function directly — it's the one place guaranteed to run right after
+  `doneModules` actually changes. Both Sign out and Disconnect call
+  `clearLastSetupSession()`, so the marker doesn't linger to (mis)inform
+  whoever signs in next.
 
 ### Two servers, fixed at build time, never a text field
 

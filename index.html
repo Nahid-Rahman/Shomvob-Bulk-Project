@@ -6090,44 +6090,53 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     doneModules: new Set(), // module ids saved for real this session — resets on sign-out/reload like everything else here
   };
 
-  /* Both logins used to be wiped by a plain reload, on purpose — the same
-     "nothing survives a reload" rule as every pasted list elsewhere in
-     the app. In practice that meant an accidental refresh three screens
-     into Company Setup cost both logins and whatever tab you were on,
-     which the user flagged as a real workflow cost (2026-09-10) rather
-     than a safety feature earning its keep. Fixed with sessionStorage,
-     not localStorage — survives a reload but not closing the tab, so a
-     real login only ever outlives an accidental refresh, never becomes a
-     long-lived file on disk. Per-module generated-but-unsaved field
-     caches and doneModules are deliberately left out: those still reset
-     on reload, same as before — this only carries the two logins,
-     environment and current tab so you land back where you were. */
-  const SETUP_SESSION_KEY = "bulkforge-setup-session";
-  function restoreSetupSession() {
+  /* Reload used to wipe both logins unconditionally — flagged as a real
+     workflow cost (2026-09-10), fixed that same day by persisting both
+     tokens to sessionStorage. Reverted the same day, on further
+     reflection: this is the one part of the app that writes into a real
+     company, and the joke gate in front of it is exactly that, a joke —
+     one click, credentials printed on the card. If the two *real* logins
+     survive a reload too, the whole security boundary of this section
+     quietly becomes "is the tab still open," which is not a boundary
+     Bulk Forge should be deciding on the user's behalf. Both logins are
+     back to living only in memory, gone on any reload, on purpose, same
+     as before sessionStorage was ever added here.
+
+     What's kept, deliberately, in a *separate*, token-free key: which
+     company/environment was last connected and which modules were
+     actually saved there. Restoring that isn't restoring access — it's
+     answering "what did I already do" for whoever signs back in next,
+     which is a real, separate problem (raised 2026-09-10 right after the
+     token-persistence idea was reverted): someone who got disconnected
+     by a reload, a crash, or just closing the wrong thing has no way to
+     know which of a batch of real writes already landed. */
+  const SETUP_LAST_SESSION_KEY = "bulkforge-setup-last-session";
+  function loadLastSetupSession() {
     try {
-      const raw = sessionStorage.getItem(SETUP_SESSION_KEY);
-      if (!raw) return;
-      Object.assign(setup, JSON.parse(raw));
+      const raw = sessionStorage.getItem(SETUP_LAST_SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
     } catch (e) {
-      /* a corrupt or inaccessible entry just means starting fresh */
+      return null;
     }
   }
-  function persistSetupSession() {
+  function saveLastSetupSession() {
     try {
-      if (!setup.toolToken) {
-        sessionStorage.removeItem(SETUP_SESSION_KEY);
-        return;
-      }
-      const { toolEmail, toolToken, env, companyToken, companyRefresh, companyName, companyUserType, activeGroup, activeModule } = setup;
+      if (!setup.companyToken) return;
       sessionStorage.setItem(
-        SETUP_SESSION_KEY,
-        JSON.stringify({ toolEmail, toolToken, env, companyToken, companyRefresh, companyName, companyUserType, activeGroup, activeModule })
+        SETUP_LAST_SESSION_KEY,
+        JSON.stringify({ companyName: setup.companyName, env: setup.env, doneModules: Array.from(setup.doneModules) })
       );
     } catch (e) {
-      /* a locked-down browser throws rather than persisting — fine, it just means this reload won't survive */
+      /* a locked-down browser throws rather than persisting — fine, this just means no "welcome back" next time */
     }
   }
-  restoreSetupSession();
+  function clearLastSetupSession() {
+    try {
+      sessionStorage.removeItem(SETUP_LAST_SESSION_KEY);
+    } catch (e) {
+      /* nothing to do — it wasn't going to be read again anyway */
+    }
+  }
 
   function iconCheck() {
     return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg>`;
@@ -6313,7 +6322,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function renderSetupBody() {
-    persistSetupSession();
+    saveLastSetupSession();
     $("#setupPageHead").innerHTML = setupPageHeadHtml();
     $("#setupStatusBar").innerHTML = setupStatusBarHtml();
     const signOutBtn = $("#setupSignOutBtn");
@@ -6329,6 +6338,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         setup.activeModule = null;
         setup.doneModules = new Set();
         resetModuleState();
+        clearLastSetupSession();
         renderSetupBody();
       });
     }
@@ -6345,6 +6355,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         setup.activeModule = null;
         setup.doneModules = new Set();
         resetModuleState();
+        clearLastSetupSession();
         renderSetupBody();
       });
     }
@@ -6370,7 +6381,17 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function setupSignInTemplate() {
+    const last = loadLastSetupSession();
+    const lastSessionNotice = last
+      ? `
+        <div class="validation-banner" style="margin-top:0; margin-bottom:16px;">
+          ${iconWarn()}
+          <div>You were connected to <strong>${last.companyName}</strong> on ${ENVIRONMENTS[last.env] ? ENVIRONMENTS[last.env].label : last.env} before this reload — both logins are required again on purpose, every time. Sign back in with the same company to pick up where you left off.</div>
+        </div>
+      `
+      : "";
     return `
+      ${lastSessionNotice}
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Sign in to Bulk Forge</h2></div>
         <p class="section-note">Your own Bulk Forge account — separate from your Shomvob login, and separate again from the company you'll sign into next.</p>
@@ -6472,6 +6493,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         setup.companyRefresh = data.refreshToken;
         setup.companyName = data.user.companyName;
         setup.companyUserType = data.user.type;
+        /* Reconnecting to the exact same company on the exact same
+           environment — not a different one — picks up where a reload or
+           a Sign out left off: the done-dots reappear so a real batch of
+           writes doesn't quietly lose its own progress indicator, even
+           though re-authenticating for real is still required every time. */
+        const last = loadLastSetupSession();
+        if (last && last.companyName === setup.companyName && last.env === setup.env) {
+          setup.doneModules = new Set(last.doneModules);
+        }
         renderSetupBody();
       } catch (e) {
         err.textContent = e.message;
@@ -6595,6 +6625,11 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function wireSetupGroupPage() {
+    /* Every module's own save handler re-renders by calling this function
+       directly, not renderSetupBody() — so this, not that, is the one
+       place guaranteed to run after doneModules actually changes, and is
+       where the "what did I already do" marker needs to be kept current. */
+    saveLastSetupSession();
     /* A bulk "create the defaults" run (Department/Designation) updates
        its own list by re-rendering whichever module is currently active
        — navigating to a different tab mid-run would point those updates

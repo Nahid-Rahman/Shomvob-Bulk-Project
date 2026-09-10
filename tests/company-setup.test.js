@@ -1236,29 +1236,64 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
-  /* ---------- AI. both logins survive a reload — sessionStorage, not a plain reset ---------- */
+  /* ---------- AI. a reload always drops both logins — on purpose, for real this time ----------
+
+     sessionStorage token persistence was tried, then reverted the same
+     day: the joke gate is exactly that, a joke, and letting the two
+     *real* logins survive a reload would quietly make "is the tab still
+     open" this section's whole security boundary. What's kept instead —
+     in a separate, token-free key — is which company/env was last
+     connected and which modules were saved there, so reconnecting isn't
+     a totally blank slate even though it does require both real logins
+     again, unconditionally, every time. */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await toGrid(page, "Nexa Technologies");
-    await page.click(".settings-card:has-text('Payroll')");
+    await page.click(".settings-card:has-text('Company Settings')");
     await page.waitForTimeout(100);
-    await page.click('.settings-tab[data-module="tax"]');
-    await page.waitForTimeout(100);
+    let cpSent = null;
+    await page.route("**/api/v1/company-profile", (route) => {
+      cpSent = true;
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "Company profile saved successfully" }) });
+    });
+    await page.click("#cpSaveBtn");
+    await page.waitForTimeout(150);
+    check("AI sanity: Company Profile actually saved", cpSent === true);
 
     await page.reload();
     await page.waitForTimeout(150);
     check("AI a bare reload lands back on the joke gate — that part still never persists", (await page.locator("#loginGate").count()) === 1);
     await signIn(page);
-    check("AI Company Setup itself is untouched by the reload — no re-typing either login",
-      (await page.locator(".op-item:has-text('Company Setup')").count()) === 1);
-
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForTimeout(150);
-    check("AI both logins survived — straight to the connected banner, no sign-in form", (await page.locator("#setupSignInBtn").count()) === 0);
-    check("AI the connected banner shows the same company", (await page.locator(".setup-connected-banner .rule-val").first().textContent()) === "Nexa Technologies");
-    check("AI even the tab you were on survived", (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "tax");
-    check("AI no page errors across the reload", errs.length === 0, errs.join(" | "));
+    check("AI both real logins are required again — a reload never skips them", (await page.locator("#setupSignInBtn").count()) === 1);
+    check("AI a notice names the company that was connected before the reload",
+      (await page.textContent(".validation-banner")).includes("Nexa Technologies"));
+
+    await mockSupabaseOk(page);
+    await page.fill("#setupEmail", "mahmudur@shomvob.com");
+    await page.fill("#setupPass", "whatever");
+    await page.click("#setupSignInBtn");
+    await page.waitForTimeout(150);
+    await mockCompanyOk(page, "Nexa Technologies", "company_admin");
+    await page.fill("#setupCoEmail", "a@b.com");
+    await page.fill("#setupCoPass", "whatever");
+    await page.click("#setupCoBtn");
+    await page.waitForTimeout(150);
+    check("AI reconnecting to the same company restores its done-dots from before the reload",
+      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).includes("1/5"));
+
+    await page.click("#setupDisconnectBtn");
+    await page.waitForTimeout(80);
+    await mockCompanyOk(page, "A Totally Different Company", "company_admin");
+    await page.fill("#setupCoEmail", "x@y.com");
+    await page.fill("#setupCoPass", "whatever");
+    await page.click("#setupCoBtn");
+    await page.waitForTimeout(150);
+    check("AI a different company gets a clean slate, not the previous company's done-dots",
+      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).includes("0/5"));
+    check("AI no page errors across the whole flow", errs.length === 0, errs.join(" | "));
 
     await page.click("#setupSignOutBtn");
     await page.waitForTimeout(100);
@@ -1267,8 +1302,8 @@ async function toGrid(page, companyName = "Hogwarts") {
     await signIn(page);
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForTimeout(100);
-    check("AI Sign out clears the saved session too — a reload after it asks for both logins again",
-      (await page.locator("#setupSignInBtn").count()) === 1);
+    check("AI Sign out clears the last-session notice too — nothing lingers to greet the next person",
+      (await page.locator(".validation-banner").count()) === 0);
     await page.close();
   }
 
