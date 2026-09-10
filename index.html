@@ -6072,6 +6072,45 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     doneModules: new Set(), // module ids saved for real this session — resets on sign-out/reload like everything else here
   };
 
+  /* Both logins used to be wiped by a plain reload, on purpose — the same
+     "nothing survives a reload" rule as every pasted list elsewhere in
+     the app. In practice that meant an accidental refresh three screens
+     into Company Setup cost both logins and whatever tab you were on,
+     which the user flagged as a real workflow cost (2026-09-10) rather
+     than a safety feature earning its keep. Fixed with sessionStorage,
+     not localStorage — survives a reload but not closing the tab, so a
+     real login only ever outlives an accidental refresh, never becomes a
+     long-lived file on disk. Per-module generated-but-unsaved field
+     caches and doneModules are deliberately left out: those still reset
+     on reload, same as before — this only carries the two logins,
+     environment and current tab so you land back where you were. */
+  const SETUP_SESSION_KEY = "bulkforge-setup-session";
+  function restoreSetupSession() {
+    try {
+      const raw = sessionStorage.getItem(SETUP_SESSION_KEY);
+      if (!raw) return;
+      Object.assign(setup, JSON.parse(raw));
+    } catch (e) {
+      /* a corrupt or inaccessible entry just means starting fresh */
+    }
+  }
+  function persistSetupSession() {
+    try {
+      if (!setup.toolToken) {
+        sessionStorage.removeItem(SETUP_SESSION_KEY);
+        return;
+      }
+      const { toolEmail, toolToken, env, companyToken, companyRefresh, companyName, companyUserType, activeGroup, activeModule } = setup;
+      sessionStorage.setItem(
+        SETUP_SESSION_KEY,
+        JSON.stringify({ toolEmail, toolToken, env, companyToken, companyRefresh, companyName, companyUserType, activeGroup, activeModule })
+      );
+    } catch (e) {
+      /* a locked-down browser throws rather than persisting — fine, it just means this reload won't survive */
+    }
+  }
+  restoreSetupSession();
+
   function iconCheck() {
     return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg>`;
   }
@@ -6256,6 +6295,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function renderSetupBody() {
+    persistSetupSession();
     $("#setupPageHead").innerHTML = setupPageHeadHtml();
     $("#setupStatusBar").innerHTML = setupStatusBarHtml();
     const signOutBtn = $("#setupSignOutBtn");

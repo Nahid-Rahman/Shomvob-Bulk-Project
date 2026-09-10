@@ -439,7 +439,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eight suites, 436 checks. `appearance.test.js` is the odd one: it opens two
+Eight suites, 444 checks. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
 background's average channel rather than an exact hex, so a palette tweak
@@ -575,16 +575,44 @@ thing:
    behalf, no more — the page inherits the account's permissions rather
    than asserting any of its own.
 
-Both tokens live only in the module-level `setup` object and are **never
-written to storage** — no `localStorage`, no cookie. A reload clears them
-exactly like every pasted ID list and shift assignment elsewhere in the
-app; there was never a decision to make about "should this survive a
-reload" the way there was for the appearance choice, because a token is
-not a preference. Signing out (`#setupSignOutBtn`, always visible once
-signed in) clears both. Disconnecting (`#setupDisconnectBtn`, only once a
-company is signed in) clears only the company token, keeping the tool
-sign-in and environment, so switching to a different test company doesn't
-mean signing into Bulk Forge itself again.
+Both tokens live in the module-level `setup` object, **and, since
+2026-09-10, in `sessionStorage`** (`restoreSetupSession()`/
+`persistSetupSession()`, `SETUP_SESSION_KEY`). Originally neither token
+was written to storage at all — no `localStorage`, no cookie, a reload
+cleared them exactly like every pasted ID list elsewhere in the app, on
+the reasoning that a token isn't a preference. In practice that meant an
+accidental refresh two or three screens into Company Setup cost both
+logins and whatever tab you were on, forcing a re-type of two real
+passwords — flagged directly as a workflow cost outweighing whatever
+safety the reset bought, since the actual security boundary here is the
+two servers being fixed at build time and Supabase sign-up being off, not
+whether a token survives a keystroke.
+
+`sessionStorage` rather than `localStorage` is the deliberate middle
+ground: it survives a reload, same as the appearance choice, but — unlike
+the appearance choice — clears the moment the tab closes, so a real
+company session never becomes a standing file on disk. `restoreSetupSession()`
+runs once, synchronously, right after `setup` is declared, so the very
+first render already reflects a restored session — no flash of the
+sign-in form before snapping to connected. `persistSetupSession()` is
+called from the one place nearly every meaningful mutation already routes
+through, `renderSetupBody()`, rather than being sprinkled across every
+click handler; it also doubles as the clear — called with no `toolToken`,
+it removes the stored entry outright, which is what both Sign out and a
+plain page load after signing out do.
+
+**What does *not* survive, on purpose, same as before:** every per-module
+generated-but-unsaved field (`companyProfile.fields` and its ~20
+siblings) and `doneModules`'s green dots. Only the two logins,
+environment, and which group/module tab you were on are carried across —
+enough to stop a refresh from costing two real logins, not an attempt to
+make the whole session durable. Signing out (`#setupSignOutBtn`, always
+visible once signed in) clears both tokens and the stored entry.
+Disconnecting (`#setupDisconnectBtn`, only once a company is signed in)
+clears only the company token, keeping the tool sign-in and environment
+persisted, so switching to a different test company doesn't mean signing
+into Bulk Forge itself again — and a reload mid-way through picking a new
+company still doesn't lose the tool sign-in either.
 
 ### Two servers, fixed at build time, never a text field
 

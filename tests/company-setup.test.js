@@ -1235,6 +1235,42 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- AI. both logins survive a reload — sessionStorage, not a plain reset ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="tax"]');
+    await page.waitForTimeout(100);
+
+    await page.reload();
+    await page.waitForTimeout(150);
+    check("AI a bare reload lands back on the joke gate — that part still never persists", (await page.locator("#loginGate").count()) === 1);
+    await signIn(page);
+    check("AI Company Setup itself is untouched by the reload — no re-typing either login",
+      (await page.locator(".op-item:has-text('Company Setup')").count()) === 1);
+
+    await page.click('.op-item:has-text("Company Setup")');
+    await page.waitForTimeout(150);
+    check("AI both logins survived — straight to the connected banner, no sign-in form", (await page.locator("#setupSignInBtn").count()) === 0);
+    check("AI the connected banner shows the same company", (await page.locator(".setup-connected-banner .rule-val").first().textContent()) === "Nexa Technologies");
+    check("AI even the tab you were on survived", (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "tax");
+    check("AI no page errors across the reload", errs.length === 0, errs.join(" | "));
+
+    await page.click("#setupSignOutBtn");
+    await page.waitForTimeout(100);
+    await page.reload();
+    await page.waitForTimeout(150);
+    await signIn(page);
+    await page.click('.op-item:has-text("Company Setup")');
+    await page.waitForTimeout(100);
+    check("AI Sign out clears the saved session too — a reload after it asks for both logins again",
+      (await page.locator("#setupSignInBtn").count()) === 1);
+    await page.close();
+  }
+
   await browser.close();
   report("Company Setup", state, []);
 })();
