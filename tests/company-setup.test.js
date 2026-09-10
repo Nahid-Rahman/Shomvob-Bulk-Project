@@ -188,8 +188,14 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("D reaches the connected state", (await page.locator("#setupDisconnectBtn").count()) === 1);
     check("D status bar adds the company name and user type",
       (await statusbar(page)) === "Staging · Sports Academy (company_admin) mahmudur@shomvob.com Sign out");
-    check("D the connected copy names the company, env and role",
-      (await page.textContent("#setupBody")).replace(/\s+/g, " ").includes("Signed in to Sports Academy on Staging, as company_admin"));
+    check("D the connected banner lists company, environment and role as separate rows",
+      (await page.locator(".setup-connected-banner .rule-row").count()) === 3);
+    const bannerRows = await page.locator(".setup-connected-banner .rule-row").allTextContents();
+    check("D the connected banner's rows name the right company, env and role",
+      bannerRows[0].includes("Company") && bannerRows[0].includes("Sports Academy") &&
+      bannerRows[1].includes("Environment") && bannerRows[1].includes("Staging") &&
+      bannerRows[2].includes("Role") && bannerRows[2].includes("company_admin"),
+      JSON.stringify(bannerRows));
 
     check("D no page errors across the happy path", errs.length === 0, errs.join(" | "));
     await page.close();

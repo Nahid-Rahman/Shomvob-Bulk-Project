@@ -778,6 +778,23 @@ input.invalid { border-color: var(--danger); }
 }
 .setup-connected-banner .section-title { color: var(--success); }
 .setup-connected-banner .section-note strong { color: var(--text); }
+.setup-connected-banner .rule-row { border-bottom-color: var(--success); opacity: 0.85; }
+.setup-connected-banner .rule-row:last-child { padding-bottom: 16px; }
+
+/* A real button, not .tiny-btn's dashed, low-emphasis look — this one
+   sits inside a coloured banner and disconnecting is a step people
+   actually take (switching test companies), so it needs to read as
+   clickable at a glance rather than blend in as a caption. */
+.disconnect-btn {
+  border: 1px solid var(--success);
+  background: var(--surface);
+  color: var(--success);
+  font-size: 12.5px; font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.disconnect-btn:hover { background: var(--success); color: #fff; }
 
 /* The tab strip a group opens into. Modelled directly on the real HRIS
    admin's own "Company Settings" / "Org Structure" pages (screenshots,

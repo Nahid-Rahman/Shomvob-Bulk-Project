@@ -629,6 +629,25 @@ Sign out. Both are re-rendered from `renderSetupBody()` now, alongside
 the strip, so they react immediately to sign-in/sign-out without needing
 a page navigation away and back.
 
+**The "Connected" banner (`setupConnectedTemplate()`), same day:** two
+more things flagged on the same screenshot. First, "Disconnect this
+company" used `.tiny-btn` — a dashed border, muted text, the app's
+generic low-emphasis style used everywhere for things like Regenerate —
+which read as a caption rather than a clickable action sitting inside a
+solid green banner. Given its own `.disconnect-btn` instead: a solid
+border, filled surface background, and a hover state that inverts to a
+solid green fill, so it reads as a real button without touching
+`.tiny-btn` and changing how every other Regenerate/retry button in the
+section looks. Second, the banner's "Signed in to **X** on Y, as **Z**."
+was a run-on sentence for exactly the three facts that matter — reused
+the `.rule-row`/`.rule-col`/`.rule-val` label:value pattern already
+built for Employee Add's "Fixed generation rules" list (`CLAUDE.md` →
+Operations) instead of inventing a new table component, so Company /
+Environment / Role now read as a short stacked list. This banner and the
+statusbar above it now state the same three facts twice in a row — not
+revisited yet since nobody has flagged it, but worth noticing if this
+area comes up again.
+
 ### The Supabase project itself
 
 Project `Shomvob Bulk Generation`, org `Shomvob SQA` (a shared team

@@ -3809,8 +3809,12 @@
     return `
       <div class="setup-connected-banner">
         <div class="section-head"><h2 class="section-title">${iconCheck()}Connected</h2></div>
-        <p class="section-note">Signed in to <strong>${setup.companyName}</strong> on ${env.label}, as <strong>${setup.companyUserType || "unknown type"}</strong>.</p>
-        <button type="button" class="tiny-btn" id="setupDisconnectBtn">Disconnect this company</button>
+        <div class="rules-body" style="border-top:none; padding:0; margin-top:10px;">
+          <div class="rule-row"><span class="rule-col">Company</span><span class="rule-val">${setup.companyName}</span></div>
+          <div class="rule-row"><span class="rule-col">Environment</span><span class="rule-val">${env.label}</span></div>
+          <div class="rule-row"><span class="rule-col">Role</span><span class="rule-val">${setup.companyUserType || "unknown type"}</span></div>
+        </div>
+        <button type="button" class="disconnect-btn" id="setupDisconnectBtn">Disconnect this company</button>
       </div>
       <p class="setup-hint-line">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
       <div class="settings-grid" style="grid-template-columns:repeat(${SETTINGS_GROUPS.length}, 1fr)">${cards}</div>
