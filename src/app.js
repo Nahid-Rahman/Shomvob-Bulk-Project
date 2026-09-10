@@ -457,16 +457,26 @@
     return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)">${paths}</svg>`;
   }
 
-  /* One per settings module — a large, low-opacity watermark in the
-     corner of that module's own card, so each module reads as its own
-     "place" rather than an identical grey box with a different label.
-     Drawn in the same hand as SETTINGS_GROUP_ICONS but each module gets
-     its own glyph rather than reusing its group's. Uses `currentColor`
-     (set to var(--text) at render time) and pure opacity rather than a
-     fixed hex, so it stays legible and correctly faint in light, dark and
-     auto — nothing here is theme-specific. Injected once, centrally, in
-     setupGroupPageTemplate() rather than by editing all 21 module
-     templates individually. */
+  /* One per settings module — a small icon at the right end of that
+     module's own section-head, so each module reads as its own "place"
+     rather than an identical grey box with a different label. Drawn in
+     the same hand as SETTINGS_GROUP_ICONS but each module gets its own
+     glyph rather than reusing its group's. Uses `currentColor` (set to
+     var(--accent) at low opacity at render time) rather than a fixed
+     hex, so it stays legible in light, dark and auto alike.
+
+     This was a large, low-opacity corner watermark on the card's
+     background at first (2026-09-10) — dropped the same day, on sight:
+     bottom-anchored meant it sat below the fold on every card taller
+     than one screen (most of them) and was basically never seen, and
+     when it was, `overflow: hidden` on the card sliced a visible corner
+     off it. Living inside `.section-head` instead means it's a normal
+     flex child, not an absolutely-positioned one — no clipping is
+     possible, and `justify-content: space-between` on that row places
+     it at the right end of the title for free, always visible the
+     moment a tab opens regardless of how tall the content below turns
+     out to be. Injected once, centrally, in setupGroupPageTemplate()
+     rather than by editing all 21 module templates individually. */
   const SETTINGS_MODULE_ICONS = {
     company_profile: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M7 16c.5-1.5 1.5-2 2-2s1.5.5 2 2"/><path d="M14 10h4M14 14h4"/>',
     bank_info: '<path d="M4 10l8-5 8 5"/><path d="M5 10v9M9 10v9M15 10v9M19 10v9"/><path d="M3 19h18"/>',
@@ -490,10 +500,10 @@
     tax: '<circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/><path d="M18 6 6 18"/>',
     attendance_policy: '<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18"/><path d="M8 3v3M16 3v3"/><circle cx="15.5" cy="15" r="3.2"/><path d="M15.5 13.3V15l1.3.9"/>',
   };
-  function settingsModuleWatermarkHtml(moduleId) {
+  function settingsModuleIconHtml(moduleId) {
     const paths = SETTINGS_MODULE_ICONS[moduleId];
     if (!paths) return "";
-    return `<svg class="module-watermark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+    return `<svg class="module-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
   }
 
   function iconClock() {
@@ -3863,13 +3873,14 @@
     const mod = group.modules.find((m) => m.id === setup.activeModule);
     const handler = SETTINGS_MODULE_HANDLERS[mod.id];
     let body = handler ? handler.template() : settingsComingSoonHtml(mod);
-    /* Every module template's returned HTML opens with the same literal
-       `<div class="section">`, whichever of its own states (ready,
-       loading, error, blocked-on-dependency) is currently rendering — so
-       the module's watermark can be injected once, centrally, right here,
-       rather than editing all 21 templates to carry it themselves. */
+    /* Every module template's returned HTML ends its section-head with
+       the same literal `</h2></div>`, whichever of its own states
+       (ready, loading, error, blocked-on-dependency) is currently
+       rendering — so the module's icon can be injected once, centrally,
+       right here, as the header row's second flex child, rather than
+       editing all 21 templates to carry it themselves. */
     if (handler) {
-      body = body.replace('<div class="section">', `<div class="section">${settingsModuleWatermarkHtml(mod.id)}`);
+      body = body.replace("</h2></div>", `</h2>${settingsModuleIconHtml(mod.id)}</div>`);
     }
     return `
       <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>

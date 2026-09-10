@@ -733,29 +733,38 @@ generators, which share those same base classes, keep the weights they
 were designed at. `.wide` only ever applies to Company Setup, so this
 can't leak.
 
-**Per-module watermark (2026-09-10):** each of the 21 settings modules
-now carries its own large, faint line-icon in the bottom-right corner of
-its content card (`SETTINGS_MODULE_ICONS`/`settingsModuleWatermarkHtml()`
-in `app.js`) — a bank icon for Bank Info, a map pin for Locations, a
-percent sign for Tax, and so on, one distinct glyph per module rather
-than reusing its group's icon. Injected **once, centrally**, in
-`setupGroupPageTemplate()`: every module template's returned HTML,
-whichever of its own states (ready/loading/error/blocked-on-dependency)
-is currently rendering, opens with the same literal `<div class="section">`,
-so a single `body.replace('<div class="section">', ...)` right after
-`handler.template()` runs plants the right module's watermark without
-editing all 21 templates individually. Themeable for free — the SVG uses
-`stroke="currentColor"` with no fill, `.module-watermark` sets
-`color: var(--text)` and a low `opacity`, so it reads correctly faint in
-light, dark and auto without a single hex value; verified with
-Playwright screenshots in both `colorScheme: "light"` and `"dark"`
-contexts. `.wide .section` gets `position: relative; z-index: 0;
-overflow: hidden` so the watermark clips to its own card's rounded
-corner and stacks *behind* that card's own text (a negative z-index
-needs its own stacking context to land behind text instead of the whole
-page, which the host's `z-index: 0` establishes) — scoped to `.wide` so
-the five generator operations, which share the plain `.section` class,
-are completely unaffected.
+**Per-module icon (2026-09-10, revised same day):** each of the 21
+settings modules carries its own small icon at the right end of its
+content card's own header row (`SETTINGS_MODULE_ICONS`/
+`settingsModuleIconHtml()` in `app.js`) — a bank icon for Bank Info, a
+map pin for Locations, a percent sign for Tax, and so on, one distinct
+glyph per module rather than reusing its group's icon. Injected **once,
+centrally**, in `setupGroupPageTemplate()`: every module template's
+returned HTML, whichever of its own states
+(ready/loading/error/blocked-on-dependency) is currently rendering, ends
+its section-head with the same literal `</h2></div>`, so a single
+`body.replace("</h2></div>", ...)` right after `handler.template()` runs
+plants the right module's icon as the header's second flex child —
+`.section-head`'s own `justify-content: space-between` puts it at the
+far right for free — without editing all 21 templates individually.
+Themeable for free — the SVG uses `stroke="currentColor"` with no fill,
+`.module-icon` sets `color: var(--accent)` at a low opacity, so it reads
+correctly in light, dark and auto without a single hex value; verified
+with Playwright screenshots in both `colorScheme: "light"` and `"dark"`
+contexts.
+
+**First attempt, dropped the same day:** the very first version was a
+large, low-opacity watermark absolutely positioned in the card's
+bottom-right corner. Two things about it didn't hold up once actually
+looked at: bottom-anchoring put it below the fold on every card taller
+than one screen (most of them), so it was essentially never seen, and
+`overflow: hidden` on the card sliced a visible chunk off it on cards
+where it wasn't. The header-row icon fixes both by construction — a
+normal flex child has nothing to clip and can't end up below the fold,
+since the header is the first thing rendered when a tab opens. Worth
+remembering if a "watermark" idea comes up again for this app: a large
+decorative background mark and "always inside a scrollable, variable-
+height card" don't mix well.
 
 ### Company Profile — first settings module (built 2026-09-09)
 
