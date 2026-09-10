@@ -439,7 +439,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eight suites, 471 checks. `appearance.test.js` is the odd one: it opens two
+Eight suites, 483 checks. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
 background's average channel rather than an exact hex, so a palette tweak
@@ -1071,6 +1071,46 @@ Shared infrastructure added alongside these: `fetchCompanyResource()`
 Designation today and meant for whichever module needs a dependency
 check next (Leave Policy on Leave Type looks like the next one, from the
 Postman collection's own shape).
+
+### Two more reminders users asked for directly (2026-09-10)
+
+Both flagged on the same real-usage screenshot, after the "create the
+defaults" feature landed and a QA engineer was actually running batches
+through it.
+
+**Which specific module is done, not just a count.** A group card's
+`n/total done` tally never said *which* of the total were the done
+ones — checking meant clicking in. Each card
+(`setupConnectedTemplate()`) now also renders one small dot per module
+in that group (`.settings-card-dot`, grey by default, filled
+`var(--success)` once `setup.doneModules.has(m.id)`), with the module's
+own label on `title` so hovering (or a screen reader) names it without
+needing all of Payroll's 11 labels to fit inside one card at that width.
+Purely a read of the same `doneModules` set the tab strip already
+tracks — no new state, just a second place it's shown.
+
+**A visible "what did I actually create" list, for every module where
+Save makes a brand-new named record rather than editing one in place.**
+A company can end up with several Departments, Leave Types, Custom
+Fields, Bonus Types and so on — `doneModules` only ever said "at least
+one exists," never which ones, and there was no way to tell without
+re-checking the real company. Each of the 11 modules that create a
+distinct named record each save (Locations, Department Management,
+Designation Management, Custom Fields, Required Documents, Leave Types,
+Leave Policy, Salary Components, Bonus Types, Bonus Policy, Custom
+Addition/Deduction) now carries its own `createdNames` array, pushed to
+on every successful save — the single-item form **and** a bulk run push
+to the exact same array, so switching between the two doesn't lose
+track of anything. `createdListHtml()` renders it as a plain, growing
+list of tags under the Save button once it's non-empty. Modules that
+configure one company-wide setting rather than a list of named things
+(Company Profile, Bank Info, Payroll General, Late Arrival, Absent
+Deduction, Overtime, Attendance Bonus, Tax, Attendance Policy,
+Configure Salary Components) deliberately don't get one — there's
+nothing to list, just one thing to have done or not. Cleared by
+`resetModuleState()` on Sign out/Disconnect, same as every other
+per-module cache, so a new company starts with an empty list rather
+than the last one's.
 
 ### Custom Fields, Required Documents (built 2026-09-10)
 

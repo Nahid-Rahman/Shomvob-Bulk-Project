@@ -780,6 +780,14 @@ input.invalid { border-color: var(--danger); }
 .settings-card:hover { border-color: var(--accent); }
 .settings-card-icon { margin-bottom: 10px; }
 .settings-card-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+/* One dot per module in the group — a "1/5 done" count doesn't say
+   *which* one, and clicking in just to check got flagged directly. Grey
+   for not-done, filled green for done; the module's own name is on
+   `title` so hovering (or a screen reader) names it without needing 11
+   labels to fit in one card at Payroll's width. */
+.settings-card-dots { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.settings-card-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); flex-shrink: 0; }
+.settings-card-dot.done { background: var(--success); }
 
 /* A success-tinted variant of .section, reserved for the one genuinely
    good-news banner on this page — everything else on Company Setup stays

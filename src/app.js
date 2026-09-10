@@ -3908,10 +3908,17 @@
     const cards = SETTINGS_GROUPS.map((g) => {
       const done = groupDoneCount(g);
       const all = done === g.modules.length;
+      const dots = g.modules
+        .map((m) => {
+          const isDone = setup.doneModules.has(m.id);
+          return `<span class="settings-card-dot${isDone ? " done" : ""}" title="${m.label}${isDone ? " — done" : ""}"></span>`;
+        })
+        .join("");
       return `
         <button type="button" class="settings-card" data-group="${g.id}">
           <div class="settings-card-icon">${settingsGroupIcon(g.id)}</div>
           <div class="settings-card-name">${g.label}</div>
+          <div class="settings-card-dots">${dots}</div>
           <span class="tally${all ? " ok" : ""}">${done}/${g.modules.length} <strong>done</strong></span>
         </button>
       `;
@@ -4328,7 +4335,7 @@
      radiusInMeters travel as null, not as zeroes or omitted keys, exactly
      as the Postman script sends them. Toggling it regenerates or clears
      the three geo fields; nothing else about the form changes. */
-  const companyBranch = { fields: null, error: "", ok: "" };
+  const companyBranch = { fields: null, error: "", ok: "", createdNames: [] };
 
   function randomBaridharaOffset() {
     return {
@@ -4393,6 +4400,7 @@
         </div>
         <span class="error-text" id="brError">${companyBranch.error}</span>
         ${companyBranch.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyBranch.ok}</div>` : ""}
+        ${createdListHtml(companyBranch.createdNames)}
       </div>
     `;
   }
@@ -4459,6 +4467,7 @@
         await saveBranch(fields);
         companyBranch.fields = fields;
         companyBranch.ok = "Saved.";
+        companyBranch.createdNames.push(fields.officeName);
         setup.doneModules.add("branches");
       } catch (e) {
         companyBranch.error = e.message;
@@ -4477,7 +4486,7 @@
      repeated CI runs; that's Postman's own test-fixture bookkeeping and
      doesn't apply here — one generated department at a time, same as
      every other module, no dedup list to maintain. */
-  const companyDepartment = { fields: null, error: "", ok: "", bulk: null };
+  const companyDepartment = { fields: null, error: "", ok: "", bulk: null, createdNames: [] };
 
   function generateDepartmentFields() {
     return {
@@ -4518,6 +4527,7 @@
         </div>
         <span class="error-text" id="deptModError">${companyDepartment.error}</span>
         ${companyDepartment.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDepartment.ok}</div>` : ""}
+        ${createdListHtml(companyDepartment.createdNames)}
         <p style="margin-top:14px"><a href="#" id="deptBulkEnterLink" style="font-size:12.5px; font-weight:600;">Or create the 6 default departments at once →</a></p>
       </div>
     `;
@@ -4593,6 +4603,24 @@
     return `<span style="color:var(--text-faint)">not started</span>`;
   }
 
+  /* For every module where Save creates a brand-new named record rather
+     than updating one in place — a company can end up with several
+     Departments, Leave Types, Custom Fields and so on, and "the tab has
+     a done dot" doesn't say which ones actually exist. Each such
+     module's state carries its own `createdNames` array (pushed to on a
+     successful save, both the single-item form and a bulk run), and
+     this renders it as a plain, visible list — no guessing, no needing
+     to re-check the real company to remember what you already made. */
+  function createdListHtml(createdNames) {
+    if (!createdNames || createdNames.length === 0) return "";
+    return `
+      <div style="margin-top:14px;">
+        <label style="font-size:11.5px; font-weight:600; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Created this session (${createdNames.length})</label>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">${createdNames.map((n) => `<span class="tally">${n}</span>`).join("")}</div>
+      </div>
+    `;
+  }
+
   /* One shared renderer for both bulk lists — `group` is only set for
      Designation, where rows are grouped by department; Department's own
      6 rows render flat. `prefix` namespaces the element ids so both can
@@ -4666,6 +4694,7 @@
           bulk,
           async (item) => {
             await saveDepartmentModule({ name: item.name, code: "", status: "Active", parentId: null, businessLineId: null, departmentHeadId: null });
+            companyDepartment.createdNames.push(item.name);
           },
           rerender
         );
@@ -4699,6 +4728,7 @@
         await saveDepartmentModule(fields);
         companyDepartment.fields = fields;
         companyDepartment.ok = "Saved.";
+        companyDepartment.createdNames.push(fields.name);
         setup.doneModules.add("departments");
         /* A department just came into existence for real, so Designation's
            cached "does this company have any" check (if it ran already)
@@ -4764,7 +4794,7 @@
      once (then cached for the rest of this company session — see
      saveDepartmentModule() for the one place that invalidates it), an
      empty array once checked with genuinely none, or the real list. */
-  const companyDesignation = { departments: null, loadError: "", fields: null, error: "", ok: "", bulk: null };
+  const companyDesignation = { departments: null, loadError: "", fields: null, error: "", ok: "", bulk: null, createdNames: [] };
 
   function generateDesignationFields(depts) {
     return { name: choice(DESIGNATION_NAMES), departmentId: depts[0].id, status: "Active" };
@@ -4849,6 +4879,7 @@
         </div>
         <span class="error-text" id="desigError">${companyDesignation.error}</span>
         ${companyDesignation.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDesignation.ok}</div>` : ""}
+        ${createdListHtml(companyDesignation.createdNames)}
         <p style="margin-top:14px"><a href="#" id="desigBulkEnterLink" style="font-size:12.5px; font-weight:600;">Or create the 4 default designations for each department at once →</a></p>
       </div>
     `;
@@ -4926,6 +4957,7 @@
           bulk,
           async (item) => {
             await saveDesignation({ name: item.name, departmentIds: [item.departmentId], status: "Active" });
+            companyDesignation.createdNames.push(item.name);
           },
           rerender
         );
@@ -4962,6 +4994,7 @@
         await saveDesignation(fields);
         companyDesignation.fields = { name: fields.name, departmentId: fields.departmentIds[0], status: fields.status };
         companyDesignation.ok = "Saved.";
+        companyDesignation.createdNames.push(fields.name);
         setup.doneModules.add("designations");
       } catch (e) {
         companyDesignation.error = e.message;
@@ -4979,7 +5012,7 @@
      applies to checkbox/enum in the real API, so it's forced false for
      every other type rather than randomised across the board; choices
      only exists at all for type "enum". */
-  const customField = { fields: null, error: "", ok: "" };
+  const customField = { fields: null, error: "", ok: "", createdNames: [] };
 
   function generateCustomFieldFields() {
     const preset = choice(CUSTOM_FIELD_PRESETS);
@@ -5041,6 +5074,7 @@
         </div>
         <span class="error-text" id="cfError">${customField.error}</span>
         ${customField.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${customField.ok}</div>` : ""}
+        ${createdListHtml(customField.createdNames)}
       </div>
     `;
   }
@@ -5105,6 +5139,7 @@
         customField.fields.type = body.type;
         if (body.options) customField.fields.choices = body.options.choices;
         customField.ok = "Saved.";
+        customField.createdNames.push(body.fieldName);
         setup.doneModules.add("custom_fields");
       } catch (e) {
         customField.error = e.message;
@@ -5119,7 +5154,7 @@
      ("active"/"inactive") — this endpoint's own convention, kept exactly
      as the Postman body sends it rather than normalised to match every
      other module's capitalised Active/Inactive. */
-  const requiredDocument = { fields: null, error: "", ok: "" };
+  const requiredDocument = { fields: null, error: "", ok: "", createdNames: [] };
 
   function generateRequiredDocumentFields() {
     return {
@@ -5170,6 +5205,7 @@
         </div>
         <span class="error-text" id="rdError">${requiredDocument.error}</span>
         ${requiredDocument.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${requiredDocument.ok}</div>` : ""}
+        ${createdListHtml(requiredDocument.createdNames)}
       </div>
     `;
   }
@@ -5227,6 +5263,7 @@
         await saveRequiredDocument(fields);
         requiredDocument.fields.name = fields.name;
         requiredDocument.ok = "Saved.";
+        requiredDocument.createdNames.push(fields.name);
         setup.doneModules.add("required_documents");
       } catch (e) {
         requiredDocument.error = e.message;
@@ -5245,7 +5282,7 @@
      exposed as editable fields for normal leave — everything else is
      still generated per the script's own conditional logic, just not
      surfaced as its own input row. See the note in app-data.js. */
-  const leaveType = { kindId: "annual", fields: null, error: "", ok: "" };
+  const leaveType = { kindId: "annual", fields: null, error: "", ok: "", createdNames: [] };
 
   function generateNormalLeaveTypeBody(kind) {
     const consecutiveLimit = Math.random() < 0.5;
@@ -5416,6 +5453,7 @@
         </div>
         <span class="error-text" id="ltError">${leaveType.error}</span>
         ${leaveType.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${leaveType.ok}</div>` : ""}
+        ${createdListHtml(leaveType.createdNames)}
       </div>
     `;
   }
@@ -5506,6 +5544,7 @@
         await saveLeaveType(fields);
         leaveType.fields = fields;
         leaveType.ok = "Saved.";
+        leaveType.createdNames.push(fields.name);
         setup.doneModules.add("leave_types");
         /* A leave type now exists for real — Leave Policy's cached
            dependency check (if it ran already) is stale. */
@@ -5527,7 +5566,7 @@
      script does (a random subset, minimum 3 or however many exist) —
      Regenerate re-rolls the selection; name and status are the exposed
      editable fields. */
-  const leavePolicy = { leaveTypes: null, loadError: "", fields: null, error: "", ok: "" };
+  const leavePolicy = { leaveTypes: null, loadError: "", fields: null, error: "", ok: "", createdNames: [] };
 
   async function loadLeavePolicyDependency() {
     try {
@@ -5617,6 +5656,7 @@
         </div>
         <span class="error-text" id="lpError">${leavePolicy.error}</span>
         ${leavePolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${leavePolicy.ok}</div>` : ""}
+        ${createdListHtml(leavePolicy.createdNames)}
       </div>
     `;
   }
@@ -5689,6 +5729,7 @@
         await saveLeavePolicy(fields);
         leavePolicy.fields = fields;
         leavePolicy.ok = "Saved.";
+        leavePolicy.createdNames.push(fields.name);
         setup.doneModules.add("leave_policy");
       } catch (e) {
         leavePolicy.error = e.message;
@@ -5837,7 +5878,7 @@
   }
 
   /* ---------- Salary Components — POST /payroll/configuration/salary-components ---------- */
-  const salaryComponent = { presetIdx: 0, fields: null, error: "", ok: "" };
+  const salaryComponent = { presetIdx: 0, fields: null, error: "", ok: "", createdNames: [] };
 
   function generateSalaryComponentFields(presetIdx) {
     const preset = SALARY_COMPONENT_PRESETS[presetIdx];
@@ -5884,6 +5925,7 @@
         </div>
         <span class="error-text" id="scError">${salaryComponent.error}</span>
         ${salaryComponent.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${salaryComponent.ok}</div>` : ""}
+        ${createdListHtml(salaryComponent.createdNames)}
       </div>
     `;
   }
@@ -5938,6 +5980,7 @@
       try {
         await saveSalaryComponent(salaryComponent.fields);
         salaryComponent.ok = "Saved.";
+        salaryComponent.createdNames.push(salaryComponent.fields.name);
         setup.doneModules.add("salary_components");
         companySalaryStructure.components = null;
       } catch (e) {
@@ -6330,7 +6373,7 @@
   }
 
   /* ---------- Bonus Types — POST /bonus/configuration/types ---------- */
-  const bonusType = { presetIdx: 0, fields: null, error: "", ok: "" };
+  const bonusType = { presetIdx: 0, fields: null, error: "", ok: "", createdNames: [] };
 
   function generateBonusTypeFields(presetIdx) {
     const preset = BONUS_TYPE_PRESETS[presetIdx];
@@ -6361,6 +6404,7 @@
         </div>
         <span class="error-text" id="btError">${bonusType.error}</span>
         ${bonusType.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${bonusType.ok}</div>` : ""}
+        ${createdListHtml(bonusType.createdNames)}
       </div>
     `;
   }
@@ -6407,6 +6451,7 @@
       try {
         await saveBonusType(bonusType.fields);
         bonusType.ok = "Saved.";
+        bonusType.createdNames.push(bonusType.fields.typeName);
         setup.doneModules.add("bonus_types");
         bonusPolicy.bonusTypes = null;
       } catch (e) {
@@ -6419,7 +6464,7 @@
 
   /* ---------- Bonus Policy — POST /bonus/configuration/policies ----------
      The fourth real dependency: needs at least one Bonus Type. */
-  const bonusPolicy = { bonusTypes: null, loadError: "", fields: null, error: "", ok: "" };
+  const bonusPolicy = { bonusTypes: null, loadError: "", fields: null, error: "", ok: "", createdNames: [] };
 
   async function loadBonusPolicyDependency() {
     try {
@@ -6487,6 +6532,7 @@
         </div>
         <span class="error-text" id="bpError">${bonusPolicy.error}</span>
         ${bonusPolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${bonusPolicy.ok}</div>` : ""}
+        ${createdListHtml(bonusPolicy.createdNames)}
       </div>
     `;
   }
@@ -6552,6 +6598,7 @@
         await saveBonusPolicy(fields);
         bonusPolicy.fields = { ...fields, _bonusTypeName: bonusPolicy.fields._bonusTypeName };
         bonusPolicy.ok = "Saved.";
+        bonusPolicy.createdNames.push(fields.name);
         setup.doneModules.add("bonus_policy");
       } catch (e) {
         bonusPolicy.error = e.message;
@@ -6758,7 +6805,7 @@
   }
 
   /* ---------- Custom Addition/Deduction — POST /payroll/configuration/custom-fields ---------- */
-  const customAdditionDeduction = { type: "Addition", fields: null, error: "", ok: "" };
+  const customAdditionDeduction = { type: "Addition", fields: null, error: "", ok: "", createdNames: [] };
 
   function generateCustomAdditionDeductionFields(type) {
     const name = choice(type === "Addition" ? CUSTOM_ADDITION_NAMES : CUSTOM_DEDUCTION_NAMES);
@@ -6791,6 +6838,7 @@
         </div>
         <span class="error-text" id="cadError">${customAdditionDeduction.error}</span>
         ${customAdditionDeduction.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${customAdditionDeduction.ok}</div>` : ""}
+        ${createdListHtml(customAdditionDeduction.createdNames)}
       </div>
     `;
   }
@@ -6846,6 +6894,7 @@
         await saveCustomAdditionDeduction(fields);
         customAdditionDeduction.fields = fields;
         customAdditionDeduction.ok = "Saved.";
+        customAdditionDeduction.createdNames.push(`${fields.name} (${fields.type})`);
         setup.doneModules.add("custom_addition_deduction");
       } catch (e) {
         customAdditionDeduction.error = e.message;
@@ -7092,31 +7141,38 @@
     companyBranch.fields = null;
     companyBranch.error = "";
     companyBranch.ok = "";
+    companyBranch.createdNames = [];
     companyDepartment.fields = null;
     companyDepartment.error = "";
     companyDepartment.ok = "";
     companyDepartment.bulk = null;
+    companyDepartment.createdNames = [];
     companyDesignation.departments = null;
     companyDesignation.loadError = "";
     companyDesignation.fields = null;
     companyDesignation.error = "";
     companyDesignation.ok = "";
     companyDesignation.bulk = null;
+    companyDesignation.createdNames = [];
     customField.fields = null;
     customField.error = "";
     customField.ok = "";
+    customField.createdNames = [];
     requiredDocument.fields = null;
     requiredDocument.error = "";
     requiredDocument.ok = "";
+    requiredDocument.createdNames = [];
     leaveType.kindId = "annual";
     leaveType.fields = null;
     leaveType.error = "";
     leaveType.ok = "";
+    leaveType.createdNames = [];
     leavePolicy.leaveTypes = null;
     leavePolicy.loadError = "";
     leavePolicy.fields = null;
     leavePolicy.error = "";
     leavePolicy.ok = "";
+    leavePolicy.createdNames = [];
     attendancePolicy.fields = null;
     attendancePolicy.error = "";
     attendancePolicy.ok = "";
@@ -7127,6 +7183,7 @@
     salaryComponent.fields = null;
     salaryComponent.error = "";
     salaryComponent.ok = "";
+    salaryComponent.createdNames = [];
     companySalaryStructure.components = null;
     companySalaryStructure.loadError = "";
     companySalaryStructure.fields = null;
@@ -7146,11 +7203,13 @@
     bonusType.fields = null;
     bonusType.error = "";
     bonusType.ok = "";
+    bonusType.createdNames = [];
     bonusPolicy.bonusTypes = null;
     bonusPolicy.loadError = "";
     bonusPolicy.fields = null;
     bonusPolicy.error = "";
     bonusPolicy.ok = "";
+    bonusPolicy.createdNames = [];
     overtime.fields = null;
     overtime.error = "";
     overtime.ok = "";
@@ -7161,6 +7220,7 @@
     customAdditionDeduction.fields = null;
     customAdditionDeduction.error = "";
     customAdditionDeduction.ok = "";
+    customAdditionDeduction.createdNames = [];
     payrollTax.error = "";
     payrollTax.ok = "";
   }

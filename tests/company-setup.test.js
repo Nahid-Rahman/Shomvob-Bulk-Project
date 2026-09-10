@@ -1489,6 +1489,94 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- AO. group cards show which specific module is done, not just a count ---------- */
+  {
+    const page = await browser.newContext({ viewport: { width: 1440, height: 900 } }).then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+    const companyCard = page.locator(".settings-card:has-text('Company Settings')");
+    check("AO a fresh card has one dot per module, none done", (await companyCard.locator(".settings-card-dot").count()) === 5);
+    check("AO ...and none of them are the done colour yet", (await companyCard.locator(".settings-card-dot.done").count()) === 0);
+    check("AO Payroll's card has 11 dots — one per module, not one per group", (await page.locator(".settings-card:has-text('Payroll') .settings-card-dot").count()) === 11);
+
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="departments"]');
+    await page.waitForTimeout(100);
+    await page.route("**/api/v1/departments", (route) =>
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Department created successfully", data: { id: "d1" } }) })
+    );
+    await page.click("#deptModSaveBtn");
+    await page.waitForTimeout(150);
+    await page.click("#setupBackToModules");
+    await page.waitForTimeout(80);
+    check("AO exactly one dot turns green after saving one of the five", (await companyCard.locator(".settings-card-dot.done").count()) === 1);
+    check("AO hovering (its title) names the specific module, not just 'done'",
+      (await companyCard.locator(".settings-card-dot.done").getAttribute("title")) === "Department Management — done");
+    check("AO no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AP. a visible "created this session" list for modules where Save makes a new record each time ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="departments"]');
+    await page.waitForTimeout(100);
+    check("AP nothing shown before any save", (await page.locator(".bulk-list, :text('Created this session')").count()) === 0);
+
+    let n = 0;
+    await page.route("**/api/v1/departments", (route) => {
+      n++;
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Department created successfully", data: { id: "d" + n } }) });
+    });
+    const firstName = await page.inputValue("#deptModName");
+    await page.click("#deptModSaveBtn");
+    await page.waitForTimeout(150);
+    check("AP the list appears after the first save, naming it", (await page.textContent("#setupBody")).includes(`Created this session (1)`) && (await page.textContent("#setupBody")).includes(firstName));
+
+    await page.click("#deptModRegenerateBtn");
+    await page.waitForTimeout(60);
+    const secondName = await page.inputValue("#deptModName");
+    await page.click("#deptModSaveBtn");
+    await page.waitForTimeout(150);
+    check("AP a second save accumulates, it doesn't replace the first",
+      (await page.textContent("#setupBody")).includes("Created this session (2)") &&
+      (await page.textContent("#setupBody")).includes(firstName) &&
+      (await page.textContent("#setupBody")).includes(secondName));
+
+    // bulk create also feeds the same list
+    await page.click("#deptBulkEnterLink");
+    await page.waitForTimeout(80);
+    await page.click("#deptBulkCreateBtn");
+    await page.waitForFunction(() => !document.querySelector("#deptBulkStopBtn"), { timeout: 5000 });
+    await page.click("#deptBulkCancelBtn");
+    await page.waitForTimeout(80);
+    check("AP a bulk run's creates land in the same list as single-form saves",
+      (await page.textContent("#setupBody")).includes("Created this session (8)"), await page.textContent("#setupBody"));
+
+    check("AP Disconnect clears the list — it's this company's, not carried to the next",
+      await (async () => {
+        await page.click("#setupDisconnectBtn");
+        await page.waitForTimeout(80);
+        await mockCompanyOk(page, "Nexa Technologies");
+        await page.fill("#setupCoEmail", "a@b.com");
+        await page.fill("#setupCoPass", "whatever");
+        await page.click("#setupCoBtn");
+        await page.waitForTimeout(150);
+        await page.click(".settings-card:has-text('Company Settings')");
+        await page.waitForTimeout(100);
+        await page.click('.settings-tab[data-module="departments"]');
+        await page.waitForTimeout(100);
+        return (await page.locator(":text('Created this session')").count()) === 0;
+      })());
+    check("AP no page errors across the whole flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   await browser.close();
   report("Company Setup", state, []);
 })();
