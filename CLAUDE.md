@@ -643,10 +643,27 @@ was a run-on sentence for exactly the three facts that matter — reused
 the `.rule-row`/`.rule-col`/`.rule-val` label:value pattern already
 built for Employee Add's "Fixed generation rules" list (`CLAUDE.md` →
 Operations) instead of inventing a new table component, so Company /
-Environment / Role now read as a short stacked list. This banner and the
-statusbar above it now state the same three facts twice in a row — not
-revisited yet since nobody has flagged it, but worth noticing if this
-area comes up again.
+Environment / Role now read as a short stacked list.
+
+**Merged into the persistent strip entirely, same day, on further user
+feedback:** the exact duplication flagged above — this banner and the
+statusbar above it stating the same three facts twice in a row — was
+called out directly once both were visible on one screenshot, alongside
+a second ask: keep the reminder visible on *every* Company Setup screen,
+not just the group grid. Both are solved by the same fix. There is now
+exactly one persistent strip (`setupStatusBarHtml()`, still the same
+`#setupStatusBar` div outside `#setupBody`), and it renders one of two
+shapes depending on state: the plain one-line strip (env + tool email +
+Sign out) before a company is connected, since there's nothing to
+confirm yet, or the full "Connected" banner (env/company/role rows +
+Disconnect *and* Sign out side by side) once one is. `setupConnectedTemplate()`
+(the group grid's own template) no longer renders a banner at all — just
+the hint line and cards — since the persistent strip now covers it, on
+the grid and on every module page alike. The Disconnect button's click
+handler moved from `wireSetupConnected()` (grid-only) into
+`renderSetupBody()` itself, next to Sign out's, since the banner it
+lives in is now wired on every render regardless of which page is
+showing.
 
 ### The Supabase project itself
 

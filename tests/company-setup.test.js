@@ -186,8 +186,8 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(150);
 
     check("D reaches the connected state", (await page.locator("#setupDisconnectBtn").count()) === 1);
-    check("D status bar adds the company name and user type",
-      (await statusbar(page)) === "Staging · Sports Academy (company_admin) mahmudur@shomvob.com Sign out");
+    check("D the persistent strip itself becomes the Connected banner — one reminder, not two",
+      (await page.locator("#setupStatusBar .setup-connected-banner").count()) === 1);
     check("D the connected banner lists company, environment and role as separate rows",
       (await page.locator(".setup-connected-banner .rule-row").count()) === 3);
     const bannerRows = await page.locator(".setup-connected-banner .rule-row").allTextContents();

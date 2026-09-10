@@ -716,19 +716,15 @@ input.invalid { border-color: var(--danger); }
 .env-badge.env-dev { background: var(--env-dev-soft); color: var(--env-dev); }
 .env-badge.env-staging { background: var(--env-staging-soft); color: var(--env-staging); }
 
+/* Only ever shown pre-connection now (tool signed in, no company yet) —
+   once a company connects, setupStatusBarHtml() switches this same slot
+   over to .setup-connected-banner instead, so there's exactly one
+   persistent strip, never both at once. */
 .setup-statusbar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 11px 16px; margin-bottom: 20px;
 }
-/* Company + role lead, at full weight, since that's the identity that
-   matters for safety here. The tool sign-in email is deliberately
-   quieter and pushed to the far side by the flexible spacer, next to
-   Sign out rather than competing with the company name for attention. */
-.setup-who { font-size: 13.5px; font-weight: 600; color: var(--text); }
-.setup-statusbar svg { color: var(--text-faint); flex-shrink: 0; }
-.setup-divider { color: var(--border); font-size: 13px; }
-.setup-statusbar .hint { margin: 0; }
 .setup-statusbar-spacer { flex: 1; }
 .setup-email { font-size: 12.5px; color: var(--text-faint); }
 
@@ -775,6 +771,7 @@ input.invalid { border-color: var(--danger); }
   border: 1px solid var(--success);
   border-radius: var(--radius-lg);
   padding: 22px 24px;
+  margin-bottom: 20px;
 }
 .setup-connected-banner .section-title { color: var(--success); }
 .setup-connected-banner .section-note strong { color: var(--text); }
@@ -795,6 +792,12 @@ input.invalid { border-color: var(--danger); }
   cursor: pointer;
 }
 .disconnect-btn:hover { background: var(--success); color: #fff; }
+.setup-connected-actions { display: flex; gap: 8px; align-items: center; }
+/* Sign out reuses .tiny-btn's normal look everywhere else, but that's a
+   muted grey border/text against this banner's own green tint — bumped
+   to match here so it doesn't disappear next to Disconnect. */
+.setup-connected-banner .tiny-btn { border-color: var(--success); color: var(--success); }
+.setup-connected-banner .tiny-btn:hover { border-color: var(--success); color: var(--success); background: var(--surface); }
 
 /* The tab strip a group opens into. Modelled directly on the real HRIS
    admin's own "Company Settings" / "Org Structure" pages (screenshots,

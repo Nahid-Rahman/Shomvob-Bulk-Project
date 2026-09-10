@@ -3606,31 +3606,49 @@
     `;
   }
 
-  /* A persistent strip once step one is done — which environment, which
-     company (once step two is done too), and as what role. The point of
-     it living outside #setupBody is that it stays on screen through
-     every step past the first, so "which server am I about to touch" is
-     never something you have to scroll up to check. Company + role lead
-     since that's the identity that actually matters for safety here; the
-     tool sign-in email is secondary and sits on the right, small. */
+  /* A persistent strip once step one is done, living outside #setupBody
+     so it stays on screen through every step past the first — including
+     every group and module page, not just the group grid — so "which
+     company/server am I about to touch" is never something you have to
+     navigate back to check.
+
+     Two shapes, and only two: before a company is connected, a plain
+     line (environment + tool email + Sign out) — there's nothing to
+     confirm yet. Once connected, the fuller "Connected" banner takes
+     over entirely (env/company/role as a row list, Disconnect next to
+     Sign out). These used to be two separate, simultaneously-visible
+     things — this one-line strip *and* a second "Connected" banner
+     repeating the same facts at the top of the group grid specifically.
+     Merged into one on user feedback (2026-09-10): the grid's own copy
+     was pure duplication of what this strip already said, and asking
+     for the reminder to persist past the grid (into every module page)
+     is what the strip was already built to do — it just didn't yet
+     carry the fuller, connected-state content. */
   function setupStatusBarHtml() {
     if (!setup.toolToken) return "";
     const env = ENVIRONMENTS[setup.env];
-    const companyIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${SETTINGS_GROUP_ICONS.company}</svg>`;
-    /* Literal spaces between these spans matter, same reason as the
-       one on the hint below: flex `gap` only separates them visually,
-       so without an actual space character, selecting or copying this
-       line (or a screen reader reading it) glues "Staging" straight
-       onto the company name. */
-    const company = setup.companyName
-      ? ` <span class="setup-divider">·</span> ${companyIcon}<span class="setup-who">${setup.companyName}</span> <span class="hint">(${setup.companyUserType || "unknown type"})</span>`
-      : "";
+    if (!setup.companyToken) {
+      return `
+        <div class="setup-statusbar">
+          <span class="env-badge env-${env.id}">${env.label}</span>
+          <span class="setup-statusbar-spacer"></span>
+          <span class="setup-email">${setup.toolEmail}</span>
+          <button type="button" class="tiny-btn" id="setupSignOutBtn">Sign out</button>
+        </div>
+      `;
+    }
     return `
-      <div class="setup-statusbar">
-        <span class="env-badge env-${env.id}">${env.label}</span>${company}
-        <span class="setup-statusbar-spacer"></span>
-        <span class="setup-email">${setup.toolEmail}</span>
-        <button type="button" class="tiny-btn" id="setupSignOutBtn">Sign out</button>
+      <div class="setup-connected-banner">
+        <div class="section-head"><h2 class="section-title">${iconCheck()}Connected</h2></div>
+        <div class="rules-body" style="border-top:none; padding:0; margin-top:10px;">
+          <div class="rule-row"><span class="rule-col">Company</span><span class="rule-val">${setup.companyName}</span></div>
+          <div class="rule-row"><span class="rule-col">Environment</span><span class="rule-val">${env.label}</span></div>
+          <div class="rule-row"><span class="rule-col">Role</span><span class="rule-val">${setup.companyUserType || "unknown type"}</span></div>
+        </div>
+        <div class="setup-connected-actions">
+          <button type="button" class="disconnect-btn" id="setupDisconnectBtn">Disconnect this company</button>
+          <button type="button" class="tiny-btn" id="setupSignOutBtn">Sign out</button>
+        </div>
       </div>
     `;
   }
@@ -3643,6 +3661,22 @@
       signOutBtn.addEventListener("click", () => {
         setup.toolEmail = null;
         setup.toolToken = null;
+        setup.companyToken = null;
+        setup.companyRefresh = null;
+        setup.companyName = null;
+        setup.companyUserType = null;
+        setup.activeGroup = null;
+        setup.activeModule = null;
+        setup.doneModules = new Set();
+        resetModuleState();
+        renderSetupBody();
+      });
+    }
+    /* Lives in the persistent strip now, alongside Sign out, rather than
+       only in the group grid's own body — see setupStatusBarHtml(). */
+    const disconnectBtn = $("#setupDisconnectBtn");
+    if (disconnectBtn) {
+      disconnectBtn.addEventListener("click", () => {
         setup.companyToken = null;
         setup.companyRefresh = null;
         setup.companyName = null;
@@ -3793,8 +3827,14 @@
     return group.modules.filter((m) => setup.doneModules.has(m.id)).length;
   }
 
+  /* The "Connected" banner used to live here, at the top of the group
+     grid specifically — moved into the persistent strip
+     (setupStatusBarHtml()) on user feedback (2026-09-10), since a second
+     copy of the same three facts sitting directly under the first one
+     was pure duplication, and the whole point of asking for a persistent
+     reminder is that it follows you into a module page, not just the
+     grid. This template is now just the hint line and the cards. */
   function setupConnectedTemplate() {
-    const env = ENVIRONMENTS[setup.env];
     const cards = SETTINGS_GROUPS.map((g) => {
       const done = groupDoneCount(g);
       const all = done === g.modules.length;
@@ -3807,32 +3847,12 @@
       `;
     }).join("");
     return `
-      <div class="setup-connected-banner">
-        <div class="section-head"><h2 class="section-title">${iconCheck()}Connected</h2></div>
-        <div class="rules-body" style="border-top:none; padding:0; margin-top:10px;">
-          <div class="rule-row"><span class="rule-col">Company</span><span class="rule-val">${setup.companyName}</span></div>
-          <div class="rule-row"><span class="rule-col">Environment</span><span class="rule-val">${env.label}</span></div>
-          <div class="rule-row"><span class="rule-col">Role</span><span class="rule-val">${setup.companyUserType || "unknown type"}</span></div>
-        </div>
-        <button type="button" class="disconnect-btn" id="setupDisconnectBtn">Disconnect this company</button>
-      </div>
       <p class="setup-hint-line">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
       <div class="settings-grid" style="grid-template-columns:repeat(${SETTINGS_GROUPS.length}, 1fr)">${cards}</div>
     `;
   }
 
   function wireSetupConnected() {
-    $("#setupDisconnectBtn").addEventListener("click", () => {
-      setup.companyToken = null;
-      setup.companyRefresh = null;
-      setup.companyName = null;
-      setup.companyUserType = null;
-      setup.activeGroup = null;
-      setup.activeModule = null;
-      setup.doneModules = new Set();
-      resetModuleState();
-      renderSetupBody();
-    });
     $all(".settings-card").forEach((card) => {
       card.addEventListener("click", () => {
         const group = SETTINGS_GROUPS.find((g) => g.id === card.dataset.group);
