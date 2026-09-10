@@ -906,6 +906,46 @@ so creating a department and coming straight back to Designation shows
 the real, current list without needing a reload. Success: `"Designation
 created successfully"` (201).
 
+### "Create the defaults" — bulk mode for both (2026-09-10)
+
+Both modules also offer a link into a bulk review-and-create list, as an
+alternative to the one-at-a-time form — requested so a QA engineer
+doesn't have to recreate Employee Add's own default org structure by
+hand, department by department.
+
+- **Department**: the list is exactly `DEFAULT_DEPARTMENTS`'s 6 names
+  (HR, Engineering/IT, Sales & Business, Marketing, Finance & Accounts,
+  Operations — the same pool Employee Add's default departments use),
+  each individually selectable, all selected by default.
+- **Designation**: 24 rows (6 departments × 4 designations each),
+  grouped by department. Each default department name is matched against
+  this company's *real* departments (`companyDesignation.departments`)
+  by exact name; a match's 4 designations are selectable and send that
+  real department's id. **No match → all 4 of that department's rows
+  show as "skipped," disabled and unselected** — not omitted from the
+  list — naming exactly which department doesn't exist yet, so running
+  Designation's bulk create before Department's doesn't lose data
+  silently, it just does less.
+- Both send through the exact same `POST /departments` / `POST
+  /designations` calls the single-item form uses — same body shape,
+  same success/failure handling — one item at a time, never in
+  parallel, so a real failure partway through (most likely a duplicate
+  name on a second run) doesn't abandon the rest, and each item's actual
+  server response is what decides its own final status.
+- A **Stop** button appears only while running, checked between items —
+  never mid-request, so nothing is left half-sent. Navigating to another
+  tab while a run is active is blocked outright (`isBulkRunActive()`),
+  since the list itself is the only record of what happened and where.
+
+Tested: unchecking one department before creating sends exactly the
+other 5, not all 6; the unchecked one's row stays untouched; a
+department bulk-create invalidates Designation's stale dependency cache
+the same way a single save does; a designation bulk-create with one of
+the 6 default departments missing sends exactly 20, not 24, and every
+sent item carries a real department id (never a bare name); Stop halts
+a run before all items finish, and normal tab navigation works again
+once it has.
+
 ### Shared: `fetchCompanyResource()` and `dependencyNoticeHtml()`
 
 The GET-with-bearer-token counterpart to every module's save call, and

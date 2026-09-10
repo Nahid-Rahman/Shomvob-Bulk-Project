@@ -25,6 +25,7 @@ const { BANK_NAMES, BANK_SHORT_CODE_MAP } = loadAppData(["BANK_NAMES", "BANK_SHO
 const { OFFICE_NAMES, DEPARTMENT_NAMES, DESIGNATION_NAMES } = loadAppData(["OFFICE_NAMES", "DEPARTMENT_NAMES", "DESIGNATION_NAMES"]);
 const { CUSTOM_FIELD_PRESETS, REQUIRED_DOCUMENT_NAMES } = loadAppData(["CUSTOM_FIELD_PRESETS", "REQUIRED_DOCUMENT_NAMES"]);
 const { LEAVE_TYPE_KINDS } = loadAppData(["LEAVE_TYPE_KINDS"]);
+const { DEFAULT_DEPARTMENTS } = loadAppData(["DEFAULT_DEPARTMENTS"]);
 
 async function gotoSetup(page) {
   await page.goto(PAGE);
@@ -1268,6 +1269,133 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(100);
     check("AI Sign out clears the saved session too — a reload after it asks for both logins again",
       (await page.locator("#setupSignInBtn").count()) === 1);
+    await page.close();
+  }
+
+  /* ---------- AJ. Department Management — "create the 6 defaults" bulk mode ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="departments"]');
+    await page.waitForTimeout(100);
+
+    await page.click("#deptBulkEnterLink");
+    await page.waitForTimeout(80);
+    check("AJ shows exactly the 6 real default department names, in order",
+      JSON.stringify(await page.locator(".bulk-row-name").allTextContents()) === JSON.stringify(DEFAULT_DEPARTMENTS.map((d) => d.name)));
+    check("AJ all 6 start selected", (await page.textContent("#deptBulkCreateBtn")).includes("(6)"));
+
+    await page.click(".bulk-row:nth-child(3) input"); // Sales & Business
+    await page.waitForTimeout(60);
+    check("AJ unchecking one drops the count to 5", (await page.textContent("#deptBulkCreateBtn")).includes("(5)"));
+
+    let sentNames = [];
+    await page.route("**/api/v1/departments", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = route.request().postDataJSON();
+      sentNames.push(body.name);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Department created successfully", data: { id: "d" + sentNames.length, name: body.name } }) });
+    });
+    await page.click("#deptBulkCreateBtn");
+    await page.waitForFunction(() => !document.querySelector("#deptBulkStopBtn"), { timeout: 5000 });
+    check("AJ exactly the 5 selected departments were actually sent, not the unchecked one",
+      JSON.stringify(sentNames) === JSON.stringify(DEFAULT_DEPARTMENTS.map((d) => d.name).filter((n) => n !== "Sales & Business")), JSON.stringify(sentNames));
+    check("AJ the unselected row never left its starting state", (await page.locator(".bulk-row:has-text('Sales & Business')").textContent()).includes("not started"));
+    check("AJ every created row shows done", (await page.locator(".bulk-row:has-text('done')").count()) === 5);
+    check("AJ the tab picks up a done marker from a bulk run, same as a single save", (await page.locator('.settings-tab[data-module="departments"] .op-dot').count()) === 1);
+
+    await page.click("#deptBulkCancelBtn");
+    await page.waitForTimeout(80);
+    check("AJ Back returns to the single-department form", (await page.locator("#deptModSaveBtn").count()) === 1);
+    check("AJ no page errors through the whole bulk flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AK. Designation Management — bulk mode skips departments that don't exist, keeps going ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+
+    // pre-seed 5 of the 6 real departments — Sales & Business deliberately missing
+    const seeded = DEFAULT_DEPARTMENTS.filter((d) => d.name !== "Sales & Business").map((d, i) => ({ id: "rd" + i, name: d.name }));
+    await page.route("**/api/v1/departments/active", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: seeded }) })
+    );
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="designations"]');
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Designation"), { timeout: 5000 });
+    await page.waitForTimeout(100);
+
+    await page.click("#desigBulkEnterLink");
+    await page.waitForTimeout(80);
+    check("AK shows all 24 rows (6 departments x 4), not just the 20 creatable ones", (await page.locator(".bulk-row").count()) === 24);
+    check("AK the 4 rows under the missing department are named 'skipped', not silently dropped",
+      (await page.locator(".bulk-row:has-text('skipped')").count()) === 4);
+    check("AK those 4 are unselected and their checkbox is disabled",
+      await page.locator(".bulk-row:has-text('skipped') input").evaluateAll((els) => els.every((el) => el.disabled && !el.checked)));
+    check("AK the create count already excludes the 4 unreachable ones", (await page.textContent("#desigBulkCreateBtn")).includes("(20)"));
+    check("AK rows are grouped under their department's name as a heading", (await page.locator(".bulk-group-label").count()) === 6);
+
+    let sent = [];
+    await page.route("**/api/v1/designations", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = route.request().postDataJSON();
+      sent.push(body);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Designation created successfully" }) });
+    });
+    await page.click("#desigBulkCreateBtn");
+    await page.waitForFunction(() => !document.querySelector("#desigBulkStopBtn"), { timeout: 10000 });
+    check("AK exactly 20 designations were sent, none for the missing department", sent.length === 20, String(sent.length));
+    check("AK each sent designation carries the real department id it belongs to, not a name",
+      sent.every((s) => seeded.some((d) => d.id === s.departmentIds[0])));
+    check("AK the tab picks up a done marker", (await page.locator('.settings-tab[data-module="designations"] .op-dot').count()) === 1);
+    check("AK no page errors through the whole dependency + bulk flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AL. a bulk run in progress blocks navigating away, and Stop halts it between items ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="departments"]');
+    await page.waitForTimeout(100);
+    await page.click("#deptBulkEnterLink");
+    await page.waitForTimeout(80);
+    await page.route("**/api/v1/departments/active", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
+    );
+
+    let created = 0;
+    await page.route("**/api/v1/departments", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      created++;
+      setTimeout(() => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Department created successfully", data: { id: "d" + created } }) }), 120);
+    });
+    await page.click("#deptBulkCreateBtn");
+    await page.waitForSelector("#deptBulkStopBtn", { timeout: 5000 });
+
+    await page.click('.settings-tab[data-module="designations"]');
+    await page.waitForTimeout(60);
+    check("AL clicking another tab mid-run is ignored — still on Department Management",
+      (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "departments");
+
+    await page.click("#deptBulkStopBtn");
+    await page.waitForFunction(() => !document.querySelector("#deptBulkStopBtn"), { timeout: 5000 });
+    check("AL Stop halted the run before all 6 were created", created > 0 && created < 6, String(created));
+
+    await page.click('.settings-tab[data-module="designations"]');
+    await page.waitForTimeout(80);
+    check("AL navigation works normally again once the run has actually stopped",
+      (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "designations");
+    check("AL no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

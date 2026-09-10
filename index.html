@@ -462,6 +462,24 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
 .rule-col { color: var(--text-muted); min-width: 168px; flex-shrink: 0; }
 .rule-val { color: var(--text); font-family: var(--font-mono); font-size: 12.5px; }
 
+/* "Create the defaults" bulk lists (Department, Designation) — a
+   reviewable, individually-toggleable list of items created one at a
+   time, its own per-row status doubling as the run log. */
+.bulk-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 4px; }
+.bulk-group-label {
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--text-faint); background: var(--surface-2);
+  padding: 6px 12px; border-bottom: 1px solid var(--border);
+}
+.bulk-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; font-size: 13px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.bulk-row:last-child { border-bottom: none; }
+.bulk-row:has(input:disabled) { cursor: default; opacity: 0.6; }
+.bulk-row-name { flex: 1; }
+
 .section {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -6577,14 +6595,23 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function wireSetupGroupPage() {
+    /* A bulk "create the defaults" run (Department/Designation) updates
+       its own list by re-rendering whichever module is currently active
+       — navigating to a different tab mid-run would point those updates
+       at the wrong module instead of the running one, and the list *is*
+       the run log, so losing sight of it isn't harmless the way jumping
+       between two idle tabs is. Blocked here, centrally, rather than
+       disabling every tab/link individually. */
     $("#setupBackToModules").addEventListener("click", (e) => {
       e.preventDefault();
+      if (isBulkRunActive()) return;
       setup.activeGroup = null;
       setup.activeModule = null;
       renderSetupBody();
     });
     $all(".settings-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
+        if (isBulkRunActive()) return;
         setup.activeModule = tab.dataset.module;
         renderSetupBody();
       });
@@ -6594,6 +6621,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     $all(".dep-shortcut").forEach((link) => {
       link.addEventListener("click", (e) => {
         e.preventDefault();
+        if (isBulkRunActive()) return;
         setup.activeGroup = link.dataset.group;
         setup.activeModule = link.dataset.module;
         renderSetupBody();
@@ -7031,7 +7059,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      repeated CI runs; that's Postman's own test-fixture bookkeeping and
      doesn't apply here — one generated department at a time, same as
      every other module, no dedup list to maintain. */
-  const companyDepartment = { fields: null, error: "", ok: "" };
+  const companyDepartment = { fields: null, error: "", ok: "", bulk: null };
 
   function generateDepartmentFields() {
     return {
@@ -7044,12 +7072,26 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     };
   }
 
+  /* "Create the defaults" — the same 6 department names (and, in
+     Designation below, the same 4-per-department designations) Employee
+     Add uses, created for real via the same one-at-a-time POST every
+     other module here uses. Requested 2026-09-10: a QA engineer setting
+     up a fresh test company was recreating this exact structure by hand,
+     department by department. `bulk` is null in normal single-department
+     mode; entering bulk mode swaps the whole template, it doesn't sit
+     alongside it. */
+  function departmentDefaultBulkItems() {
+    return DEFAULT_DEPARTMENTS.map((d) => ({ name: d.name, selected: true, status: "pending", message: "" }));
+  }
+
   function departmentModuleTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Department Management</h2></div>`;
+    if (companyDepartment.bulk) return bulkListTemplate(head, companyDepartment.bulk, "deptBulk");
     if (!companyDepartment.fields) companyDepartment.fields = generateDepartmentFields();
     const f = companyDepartment.fields;
     return `
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Department Management</h2></div>
+        ${head}
         <p class="section-note">Generated from the Postman collection's own department-name pool. Regenerate re-rolls it; the name can still be edited by hand before saving.</p>
         <div class="field"><label for="deptModName">Department Name</label><input type="text" id="deptModName" value="${f.name}" /></div>
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
@@ -7058,6 +7100,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         </div>
         <span class="error-text" id="deptModError">${companyDepartment.error}</span>
         ${companyDepartment.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDepartment.ok}</div>` : ""}
+        <p style="margin-top:14px"><a href="#" id="deptBulkEnterLink" style="font-size:12.5px; font-weight:600;">Or create the 6 default departments at once →</a></p>
       </div>
     `;
   }
@@ -7083,7 +7126,142 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return data;
   }
 
+  /* ---------- shared: "create the defaults" bulk lists ----------
+
+     Department's 6 defaults and Designation's 24 (4 per department) both
+     need the same shape of thing: a reviewable list of real, individually
+     creatable items, created one at a time — never all at once — so each
+     one's real server response is seen rather than assumed, and a
+     mid-list failure (a duplicate name, most likely) doesn't stop the
+     rest. This is the first place in Company Setup that loops writes,
+     which is exactly the risk flagged when Company Profile was built and
+     deferred until a module actually needed it: some of a bulk run can
+     already be real by the time one item fails or someone stops it, so
+     the list itself — pending/creating/done/failed per row — doubles as
+     the run log, and a Stop button (checked between items, never
+     mid-request) is the closest thing to a cancel this needs. */
+  function isBulkRunActive() {
+    return !!(companyDepartment.bulk && companyDepartment.bulk.running) || !!(companyDesignation.bulk && companyDesignation.bulk.running);
+  }
+
+  async function runBulkSequential(bulk, createFn, rerender) {
+    bulk.running = true;
+    bulk.stopRequested = false;
+    rerender();
+    for (const item of bulk.items) {
+      if (bulk.stopRequested) break;
+      if (!item.selected) continue;
+      item.status = "creating";
+      rerender();
+      try {
+        await createFn(item);
+        item.status = "done";
+      } catch (e) {
+        item.status = "failed";
+        item.message = e.message;
+      }
+      rerender();
+    }
+    bulk.running = false;
+    rerender();
+  }
+
+  function bulkStatusHtml(item) {
+    if (item.status === "creating") return `<span style="color:var(--text-faint)">${iconSpinner()} creating…</span>`;
+    if (item.status === "done") return `<span style="color:var(--success); font-weight:600;">${iconCheck()} done</span>`;
+    if (item.status === "failed") return `<span class="error-text" style="margin:0" title="${item.message}">failed — ${item.message}</span>`;
+    if (item.status === "skipped") return `<span style="color:var(--text-faint)" title="${item.message}">skipped</span>`;
+    return `<span style="color:var(--text-faint)">not started</span>`;
+  }
+
+  /* One shared renderer for both bulk lists — `group` is only set for
+     Designation, where rows are grouped by department; Department's own
+     6 rows render flat. `prefix` namespaces the element ids so both can
+     be wired independently without colliding. */
+  function bulkListTemplate(head, bulk, prefix, groupLabelFor) {
+    const selectableCount = bulk.items.filter((it) => it.status !== "skipped").length;
+    const selectedCount = bulk.items.filter((it) => it.selected).length;
+    const allSelected = selectableCount > 0 && selectedCount === selectableCount;
+    let lastGroup = null;
+    const rows = bulk.items
+      .map((it, i) => {
+        const groupLabel = groupLabelFor ? groupLabelFor(it) : null;
+        const groupHeading = groupLabel !== null && groupLabel !== lastGroup ? ((lastGroup = groupLabel), `<div class="bulk-group-label">${groupLabel}</div>`) : "";
+        return `
+          ${groupHeading}
+          <label class="bulk-row">
+            <input type="checkbox" data-idx="${i}" ${it.selected ? "checked" : ""} ${it.status === "skipped" || bulk.running ? "disabled" : ""} />
+            <span class="bulk-row-name">${it.name}</span>
+            ${bulkStatusHtml(it)}
+          </label>
+        `;
+      })
+      .join("");
+    return `
+      <div class="section">
+        ${head}
+        <div class="setup-actions" style="flex-direction:row; align-items:center; margin-bottom:4px;">
+          <button type="button" class="tiny-btn" id="${prefix}SelectAllBtn" ${bulk.running ? "disabled" : ""}>${allSelected ? "Deselect all" : "Select all"}</button>
+        </div>
+        <div class="bulk-list">${rows}</div>
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          ${
+            bulk.running
+              ? `<button type="button" class="tiny-btn" id="${prefix}StopBtn">Stop</button>`
+              : `<button type="button" class="tiny-btn" id="${prefix}CancelBtn">← Back</button>
+                 <button type="button" class="generate-btn" id="${prefix}CreateBtn">Create selected (${selectedCount})</button>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
   function wireDepartmentModuleEvents() {
+    if (companyDepartment.bulk) {
+      const bulk = companyDepartment.bulk;
+      const rerender = () => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      };
+      $all(".bulk-list input[type=checkbox]").forEach((cb) =>
+        cb.addEventListener("change", (e) => {
+          bulk.items[Number(e.target.dataset.idx)].selected = e.target.checked;
+          rerender();
+        })
+      );
+      $("#deptBulkSelectAllBtn")?.addEventListener("click", () => {
+        const selectable = bulk.items.filter((it) => it.status !== "skipped");
+        const allSelected = selectable.length > 0 && selectable.every((it) => it.selected);
+        selectable.forEach((it) => (it.selected = !allSelected));
+        rerender();
+      });
+      $("#deptBulkCancelBtn")?.addEventListener("click", () => {
+        companyDepartment.bulk = null;
+        rerender();
+      });
+      $("#deptBulkStopBtn")?.addEventListener("click", () => {
+        bulk.stopRequested = true;
+      });
+      $("#deptBulkCreateBtn")?.addEventListener("click", async () => {
+        await runBulkSequential(
+          bulk,
+          async (item) => {
+            await saveDepartmentModule({ name: item.name, code: "", status: "Active", parentId: null, businessLineId: null, departmentHeadId: null });
+          },
+          rerender
+        );
+        companyDesignation.departments = null; // a real department may now exist — invalidate Designation's stale "none yet" cache
+        if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("departments");
+        rerender(); // the done dot itself needs one more render — runBulkSequential's own last one fired before doneModules was touched
+      });
+      return;
+    }
+    $("#deptBulkEnterLink")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      companyDepartment.bulk = { items: departmentDefaultBulkItems(), running: false, stopRequested: false };
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
     $("#deptModRegenerateBtn").addEventListener("click", () => {
       companyDepartment.fields = generateDepartmentFields();
       companyDepartment.error = "";
@@ -7166,10 +7344,36 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      once (then cached for the rest of this company session — see
      saveDepartmentModule() for the one place that invalidates it), an
      empty array once checked with genuinely none, or the real list. */
-  const companyDesignation = { departments: null, loadError: "", fields: null, error: "", ok: "" };
+  const companyDesignation = { departments: null, loadError: "", fields: null, error: "", ok: "", bulk: null };
 
   function generateDesignationFields(depts) {
     return { name: choice(DESIGNATION_NAMES), departmentId: depts[0].id, status: "Active" };
+  }
+
+  /* "Create the defaults" for Designation — the 4 designations Employee
+     Add pairs with each of its 6 default departments, matched here
+     against this company's *real* departments by name. A default whose
+     department was never created (bulk-created or otherwise) has no
+     real id to attach to, so it's shown, disabled, rather than quietly
+     left out — "This company's data can't be quietly incomplete" is the
+     rule the rest of the app already holds itself to (Employee Add's
+     card-based screens), not a new one invented for this. */
+  function designationDefaultBulkItems(depts) {
+    const items = [];
+    DEFAULT_DEPARTMENTS.forEach((d) => {
+      const real = depts.find((rd) => rd.name.trim().toLowerCase() === d.name.trim().toLowerCase());
+      d.designations.forEach((desigName) => {
+        items.push({
+          name: desigName,
+          departmentName: d.name,
+          departmentId: real ? real.id : null,
+          selected: !!real,
+          status: real ? "pending" : "skipped",
+          message: real ? "" : `no department named "${d.name}" exists yet`,
+        });
+      });
+    });
+    return items;
   }
 
   async function loadDesignationDependency() {
@@ -7205,6 +7409,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       `;
     }
     const depts = companyDesignation.departments;
+    if (companyDesignation.bulk) return bulkListTemplate(head, companyDesignation.bulk, "desigBulk", (it) => it.departmentName);
     if (!companyDesignation.fields || !depts.some((d) => d.id === companyDesignation.fields.departmentId)) {
       companyDesignation.fields = generateDesignationFields(depts);
     }
@@ -7224,6 +7429,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         </div>
         <span class="error-text" id="desigError">${companyDesignation.error}</span>
         ${companyDesignation.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDesignation.ok}</div>` : ""}
+        <p style="margin-top:14px"><a href="#" id="desigBulkEnterLink" style="font-size:12.5px; font-weight:600;">Or create the 4 default designations for each department at once →</a></p>
       </div>
     `;
   }
@@ -7268,6 +7474,51 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       return;
     }
     if (!companyDesignation.departments || companyDesignation.departments.length === 0) return; // .dep-shortcut is wired centrally
+
+    if (companyDesignation.bulk) {
+      const bulk = companyDesignation.bulk;
+      const rerender = () => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      };
+      $all(".bulk-list input[type=checkbox]").forEach((cb) =>
+        cb.addEventListener("change", (e) => {
+          bulk.items[Number(e.target.dataset.idx)].selected = e.target.checked;
+          rerender();
+        })
+      );
+      $("#desigBulkSelectAllBtn")?.addEventListener("click", () => {
+        const selectable = bulk.items.filter((it) => it.status !== "skipped");
+        const allSelected = selectable.length > 0 && selectable.every((it) => it.selected);
+        selectable.forEach((it) => (it.selected = !allSelected));
+        rerender();
+      });
+      $("#desigBulkCancelBtn")?.addEventListener("click", () => {
+        companyDesignation.bulk = null;
+        rerender();
+      });
+      $("#desigBulkStopBtn")?.addEventListener("click", () => {
+        bulk.stopRequested = true;
+      });
+      $("#desigBulkCreateBtn")?.addEventListener("click", async () => {
+        await runBulkSequential(
+          bulk,
+          async (item) => {
+            await saveDesignation({ name: item.name, departmentIds: [item.departmentId], status: "Active" });
+          },
+          rerender
+        );
+        if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("designations");
+        rerender(); // the done dot itself needs one more render — same reason as Department's bulk create
+      });
+      return;
+    }
+    $("#desigBulkEnterLink")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      companyDesignation.bulk = { items: designationDefaultBulkItems(companyDesignation.departments), running: false, stopRequested: false };
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
 
     $("#desigDept").addEventListener("change", (e) => {
       companyDesignation.fields.departmentId = e.target.value;
@@ -9407,11 +9658,13 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     companyDepartment.fields = null;
     companyDepartment.error = "";
     companyDepartment.ok = "";
+    companyDepartment.bulk = null;
     companyDesignation.departments = null;
     companyDesignation.loadError = "";
     companyDesignation.fields = null;
     companyDesignation.error = "";
     companyDesignation.ok = "";
+    companyDesignation.bulk = null;
     customField.fields = null;
     customField.error = "";
     customField.ok = "";

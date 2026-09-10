@@ -439,7 +439,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eight suites, 444 checks. `appearance.test.js` is the odd one: it opens two
+Eight suites, 465 checks. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
 background's average channel rather than an exact hex, so a palette tweak
@@ -976,6 +976,61 @@ endpoint "Branch Management" — confirmed, not left as a guess.
   Tested end-to-end: empty → shortcut → save a department → cache
   invalidates → real department list appears → pick one → the picked
   department, not the first one, is what's actually sent.
+
+### "Create the defaults" — bulk mode for Department and Designation (2026-09-10)
+
+Requested directly: a QA engineer setting up a fresh test company was
+recreating Employee Add's own 6 default departments (`DEFAULT_DEPARTMENTS`
+in `app-data.js` — HR, Engineering/IT, Sales & Business, Marketing,
+Finance & Accounts, Operations) and their 4 designations each by hand,
+one save at a time. Both modules now also offer "Or create the
+default(s) at once →", a link that swaps the module's whole template
+into a review list — `companyDepartment.bulk`/`companyDesignation.bulk`,
+`null` in normal single-item mode, `{ items, running, stopRequested }`
+once entered.
+
+- **The list is the run log.** Each item shows its own status inline —
+  not started, creating (spinner), done, or failed with the server's own
+  message — because this is the **first place in Company Setup that
+  loops writes**, the exact risk flagged and deliberately deferred when
+  Company Profile was first built ("some of this already happened on a
+  real server and leaving now doesn't undo it"). `runBulkSequential()`
+  (shared by both modules) creates one at a time, never in parallel, so
+  a mid-list failure — a duplicate name, most likely on a second run —
+  doesn't take down the rest, and each item's real response is seen
+  rather than assumed.
+- **Every item stays individually toggleable**, default all-selected,
+  with a select-all/deselect-all shortcut — tested that unchecking one
+  before creating sends exactly the rest, not all 6/24, and that the
+  unchecked item's row never leaves its starting "not started" state.
+- **Stop, checked between items, never mid-request.** The closest thing
+  to a cancel this needs: clicking it lets whichever item is already in
+  flight finish normally (a half-sent write would be worse than an extra
+  one), then halts before the next. Tested with an artificially slowed
+  mock response.
+- **Navigating away mid-run is blocked centrally**, in
+  `wireSetupGroupPage()`'s tab/back-link/dep-shortcut handlers
+  (`isBulkRunActive()`), rather than disabling each control — the list's
+  own re-render is keyed off whichever module is currently active, so
+  switching tabs mid-run would point its progress updates at the wrong
+  module. Not extended to Sign out/Disconnect — those already clear
+  everything unconditionally everywhere else in this section, and
+  choosing to sign out mid-run is a deliberate act, not an accidental
+  click.
+- **Designation's bulk list matches its 6 groups of 4 against this
+  company's *real* departments by name** (`companyDesignation.
+  departments`, the same live check the single-item form already
+  depends on) — a default department that was never actually created has
+  no real id to attach a designation to, so its 4 rows show, disabled,
+  as "skipped — no department named X exists yet" rather than being
+  quietly left off the list. Same "never silently incomplete" rule the
+  card-based screens in Employee Add already hold themselves to, applied
+  here for the first time to a live dependency instead of a static input.
+- Both bulk creates reuse the exact same `saveDepartmentModule()`/
+  `saveDesignation()` functions the single-item flow calls — a bulk item
+  is not a different kind of write, just one driven from a list instead
+  of a form. A successful bulk department run also invalidates
+  Designation's dependency cache, same as a single department save.
 
 Shared infrastructure added alongside these: `fetchCompanyResource()`
 (the GET-with-bearer-token counterpart to every module's save call) and

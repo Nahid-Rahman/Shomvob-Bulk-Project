@@ -448,6 +448,24 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
 .rule-col { color: var(--text-muted); min-width: 168px; flex-shrink: 0; }
 .rule-val { color: var(--text); font-family: var(--font-mono); font-size: 12.5px; }
 
+/* "Create the defaults" bulk lists (Department, Designation) — a
+   reviewable, individually-toggleable list of items created one at a
+   time, its own per-row status doubling as the run log. */
+.bulk-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 4px; }
+.bulk-group-label {
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--text-faint); background: var(--surface-2);
+  padding: 6px 12px; border-bottom: 1px solid var(--border);
+}
+.bulk-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; font-size: 13px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.bulk-row:last-child { border-bottom: none; }
+.bulk-row:has(input:disabled) { cursor: default; opacity: 0.6; }
+.bulk-row-name { flex: 1; }
+
 .section {
   background: var(--surface);
   border: 1px solid var(--border);
