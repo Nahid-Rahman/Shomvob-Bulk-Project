@@ -4154,6 +4154,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (!res.ok) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -4287,6 +4288,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -4423,6 +4425,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -4537,6 +4540,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -4731,6 +4735,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (!res.ok) throw new Error(data.message || "The server rejected this.");
     return Array.isArray(data.data) ? data.data : [];
   }
@@ -4866,6 +4871,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -5066,6 +5072,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -5189,6 +5196,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -5435,6 +5443,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -5629,6 +5638,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -5773,6 +5783,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -5890,6 +5901,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -6024,6 +6036,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 200 && res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -6142,6 +6155,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -6265,6 +6279,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -6363,6 +6378,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -6493,6 +6509,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -6621,6 +6638,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -6708,6 +6726,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -6793,6 +6812,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -6871,6 +6891,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 200) throw new Error(data.message || "The server rejected this.");
     return data;
   }
@@ -7010,6 +7031,7 @@
       throw new Error(`Couldn't reach ${env.label}.`);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
     return data;
   }

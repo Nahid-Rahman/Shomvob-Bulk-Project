@@ -1434,6 +1434,61 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- AM. a 401 gets a named "your session expired" message, not a raw server string ----------
+
+     Requested directly after a real staging token expired mid-session
+     and every module just showed the server's own "Unauthorized
+     access!" behind a "Try again" that could only ever fail again with
+     the same stale token. */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+
+    await page.route("**/api/v1/departments/active", (route) =>
+      route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ message: "Unauthorized access!" }) })
+    );
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="designations"]');
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Try again"), { timeout: 5000 });
+    check("AM a dependency check's 401 shows the named session-expired message, not the server's raw 'Unauthorized access!'",
+      (await page.textContent("#setupBody")).includes("Your session with this company may have expired"));
+    check("AM ...and points at the actual control that fixes it", (await page.textContent("#setupBody")).includes("Disconnect this company"));
+
+    await page.route("**/api/v1/company-profile", (route) =>
+      route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ message: "Unauthorized access!" }) })
+    );
+    await page.click('.settings-tab[data-module="company_profile"]');
+    await page.waitForTimeout(100);
+    await page.click("#cpSaveBtn");
+    await page.waitForTimeout(150);
+    check("AM a module save's 401 gets the same treatment, not the raw server string",
+      (await page.textContent("#cpError")).includes("Your session with this company may have expired"));
+
+    check("AM no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AN. the 401 fix wasn't accidentally widened to the logins themselves ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    await mockSupabaseOk(page);
+    await mockCompanyFail(page); // 401, "Wrong email or password."
+    await gotoSetup(page);
+    await page.fill("#setupEmail", "mahmudur@shomvob.com");
+    await page.fill("#setupPass", "whatever");
+    await page.click("#setupSignInBtn");
+    await page.waitForTimeout(150);
+    await page.fill("#setupCoEmail", "wrong@company.com");
+    await page.fill("#setupCoPass", "wrong");
+    await page.click("#setupCoBtn");
+    await page.waitForTimeout(150);
+    check("AN a genuinely wrong company password still says so — 401 handling wasn't widened to the login itself",
+      (await page.textContent("#setupCoError")) === "Wrong email or password.");
+    await page.close();
+  }
+
   await browser.close();
   report("Company Setup", state, []);
 })();

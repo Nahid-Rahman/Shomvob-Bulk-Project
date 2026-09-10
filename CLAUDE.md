@@ -439,7 +439,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eight suites, 466 checks. `appearance.test.js` is the odd one: it opens two
+Eight suites, 471 checks. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
 background's average channel rather than an exact hex, so a palette tweak
@@ -727,6 +727,34 @@ network failure apart from a CORS rejection — `fetch` throws the same
 generic error for both — so it assumes CORS, since that is the likelier
 story for a server that already answers Postman fine, and says so rather
 than showing a bare "network error".
+
+### A 401 gets a named message, not the server's raw string (2026-09-10)
+
+Every module's save call, and `fetchCompanyResource()`'s dependency
+checks, otherwise show the real server's own `message` verbatim on
+failure — deliberate, same discipline as the two logins, so whatever
+Shomvob's API actually says is what a QA engineer sees. That discipline
+has one carve-out: a plain `401` is never shown as the server wrote it.
+
+Found live: a real staging company token expired mid-session, and
+Designation Management showed the server's own `"Unauthorized access!"`
+behind a `loadError` state whose only control was "Try again" — which
+could only ever fail again, since retrying sends the same stale token.
+Every module's save function and `fetchCompanyResource()` now check
+`res.status === 401` *before* their own success-code check and throw a
+named message instead: `"Your session with this company may have
+expired — use \"Disconnect this company\" above and sign in again."` —
+pointing at the one control that actually fixes it (in the persistent
+strip, visible on every page since the same day's earlier fix), rather
+than a retry that can't.
+
+**Deliberately not applied to `supabaseSignIn()`/`companySignIn()`** —
+the two login functions themselves. A `401` *during login* is a
+completely ordinary wrong-password response, already handled correctly
+("Wrong email or password."); showing "your session expired" there would
+be actively wrong, since there was never a session to expire yet. The
+fix is scoped to the ~22 functions that call a real endpoint *using* an
+already-issued `companyToken`, never to the two calls that issue one.
 
 ### Navigation model for the settings modules (confirmed & built 2026-09-09)
 
