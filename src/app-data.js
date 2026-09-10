@@ -570,3 +570,57 @@ const BUSY_MESSAGES = [
   "Filing this under someone else's problem. Ours, specifically…",
   "Doing the kamla work so you don't have to…",
 ];
+
+/* ===== Bank Info — second settings module (built 2026-09-10) =====
+
+   Ported from the Postman collection's own pre-request script for
+   `POST /company-bank-informations/save`, verbatim — same discipline as
+   Company Profile. `BANK_SHORT_CODE_MAP`'s codes are the script's own
+   (not always the bank's real published short code — e.g. "Agrani Bank"
+   -> "AGRANI", not any official abbreviation), kept as-is since matching
+   the script matters more than matching the bank. */
+const BANK_NAMES = [
+  "AB Bank Ltd.", "Agrani Bank", "Al-Arafah Islami Bank Ltd.", "Ansar VDP Unnayan Bank",
+  "BASIC Bank", "BRAC Bank Ltd.", "Bangladesh Commerce Bank Ltd.", "Bangladesh Development Bank",
+  "Bangladesh Krishi Bank", "Bank Al-Falah", "Bank Asia Ltd.", "CITI Bank NA",
+  "Commercial Bank of Ceylon", "Community Bank Bangladesh Limited", "Dhaka Bank Ltd.",
+  "Dutch Bangla Bank Ltd.", "EXIM Bank Ltd.", "Eastern Bank Ltd.", "First Security Islami Bank Ltd.",
+  "Global Islamic Bank Ltd.", "Grameen Bank", "HSBC", "Habib Bank Ltd.", "ICB Islamic Bank",
+  "IFIC Bank Ltd.", "Islami Bank Bangladesh Ltd.", "Jamuna Bank Ltd.", "Janata Bank", "Jubilee Bank",
+  "Karmashangosthan Bank", "Meghna Bank Ltd.", "Mercantile Bank Ltd.", "Midland Bank Ltd.",
+  "Modhumoti Bank Ltd.", "Mutual Trust Bank Ltd.", "NCC Bank Ltd.", "NRB Bank Ltd.",
+  "NRB Commercial Bank Ltd.", "National Bank Ltd.", "National Bank of Pakistan", "One Bank Ltd.",
+  "Padma Bank Ltd.", "Palli Sanchay Bank", "Premier Bank Ltd.", "Prime Bank Ltd.", "Pubali Bank Ltd.",
+  "Rajshahi Krishi Unnayan Bank", "Rupali Bank", "SBAC Bank Ltd.", "Shahjalal Islami Bank Ltd.",
+  "Shimanto Bank Ltd.", "Social Islami Bank Ltd.", "Sonali Bank", "Southeast Bank Ltd.",
+  "Standard Bank Ltd.", "Standard Chartered Bank", "State Bank of India", "The City Bank Ltd.",
+  "Trust Bank Ltd.", "Union Bank Ltd.", "United Commercial Bank Ltd.", "Uttara Bank Ltd.",
+  "Woori Bank Ltd.",
+];
+
+const BANK_SHORT_CODE_MAP = {
+  "AB Bank Ltd.": "AB", "Agrani Bank": "AGRANI", "Al-Arafah Islami Bank Ltd.": "AIBL",
+  "Ansar VDP Unnayan Bank": "ANSARVDP", "BASIC Bank": "BASIC", "BRAC Bank Ltd.": "BRAC",
+  "Bangladesh Commerce Bank Ltd.": "BCBL", "Bangladesh Development Bank": "BDBL",
+  "Bangladesh Krishi Bank": "BKB", "Bank Al-Falah": "ALFALAH", "Bank Asia Ltd.": "ASIA",
+  "CITI Bank NA": "CITI", "Commercial Bank of Ceylon": "CBC",
+  "Community Bank Bangladesh Limited": "COMMUNITY", "Dhaka Bank Ltd.": "DHAKA",
+  "Dutch Bangla Bank Ltd.": "DBBL", "EXIM Bank Ltd.": "EXIM", "Eastern Bank Ltd.": "EBL",
+  "First Security Islami Bank Ltd.": "FSIBL", "Global Islamic Bank Ltd.": "GIB",
+  "Grameen Bank": "GRAMEEN", "HSBC": "HSBC", "Habib Bank Ltd.": "HABIB", "ICB Islamic Bank": "ICB",
+  "IFIC Bank Ltd.": "IFIC", "Islami Bank Bangladesh Ltd.": "IBBL", "Jamuna Bank Ltd.": "JAMUNA",
+  "Janata Bank": "JANATA", "Jubilee Bank": "JUBILEE", "Karmashangosthan Bank": "KARMASHANGOSTHAN",
+  "Meghna Bank Ltd.": "MEGHNA", "Mercantile Bank Ltd.": "MERCANTILE", "Midland Bank Ltd.": "MIDLAND",
+  "Modhumoti Bank Ltd.": "MODHUMOTI", "Mutual Trust Bank Ltd.": "MTB", "NCC Bank Ltd.": "NCC",
+  "NRB Bank Ltd.": "NRB", "NRB Commercial Bank Ltd.": "NRBC", "National Bank Ltd.": "NBL",
+  "National Bank of Pakistan": "NBP", "One Bank Ltd.": "ONE", "Padma Bank Ltd.": "PADMA",
+  "Palli Sanchay Bank": "PALLI", "Premier Bank Ltd.": "PREMIER", "Prime Bank Ltd.": "PRIME",
+  "Pubali Bank Ltd.": "PUBALI", "Rajshahi Krishi Unnayan Bank": "RAKUB", "Rupali Bank": "RUPALI",
+  "SBAC Bank Ltd.": "SBAC", "Shahjalal Islami Bank Ltd.": "SJIBL", "Shimanto Bank Ltd.": "SHIMANTO",
+  "Social Islami Bank Ltd.": "SIBL", "Sonali Bank": "SONALI", "Southeast Bank Ltd.": "SOUTHEAST",
+  "Standard Bank Ltd.": "STANDARD", "Standard Chartered Bank": "SCB", "State Bank of India": "SBI",
+  "The City Bank Ltd.": "CITY", "Trust Bank Ltd.": "TRUST", "Union Bank Ltd.": "UNION",
+  "United Commercial Bank Ltd.": "UCB", "Uttara Bank Ltd.": "UTTARA", "Woori Bank Ltd.": "WOORI",
+};
+
+const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];

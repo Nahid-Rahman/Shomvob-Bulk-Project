@@ -2201,6 +2201,60 @@ const BUSY_MESSAGES = [
   "Doing the kamla work so you don't have to…",
 ];
 
+/* ===== Bank Info — second settings module (built 2026-09-10) =====
+
+   Ported from the Postman collection's own pre-request script for
+   `POST /company-bank-informations/save`, verbatim — same discipline as
+   Company Profile. `BANK_SHORT_CODE_MAP`'s codes are the script's own
+   (not always the bank's real published short code — e.g. "Agrani Bank"
+   -> "AGRANI", not any official abbreviation), kept as-is since matching
+   the script matters more than matching the bank. */
+const BANK_NAMES = [
+  "AB Bank Ltd.", "Agrani Bank", "Al-Arafah Islami Bank Ltd.", "Ansar VDP Unnayan Bank",
+  "BASIC Bank", "BRAC Bank Ltd.", "Bangladesh Commerce Bank Ltd.", "Bangladesh Development Bank",
+  "Bangladesh Krishi Bank", "Bank Al-Falah", "Bank Asia Ltd.", "CITI Bank NA",
+  "Commercial Bank of Ceylon", "Community Bank Bangladesh Limited", "Dhaka Bank Ltd.",
+  "Dutch Bangla Bank Ltd.", "EXIM Bank Ltd.", "Eastern Bank Ltd.", "First Security Islami Bank Ltd.",
+  "Global Islamic Bank Ltd.", "Grameen Bank", "HSBC", "Habib Bank Ltd.", "ICB Islamic Bank",
+  "IFIC Bank Ltd.", "Islami Bank Bangladesh Ltd.", "Jamuna Bank Ltd.", "Janata Bank", "Jubilee Bank",
+  "Karmashangosthan Bank", "Meghna Bank Ltd.", "Mercantile Bank Ltd.", "Midland Bank Ltd.",
+  "Modhumoti Bank Ltd.", "Mutual Trust Bank Ltd.", "NCC Bank Ltd.", "NRB Bank Ltd.",
+  "NRB Commercial Bank Ltd.", "National Bank Ltd.", "National Bank of Pakistan", "One Bank Ltd.",
+  "Padma Bank Ltd.", "Palli Sanchay Bank", "Premier Bank Ltd.", "Prime Bank Ltd.", "Pubali Bank Ltd.",
+  "Rajshahi Krishi Unnayan Bank", "Rupali Bank", "SBAC Bank Ltd.", "Shahjalal Islami Bank Ltd.",
+  "Shimanto Bank Ltd.", "Social Islami Bank Ltd.", "Sonali Bank", "Southeast Bank Ltd.",
+  "Standard Bank Ltd.", "Standard Chartered Bank", "State Bank of India", "The City Bank Ltd.",
+  "Trust Bank Ltd.", "Union Bank Ltd.", "United Commercial Bank Ltd.", "Uttara Bank Ltd.",
+  "Woori Bank Ltd.",
+];
+
+const BANK_SHORT_CODE_MAP = {
+  "AB Bank Ltd.": "AB", "Agrani Bank": "AGRANI", "Al-Arafah Islami Bank Ltd.": "AIBL",
+  "Ansar VDP Unnayan Bank": "ANSARVDP", "BASIC Bank": "BASIC", "BRAC Bank Ltd.": "BRAC",
+  "Bangladesh Commerce Bank Ltd.": "BCBL", "Bangladesh Development Bank": "BDBL",
+  "Bangladesh Krishi Bank": "BKB", "Bank Al-Falah": "ALFALAH", "Bank Asia Ltd.": "ASIA",
+  "CITI Bank NA": "CITI", "Commercial Bank of Ceylon": "CBC",
+  "Community Bank Bangladesh Limited": "COMMUNITY", "Dhaka Bank Ltd.": "DHAKA",
+  "Dutch Bangla Bank Ltd.": "DBBL", "EXIM Bank Ltd.": "EXIM", "Eastern Bank Ltd.": "EBL",
+  "First Security Islami Bank Ltd.": "FSIBL", "Global Islamic Bank Ltd.": "GIB",
+  "Grameen Bank": "GRAMEEN", "HSBC": "HSBC", "Habib Bank Ltd.": "HABIB", "ICB Islamic Bank": "ICB",
+  "IFIC Bank Ltd.": "IFIC", "Islami Bank Bangladesh Ltd.": "IBBL", "Jamuna Bank Ltd.": "JAMUNA",
+  "Janata Bank": "JANATA", "Jubilee Bank": "JUBILEE", "Karmashangosthan Bank": "KARMASHANGOSTHAN",
+  "Meghna Bank Ltd.": "MEGHNA", "Mercantile Bank Ltd.": "MERCANTILE", "Midland Bank Ltd.": "MIDLAND",
+  "Modhumoti Bank Ltd.": "MODHUMOTI", "Mutual Trust Bank Ltd.": "MTB", "NCC Bank Ltd.": "NCC",
+  "NRB Bank Ltd.": "NRB", "NRB Commercial Bank Ltd.": "NRBC", "National Bank Ltd.": "NBL",
+  "National Bank of Pakistan": "NBP", "One Bank Ltd.": "ONE", "Padma Bank Ltd.": "PADMA",
+  "Palli Sanchay Bank": "PALLI", "Premier Bank Ltd.": "PREMIER", "Prime Bank Ltd.": "PRIME",
+  "Pubali Bank Ltd.": "PUBALI", "Rajshahi Krishi Unnayan Bank": "RAKUB", "Rupali Bank": "RUPALI",
+  "SBAC Bank Ltd.": "SBAC", "Shahjalal Islami Bank Ltd.": "SJIBL", "Shimanto Bank Ltd.": "SHIMANTO",
+  "Social Islami Bank Ltd.": "SIBL", "Sonali Bank": "SONALI", "Southeast Bank Ltd.": "SOUTHEAST",
+  "Standard Bank Ltd.": "STANDARD", "Standard Chartered Bank": "SCB", "State Bank of India": "SBI",
+  "The City Bank Ltd.": "CITY", "Trust Bank Ltd.": "TRUST", "Union Bank Ltd.": "UNION",
+  "United Commercial Bank Ltd.": "UCB", "Uttara Bank Ltd.": "UTTARA", "Woori Bank Ltd.": "WOORI",
+};
+
+const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
+
 </script>
 <script>
 /* ===== Bulk Forge — app logic ===== */
@@ -5975,6 +6029,14 @@ const BUSY_MESSAGES = [
     `;
   }
 
+  /* One entry per wired module — the lookup a new module joins instead of
+     growing a chain of ternaries. A module id with no entry here falls
+     through to settingsComingSoonHtml(). */
+  const SETTINGS_MODULE_HANDLERS = {
+    company_profile: { template: companyProfileTemplate, wire: wireCompanyProfileEvents },
+    bank_info: { template: bankInfoTemplate, wire: wireBankInfoEvents },
+  };
+
   function setupGroupPageTemplate() {
     const group = SETTINGS_GROUPS.find((g) => g.id === setup.activeGroup);
     const tabs = group.modules
@@ -5986,7 +6048,8 @@ const BUSY_MESSAGES = [
       )
       .join("");
     const mod = group.modules.find((m) => m.id === setup.activeModule);
-    const body = mod.id === "company_profile" ? companyProfileTemplate() : settingsComingSoonHtml(mod);
+    const handler = SETTINGS_MODULE_HANDLERS[mod.id];
+    const body = handler ? handler.template() : settingsComingSoonHtml(mod);
     return `
       <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>
       <h2 style="font-size:19px; margin:14px 0 0;">${group.label}</h2>
@@ -6008,7 +6071,8 @@ const BUSY_MESSAGES = [
         renderSetupBody();
       });
     });
-    if (setup.activeModule === "company_profile") wireCompanyProfileEvents();
+    const activeHandler = SETTINGS_MODULE_HANDLERS[setup.activeModule];
+    if (activeHandler) activeHandler.wire();
   }
 
   /* ---------- Company Profile — first settings module ----------
@@ -6145,6 +6209,139 @@ const BUSY_MESSAGES = [
         setup.doneModules.add("company_profile");
       } catch (e) {
         companyProfile.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Bank Info — second settings module ----------
+
+     POST /company-bank-informations/save. Same shape as Company Profile —
+     every field generated, all editable, Regenerate re-rolls, Save sends
+     whatever the inputs actually hold. Two things this endpoint does
+     differently, both confirmed against the Postman collection rather
+     than assumed:
+       - success is 201, not 200 (checked on the response status, not just
+         parsed — a 200 here would mean something changed upstream);
+       - accountNumber goes over the wire as a JSON NUMBER, not a string
+         (the collection's own body has it unquoted) — kept as a string in
+         the form for editing, converted with Number() only at send time. */
+  const bankInfo = { fields: null, busy: false, error: "", ok: "" };
+
+  function bankShortCodeFor(bankName) {
+    const mapped = BANK_SHORT_CODE_MAP[bankName];
+    if (mapped) return mapped;
+    // Fallback for a bank not in the map — ported as-is, even though every
+    // name in BANK_NAMES already has a mapping and this never actually runs.
+    return bankName
+      .replace(/Ltd\.?/gi, "")
+      .replace(/Limited/gi, "")
+      .replace(/Bank/gi, "")
+      .replace(/Bangladesh/gi, "")
+      .trim()
+      .split(/\s+/)[0]
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+  }
+
+  function generateBankInfoFields() {
+    const bankName = choice(BANK_NAMES);
+    const len = randInt(12, 15);
+    const accountNumber = String(randInt(1, 9)) + Array.from({ length: len - 1 }, () => randInt(0, 9)).join("");
+    const shortCode = bankShortCodeFor(bankName);
+    return {
+      bankName,
+      accountNumber,
+      npsbCode: `${shortCode}ACT`,
+      beftnCode: `${shortCode}BFT`,
+      mfsCode: choice(MFS_CODES),
+    };
+  }
+
+  function bankInfoTemplate() {
+    if (!bankInfo.fields) bankInfo.fields = generateBankInfoFields();
+    const f = bankInfo.fields;
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Bank Info</h2></div>
+        <p class="section-note">Generated from the Postman collection's own bank list and short-code map. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="biBankName">Bank Name</label><input type="text" id="biBankName" value="${f.bankName}" /></div>
+          <div class="field"><label for="biAccountNumber">Account Number</label><input type="text" id="biAccountNumber" value="${f.accountNumber}" /></div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="biNpsb">NPSB Code</label><input type="text" id="biNpsb" value="${f.npsbCode}" /></div>
+          <div class="field"><label for="biBeftn">BEFTN Code</label><input type="text" id="biBeftn" value="${f.beftnCode}" /></div>
+        </div>
+        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)"><label for="biMfs">MFS Code</label><input type="text" id="biMfs" value="${f.mfsCode}" /></div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="biRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="biSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="biError">${bankInfo.error}</span>
+        ${bankInfo.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${bankInfo.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readBankInfoForm() {
+    return {
+      bankName: $("#biBankName").value,
+      accountNumber: $("#biAccountNumber").value,
+      npsbCode: $("#biNpsb").value,
+      beftnCode: $("#biBeftn").value,
+      mfsCode: $("#biMfs").value,
+    };
+  }
+
+  async function saveBankInfo(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    const payload = {
+      bankName: fields.bankName,
+      accountNumber: Number(fields.accountNumber), // the real API takes this unquoted — a JSON number
+      npsbCode: fields.npsbCode,
+      beftnCode: fields.beftnCode,
+      mfsCode: fields.mfsCode,
+    };
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/company-bank-informations/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireBankInfoEvents() {
+    $("#biRegenerateBtn").addEventListener("click", () => {
+      bankInfo.fields = generateBankInfoFields();
+      bankInfo.error = "";
+      bankInfo.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#biSaveBtn");
+    btn.addEventListener("click", async () => {
+      bankInfo.error = "";
+      bankInfo.ok = "";
+      const fields = readBankInfoForm();
+      setBtnBusy(btn);
+      try {
+        await saveBankInfo(fields);
+        bankInfo.fields = fields;
+        bankInfo.ok = "Saved.";
+        setup.doneModules.add("bank_info");
+      } catch (e) {
+        bankInfo.error = e.message;
       }
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();

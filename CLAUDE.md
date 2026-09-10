@@ -439,7 +439,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eight suites, 300 checks. `appearance.test.js` is the odd one: it opens two
+Eight suites, 313 checks. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
 background's average channel rather than an exact hex, so a palette tweak
@@ -774,19 +774,54 @@ holds the pools verbatim: `COMPANY_LEGAL_SUFFIXES`,
   failure shows the server's own `message` verbatim, same discipline as
   the two logins.
 
+**Module dispatch is a lookup table, not a growing ternary chain**
+(added alongside the second module): `SETTINGS_MODULE_HANDLERS` in
+`app.js` maps a module id to its `{template, wire}` pair;
+`setupGroupPageTemplate()`/`wireSetupGroupPage()` fall through to
+`settingsComingSoonHtml()` for any id with no entry. Adding a module
+means adding one entry here, not another branch.
+
+### Bank Info — second settings module (built 2026-09-10)
+
+Company Settings → Bank Info. `POST {apiBase}/company-bank-informations/save`,
+same shape as Company Profile — ported verbatim from the Postman
+collection's pre-request script (`BANK_NAMES`, `BANK_SHORT_CODE_MAP`,
+`MFS_CODES` in `app-data.js`; `generateBankInfoFields()` in `app.js`).
+Two things this endpoint does differently from Company Profile, both
+confirmed against the collection rather than assumed:
+
+- **Success is `201`, not `200`.** `saveBankInfo()` checks
+  `res.status !== 201` explicitly rather than `!res.ok` — a real `200`
+  here would mean something changed upstream and should fail loudly, not
+  be treated as success by accident. Tested: a mocked `200` is treated as
+  a rejection.
+- **`accountNumber` goes over the wire as a JSON number, not a string** —
+  the collection's own request body has it unquoted. Kept as a string in
+  the form (so it edits like every other field) and converted with
+  `Number()` only inside `saveBankInfo()` at send time. Tested: the
+  request actually sent carries a JS `number`, not a numeric string.
+
+`npsbCode`/`beftnCode` are derived from the same bank via
+`bankShortCodeFor()` (`{shortCode}ACT` / `{shortCode}BFT`), so they never
+disagree about which bank they belong to — same paired-field discipline
+as Company Profile's industry/businessType. The map's codes are the
+Postman script's own, not always the bank's real published abbreviation
+(`"Agrani Bank"` → `"AGRANI"`, not any official short form) — kept as-is,
+since matching the script matters more than matching the bank.
+
 ### What's not built yet
 
-Everything else past a successful company login. Company Profile is the
-only wired module; every other tab in every other group renders the
-`settingsComingSoonHtml()` placeholder. Bank Info, Locations (possibly =
-the Postman collection's "Branch Management" — unconfirmed, check when
-building it), Department Management, Designation Management, and the
-other four groups in full are the remaining work of phase 2. The Postman
-collection (`HRIS Collection Automation.postman_collection.json`, kept
-outside this repo) covers nearly all of them, several already built by
-pre-request scripts with the same randomised-but-believable logic this
-app uses — building each is expected to stay a port, the same way
-Company Profile was.
+Everything else past a successful company login. Company Profile and
+Bank Info are the only wired modules; every other tab in every other
+group renders the `settingsComingSoonHtml()` placeholder. Locations
+(possibly = the Postman collection's "Branch Management" — unconfirmed,
+check when building it), Department Management, Designation Management,
+and the other four groups in full are the remaining work of phase 2. The
+Postman collection (`HRIS Collection Automation.postman_collection.json`,
+kept outside this repo) covers nearly all of them, several already built
+by pre-request scripts with the same randomised-but-believable logic
+this app uses — building each is expected to stay a port, the same way
+Company Profile and Bank Info were.
 
 Also not built yet: a run log, a Stop control, and a "Hey Lazy!"-style
 guard for leaving mid-run. Company Profile didn't need any of these —

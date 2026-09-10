@@ -21,6 +21,7 @@ const { PAGE, loadAppData, makeChecker, report, signIn, watchPageErrors } = requ
 
 const { check, state } = makeChecker();
 const { BUSY_MESSAGES } = loadAppData(["BUSY_MESSAGES"]);
+const { BANK_NAMES, BANK_SHORT_CODE_MAP } = loadAppData(["BANK_NAMES", "BANK_SHORT_CODE_MAP"]);
 
 async function gotoSetup(page) {
   await page.goto(PAGE);
@@ -383,6 +384,71 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(150);
     check("K the server's rejection message is shown as-is", (await page.textContent("#cpError")) === "Legal name already taken.");
     check("K a rejected save leaves the module undone", (await page.locator('.settings-tab[data-module="company_profile"] .op-dot').count()) === 0);
+    await page.close();
+  }
+
+  /* ---------- N. Bank Info — generate, edit, regenerate, save, done state ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Hogwarts");
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="bank_info"]');
+    await page.waitForTimeout(80);
+
+    const bankName = await page.inputValue("#biBankName");
+    check("N the generated bank is one of the real ones", BANK_NAMES.includes(bankName), bankName);
+    const acct1 = await page.inputValue("#biAccountNumber");
+    check("N accountNumber is 12-15 digits, no leading zero", /^[1-9]\d{11,14}$/.test(acct1), acct1);
+    const npsb = await page.inputValue("#biNpsb");
+    const beftn = await page.inputValue("#biBeftn");
+    const expectedCode = BANK_SHORT_CODE_MAP[bankName];
+    check("N npsbCode is the bank's short code + ACT", npsb === `${expectedCode}ACT`, `${npsb} vs ${expectedCode}ACT`);
+    check("N beftnCode is the same short code + BFT", beftn === `${expectedCode}BFT`, `${beftn} vs ${expectedCode}BFT`);
+
+    await page.click("#biRegenerateBtn");
+    await page.waitForTimeout(80);
+    const acct2 = await page.inputValue("#biAccountNumber");
+    check("N Regenerate re-rolls the fields", acct1 !== acct2 || bankName !== (await page.inputValue("#biBankName")));
+
+    await page.fill("#biMfs", "MFSHANDEDITED");
+    let sentBody = null;
+    await page.route("**/api/v1/company-bank-informations/save", (route) => {
+      sentBody = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Company bank information updated successfully" }) });
+    });
+    await page.click("#biSaveBtn");
+    await page.waitForTimeout(150);
+
+    check("N the hand-edited value is what actually gets sent", sentBody && sentBody.mfsCode === "MFSHANDEDITED");
+    check("N accountNumber is sent as a JSON number, not a string", sentBody && typeof sentBody.accountNumber === "number");
+    check("N save shows no error", (await page.textContent("#biError")) === "");
+    check("N the tab picks up a done marker", (await page.locator('.settings-tab[data-module="bank_info"] .op-dot').count()) === 1);
+
+    await page.click("#setupBackToModules");
+    await page.waitForTimeout(80);
+    check("N the group card's count updates to 1/5",
+      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).trim() === "1/5 done");
+    check("N no page errors through generate/edit/regenerate/save", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- O. Bank Info requires a 201, not just any 2xx ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="bank_info"]');
+    await page.waitForTimeout(80);
+    await page.route("**/api/v1/company-bank-informations/save", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "ok" }) })
+    );
+    await page.click("#biSaveBtn");
+    await page.waitForTimeout(150);
+    check("O a 200 (not 201) is treated as a rejection", (await page.textContent("#biError")) !== "");
+    check("O and the module stays undone", (await page.locator('.settings-tab[data-module="bank_info"] .op-dot').count()) === 0);
     await page.close();
   }
 

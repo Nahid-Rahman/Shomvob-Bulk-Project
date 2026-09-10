@@ -803,13 +803,55 @@ sent to the server, the done dot and group count updating after a real
 save, and a rejected save showing the server's exact message while
 leaving the module undone.
 
+## Bank Info — second settings module (built 2026-09-10)
+
+Company Settings → Bank Info. `POST {apiBase}/company-bank-informations/save`,
+`Authorization: Bearer {setup.companyToken}`. Confirmed against the
+Postman collection's own `Bank Info` request.
+
+### Fields, and where each rule comes from
+
+| Field | Rule | Source |
+|---|---|---|
+| `bankName` | One of 62 real Bangladeshi/foreign banks operating in BD, from `BANK_NAMES` | Postman pre-request script |
+| `accountNumber` | 12–15 digit numeric string, first digit 1–9 — **sent as a JSON number, not a string** (the collection's own body has it unquoted) | Postman pre-request script |
+| `npsbCode` / `beftnCode` | `{shortCode}ACT` / `{shortCode}BFT`, where `shortCode` comes from `BANK_SHORT_CODE_MAP[bankName]` (falls back to a derived code — strip Ltd./Limited/Bank/Bangladesh, take the first remaining word, uppercase — for a bank not in the map, though every `BANK_NAMES` entry has one) — always derived from the *same* bank, never picked independently | Postman pre-request script |
+| `mfsCode` | One of `MFSBKASH` / `MFSNAGAD` from `MFS_CODES` | Postman pre-request script |
+
+### Behaviour
+
+- Same shape as Company Profile: generate once on opening the tab, five
+  editable inputs, Regenerate re-rolls all five, Save sends whatever the
+  inputs hold.
+- **Success is `201`, not `200`** — checked as `res.status !== 201`
+  rather than `!res.ok`, so a real `200` (something unexpected upstream)
+  fails loudly instead of being read as success.
+- **`accountNumber` is converted with `Number()` only at send time**,
+  inside `saveBankInfo()` — the form keeps it as a string so it edits
+  like every other field.
+- Success: the server's own `"Company bank information updated
+  successfully"` shown as confirmation, done dot, group count update.
+  Failure: the server's own `message`, verbatim.
+
+### Tested
+
+Playwright, folded into `tests/company-setup.test.js` (81 checks now
+total): the generated bank is one of the real 62, accountNumber's digit
+count and leading-digit rule, npsbCode/beftnCode both deriving from the
+same bank's short code, Regenerate producing different values, a
+hand-edited field reaching the actual request sent, accountNumber
+arriving as a genuine JS `number` in that request (not a numeric
+string), the done dot and group count updating after a real save, and a
+mocked `200` response being treated as a rejection rather than a success.
+
 ## Outstanding
 
-No other settings module exists yet — that is the remaining work of
-phase 2. Also outstanding: a run log, a way to stop a batch partway
-through, and a version of the "Hey Lazy!" guard that can say "some of
-this already happened on a real server." Company Profile didn't need any
-of these (one record, one call, no partial state) — they become
-necessary at the first module that loops writes (creating several Leave
-Types or Bonus Types, for instance), and should be built alongside that
-one rather than speculatively now.
+Locations, Department Management, Designation Management and the other
+four groups in full are the remaining work of phase 2. Also outstanding:
+a run log, a way to stop a batch partway through, and a version of the
+"Hey Lazy!" guard that can say "some of this already happened on a real
+server." Neither Company Profile nor Bank Info needed any of these (one
+record, one call each, no partial state) — they become necessary at the
+first module that loops writes (creating several Leave Types or Bonus
+Types, for instance), and should be built alongside that one rather than
+speculatively now.

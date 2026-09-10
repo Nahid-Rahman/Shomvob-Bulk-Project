@@ -3770,6 +3770,14 @@
     `;
   }
 
+  /* One entry per wired module — the lookup a new module joins instead of
+     growing a chain of ternaries. A module id with no entry here falls
+     through to settingsComingSoonHtml(). */
+  const SETTINGS_MODULE_HANDLERS = {
+    company_profile: { template: companyProfileTemplate, wire: wireCompanyProfileEvents },
+    bank_info: { template: bankInfoTemplate, wire: wireBankInfoEvents },
+  };
+
   function setupGroupPageTemplate() {
     const group = SETTINGS_GROUPS.find((g) => g.id === setup.activeGroup);
     const tabs = group.modules
@@ -3781,7 +3789,8 @@
       )
       .join("");
     const mod = group.modules.find((m) => m.id === setup.activeModule);
-    const body = mod.id === "company_profile" ? companyProfileTemplate() : settingsComingSoonHtml(mod);
+    const handler = SETTINGS_MODULE_HANDLERS[mod.id];
+    const body = handler ? handler.template() : settingsComingSoonHtml(mod);
     return `
       <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>
       <h2 style="font-size:19px; margin:14px 0 0;">${group.label}</h2>
@@ -3803,7 +3812,8 @@
         renderSetupBody();
       });
     });
-    if (setup.activeModule === "company_profile") wireCompanyProfileEvents();
+    const activeHandler = SETTINGS_MODULE_HANDLERS[setup.activeModule];
+    if (activeHandler) activeHandler.wire();
   }
 
   /* ---------- Company Profile — first settings module ----------
@@ -3940,6 +3950,139 @@
         setup.doneModules.add("company_profile");
       } catch (e) {
         companyProfile.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Bank Info — second settings module ----------
+
+     POST /company-bank-informations/save. Same shape as Company Profile —
+     every field generated, all editable, Regenerate re-rolls, Save sends
+     whatever the inputs actually hold. Two things this endpoint does
+     differently, both confirmed against the Postman collection rather
+     than assumed:
+       - success is 201, not 200 (checked on the response status, not just
+         parsed — a 200 here would mean something changed upstream);
+       - accountNumber goes over the wire as a JSON NUMBER, not a string
+         (the collection's own body has it unquoted) — kept as a string in
+         the form for editing, converted with Number() only at send time. */
+  const bankInfo = { fields: null, busy: false, error: "", ok: "" };
+
+  function bankShortCodeFor(bankName) {
+    const mapped = BANK_SHORT_CODE_MAP[bankName];
+    if (mapped) return mapped;
+    // Fallback for a bank not in the map — ported as-is, even though every
+    // name in BANK_NAMES already has a mapping and this never actually runs.
+    return bankName
+      .replace(/Ltd\.?/gi, "")
+      .replace(/Limited/gi, "")
+      .replace(/Bank/gi, "")
+      .replace(/Bangladesh/gi, "")
+      .trim()
+      .split(/\s+/)[0]
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+  }
+
+  function generateBankInfoFields() {
+    const bankName = choice(BANK_NAMES);
+    const len = randInt(12, 15);
+    const accountNumber = String(randInt(1, 9)) + Array.from({ length: len - 1 }, () => randInt(0, 9)).join("");
+    const shortCode = bankShortCodeFor(bankName);
+    return {
+      bankName,
+      accountNumber,
+      npsbCode: `${shortCode}ACT`,
+      beftnCode: `${shortCode}BFT`,
+      mfsCode: choice(MFS_CODES),
+    };
+  }
+
+  function bankInfoTemplate() {
+    if (!bankInfo.fields) bankInfo.fields = generateBankInfoFields();
+    const f = bankInfo.fields;
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Bank Info</h2></div>
+        <p class="section-note">Generated from the Postman collection's own bank list and short-code map. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <div class="field-row">
+          <div class="field"><label for="biBankName">Bank Name</label><input type="text" id="biBankName" value="${f.bankName}" /></div>
+          <div class="field"><label for="biAccountNumber">Account Number</label><input type="text" id="biAccountNumber" value="${f.accountNumber}" /></div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="biNpsb">NPSB Code</label><input type="text" id="biNpsb" value="${f.npsbCode}" /></div>
+          <div class="field"><label for="biBeftn">BEFTN Code</label><input type="text" id="biBeftn" value="${f.beftnCode}" /></div>
+        </div>
+        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)"><label for="biMfs">MFS Code</label><input type="text" id="biMfs" value="${f.mfsCode}" /></div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="biRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="biSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="biError">${bankInfo.error}</span>
+        ${bankInfo.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${bankInfo.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function readBankInfoForm() {
+    return {
+      bankName: $("#biBankName").value,
+      accountNumber: $("#biAccountNumber").value,
+      npsbCode: $("#biNpsb").value,
+      beftnCode: $("#biBeftn").value,
+      mfsCode: $("#biMfs").value,
+    };
+  }
+
+  async function saveBankInfo(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    const payload = {
+      bankName: fields.bankName,
+      accountNumber: Number(fields.accountNumber), // the real API takes this unquoted — a JSON number
+      npsbCode: fields.npsbCode,
+      beftnCode: fields.beftnCode,
+      mfsCode: fields.mfsCode,
+    };
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/company-bank-informations/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireBankInfoEvents() {
+    $("#biRegenerateBtn").addEventListener("click", () => {
+      bankInfo.fields = generateBankInfoFields();
+      bankInfo.error = "";
+      bankInfo.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#biSaveBtn");
+    btn.addEventListener("click", async () => {
+      bankInfo.error = "";
+      bankInfo.ok = "";
+      const fields = readBankInfoForm();
+      setBtnBusy(btn);
+      try {
+        await saveBankInfo(fields);
+        bankInfo.fields = fields;
+        bankInfo.ok = "Saved.";
+        setup.doneModules.add("bank_info");
+      } catch (e) {
+        bankInfo.error = e.message;
       }
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
