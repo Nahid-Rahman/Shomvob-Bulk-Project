@@ -137,6 +137,15 @@ body {
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; text-wrap: balance; }
 p { margin: 0; }
 button { font-family: inherit; }
+/* Every <a> in Company Setup ("Back to Company Setup", a dependency
+   notice's shortcut, "create the defaults at once") only ever set its
+   own layout inline, never a colour — so all of them rendered in the
+   browser's default link blue, glaring against this app's dark sidebar
+   and cards alike. One rule fixes all of them at once, the same "add it
+   once, cover everything" shape as settingsModuleIconHtml() and
+   wireFieldClearButtons() above. */
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-strong); text-decoration: underline; }
 ::selection { background: var(--accent-soft); color: var(--accent-strong); }
 
 .app { display: flex; min-height: 100vh; }

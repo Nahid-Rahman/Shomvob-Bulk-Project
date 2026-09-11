@@ -91,6 +91,19 @@ browser's own white boxes. On the light theme that passed for correct,
 which is why it went unnoticed for so long. If you add an input of a new
 type, add it to that selector list.
 
+**Every `<a>` had the same gap, found the same way, later** (2026-09-11,
+user screenshot: "← Back to Company Setup" glaring blue against the dark
+sidebar): none of this app's four anchors (`#setupBackToModules`, the two
+"create the defaults at once →" links, `.dep-shortcut`) ever set a
+colour, only inline layout — so all four rendered in the browser's
+default link blue, on both themes, in every context they appear
+(including inside `.dep-shortcut`'s own warning-coloured notice box,
+where inherited `color` doesn't win over the UA stylesheet's `a:link`
+rule either). One rule fixes all of them and any future one: plain
+`a { color: var(--accent); text-decoration: none; }` +
+`a:hover { color: var(--accent-strong); text-decoration: underline; }`
+in `app.css`, rather than a colour on each anchor individually.
+
 Typography: IBM Plex Sans (headings/body) + IBM Plex Mono (data/IDs/
 code-like values) — unchanged, and not matched to Shomvob's own fonts.
 
