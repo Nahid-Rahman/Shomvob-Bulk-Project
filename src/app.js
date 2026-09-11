@@ -4565,7 +4565,8 @@
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own department-name pool. Regenerate re-rolls it; the name can still be edited by hand before saving.</p>
-        <div class="field"><label for="deptModName">Department Name</label><input type="text" id="deptModName" value="${f.name}" /></div>
+        <button type="button" class="bulk-shortcut-btn" id="deptBulkEnterLink">Create all 6 default departments at once →</button>
+        <div class="field"><label for="deptModName">Or just this one — Department Name</label><input type="text" id="deptModName" value="${f.name}" /></div>
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="tiny-btn" id="deptModRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="deptModSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
@@ -4573,7 +4574,6 @@
         <span class="error-text" id="deptModError">${companyDepartment.error}</span>
         ${companyDepartment.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDepartment.ok}</div>` : ""}
         ${createdListHtml(companyDepartment.createdNames)}
-        <p style="margin-top:14px"><a href="#" id="deptBulkEnterLink" style="font-size:12.5px; font-weight:600;">Or create the 6 default departments at once →</a></p>
       </div>
     `;
   }
@@ -4923,8 +4923,9 @@
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own designation-name pool, attached to a real department from this company. Regenerate re-rolls the name; any field can still be edited by hand before saving.</p>
+        <button type="button" class="bulk-shortcut-btn" id="desigBulkEnterLink">Create the 4 default designations for each department at once →</button>
         <div class="field-row">
-          <div class="field"><label for="desigName">Designation Name</label><input type="text" id="desigName" value="${f.name}" /></div>
+          <div class="field"><label for="desigName">Or just this one — Designation Name</label><input type="text" id="desigName" value="${f.name}" /></div>
           <div class="field"><label for="desigDept">Department</label><select id="desigDept">${options}</select></div>
         </div>
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
@@ -4934,7 +4935,6 @@
         <span class="error-text" id="desigError">${companyDesignation.error}</span>
         ${companyDesignation.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDesignation.ok}</div>` : ""}
         ${createdListHtml(companyDesignation.createdNames)}
-        <p style="margin-top:14px"><a href="#" id="desigBulkEnterLink" style="font-size:12.5px; font-weight:600;">Or create the 4 default designations for each department at once →</a></p>
       </div>
     `;
   }

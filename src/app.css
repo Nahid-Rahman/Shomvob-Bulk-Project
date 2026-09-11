@@ -836,6 +836,26 @@ input.invalid { border-color: var(--danger); }
 }
 .disconnect-btn:hover { background: var(--success); color: #fff; }
 .setup-connected-actions { display: flex; gap: 8px; align-items: center; }
+
+/* The "create the defaults at once" shortcut (Department, Designation) —
+   the actual fast path for the whole app's "for people who cannot face
+   typing 4,200 cells" premise, so it needs to read as the headline
+   option, not a footnote link under the one-at-a-time form. Given real
+   visual weight (filled soft surface, a border, generous padding) and
+   moved above the single-item form (2026-09-11, user feedback: it used
+   to disappear next to Save). Same hover-invert shape as .disconnect-btn. */
+.bulk-shortcut-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 13px; font-weight: 600;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-bottom: 18px;
+}
+.bulk-shortcut-btn:hover { background: var(--accent); color: var(--accent-contrast); }
 /* Sign out reuses .tiny-btn's normal look everywhere else, but that's a
    muted grey border/text against this banner's own green tint — bumped
    to match here so it doesn't disappear next to Disconnect. */

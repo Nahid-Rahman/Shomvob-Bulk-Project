@@ -850,6 +850,26 @@ input.invalid { border-color: var(--danger); }
 }
 .disconnect-btn:hover { background: var(--success); color: #fff; }
 .setup-connected-actions { display: flex; gap: 8px; align-items: center; }
+
+/* The "create the defaults at once" shortcut (Department, Designation) —
+   the actual fast path for the whole app's "for people who cannot face
+   typing 4,200 cells" premise, so it needs to read as the headline
+   option, not a footnote link under the one-at-a-time form. Given real
+   visual weight (filled soft surface, a border, generous padding) and
+   moved above the single-item form (2026-09-11, user feedback: it used
+   to disappear next to Save). Same hover-invert shape as .disconnect-btn. */
+.bulk-shortcut-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 13px; font-weight: 600;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-bottom: 18px;
+}
+.bulk-shortcut-btn:hover { background: var(--accent); color: var(--accent-contrast); }
 /* Sign out reuses .tiny-btn's normal look everywhere else, but that's a
    muted grey border/text against this banner's own green tint — bumped
    to match here so it doesn't disappear next to Disconnect. */
@@ -7223,7 +7243,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own department-name pool. Regenerate re-rolls it; the name can still be edited by hand before saving.</p>
-        <div class="field"><label for="deptModName">Department Name</label><input type="text" id="deptModName" value="${f.name}" /></div>
+        <button type="button" class="bulk-shortcut-btn" id="deptBulkEnterLink">Create all 6 default departments at once →</button>
+        <div class="field"><label for="deptModName">Or just this one — Department Name</label><input type="text" id="deptModName" value="${f.name}" /></div>
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="tiny-btn" id="deptModRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="deptModSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
@@ -7231,7 +7252,6 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <span class="error-text" id="deptModError">${companyDepartment.error}</span>
         ${companyDepartment.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDepartment.ok}</div>` : ""}
         ${createdListHtml(companyDepartment.createdNames)}
-        <p style="margin-top:14px"><a href="#" id="deptBulkEnterLink" style="font-size:12.5px; font-weight:600;">Or create the 6 default departments at once →</a></p>
       </div>
     `;
   }
@@ -7581,8 +7601,9 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own designation-name pool, attached to a real department from this company. Regenerate re-rolls the name; any field can still be edited by hand before saving.</p>
+        <button type="button" class="bulk-shortcut-btn" id="desigBulkEnterLink">Create the 4 default designations for each department at once →</button>
         <div class="field-row">
-          <div class="field"><label for="desigName">Designation Name</label><input type="text" id="desigName" value="${f.name}" /></div>
+          <div class="field"><label for="desigName">Or just this one — Designation Name</label><input type="text" id="desigName" value="${f.name}" /></div>
           <div class="field"><label for="desigDept">Department</label><select id="desigDept">${options}</select></div>
         </div>
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
@@ -7592,7 +7613,6 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <span class="error-text" id="desigError">${companyDesignation.error}</span>
         ${companyDesignation.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDesignation.ok}</div>` : ""}
         ${createdListHtml(companyDesignation.createdNames)}
-        <p style="margin-top:14px"><a href="#" id="desigBulkEnterLink" style="font-size:12.5px; font-weight:600;">Or create the 4 default designations for each department at once →</a></p>
       </div>
     `;
   }

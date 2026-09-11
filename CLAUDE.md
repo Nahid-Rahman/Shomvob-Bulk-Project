@@ -1079,6 +1079,22 @@ into a review list — `companyDepartment.bulk`/`companyDesignation.bulk`,
 `null` in normal single-item mode, `{ items, running, stopRequested }`
 once entered.
 
+**Given real visual weight and moved above the single-item form, not
+just below Save (2026-09-11, user feedback from a first-page-by-first-
+page UI pass):** it used to be a small 12.5px text link tucked under
+`createdListHtml()`, easy to miss entirely next to a filled green Save
+button — wrong for what this app's whole premise is ("this exists for
+people who cannot face typing 4,200 cells"), since the bulk shortcut
+*is* the lazy path and deserves to read as the headline option, not a
+footnote. Now a real button (`.bulk-shortcut-btn` in `app.css` — filled
+soft-accent surface, bordered, hover-inverts solid, same shape as
+`.disconnect-btn`'s "look like a real action, not `.tiny-btn`'s caption"
+fix), sitting right under the section-note, before the single-item
+field. That field's own label now reads "Or just this one — Department
+Name" / "…Designation Name", so the manual path explicitly frames itself
+as the alternative rather than the default reading order implying it's
+the primary one.
+
 - **The list is the run log.** Each item shows its own status inline —
   not started, creating (spinner), done, or failed with the server's own
   message — because this is the **first place in Company Setup that
