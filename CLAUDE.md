@@ -1083,6 +1083,17 @@ endpoint "Branch Management" — confirmed, not left as a guess.
   else in this module (the pool, the label, the state) since it's a
   clearer label than a bare "name" for a branch — `saveBranch()` renames
   it to `name` only at the point of building the actual request body.
+  **`Has Geolocation`'s Yes/No toggle, fixed 2026-09-12** (user
+  screenshot, first-page-by-first-page UI pass): as the only control in
+  a full-width `.field`, it read as a small pill floating in a mostly-
+  empty row. Constrained to half width first (same `max-width:calc(50% -
+  8px)` already used for Radius/MFS Code elsewhere), then given
+  `.seg-fill` — a new opt-in modifier class, not a change to `.seg`'s own
+  default — so Yes and No each stretch to fill half of that box evenly
+  instead of hugging its left edge. `.seg-fill` is meant to be reused
+  anywhere else a segmented control is the only thing in a field with
+  real width to fill; applied to Custom Fields' three toggles the same
+  way the next day (below).
 - **Department Management** — `POST /departments`. `code`,
   `parentId`, `businessLineId`, `departmentHeadId` are fixed values the
   script always sends, never generated. The script also de-duplicates
@@ -1254,10 +1265,17 @@ Both Employee Settings, both ported the same way as everything above.
   real API allows it for) and `choices` (defaults to a plain 3-item
   placeholder list when switching *into* `enum` with none yet, cleared
   when switching away) rather than requiring a full Regenerate. `status`
-  now defaults to `"Active"` on generate rather than a coin flip —
-  matches the same "don't randomise a deliberate choice" instinct, the
-  existing Active/Inactive toggle is what lets it be changed. `Name`
-  stays a random starting value the visitor can type over, unchanged.
+  now defaults to `"Active"` on generate rather than a coin flip, and
+  **`enableFilter` now defaults to `false` unconditionally too**
+  (2026-09-12, same request extended to this field) rather than a 50/50
+  roll on `checkbox`/`enum` types — matches the same "don't randomise a
+  deliberate choice" instinct, the existing Yes/No toggle is what lets it
+  be turned on. `Name` stays a random starting value the visitor can type
+  over, unchanged. **All three toggles here** (`Enable Filter`/
+  `Shown As Column`/`Status`) **also got the `.seg-fill` treatment**
+  (2026-09-12, same fix as Locations' `Has Geolocation` above) — each now
+  splits its field's full width evenly between its two choices instead
+  of sitting as a small pill hugging the left edge of mostly empty space.
   **Fixed the same day, found while editing this exact function:** none
   of this module's toggle handlers (`enableFilter`/`shownAsColumn`/
   `status`) snapshotted the Field Name or Choices inputs before

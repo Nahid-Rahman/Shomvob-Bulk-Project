@@ -5137,7 +5137,7 @@
     const fields = {
       fieldName: preset.fieldName,
       type: preset.type,
-      enableFilter: preset.type === "checkbox" || preset.type === "enum" ? Math.random() < 0.5 : false,
+      enableFilter: false,
       shownAsColumn: Math.random() < 0.5,
       status: "Active",
     };

@@ -716,6 +716,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("T the generated field is one of the real presets, with its matching type", preset && preset.type === cfType, `${cfName}/${cfType}`);
     check("T Type is a real dropdown, not free text", (await page.evaluate(() => document.querySelector("#cfType").tagName)) === "SELECT");
     check("T status defaults to Active, not randomised", (await page.getAttribute('#cfStatusSeg button[data-val="Active"]', "aria-pressed")) === "true");
+    check("T enableFilter defaults to No, not randomised", (await page.getAttribute('#cfFilterSeg button[data-val="no"]', "aria-pressed")) === "true");
 
     if (preset.type === "checkbox" || preset.type === "enum") {
       check("T enableFilter is a real toggle for checkbox/enum types", (await page.locator("#cfFilterSeg").count()) === 1);
