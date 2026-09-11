@@ -10093,13 +10093,27 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      nothing is persisted anywhere. So the guard is on exactly those, plus
      the Log out button, which is itself a reload. */
 
-  function hasUnsavedWork() {
+  function hasGeneratorWork() {
     if (leave.rows.length || payroll.rows.length) return true;
     if (att.ids.length || att.customHolidays.length) return true;
     if (att.shifts.some((sh) => sh.ids.length)) return true;
     if (assets.idSrc.ids.length || assetTypes.some((t) => t.isCustom)) return true;
     if (departments.some((d) => d.checked || d.isCustom)) return true;
     return false;
+  }
+
+  /* Company Setup's two logins are memory-only by design (see CLAUDE.md —
+     tried persisting them once, reverted the same day) — but that only
+     covers *what should happen* once a reload does occur. Whether a
+     reload should be allowed to happen without asking first is a
+     different question, and this used to say no to it unconditionally:
+     being signed into Company Setup, even mid-browsing with nothing
+     actively saving, never made hasUnsavedWork() true, so a stray reload
+     silently dropped straight back to the very first login screen with
+     no warning at all — found live, 2026-09-11. Signed in here at all
+     (`setup.toolToken` — set as soon as step one succeeds) now counts. */
+  function hasUnsavedWork() {
+    return hasGeneratorWork() || !!setup.toolToken;
   }
 
   /* Set while we are deliberately reloading, so the beforeunload guard
@@ -10145,14 +10159,13 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         window.location.reload();
         return;
       }
-      askDiscard(
-        "There's work here — an ID list, an uploaded file, shift assignments. Logging out throws all of it away, because nothing is saved anywhere.",
-        "Discard and log out",
-        () => {
-          leavingOnPurpose = true;
-          window.location.reload();
-        }
-      );
+      const body = hasGeneratorWork()
+        ? "There's work here — an ID list, an uploaded file, shift assignments. Logging out throws all of it away, because nothing is saved anywhere."
+        : "You're signed into Company Setup. Logging out clears both logins — you'll need to sign in to the tool and the company again.";
+      askDiscard(body, "Discard and log out", () => {
+        leavingOnPurpose = true;
+        window.location.reload();
+      });
     });
   }
 

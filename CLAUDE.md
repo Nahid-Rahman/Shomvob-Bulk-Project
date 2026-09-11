@@ -370,6 +370,25 @@ persisted apart from the appearance choice. Two guards, both keyed on
   anti-phishing restriction, so "Hey Lazy!" cannot appear on that one. All
   we control is whether it asks at all.
 
+**`hasUnsavedWork()` didn't know Company Setup existed, found live
+2026-09-11.** It only ever checked the five generators' own state
+(`leave`/`payroll`/`att`/`assets`/`departments`) — being signed into
+Company Setup, tool-level or all the way to a connected company, never
+made it true on its own. So a stray reload while just browsing settings
+tabs (nothing actively mid-save) silently dropped straight back to the
+very first joke-gate screen with **no warning at all**, forcing all
+three logins to be redone — exactly the annoyance the memory-only-tokens
+design (above) accepts as a cost of a *deliberate* reload, not one that
+should also strike silently on an accidental one. Split into
+`hasGeneratorWork()` (the original five-generator check) and
+`hasUnsavedWork()` (`hasGeneratorWork() || !!setup.toolToken`), so both
+guards above now also arm as soon as the tool sign-in succeeds — before
+a company is even connected, since redoing *that* login is already the
+cost being warned about. Log out's dialog body picks the accurate
+wording for whichever condition is actually true (generator work takes
+priority if, rarely, both are); `beforeunload` doesn't need to, since the
+browser supplies its own text either way.
+
 ## Sidebar branding
 
 The Shomvob HR logo appears in two places: the sidebar head (logo tile,

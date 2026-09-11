@@ -1662,6 +1662,43 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- AQ. Reload/logout guard now covers being signed into Company Setup (2026-09-11) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    const unloadArmed = () =>
+      page.evaluate(() => {
+        const e = new Event("beforeunload", { cancelable: true });
+        window.dispatchEvent(e);
+        return e.defaultPrevented;
+      });
+
+    await page.goto(PAGE);
+    await signIn(page);
+    check("AQ reload is NOT guarded before Company Setup is even opened", !(await unloadArmed()));
+
+    await page.click('.op-item:has-text("Company Setup")');
+    await page.waitForSelector("#setupSignInBtn", { timeout: 5000 });
+    await mockSupabaseOk(page);
+    await page.fill("#setupEmail", "a@b.com");
+    await page.fill("#setupPass", "x");
+    await page.click("#setupSignInBtn");
+    await page.waitForSelector("#setupCoBtn", { timeout: 5000 });
+    check("AQ reload IS guarded as soon as the tool sign-in succeeds, before any company is even connected", await unloadArmed());
+
+    await page.click("#logoutBtn");
+    await page.waitForTimeout(150);
+    const modalOpen = () => page.evaluate(() => !document.querySelector("#discardModal").hidden);
+    check("AQ Log out asks before discarding a live Company Setup sign-in", await modalOpen());
+    check("AQ the message names Company Setup, not the phase-1 generator wording", (await page.textContent("#discardBody")).includes("signed into Company Setup"));
+
+    await page.click("#discardOk");
+    await page.waitForSelector("#loginGate");
+    check("AQ confirming returns to the joke gate", await page.isVisible("#loginGate"));
+    check("AQ no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   await browser.close();
   report("Company Setup", state, []);
 })();
