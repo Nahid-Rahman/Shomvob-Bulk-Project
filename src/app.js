@@ -4478,7 +4478,7 @@
         <div class="field" style="margin-top:14px"><label for="brAddress">Address</label><input type="text" id="brAddress" value="${f.address}" /></div>
         <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)">
           <label>Has Geolocation</label>
-          <div class="seg" id="brGeoSeg" role="group" aria-label="Has geolocation">
+          <div class="seg seg-fill" id="brGeoSeg" role="group" aria-label="Has geolocation">
             <button type="button" data-geo="yes" aria-pressed="${f.isGeolocation}">Yes</button>
             <button type="button" data-geo="no" aria-pressed="${!f.isGeolocation}">No</button>
           </div>

@@ -995,6 +995,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .seg-panel { margin-top: 14px; }
 
+/* .seg is inline-flex by default — sized to its buttons' own text, which
+   reads fine sitting next to a label of similar weight (Enable Filter,
+   Status). Standing alone as the only control in a field with real
+   width to fill (Locations' Has Geolocation — half the row per the fix
+   above, still mostly empty next to a compact Yes/No), the two choices
+   read better splitting that width evenly rather than hugging the left
+   edge. Opt in per instance with this modifier, rather than changing
+   .seg's own default and affecting every other segmented control in the
+   app that already reads fine as-is. */
+.seg-fill { display: flex; width: 100%; }
+.seg-fill button { flex: 1; text-align: center; }
+
 /* count / status chip reporting what an input actually resolved to */
 .tally {
   display: inline-flex; align-items: center; gap: 7px; margin-top: 10px;
