@@ -1161,15 +1161,30 @@ than the last one's.
 Both Employee Settings, both ported the same way as everything above.
 
 - **Custom Fields** — `POST /company-settings/employee-custom-fields`.
-  `fieldName`/`type` are a paired pool (`CUSTOM_FIELD_PRESETS`) so a text
-  field is never generated with an enum's shape or vice versa.
-  `enableFilter` is only ever sent true for `checkbox`/`enum` — filtering
-  a free-text or date field isn't a real product option, so the pool
-  doesn't offer it. `options.choices` is only generated (and only sent
-  nested under `options`, matching the real body shape) for `enum`,
-  drawn via `shuffle()` from each preset's own `choicePool` so choices
-  stay thematically consistent with the field name rather than random
-  words.
+  `fieldName`/`type` still start as a paired pool (`CUSTOM_FIELD_PRESETS`)
+  on generate/Regenerate, so a fresh field never starts on an incoherent
+  combination — but per user request (2026-09-11, the first of a planned
+  module-by-module pass converting "fully randomised" into "sensible
+  default the user can override"), **Type is now a real `<select>`**
+  (`CUSTOM_FIELD_TYPES`), not free text next to a name the user could
+  only hand-edit and risk a typo on. Changing it live re-derives
+  `enableFilter` (force `false` off `checkbox`/`enum`, the only types the
+  real API allows it for) and `choices` (defaults to a plain 3-item
+  placeholder list when switching *into* `enum` with none yet, cleared
+  when switching away) rather than requiring a full Regenerate. `status`
+  now defaults to `"Active"` on generate rather than a coin flip —
+  matches the same "don't randomise a deliberate choice" instinct, the
+  existing Active/Inactive toggle is what lets it be changed. `Name`
+  stays a random starting value the visitor can type over, unchanged.
+  **Fixed the same day, found while editing this exact function:** none
+  of this module's toggle handlers (`enableFilter`/`shownAsColumn`/
+  `status`) snapshotted the Field Name or Choices inputs before
+  re-rendering — the same class of bug Attendance Policy's weekend
+  toggle had (CLAUDE.md flagged it as "worth a pass if it's ever
+  reported" when that one was fixed). `snapshotInputs()` in
+  `wireCustomFieldEvents()` now reads both back into the cached fields
+  object before every re-render this module triggers, including the new
+  Type select's own.
 - **Required Documents** — `POST /required-documents`. Nothing unusual
   in the body shape; the one thing confirmed rather than assumed was
   that `status` goes over lowercase (`"active"`/`"inactive"`), unlike

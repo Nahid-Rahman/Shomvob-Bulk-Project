@@ -724,6 +724,16 @@ const CUSTOM_FIELD_PRESETS = [
   { fieldName: "Blood Group", type: "enum", choicePool: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
 ];
 const CUSTOM_FIELD_STATUSES = ["Active", "Inactive"];
+/* The real, API-accepted set of field types — Type is now a real
+   dropdown (2026-09-11) rather than free text next to a randomly
+   generated field name, since a typo there would send an invalid type. */
+const CUSTOM_FIELD_TYPES = [
+  { id: "text", label: "Text" },
+  { id: "long_text", label: "Long Text" },
+  { id: "number", label: "Number" },
+  { id: "checkbox", label: "Checkbox" },
+  { id: "enum", label: "Enum (dropdown)" },
+];
 
 /* ===== Required Documents — seventh settings module (built 2026-09-10) =====
 

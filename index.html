@@ -2434,6 +2434,16 @@ const CUSTOM_FIELD_PRESETS = [
   { fieldName: "Blood Group", type: "enum", choicePool: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
 ];
 const CUSTOM_FIELD_STATUSES = ["Active", "Inactive"];
+/* The real, API-accepted set of field types — Type is now a real
+   dropdown (2026-09-11) rather than free text next to a randomly
+   generated field name, since a typo there would send an invalid type. */
+const CUSTOM_FIELD_TYPES = [
+  { id: "text", label: "Text" },
+  { id: "long_text", label: "Long Text" },
+  { id: "number", label: "Number" },
+  { id: "checkbox", label: "Checkbox" },
+  { id: "enum", label: "Enum (dropdown)" },
+];
 
 /* ===== Required Documents — seventh settings module (built 2026-09-10) =====
 
@@ -7714,7 +7724,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       type: preset.type,
       enableFilter: preset.type === "checkbox" || preset.type === "enum" ? Math.random() < 0.5 : false,
       shownAsColumn: Math.random() < 0.5,
-      status: choice(CUSTOM_FIELD_STATUSES),
+      status: "Active",
     };
     if (preset.type === "enum") {
       fields.choices = shuffle(preset.choicePool).slice(0, randInt(3, Math.min(5, preset.choicePool.length)));
@@ -7728,13 +7738,14 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     const choicesHtml = f.choices
       ? `<div class="field" style="margin-top:14px"><label for="cfChoices">Choices (comma-separated)</label><input type="text" id="cfChoices" value="${f.choices.join(", ")}" /></div>`
       : "";
+    const typeOptions = CUSTOM_FIELD_TYPES.map((t) => `<option value="${t.id}" ${t.id === f.type ? "selected" : ""}>${t.label}</option>`).join("");
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Custom Fields</h2></div>
-        <p class="section-note">Generated from the muggle-friendly magic scroll's own field-type pool. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <p class="section-note">A random field name is generated as a starting point — type it over if you want a different one. Field Type is yours to pick; Regenerate re-rolls a fresh name/type pair.</p>
         <div class="field-row">
           <div class="field"><label for="cfName">Field Name</label><input type="text" id="cfName" value="${f.fieldName}" /></div>
-          <div class="field"><label for="cfType">Type</label><input type="text" id="cfType" value="${f.type}" /></div>
+          <div class="field"><label for="cfType">Type</label><select id="cfType">${typeOptions}</select></div>
         </div>
         ${choicesHtml}
         <div class="field-row" style="margin-top:14px">
@@ -7809,9 +7820,34 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
     };
-    $all("#cfFilterSeg button").forEach((btn) => btn.addEventListener("click", () => { customField.fields.enableFilter = btn.dataset.val === "yes"; rerender(); }));
-    $all("#cfColumnSeg button").forEach((btn) => btn.addEventListener("click", () => { customField.fields.shownAsColumn = btn.dataset.val === "yes"; rerender(); }));
-    $all("#cfStatusSeg button").forEach((btn) => btn.addEventListener("click", () => { customField.fields.status = btn.dataset.val; rerender(); }));
+    /* Every toggle/select here re-renders the whole tab body, and the
+       Field Name / Choices inputs' value= is sourced from the cached
+       fields object — so without this, a hand-typed name or hand-edited
+       choices list typed just before a toggle click would be silently
+       overwritten by the last-generated value on re-render. Same class
+       of bug fixed for Attendance Policy's weekend toggle; snapshotting
+       here closes it for this module too. */
+    const snapshotInputs = () => {
+      customField.fields.fieldName = $("#cfName").value;
+      const choicesEl = $("#cfChoices");
+      if (choicesEl) customField.fields.choices = choicesEl.value.split(",").map((s) => s.trim()).filter(Boolean);
+    };
+    $all("#cfFilterSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotInputs(); customField.fields.enableFilter = btn.dataset.val === "yes"; rerender(); }));
+    $all("#cfColumnSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotInputs(); customField.fields.shownAsColumn = btn.dataset.val === "yes"; rerender(); }));
+    $all("#cfStatusSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotInputs(); customField.fields.status = btn.dataset.val; rerender(); }));
+
+    $("#cfType").addEventListener("change", () => {
+      snapshotInputs();
+      const newType = $("#cfType").value;
+      customField.fields.type = newType;
+      if (newType !== "checkbox" && newType !== "enum") customField.fields.enableFilter = false;
+      if (newType === "enum") {
+        if (!customField.fields.choices || customField.fields.choices.length === 0) customField.fields.choices = ["Option 1", "Option 2", "Option 3"];
+      } else {
+        delete customField.fields.choices;
+      }
+      rerender();
+    });
 
     $("#cfRegenerateBtn").addEventListener("click", () => {
       customField.fields = generateCustomFieldFields();

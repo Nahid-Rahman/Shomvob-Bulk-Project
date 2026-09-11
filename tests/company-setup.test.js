@@ -702,7 +702,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
-  /* ---------- T. Custom Fields ---------- */
+  /* ---------- T. Custom Fields — Type is a real dropdown (2026-09-11) ---------- */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
@@ -714,11 +714,39 @@ async function toGrid(page, companyName = "Hogwarts") {
     const cfType = await page.inputValue("#cfType");
     const preset = CUSTOM_FIELD_PRESETS.find((p) => p.fieldName === cfName);
     check("T the generated field is one of the real presets, with its matching type", preset && preset.type === cfType, `${cfName}/${cfType}`);
+    check("T Type is a real dropdown, not free text", (await page.evaluate(() => document.querySelector("#cfType").tagName)) === "SELECT");
+    check("T status defaults to Active, not randomised", (await page.getAttribute('#cfStatusSeg button[data-val="Active"]', "aria-pressed")) === "true");
 
     if (preset.type === "checkbox" || preset.type === "enum") {
       check("T enableFilter is a real toggle for checkbox/enum types", (await page.locator("#cfFilterSeg").count()) === 1);
     }
     check("T choices only appear for an enum-type field", (await page.locator("#cfChoices").count()) === (preset.type === "enum" ? 1 : 0));
+
+    /* Switch Type by hand to a type that supports neither filter nor
+       choices — regardless of what was originally generated — and check
+       both get force-cleared, plus that a hand-typed name survives the
+       re-render this select triggers (same class of bug as Attendance
+       Policy's weekend toggle). */
+    await page.fill("#cfName", "Hand-Edited Field Name");
+    await page.selectOption("#cfType", "long_text");
+    await page.waitForTimeout(80);
+    check("T hand-edited name survived the type-change re-render", (await page.inputValue("#cfName")) === "Hand-Edited Field Name");
+    check("T switching to a type with no choices/filter clears both", (await page.locator("#cfChoices").count()) === 0);
+
+    /* Switch to enum: choices should appear with a sensible default. */
+    await page.selectOption("#cfType", "enum");
+    await page.waitForTimeout(80);
+    check("T switching to enum gives default choices to edit", (await page.inputValue("#cfChoices")) === "Option 1, Option 2, Option 3");
+    await page.fill("#cfChoices", "Red, Green, Blue");
+
+    /* A status toggle click re-renders too — hand-edited name AND
+       hand-edited choices must both survive it. */
+    await page.click('#cfStatusSeg button[data-val="Inactive"]');
+    await page.waitForTimeout(80);
+    check("T hand-edited name survived a status-toggle re-render", (await page.inputValue("#cfName")) === "Hand-Edited Field Name");
+    check("T hand-edited choices survived a status-toggle re-render", (await page.inputValue("#cfChoices")) === "Red, Green, Blue");
+    await page.click('#cfStatusSeg button[data-val="Active"]');
+    await page.waitForTimeout(80);
 
     let sent = null;
     await page.route("**/api/v1/company-settings/employee-custom-fields", (route) => {
@@ -727,13 +755,9 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
     await page.click("#cfSaveBtn");
     await page.waitForTimeout(150);
-    if (preset.type !== "enum") {
-      check("T a non-enum field sends no options key at all", sent && !("options" in sent), JSON.stringify(sent));
-    } else {
-      check("T an enum field sends options.choices from its own pool",
-        sent && Array.isArray(sent.options && sent.options.choices) && sent.options.choices.every((c) => preset.choicePool.includes(c)),
-        JSON.stringify(sent));
-    }
+    check("T the hand-picked type/name/choices/status are what's actually sent",
+      sent && sent.type === "enum" && sent.fieldName === "Hand-Edited Field Name" && sent.status === "Active" && JSON.stringify(sent.options.choices) === JSON.stringify(["Red", "Green", "Blue"]),
+      JSON.stringify(sent));
     check("T the tab picks up a done marker", (await page.locator('.settings-tab[data-module="custom_fields"] .op-dot').count()) === 1);
     check("T no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
