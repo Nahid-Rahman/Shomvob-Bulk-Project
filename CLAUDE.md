@@ -883,7 +883,42 @@ remembering if a "watermark" idea comes up again for this app: a large
 decorative background mark and "always inside a scrollable, variable-
 height card" don't mix well.
 
-### Company Profile — first settings module (built 2026-09-09)
+### A clear (×) button on every text/number field (2026-09-11)
+
+Requested directly, once real-API testing started turning up fields the
+UI marks as needed (or that the ported script always fills) that the
+real server may not actually enforce — Locations' `officeName`→`name`
+and Attendance Policy's `shifts`/`weekendDays` (both above) were found
+by a manual `curl` session, not by clicking around this app, precisely
+because there was no way to send a field empty from the UI itself.
+`wireFieldClearButtons()` (`app.js`) fixes that: every text/number input
+inside a settings module's `.field` gets a small `×` (reusing `.chip-x`'s
+existing hover/opacity treatment, not a new style) that empties it and
+refocuses it, so a QA engineer can clear a field by hand and click Save
+to see whether the real API actually rejects it.
+
+**Wired once, centrally, in `wireSetupGroupPage()`** — the same shape as
+`settingsModuleIconHtml()`'s injection above: cover every module without
+editing all ~20 templates individually, and automatically cover any
+module added later. Query is scoped to `#setupBody .field input[type=
+'text'], ...[type='number']`, so it only ever touches settings-module
+fields, never the two login gates' email/password inputs (a different
+type, and outside `#setupBody` besides) or any of the five generators'
+own inputs (a completely different part of the page, never rendered
+through this function). Re-wired after every render like everything
+else here, so no stale button survives a Regenerate or a tab switch —
+confirmed by test that the button count doesn't grow across re-renders.
+
+**Purely a UI convenience, deliberately.** It only empties the input's
+`value`; it does not touch what a module's own save function sends. A
+cleared field goes over the wire exactly the way that module's existing
+`read*Form()`/`save*()` already handles an empty string — e.g. Company
+Profile's `tegNo` goes as `""`, Bank Info's `accountNumber` (converted
+with `Number()` at send time) would go as `0`. That inconsistency is
+each module's own pre-existing send-time behaviour, unchanged by this
+feature — the button's only job is letting a real empty value reach
+whichever logic was already there, not to invent a uniform "omit this
+key" behaviour on top of it.
 
 Lives at Company Settings → Company Profile, the group's default tab.
 `PATCH {apiBase}/company-profile` with `Authorization: Bearer

@@ -4051,6 +4051,42 @@
     });
     const activeHandler = SETTINGS_MODULE_HANDLERS[setup.activeModule];
     if (activeHandler) activeHandler.wire();
+    wireFieldClearButtons();
+  }
+
+  /* A clear (×) button on every text/number field in a settings module,
+     wired centrally here rather than per module — same "add it once,
+     cover all ~20" shape as settingsModuleIconHtml() above. Several
+     fields marked required in the UI aren't necessarily enforced by the
+     real API; this lets a QA engineer empty one and Save to find out,
+     rather than needing devtools to edit the request by hand. Purely a
+     UI convenience — it empties the input's value, nothing more; each
+     module's own save function still decides what an empty value turns
+     into on the wire, same as it always did. */
+  function wireFieldClearButtons() {
+    $all("#setupBody .field input[type='text'], #setupBody .field input[type='number']").forEach((input) => {
+      const wrap = document.createElement("span");
+      wrap.className = "field-input-wrap";
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip-x field-clear-btn";
+      btn.setAttribute("aria-label", "Clear this field");
+      btn.title = "Clear this field — some required-looking fields may not actually be enforced server-side";
+      btn.textContent = "×";
+      wrap.appendChild(btn);
+      const syncVisibility = () => {
+        btn.style.visibility = input.value ? "visible" : "hidden";
+      };
+      syncVisibility();
+      input.addEventListener("input", syncVisibility);
+      btn.addEventListener("click", () => {
+        input.value = "";
+        input.focus();
+        syncVisibility();
+      });
+    });
   }
 
   /* ---------- Company Profile — first settings module ----------

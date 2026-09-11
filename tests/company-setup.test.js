@@ -362,6 +362,11 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("J Regenerate re-rolls the fields", beforeTeg !== afterTeg);
     check("J a fresh tegNo is still a 13-digit number", /^[1-9]\d{12}$/.test(afterTeg), afterTeg);
 
+    /* clear (×) button — lets a QA engineer test whether a required-looking field is actually enforced server-side */
+    check("J a clear button sits next to text fields on this module", (await page.locator(".field-clear-btn").count()) >= 5);
+    await page.click("#cpTegNo + button.field-clear-btn");
+    check("J the clear button empties the field", (await page.inputValue("#cpTegNo")) === "");
+
     /* a field can still be hand-edited before saving */
     await page.fill("#cpIndustry", "Hand-Edited Industry");
 
@@ -374,6 +379,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(150);
 
     check("J the hand-edited value is what actually gets sent", sentBody && sentBody.industry === "Hand-Edited Industry");
+    check("J a cleared field is sent as actually empty, not the last-generated value", sentBody && sentBody.tegNo === "");
     check("J save shows a confirmation", (await page.textContent("#cpError")) === "");
     check("J the tab picks up a done marker", (await page.locator('.settings-tab[data-module="company_profile"] .op-dot').count()) === 1);
 
