@@ -1339,21 +1339,31 @@ this group alone — more than the rest of the app combined:
   fixed 50%/Gross — generalised here to whichever bonus type the company
   actually has (this module lets the visitor's data decide, rather than
   assuming Eid exists), with name and bonus percentage left editable.
-- **Overtime** — `POST /payroll/configuration/overtime`. Regular
-  overtime is always enabled; weekend and holiday are independently
-  rolled (80% enabled each), each with its own Fixed Rate/Multiplier
-  choice, ported from the script's own nested `buildSpecialOvertimeBlock()`
-  logic. Documented as "no dependency" when built — **found live,
-  2026-09-10, that this isn't quite true**: the real API rejected a
-  structurally-correct request with `"Enable overtime on an attendance
-  policy first. Without it no overtime is recorded, so these payroll
-  settings would never pay out."` So there *is* a real cross-group
-  dependency on Attendance Policy having overtime enabled — just not one
-  this module checks or surfaces yet, unlike Designation→Department or
-  Leave Policy→Leave Type. Not fixed yet — Attendance Policy's own real
-  shape is now fixed (above), so this is the one remaining open item:
-  add the same `fetchCompanyResource()`/`dependencyNoticeHtml()` pattern
-  here, checking for an Attendance Policy with overtime enabled.
+- **Overtime — the fifth real dependency, found live 2026-09-10, fixed
+  2026-09-11.** `POST /payroll/configuration/overtime`. Regular overtime
+  is always enabled; weekend and holiday are independently rolled (80%
+  enabled each), each with its own Fixed Rate/Multiplier choice, ported
+  from the script's own nested `buildSpecialOvertimeBlock()` logic.
+  Documented as "no dependency" when built — **found live, 2026-09-10,
+  that this isn't quite true**: the real API rejected a structurally-
+  correct request with `"Enable overtime on an attendance policy first.
+  Without it no overtime is recorded, so these payroll settings would
+  never pay out."` A real cross-group dependency on Attendance Policy
+  having overtime enabled, unlike any other dependency in this app which
+  are all within-group. Left unmodeled at the time since the Postman
+  collection has no GET endpoint anywhere for attendance policies to
+  check against, unlike Designation→Department or Leave Policy→Leave
+  Type. **Fixed 2026-09-11**: `GET /attendance/policies` — not in the
+  collection at all, found by probing plausible paths against the real
+  staging API (`/attendance/policy`, `/attendance/policy/list` etc. all
+  404, this one 200) — answers with a flat array of the company's
+  policies, each carrying `overtimeEnabled` directly, so the same
+  `fetchCompanyResource()`/`dependencyNoticeHtml()` pattern applies after
+  all. Zero policies with overtime enabled → blocked with a shortcut to
+  Attendance Policy, same shape as every other dependency notice.
+  Attendance Policy's own save success invalidates this cache
+  (`overtime.policies = null`), same as Department invalidates
+  Designation's.
 - **Attendance Bonus** — `POST /payroll/configuration/attendance-bonus`.
   One quirk kept deliberately rather than "fixed": the script always
   sends `calculations.enabled: "Disable"` regardless of the outer
@@ -1402,13 +1412,13 @@ this app sends.
 supplied a known-good real payload and an admin-screen screenshot on a
 second machine, since no Postman collection ever had the real shape).
 
-**Confirmed broken, not fixed yet:** Payroll Overtime has an
-undocumented real dependency on Attendance Policy having overtime
-enabled (above) — a real cross-group dependency this app doesn't check
-or surface yet, unlike Designation→Department or Leave Policy→Leave
-Type. This and Attendance Policy's own shape were already the user's
-own predicted "2-3 modules will need rework" before this whole build
-push started.
+**Confirmed broken, fixed the next day (2026-09-11):** Payroll Overtime
+had an undocumented real dependency on Attendance Policy having overtime
+enabled (above) — a real cross-group dependency this app didn't check
+or surface at the time, unlike Designation→Department or Leave
+Policy→Leave Type. This and Attendance Policy's own shape were already
+the user's own predicted "2-3 modules will need rework" before this
+whole build push started.
 
 ### A second live pass, driving the actual UI, not curl (2026-09-11)
 
@@ -1454,12 +1464,16 @@ app's own bug, not a stale server-side state. Fixed the same day;
 verified live afterward that the same real company's Configure Salary
 Components page unblocks and saves for real.
 
-**Confirmed still open, exactly as documented above:** revisiting
+**Confirmed still open at the time this pass was run:** revisiting
 Payroll Overtime after a real Attendance Policy existed in the same
 company still returned the same `"Enable overtime on an attendance
-policy first"` rejection — the cross-dependency is real and still
-unmodeled in this app, not something that resolves on its own once an
-Attendance Policy happens to exist.
+policy first"` rejection — the cross-dependency was real and, at that
+point, still unmodeled in this app; it did not resolve on its own just
+because an Attendance Policy happened to exist (this particular one had
+rolled `overtimeEnabled: false`, confirmed directly via `GET
+/attendance/policies` — an undocumented endpoint found the same day,
+below). **Fixed the same day**, once that endpoint was found — see
+Payroll → Overtime, above.
 
 **Real records now exist in this disposable staging test company** from
 running this pass — same open question as the "Bulk Master" company
@@ -1479,9 +1493,10 @@ this build push started (2026-09-10): Attendance Policy "sure" (now
 fixed, above), Payroll's Tax module confirmed exactly as predicted (still
 just an enable/disable toggle, no create-bracket endpoint exists), and a
 small chance in Leave Types/Department/Designation (none surfaced).
-Payroll Overtime's dependency on Attendance Policy is the one remaining
-open item from that estimate. Treat all of this as expected, not a sign
-something here was rushed carelessly.
+Payroll Overtime's dependency on Attendance Policy — the one item from
+that estimate left open after the first live pass — is now fixed too
+(above). Treat all of this as expected, not a sign something here was
+rushed carelessly.
 
 **A sanitized copy of the full Postman collection** (passwords and
 identifiers in raw request bodies replaced with `REDACTED`; every

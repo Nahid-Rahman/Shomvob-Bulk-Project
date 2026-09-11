@@ -1162,14 +1162,44 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
-  /* ---------- AE. Payroll: Overtime ---------- */
+  /* ---------- AE. Payroll: Overtime — the fifth real dependency ---------- */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await toGrid(page);
     await page.click(".settings-card:has-text('Payroll')");
+
+    /* GET /attendance/policies is undocumented in the collection — found
+       live against the real API. No policy with overtime enabled yet. */
+    await page.route("**/api/v1/attendance/policies", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "ap-1", title: "Office Standard Policy", overtimeEnabled: false }] }) })
+    );
+    await page.click('.settings-tab[data-module="overtime"]');
+    await page.waitForTimeout(200);
+    check("AE blocked with a named reason when no policy has overtime enabled", (await page.textContent("#setupBody")).includes("doesn't have one yet"));
+    check("AE the shortcut jumps to Attendance Policy", (await page.locator(".dep-shortcut").count()) === 1);
+    await page.click(".dep-shortcut");
+    await page.waitForTimeout(80);
+    check("AE shortcut lands on the right tab", (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "attendance_policy");
+
+    /* Saving an Attendance Policy invalidates Overtime's stale cache, same
+       pattern as Department invalidating Designation's. */
+    await page.route("**/api/v1/attendance/policy/create", (route) =>
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Company-wide policy created successfully!" }) })
+    );
+    await page.click("#apSaveBtn");
+    await page.waitForTimeout(150);
+
+    await page.unroute("**/api/v1/attendance/policies");
+    await page.route("**/api/v1/attendance/policies", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "ap-1", title: "Office Standard Policy", overtimeEnabled: true }] }) })
+    );
+    await page.click("#setupBackToModules");
+    await page.waitForTimeout(80);
+    await page.click(".settings-card:has-text('Payroll')");
     await page.click('.settings-tab[data-module="overtime"]');
     await page.waitForSelector("#otSaveBtn", { timeout: 5000 });
+    check("AE saving the prerequisite invalidates the cache — the form now appears", (await page.locator("#otSaveBtn").count()) === 1);
 
     let sent = null;
     await page.route("**/api/v1/payroll/configuration/overtime", (route) => {

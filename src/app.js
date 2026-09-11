@@ -6662,8 +6662,29 @@
     });
   }
 
-  /* ---------- Overtime — POST /payroll/configuration/overtime ---------- */
-  const overtime = { fields: null, error: "", ok: "" };
+  /* ---------- Overtime — POST /payroll/configuration/overtime ----------
+
+     The fifth real dependency, found live and fixed 2026-09-11: the real
+     API rejects this with "Enable overtime on an attendance policy first"
+     when the company's Attendance Policy doesn't have overtime enabled —
+     confirmed 2026-09-10, but left unmodeled at the time since the
+     Postman collection has no GET endpoint for attendance policies to
+     check live against, unlike every other dependency here. `GET
+     /attendance/policies` — undocumented in the collection, found by
+     probing plausible paths against the real staging API — answers with
+     a flat array of the company's policies, each carrying its own
+     `overtimeEnabled` boolean directly, so the same fetchCompanyResource()/
+     dependencyNoticeHtml() pattern applies after all. */
+  const overtime = { fields: null, error: "", ok: "", policies: null, loadError: "" };
+
+  async function loadOvertimeDependency() {
+    try {
+      overtime.policies = await fetchCompanyResource("/attendance/policies");
+    } catch (e) {
+      overtime.policies = null;
+      overtime.loadError = e.message;
+    }
+  }
 
   function buildOvertimeCalcFields(target, rateType) {
     const calculationType = weightedChoice(OVERTIME_CALCULATION_TYPES);
@@ -6704,6 +6725,27 @@
 
   function overtimeTemplate() {
     const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">8</span>Overtime</h2></div>`;
+    if (overtime.loadError) {
+      return `
+        <div class="section">
+          ${head}
+          <span class="error-text">${overtime.loadError}</span>
+          <div class="setup-actions" style="margin-top:10px"><button type="button" class="tiny-btn" id="otRetryBtn">Try again</button></div>
+        </div>
+      `;
+    }
+    if (overtime.policies === null) {
+      return `<div class="section">${head}<p class="section-note">Checking this company's attendance policy…</p></div>`;
+    }
+    if (!overtime.policies.some((p) => p.overtimeEnabled)) {
+      return `
+        <div class="section">
+          ${head}
+          <p class="section-note">Payroll overtime only pays out if the company's Attendance Policy has overtime enabled — this company doesn't have one yet.</p>
+          ${dependencyNoticeHtml("Attendance Policy with overtime enabled", "attendance", "attendance_policy")}
+        </div>
+      `;
+    }
     if (!overtime.fields) overtime.fields = generateOvertimeFields();
     const f = overtime.fields;
     return `
@@ -6745,6 +6787,25 @@
   }
 
   function wireOvertimeEvents() {
+    if (overtime.policies === null && !overtime.loadError) {
+      loadOvertimeDependency().then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    const retryBtn = $("#otRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        overtime.loadError = "";
+        overtime.policies = null;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    if (!overtime.policies.some((p) => p.overtimeEnabled)) return;
+
     $("#otRegenerateBtn").addEventListener("click", () => {
       overtime.fields = generateOvertimeFields();
       overtime.error = "";
@@ -7145,6 +7206,7 @@
         attendancePolicy.fields = fields;
         attendancePolicy.ok = "Saved.";
         setup.doneModules.add("attendance_policy");
+        overtime.policies = null; // a policy may now exist (or now have overtime enabled) — invalidate Overtime's stale dependency cache
       } catch (e) {
         attendancePolicy.error = e.message;
       }
