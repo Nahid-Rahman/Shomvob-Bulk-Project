@@ -4054,8 +4054,8 @@
     wireFieldClearButtons();
   }
 
-  /* A clear (×) button on every text/number field in a settings module,
-     wired centrally here rather than per module — same "add it once,
+  /* A clear (×) button on every text/number/textarea field in a settings
+     module, wired centrally here rather than per module — same "add it once,
      cover all ~20" shape as settingsModuleIconHtml() above. Several
      fields marked required in the UI aren't necessarily enforced by the
      real API; this lets a QA engineer empty one and Save to find out,
@@ -4064,7 +4064,7 @@
      module's own save function still decides what an empty value turns
      into on the wire, same as it always did. */
   function wireFieldClearButtons() {
-    $all("#setupBody .field input[type='text'], #setupBody .field input[type='number']").forEach((input) => {
+    $all("#setupBody .field input[type='text'], #setupBody .field input[type='number'], #setupBody .field textarea").forEach((input) => {
       const wrap = document.createElement("span");
       wrap.className = "field-input-wrap";
       input.parentNode.insertBefore(wrap, input);
@@ -4812,7 +4812,16 @@
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (!res.ok) throw new Error(data.message || "The server rejected this.");
-    return Array.isArray(data.data) ? data.data : [];
+    /* Confirmed genuinely broken against the real API, 2026-09-11: most of
+       these list endpoints answer with a flat array at data.data, but a
+       paginated one (salary-components, the only caller passing
+       limit/status query params) wraps the array one level deeper as
+       data.data.components alongside its own metadata — so this always
+       silently returned [] for it, regardless of how many real records
+       existed, permanently blocking Configure Salary Components. */
+    if (Array.isArray(data.data)) return data.data;
+    if (data.data && Array.isArray(data.data.components)) return data.data.components;
+    return [];
   }
 
   /* The calm inline notice a blocked module shows — one named prerequisite

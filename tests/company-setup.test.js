@@ -977,8 +977,17 @@ async function toGrid(page, companyName = "Hogwarts") {
     await toGrid(page);
     await page.click(".settings-card:has-text('Payroll')");
 
+    /* The real endpoint is paginated — data.data is { components, metadata },
+       not a flat array like every other fetchCompanyResource() caller gets.
+       Confirmed genuinely broken against the real API, 2026-09-11: mocking
+       this as a flat array (as this test used to) let fetchCompanyResource()'s
+       bug — silently returning [] for the wrapped shape — pass unnoticed. */
     await page.route("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "sc-1", name: "Medical Allowance", status: "Active" }] }) })
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "success", data: { components: [{ id: "sc-1", name: "Medical Allowance", status: "Active" }], metadata: { total: 1 } } }),
+      })
     );
     await page.click('.settings-tab[data-module="configure_salary_components"]');
     await page.waitForTimeout(200);
@@ -998,10 +1007,20 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     await page.unroute("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100");
     await page.route("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [
-        { id: "sc-1", name: "Medical Allowance", status: "Active" },
-        { id: "sc-2", name: "House Rent Allowance", status: "Active" },
-      ] }) })
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "success",
+          data: {
+            components: [
+              { id: "sc-1", name: "Medical Allowance", status: "Active" },
+              { id: "sc-2", name: "House Rent Allowance", status: "Active" },
+            ],
+            metadata: { total: 2 },
+          },
+        }),
+      })
     );
     await page.click('.settings-tab[data-module="configure_salary_components"]');
     await page.waitForSelector(".settings-tabs", { timeout: 5000 });

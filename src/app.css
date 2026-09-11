@@ -516,8 +516,8 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
    fighting a triple-click-then-Delete every time. Reuses .chip-x's own
    hover/opacity treatment rather than a new one. */
 .field-input-wrap { position: relative; display: block; }
-.field-input-wrap input { padding-right: 26px; }
-.field-clear-btn { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); }
+.field-input-wrap input, .field-input-wrap textarea { padding-right: 26px; }
+.field-clear-btn { position: absolute; right: 3px; top: 10px; }
 /* email and password belong here too — they are the login card's two
    inputs, and without them the browser's own white box was showing
    through. On the light theme that happened to look almost right, which

@@ -1304,6 +1304,27 @@ this group alone — more than the rest of the app combined:
   least one" wording every other dependency notice uses, since "doesn't
   have a X yet" reads wrong when one already exists. Splits always sum to
   100 (`SALARY_STRUCTURE_SPLITS`, the script's own fixed table).
+  **Confirmed genuinely broken against the real API, 2026-09-11, fixed
+  the same day:** this dependency could never actually unblock, no matter
+  how many Active salary components a company had. `fetchCompanyResource()`
+  assumed every list endpoint answers with a flat array at `data.data` —
+  true for `/departments/active`, `/leave-types` and
+  `/bonus/configuration/types` (checked against the real API, all three
+  correct), but `/payroll/configuration/salary-components` is the one
+  paginated endpoint (the only caller passing `limit`/`status` query
+  params) and wraps the real array one level deeper, as
+  `data.data.components` alongside its own `metadata`. Against the flat-
+  array assumption that's not an array, so it silently returned `[]` —
+  the module never saw the Active components that genuinely existed.
+  Found on a real staging company created specifically for a live pass
+  through every settings module (2026-09-11) — the existing test's own
+  mock for this endpoint used a flat array too, which is exactly why it
+  never caught this; fixed to mock the real wrapped shape. Fixed by
+  having `fetchCompanyResource()` fall back to `data.data.components`
+  when `data.data` itself isn't an array, rather than special-casing this
+  one caller — if a second paginated dependency check is ever added with
+  a *different* wrapper key, this fallback will need widening, not
+  assumed to already cover it.
 - **Late Arrival, Absent Deduction** — both need ≥1 Leave Type, reusing
   the existing dependency shape but each with its **own** independent
   fetch/cache (`lateArrival`/`absentDeduction`, sharing
