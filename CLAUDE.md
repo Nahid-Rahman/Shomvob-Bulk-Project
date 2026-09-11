@@ -1410,6 +1410,62 @@ Type. This and Attendance Policy's own shape were already the user's
 own predicted "2-3 modules will need rework" before this whole build
 push started.
 
+### A second live pass, driving the actual UI, not curl (2026-09-11)
+
+The first pass (above) hit the real API directly with `curl`, bypassing
+this app's own UI entirely. This one drove the real, deployed app with
+Playwright against a fresh disposable staging test company — sign in,
+click into every settings module in order, use the new clear (×) button
+(above) to empty every currently-editable field, Save, and read back
+what this app actually displays. The point was less "which fields are
+mandatory" and more "does our own UI show the real server's answer
+properly" — the user's own framing. Credentials were typed directly
+into `env` vars for a one-off script run, never written into any file.
+
+**Confirmed working as designed:** every module correctly displayed
+either the real server's rejection message on an emptied field, or a
+real success — no silent failures, no blank error states, across all 12
+modules with editable fields (Company Profile, Bank Info, Locations,
+Department Management, Designation Management, Custom Fields, Required
+Documents, Leave Types, Leave Policy, Bonus Policy, Custom
+Addition/Deduction, Attendance Policy).
+
+**A genuinely interesting, non-bug finding:** Company Profile's all 6
+editable fields (`legalName`, `tegNo`, `taxId`, `industry`,
+`businessType`, `website`) were cleared and saved — the real API
+accepted the `PATCH` anyway. None of this module's generated fields are
+actually enforced server-side, despite the module always generating
+values for all of them. Nothing to fix here — this is exactly the kind
+of finding the clear button exists to surface, not a defect in this app.
+Most other modules' rejections came back as a bare `"Validation failed"`
+with no field named — Required Documents was the one exception, naming
+the field directly (`"Document name is required"`).
+
+**A real, confirmed, fixed bug: Configure Salary Components' dependency
+check could never actually unblock.** Documented in full above
+(Payroll → Configure Salary Components) — `fetchCompanyResource()`
+assumed every list endpoint returns a flat array, but the one paginated
+endpoint it's used against wraps the array a level deeper, so this
+dependency silently saw `[]` no matter how many Active salary
+components a company actually had. Confirmed against the real API
+directly (`curl`, bypassing the bug) that 2 Active components genuinely
+existed while the app still reported fewer than 2 — proof this was the
+app's own bug, not a stale server-side state. Fixed the same day;
+verified live afterward that the same real company's Configure Salary
+Components page unblocks and saves for real.
+
+**Confirmed still open, exactly as documented above:** revisiting
+Payroll Overtime after a real Attendance Policy existed in the same
+company still returned the same `"Enable overtime on an attendance
+policy first"` rejection — the cross-dependency is real and still
+unmodeled in this app, not something that resolves on its own once an
+Attendance Policy happens to exist.
+
+**Real records now exist in this disposable staging test company** from
+running this pass — same open question as the "Bulk Master" company
+before it (still unanswered): clean these up, or leave them as
+disposable test-company data.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group now has a real
