@@ -5166,14 +5166,14 @@
         <div class="field-row" style="margin-top:14px">
           <div class="field">
             <label>Enable Filter</label>
-            <div class="seg" id="cfFilterSeg" role="group" aria-label="Enable filter">
+            <div class="seg seg-fill" id="cfFilterSeg" role="group" aria-label="Enable filter">
               <button type="button" data-val="yes" aria-pressed="${f.enableFilter}">Yes</button>
               <button type="button" data-val="no" aria-pressed="${!f.enableFilter}">No</button>
             </div>
           </div>
           <div class="field">
             <label>Shown As Column</label>
-            <div class="seg" id="cfColumnSeg" role="group" aria-label="Shown as column">
+            <div class="seg seg-fill" id="cfColumnSeg" role="group" aria-label="Shown as column">
               <button type="button" data-val="yes" aria-pressed="${f.shownAsColumn}">Yes</button>
               <button type="button" data-val="no" aria-pressed="${!f.shownAsColumn}">No</button>
             </div>
@@ -5181,7 +5181,7 @@
         </div>
         <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)">
           <label>Status</label>
-          <div class="seg" id="cfStatusSeg" role="group" aria-label="Status">
+          <div class="seg seg-fill" id="cfStatusSeg" role="group" aria-label="Status">
             <button type="button" data-val="Active" aria-pressed="${f.status === "Active"}">Active</button>
             <button type="button" data-val="Inactive" aria-pressed="${f.status === "Inactive"}">Inactive</button>
           </div>
