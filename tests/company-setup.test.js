@@ -1321,16 +1321,18 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
-  /* ---------- AI. a reload always drops both logins — on purpose, for real this time ----------
+  /* ---------- AI. a reload keeps the tool sign-in, never the company login ----------
 
-     sessionStorage token persistence was tried, then reverted the same
-     day: the joke gate is exactly that, a joke, and letting the two
-     *real* logins survive a reload would quietly make "is the tab still
-     open" this section's whole security boundary. What's kept instead —
-     in a separate, token-free key — is which company/env was last
-     connected and which modules were saved there, so reconnecting isn't
-     a totally blank slate even though it does require both real logins
-     again, unconditionally, every time. */
+     sessionStorage persistence for BOTH logins was tried, then reverted
+     the same day: letting the real company login survive a reload would
+     quietly make "is the tab still open" this section's whole security
+     boundary. Revisited narrower on 2026-09-11, after "no warning at all
+     on reload" was found and fixed and the user asked for this directly:
+     the tool sign-in only ever decided who may open this section at
+     all, never forwarded to any real Shomvob endpoint, so persisting
+     *only* that one doesn't touch the boundary the reversal was
+     protecting — the company login is still never restored,
+     unconditionally, every time, landing on step 2 fresh. */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
@@ -1352,15 +1354,11 @@ async function toGrid(page, companyName = "Hogwarts") {
     await signIn(page);
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForTimeout(150);
-    check("AI both real logins are required again — a reload never skips them", (await page.locator("#setupSignInBtn").count()) === 1);
+    check("AI the tool sign-in is remembered — landing straight on step 2, not step 1",
+      (await page.locator("#setupCoBtn").count()) === 1 && (await page.locator("#setupSignInBtn").count()) === 0);
     check("AI a notice names the company that was connected before the reload",
       (await page.textContent(".validation-banner")).includes("Nexa Technologies"));
 
-    await mockSupabaseOk(page);
-    await page.fill("#setupEmail", "mahmudur@shomvob.com");
-    await page.fill("#setupPass", "whatever");
-    await page.click("#setupSignInBtn");
-    await page.waitForTimeout(150);
     await mockCompanyOk(page, "Nexa Technologies", "company_admin");
     await page.fill("#setupCoEmail", "a@b.com");
     await page.fill("#setupCoPass", "whatever");
@@ -1387,7 +1385,8 @@ async function toGrid(page, companyName = "Hogwarts") {
     await signIn(page);
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForTimeout(100);
-    check("AI Sign out clears the last-session notice too — nothing lingers to greet the next person",
+    check("AI Sign out clears the tool session too — the next reload lands back on step 1", (await page.locator("#setupSignInBtn").count()) === 1);
+    check("AI ...and the last-session notice too — nothing lingers to greet the next person",
       (await page.locator(".validation-banner").count()) === 0);
     await page.close();
   }
@@ -1696,6 +1695,39 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForSelector("#loginGate");
     check("AQ confirming returns to the joke gate", await page.isVisible("#loginGate"));
     check("AQ no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AR. Tool sign-in survives a reload; company login never does (2026-09-11) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await page.goto(PAGE);
+    await signIn(page);
+    await page.click('.op-item:has-text("Company Setup")');
+    await page.waitForSelector("#setupSignInBtn", { timeout: 5000 });
+
+    await mockSupabaseOk(page);
+    await page.fill("#setupEmail", "a@b.com");
+    await page.fill("#setupPass", "x");
+    await page.click("#setupSignInBtn");
+    await page.waitForSelector("#setupCoBtn", { timeout: 5000 });
+
+    await page.reload();
+    await signIn(page); // the joke gate itself is never skipped — one click, same as always
+    await page.waitForTimeout(300);
+    check("AR a reload lands straight on the company-login step, not the dashboard", (await page.locator("#setupCoBtn").count()) === 1);
+    check("AR Company Setup is the active sidebar item after the restore", (await page.textContent('.op-item[aria-current="true"]')).includes("Company Setup"));
+    check("AR the company login itself is never restored — the fields are empty", (await page.inputValue("#setupCoEmail")) === "");
+
+    /* Signing out clears the tool session too — it shouldn't come back on the next reload */
+    await page.click("#setupSignOutBtn");
+    await page.waitForTimeout(80);
+    await page.reload();
+    await signIn(page);
+    await page.waitForTimeout(300);
+    check("AR signing out clears the tool session — a later reload lands back on the dashboard", (await page.locator("#setupCoBtn, #setupSignInBtn").count()) === 0);
+    check("AR no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

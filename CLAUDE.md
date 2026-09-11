@@ -607,37 +607,58 @@ thing:
    behalf, no more — the page inherits the account's permissions rather
    than asserting any of its own.
 
-Both tokens live only in the module-level `setup` object and are
-**never written to storage** — no `localStorage`, no cookie, no
-`sessionStorage`. A reload clears them unconditionally, every time, on
-purpose.
+The company token is **never written to storage** — no `localStorage`,
+no cookie, no `sessionStorage`. A reload clears it unconditionally,
+every time, on purpose. The tool token's story is more complicated —
+see below; it *is* persisted now, as of 2026-09-11.
 
-**This was tried the other way for a few hours on 2026-09-10** — both
-tokens persisted to `sessionStorage`, so a reload wouldn't force two
-real passwords to be retyped, which had been flagged as a real workflow
-cost. Reverted the same day, on further reflection from the same
-conversation: the joke gate in front of this whole section is exactly
-that, a joke — one click, credentials printed on the card. If the two
-*real* logins (Supabase tool sign-in, real company admin) survive a
-reload too, the section's actual security boundary quietly becomes "is
-the tab still open," which isn't a call Bulk Forge should make on the
-user's behalf. Both logins are back to memory-only, gone on any reload,
-same as before sessionStorage was ever tried here.
+**Both tokens were tried in `sessionStorage` for a few hours on
+2026-09-10** — so a reload wouldn't force two real passwords to be
+retyped, which had been flagged as a real workflow cost. Reverted the
+same day, on further reflection from the same conversation: the joke
+gate in front of this whole section is exactly that, a joke — one
+click, credentials printed on the card. If the two *real* logins
+(Supabase tool sign-in, real company admin) survive a reload too, the
+section's actual security boundary quietly becomes "is the tab still
+open," which isn't a call Bulk Forge should make on the user's behalf.
+Both logins went back to memory-only, gone on any reload.
 
-**What *is* kept, deliberately, in a separate, token-free key**
+**Revisited narrower on 2026-09-11**, after "no warning at all on
+reload" (below) was found and fixed and the user asked for this
+directly: being signed into the *tool* only ever decided who may open
+this section at all — an allowlist check against Supabase, never
+forwarded to any real Shomvob endpoint. Persisting just that one
+doesn't touch the boundary the 2026-09-10 reversal was protecting,
+because the *company* login is what actually grants access to do
+anything to a real company, and it's still never persisted — a restored
+tool session lands directly on "Sign in as the company" (step two)
+instead of the dashboard, with that step's fields unconditionally
+empty, every time. `TOOL_SESSION_KEY` (`sessionStorage` again, never
+`localStorage`, so it's gone once the tab/browser actually closes, not
+indefinitely) carries `toolEmail`/`toolToken`/`env`/`expiresAt` — the
+last checked against Supabase's own token lifetime on restore rather
+than treated as good forever. Saved in `wireSetupSignIn()`'s own success
+handler; restored in `init()`, before the first render, which is also
+what sets `currentOp = "company_setup"` so the restored session opens
+directly on this section rather than the dashboard. `clearToolSession()`
+is called only from Sign out (never Disconnect, which is meant to leave
+the tool session alone and only end the company one) — signing out for
+real should not quietly come back on the next reload.
+
+**What's kept in a separate, token-free key regardless**
 (`SETUP_LAST_SESSION_KEY`, `saveLastSetupSession()`/
 `loadLastSetupSession()`/`clearLastSetupSession()`): which
 company/environment was last connected, and which modules were actually
 saved there (`doneModules`, as a plain array — no tokens, nothing that
 grants access on its own). Two things use it:
 
-- **The sign-in form itself**, when this key is present, shows a named
-  reminder — "You were connected to **X** on Y before this reload — both
-  logins are required again on purpose, every time" — so losing the
-  connection reads as an explained, expected thing rather than an
-  unexplained blank form. This is the answer to "can we at least say why
-  you're being logged out" once the sessionStorage convenience itself
-  was ruled out.
+- **`lastSessionNoticeHtml()`**, shared by both login-step templates
+  (originally step-one-only; since a reload increasingly lands directly
+  on step two now, step two needed to be able to show it too) — when
+  this key is present, shows a named reminder: "You were connected to
+  **X** on Y before — sign in with the same company account to pick up
+  where you left off." So losing the company connection reads as an
+  explained, expected thing rather than an unexplained blank form.
 - **Reconnecting to the exact same company on the exact same
   environment** restores `doneModules`, so the green dots reappear and a
   batch of real writes doesn't lose its own progress indicator just

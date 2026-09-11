@@ -6156,9 +6156,23 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      one click, credentials printed on the card. If the two *real* logins
      survive a reload too, the whole security boundary of this section
      quietly becomes "is the tab still open," which is not a boundary
-     Bulk Forge should be deciding on the user's behalf. Both logins are
-     back to living only in memory, gone on any reload, on purpose, same
-     as before sessionStorage was ever added here.
+     Bulk Forge should be deciding on the user's behalf.
+
+     **Revisited, narrower, 2026-09-11**, after the "no warning at all on
+     reload" bug above was fixed and the user asked for this directly: the
+     tool sign-in (Supabase) only ever decided *who may open this section
+     at all* — an allowlist check, never forwarded to any real Shomvob
+     endpoint — while the *company* login is what actually grants access
+     to do anything to a real company. Persisting only the tool session
+     doesn't touch the boundary the 2026-09-10 reversal was protecting:
+     a restored tool session still lands on step two, "Sign in as the
+     company," every time, with `setup.companyToken` unconditionally
+     `null` — the real security boundary stays exactly "is the tab still
+     open," same as before, scoped to the company login specifically
+     rather than the whole section. `TOOL_SESSION_KEY` below, sessionStorage
+     again (gone once the tab/browser actually closes, never `localStorage`),
+     carries `toolEmail`/`toolToken`/`env`/`expiresAt` — checked against
+     Supabase's own token lifetime on restore, not treated as indefinite.
 
      What's kept, deliberately, in a *separate*, token-free key: which
      company/environment was last connected and which modules were
@@ -6193,6 +6207,39 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       sessionStorage.removeItem(SETUP_LAST_SESSION_KEY);
     } catch (e) {
       /* nothing to do — it wasn't going to be read again anyway */
+    }
+  }
+
+  /* The tool sign-in only — never the company login. See the long
+     comment on `setup` above for why persisting just this one is a
+     different call than the one reverted on 2026-09-10. */
+  const TOOL_SESSION_KEY = "bulkforge-tool-session";
+  function saveToolSession(expiresAt) {
+    try {
+      sessionStorage.setItem(TOOL_SESSION_KEY, JSON.stringify({ toolEmail: setup.toolEmail, toolToken: setup.toolToken, env: setup.env, expiresAt }));
+    } catch (e) {
+      /* a locked-down browser throws rather than persisting — fine, this just means the tool sign-in is asked for again */
+    }
+  }
+  function loadToolSession() {
+    try {
+      const raw = sessionStorage.getItem(TOOL_SESSION_KEY);
+      if (!raw) return null;
+      const saved = JSON.parse(raw);
+      if (!saved.expiresAt || Date.now() >= saved.expiresAt) {
+        sessionStorage.removeItem(TOOL_SESSION_KEY);
+        return null;
+      }
+      return saved;
+    } catch (e) {
+      return null;
+    }
+  }
+  function clearToolSession() {
+    try {
+      sessionStorage.removeItem(TOOL_SESSION_KEY);
+    } catch (e) {
+      /* nothing to do */
     }
   }
 
@@ -6397,6 +6444,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         setup.doneModules = new Set();
         resetModuleState();
         clearLastSetupSession();
+        clearToolSession();
         renderSetupBody();
       });
     }
@@ -6438,18 +6486,23 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     wireSetupGroupPage();
   }
 
-  function setupSignInTemplate() {
+  /* Shared by both login steps — which step actually shows it on a given
+     reload depends on whether the tool sign-in was remembered (below),
+     so both need to be able to render it, not just step one. */
+  function lastSessionNoticeHtml() {
     const last = loadLastSetupSession();
-    const lastSessionNotice = last
-      ? `
-        <div class="validation-banner" style="margin-top:0; margin-bottom:16px;">
-          ${iconWarn()}
-          <div>You were connected to <strong>${last.companyName}</strong> on ${ENVIRONMENTS[last.env] ? ENVIRONMENTS[last.env].label : last.env} before this reload — both logins are required again on purpose, every time. Sign back in with the same company to pick up where you left off.</div>
-        </div>
-      `
-      : "";
+    if (!last) return "";
     return `
-      ${lastSessionNotice}
+      <div class="validation-banner" style="margin-top:0; margin-bottom:16px;">
+        ${iconWarn()}
+        <div>You were connected to <strong>${last.companyName}</strong> on ${ENVIRONMENTS[last.env] ? ENVIRONMENTS[last.env].label : last.env} before — sign in with the same company account to pick up where you left off.</div>
+      </div>
+    `;
+  }
+
+  function setupSignInTemplate() {
+    return `
+      ${lastSessionNoticeHtml()}
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Sign in to Bulk Forge</h2></div>
         <p class="section-note">Your own Bulk Forge account — separate from your Shomvob login, and separate again from the company you'll sign into next.</p>
@@ -6502,6 +6555,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         const data = await supabaseSignIn(email, pass);
         setup.toolEmail = email;
         setup.toolToken = data.access_token;
+        saveToolSession(data.expires_at ? data.expires_at * 1000 : Date.now() + 3600 * 1000);
         renderSetupBody();
       } catch (e) {
         err.textContent = e.message;
@@ -6513,6 +6567,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   function setupCompanyLoginTemplate() {
     const env = ENVIRONMENTS[setup.env];
     return `
+      ${lastSessionNoticeHtml()}
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Sign in as the company</h2></div>
         <p class="section-note">The company-admin login for the ${env.label} company you want to configure. This is checked by the real Shomvob ${env.label} server, and it decides everything past this point.</p>
@@ -10235,6 +10290,16 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     att.from = fmtDate(monthStart);
     att.to = fmtDate(today);
+    /* A restored tool session (above) means landing directly on "Sign in
+       as the company" instead of the Dashboard — the company login
+       itself is never restored, only which step to open on. */
+    const savedTool = loadToolSession();
+    if (savedTool) {
+      setup.toolEmail = savedTool.toolEmail;
+      setup.toolToken = savedTool.toolToken;
+      setup.env = savedTool.env;
+      currentOp = "company_setup";
+    }
     renderSidebar();
     renderMain();
     $("#generateBtn").addEventListener("click", handleGenerate);
