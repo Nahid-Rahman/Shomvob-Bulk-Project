@@ -1433,14 +1433,28 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
-  /* ---------- AK. Designation Management — bulk mode skips departments that don't exist, keeps going ---------- */
+  /* ---------- AK. Designation Management — bulk mode matches this company's *real* departments, whatever they're named (fixed 2026-09-12) ----------
+
+     Confirmed genuinely wrong, found live: this used to walk the fixed
+     6-name DEFAULT_DEPARTMENTS list and match each against the real
+     company by name, so a company with custom department names (the
+     normal case) got a wall of "skipped" rows and none of its actual
+     departments got a bulk designation option at all. Now walks the
+     real fetched department list itself — a real department matching a
+     known default name still gets that default's own curated 4 titles,
+     any other real department gets DESIGNATION_NAMES's 4 generic ones. */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await toGrid(page, "Nexa Technologies");
 
-    // pre-seed 5 of the 6 real departments — Sales & Business deliberately missing
-    const seeded = DEFAULT_DEPARTMENTS.filter((d) => d.name !== "Sales & Business").map((d, i) => ({ id: "rd" + i, name: d.name }));
+    // 3 real departments matching known defaults by name + 1 fully custom one this company actually has
+    const seeded = [
+      { id: "rd0", name: "HR" },
+      { id: "rd1", name: "Engineering/IT" },
+      { id: "rd2", name: "Operations" },
+      { id: "rd3", name: "Supply Chain" }, // not one of the 6 defaults at all
+    ];
     await page.route("**/api/v1/departments/active", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: seeded }) })
     );
@@ -1450,15 +1464,19 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Designation"), { timeout: 5000 });
     await page.waitForTimeout(100);
 
+    check("AK the shortcut button names this company's real department count, not a fixed 6",
+      (await page.textContent("#desigBulkEnterLink")).includes("4 department"));
     await page.click("#desigBulkEnterLink");
     await page.waitForTimeout(80);
-    check("AK shows all 24 rows (6 departments x 4), not just the 20 creatable ones", (await page.locator(".bulk-row").count()) === 24);
-    check("AK the 4 rows under the missing department are named 'skipped', not silently dropped",
-      (await page.locator(".bulk-row:has-text('skipped')").count()) === 4);
-    check("AK those 4 are unselected and their checkbox is disabled",
-      await page.locator(".bulk-row:has-text('skipped') input").evaluateAll((els) => els.every((el) => el.disabled && !el.checked)));
-    check("AK the create count already excludes the 4 unreachable ones", (await page.textContent("#desigBulkCreateBtn")).includes("(20)"));
-    check("AK rows are grouped under their department's name as a heading", (await page.locator(".bulk-group-label").count()) === 6);
+    check("AK exactly 16 rows (this company's 4 real departments x 4), not a fixed 24", (await page.locator(".bulk-row").count()) === 16);
+    check("AK nothing is skipped — every row is for a department that genuinely exists", (await page.locator(".bulk-row:has-text('skipped')").count()) === 0);
+    check("AK every row starts selected and enabled", await page.locator(".bulk-row input").evaluateAll((els) => els.every((el) => el.checked && !el.disabled)));
+    check("AK the create count covers all 16", (await page.textContent("#desigBulkCreateBtn")).includes("(16)"));
+    check("AK rows are grouped under all 4 real department names as headings", (await page.locator(".bulk-group-label").count()) === 4);
+    check("AK a real department matching a known default gets that default's own curated titles",
+      (await page.textContent("#setupBody")).includes("HR Business Partner"));
+    check("AK a real custom department (not one of the 6 defaults) still gets the generic 4 titles, not skipped",
+      (await page.textContent("#setupBody")).includes("Supply Chain") && (await page.textContent("#setupBody")).includes("Assistant Manager"));
 
     let sent = [];
     await page.route("**/api/v1/designations", (route) => {
@@ -1469,9 +1487,10 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
     await page.click("#desigBulkCreateBtn");
     await page.waitForFunction(() => !document.querySelector("#desigBulkStopBtn"), { timeout: 10000 });
-    check("AK exactly 20 designations were sent, none for the missing department", sent.length === 20, String(sent.length));
-    check("AK each sent designation carries the real department id it belongs to, not a name",
+    check("AK all 16 designations were sent, including 4 for the custom department", sent.length === 16, String(sent.length));
+    check("AK every sent designation carries one of this company's real department ids",
       sent.every((s) => seeded.some((d) => d.id === s.departmentIds[0])));
+    check("AK the custom department's real id was used, same as any other", sent.some((s) => s.departmentIds[0] === "rd3"));
     check("AK the tab picks up a done marker", (await page.locator('.settings-tab[data-module="designations"] .op-dot').count()) === 1);
     check("AK no page errors through the whole dependency + bulk flow", errs.length === 0, errs.join(" | "));
     await page.close();

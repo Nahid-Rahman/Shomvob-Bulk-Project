@@ -4909,26 +4909,35 @@
     return { name: choice(DESIGNATION_NAMES), departmentId: depts[0].id, status: "Active" };
   }
 
-  /* "Create the defaults" for Designation — the 4 designations Employee
-     Add pairs with each of its 6 default departments, matched here
-     against this company's *real* departments by name. A default whose
-     department was never created (bulk-created or otherwise) has no
-     real id to attach to, so it's shown, disabled, rather than quietly
-     left out — "This company's data can't be quietly incomplete" is the
-     rule the rest of the app already holds itself to (Employee Add's
-     card-based screens), not a new one invented for this. */
+  /* "Create the defaults" for Designation — 4 designations per
+     department, one row per *this company's actual, live-fetched*
+     department, not per a fixed 6-name list. **Confirmed genuinely
+     wrong, found live 2026-09-12**: this used to walk `DEFAULT_DEPARTMENTS`
+     (Employee Add's own 6 names) and match each against the real list by
+     name, so a company whose departments don't happen to be named
+     exactly like those 6 — any custom department, which is the normal
+     case, not the exception — got 24 rows nearly all shown "skipped,"
+     and none of its real departments got a bulk designation option at
+     all. Fixed by walking the real `depts` list itself: a real
+     department whose name happens to match one of the 6 defaults still
+     gets that default's own curated 4 titles (kept for the realism it
+     was built for), any other real department — however many, whatever
+     they're named — gets `DESIGNATION_NAMES`'s 4 generic titles instead.
+     Every row is now for a department that genuinely exists, so there's
+     nothing left to skip. */
   function designationDefaultBulkItems(depts) {
     const items = [];
-    DEFAULT_DEPARTMENTS.forEach((d) => {
-      const real = depts.find((rd) => rd.name.trim().toLowerCase() === d.name.trim().toLowerCase());
-      d.designations.forEach((desigName) => {
+    depts.forEach((dept) => {
+      const preset = DEFAULT_DEPARTMENTS.find((d) => d.name.trim().toLowerCase() === dept.name.trim().toLowerCase());
+      const designations = preset ? preset.designations : DESIGNATION_NAMES;
+      designations.forEach((desigName) => {
         items.push({
           name: desigName,
-          departmentName: d.name,
-          departmentId: real ? real.id : null,
-          selected: !!real,
-          status: real ? "pending" : "skipped",
-          message: real ? "" : `no department named "${d.name}" exists yet`,
+          departmentName: dept.name,
+          departmentId: dept.id,
+          selected: true,
+          status: "pending",
+          message: "",
         });
       });
     });
@@ -4978,7 +4987,7 @@
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own designation-name pool, attached to a real department from this company. Regenerate re-rolls the name; any field can still be edited by hand before saving.</p>
-        <button type="button" class="bulk-shortcut-btn" id="desigBulkEnterLink">Create the 4 default designations for each department at once →</button>
+        <button type="button" class="bulk-shortcut-btn" id="desigBulkEnterLink">Create 4 designations for each of this company's ${depts.length} department${depts.length === 1 ? "" : "s"} at once →</button>
         <div class="field-row">
           <div class="field"><label for="desigName">Or just this one — Designation Name</label><input type="text" id="desigName" value="${f.name}" /></div>
           <div class="field"><label for="desigDept">Department</label><select id="desigDept">${options}</select></div>

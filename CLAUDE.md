@@ -1163,15 +1163,28 @@ the primary one.
   everything unconditionally everywhere else in this section, and
   choosing to sign out mid-run is a deliberate act, not an accidental
   click.
-- **Designation's bulk list matches its 6 groups of 4 against this
-  company's *real* departments by name** (`companyDesignation.
-  departments`, the same live check the single-item form already
-  depends on) — a default department that was never actually created has
-  no real id to attach a designation to, so its 4 rows show, disabled,
-  as "skipped — no department named X exists yet" rather than being
-  quietly left off the list. Same "never silently incomplete" rule the
+- **Designation's bulk list is built from this company's *real*
+  departments themselves** (`companyDesignation.departments`, the same
+  live check the single-item form already depends on) — **not** from
+  walking the fixed 6-name `DEFAULT_DEPARTMENTS` list and matching each
+  against the real one by name, which is what it did when first built
+  and is **confirmed genuinely wrong, found live 2026-09-12**: a company
+  whose department names don't happen to match those 6 exactly — any
+  custom department, the normal case, not the exception — got a wall of
+  rows shown "skipped," and none of its real departments got a bulk
+  designation option at all. `designationDefaultBulkItems(depts)` now
+  walks the real fetched list instead: a real department whose name
+  matches a known default still gets that default's own curated 4 titles
+  (kept for the realism it was built for), any other real department —
+  however many, whatever they're named — gets `DESIGNATION_NAMES`'s 4
+  generic titles instead. Every row is now for a department that
+  genuinely exists, so there's nothing left to skip; the shortcut
+  button's own label names this company's real department count rather
+  than a hardcoded 6. Same "never silently incomplete" rule the
   card-based screens in Employee Add already hold themselves to, applied
-  here for the first time to a live dependency instead of a static input.
+  here for the first time to a live dependency instead of a static input
+  — just applied correctly this time, not to a fixed list standing in
+  for the real one.
 - Both bulk creates reuse the exact same `saveDepartmentModule()`/
   `saveDesignation()` functions the single-item flow calls — a bulk item
   is not a different kind of write, just one driven from a list instead
