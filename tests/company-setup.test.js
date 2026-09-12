@@ -875,8 +875,13 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click('.settings-tab[data-module="leave_policy"]');
     await page.waitForSelector("#lpName", { timeout: 5000 });
     check("W saving the prerequisite invalidates the cache — the form appears without a reload", true);
-    check("W at least 3 (or however many exist) leave types are included",
-      (await page.locator(".tally").count()) >= 3);
+    check("W every real leave type this company has is listed, all start checked",
+      (await page.locator(".lp-leave-row").count()) === 3 && (await page.locator(".lp-leave-row input[type=checkbox]:checked").count()) === 3);
+    check("W every row defaults to 12 days", (await page.locator(".lp-leave-row input[type=number]").evaluateAll((els) => els.every((el) => el.value === "12"))));
+
+    // Exclude the special-entitlement one (Maternity), edit Sick's days.
+    await page.uncheck('.lp-leave-row:has-text("Maternity Leave") input[type=checkbox]');
+    await page.fill('.lp-leave-row:has-text("Sick Leave") input[type=number]', "20");
 
     let sent = null;
     await page.route("**/api/v1/leave-policies", (route) => {
@@ -885,8 +890,10 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
     await page.click("#lpSaveBtn");
     await page.waitForTimeout(150);
-    check("W the special-entitlement leave type is forced into the Special category with its fixed days",
-      sent && sent.leaveTypes.some((lt) => lt.leaveTypeId === "lt3" && lt.category === "Special" && lt.days === 120), JSON.stringify(sent));
+    check("W an unchecked leave type is left out entirely", sent && !sent.leaveTypes.some((lt) => lt.leaveTypeId === "lt3"), JSON.stringify(sent));
+    check("W an edited day count is what's sent, not the 12-day default", sent && sent.leaveTypes.some((lt) => lt.leaveTypeId === "lt2" && lt.days === 20), JSON.stringify(sent));
+    check("W category is always Standard now — no special-entitlement handling any more",
+      sent && sent.leaveTypes.every((lt) => lt.category === "Standard"), JSON.stringify(sent));
     check("W departmentIds is empty — company-wide by default", sent && Array.isArray(sent.departmentIds) && sent.departmentIds.length === 0);
     check("W the tab picks up a done marker", (await page.locator('.settings-tab[data-module="leave_policy"] .op-dot').count()) === 1);
     check("W no page errors through the whole flow", errs.length === 0, errs.join(" | "));

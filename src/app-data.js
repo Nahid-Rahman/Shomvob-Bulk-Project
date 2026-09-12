@@ -788,8 +788,6 @@ const LEAVE_POLICY_NAMES = ["Default Leave Policy", "Company Leave Policy"];
 const LEAVE_POLICY_DESCRIPTION =
   "This policy defines the company-wide leave rules and determines how employees can receive and use their leave entitlements.";
 const LEAVE_POLICY_EMPLOYEE_TYPES = ["Permanent", "Part-time", "Intern", "Contractual", "Probationary"];
-const LEAVE_POLICY_CATEGORIES = ["Standard", "Emergency", "Special"];
-const LEAVE_POLICY_STANDARD_DAYS = [10, 12, 15];
 
 /* ===== Attendance Policy — Attendance group's only module (2026-09-10,
    real shape re-derived 2026-09-10) =====

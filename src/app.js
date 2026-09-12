@@ -5797,26 +5797,29 @@
     }
   }
 
+  /* Redesigned 2026-09-12, direct user instruction against a real
+     admin-screen screenshot ("Configure Leave Types"): the old version
+     picked a random subset of this company's real leave types (min 3)
+     with a randomised category/days each, shown as read-only chips.
+     Confirmed with the user this read badly and wasn't how the real
+     screen works — every real leave type the company has is now always
+     listed, each individually checkable (default checked — unchecking
+     one is what excludes it from the policy) with its own editable Days
+     input (default 12, not random). Category is no longer surfaced or
+     varied at all — every included entry sends `"Standard"` — confirmed
+     directly ("category dekhanor dorkar nai"), simpler than tracking
+     the old special-entitlement-forces-"Special" rule for a field that
+     isn't shown any more. `included` is UI-only bookkeeping and never
+     itself sent — `readLeavePolicyForm()` strips it back out, along
+     with every unchecked entry, when building the real request body. */
   function generateLeavePolicyFields(leaveTypes) {
-    const minCount = Math.min(3, leaveTypes.length);
-    const count = randInt(minCount, leaveTypes.length);
-    const selected = shuffle(leaveTypes).slice(0, count);
-    const leaveTypesBody = selected.map((lt) => {
-      const hasSpecialDays = lt.seMaxDaysPerInstance !== null && lt.seMaxDaysPerInstance !== undefined;
-      return {
-        leaveTypeId: lt.id,
-        category: hasSpecialDays ? "Special" : choice(LEAVE_POLICY_CATEGORIES),
-        days: hasSpecialDays ? Number(lt.seMaxDaysPerInstance) : choice(LEAVE_POLICY_STANDARD_DAYS),
-        carryForward: false,
-      };
-    });
     return {
       name: choice(LEAVE_POLICY_NAMES),
       description: LEAVE_POLICY_DESCRIPTION,
       departmentIds: [],
       employeeTypes: LEAVE_POLICY_EMPLOYEE_TYPES,
       status: "Active",
-      leaveTypes: leaveTypesBody,
+      leaveTypes: leaveTypes.map((lt) => ({ leaveTypeId: lt.id, category: "Standard", days: 12, carryForward: false, included: true })),
     };
   }
 
@@ -5825,14 +5828,18 @@
      policy default create korar ekta option diba, 12 din kore ekektay")
      — bundles this company's real Annual/Casual/Sick leave types (the
      exact 3 "Create the default 3" on Leave Types makes, matched by
-     their literal name) into one policy, 12 days each, `"Standard"`
-     category across the board — confirmed with the user rather than
-     assumed. Unlike Leave Types/Department/Designation's bulk mode,
-     there's nothing to loop here: a policy is one POST bundling every
-     included leave type, so this is a single fixed shape to load into
-     the same single-item form, not a multi-item run list. Only shown
-     when all 3 real leave types actually exist — confirmed with the
-     user to hide rather than partially build with whichever exist. */
+     their literal name) into one policy, 12 days each — confirmed with
+     the user rather than assumed. Unlike Leave Types/Department/
+     Designation's bulk mode, there's nothing to loop here: a policy is
+     one POST bundling every included leave type, so this is a single
+     fixed shape to load into the same single-item form, not a
+     multi-item run list. Only shown when all 3 real leave types
+     actually exist — confirmed with the user to hide rather than
+     partially build with whichever exist. Shares the exact same
+     full-list-of-every-real-leave-type shape as the normal generator
+     above (below, 2026-09-12) — it just starts with only Annual/Casual/
+     Sick checked and everything else this company has unchecked, rather
+     than building a separate, shorter list. */
   const LEAVE_POLICY_DEFAULT_NAMES = ["Annual Leave", "Casual Leave", "Sick Leave"];
 
   function leavePolicyDefaultAvailable(leaveTypes) {
@@ -5840,18 +5847,13 @@
   }
 
   function generateDefaultLeavePolicyFields(leaveTypes) {
-    const leaveTypesBody = LEAVE_POLICY_DEFAULT_NAMES.map((name) => {
-      const lt = leaveTypes.find((x) => x.name === name);
-      return { leaveTypeId: lt.id, category: "Standard", days: 12, carryForward: false };
+    const fields = generateLeavePolicyFields(leaveTypes);
+    fields.name = "Default Leave Policy";
+    fields.leaveTypes.forEach((entry) => {
+      const lt = leaveTypes.find((x) => x.id === entry.leaveTypeId);
+      entry.included = LEAVE_POLICY_DEFAULT_NAMES.includes(lt.name);
     });
-    return {
-      name: "Default Leave Policy",
-      description: LEAVE_POLICY_DESCRIPTION,
-      departmentIds: [],
-      employeeTypes: LEAVE_POLICY_EMPLOYEE_TYPES,
-      status: "Active",
-      leaveTypes: leaveTypesBody,
-    };
+    return fields;
   }
 
   function leavePolicyTemplate() {
@@ -5880,33 +5882,41 @@
     if (!leavePolicy.fields) leavePolicy.fields = generateLeavePolicyFields(leavePolicy.leaveTypes);
     const f = leavePolicy.fields;
     const rows = f.leaveTypes
-      .map((lt) => {
-        const src = leavePolicy.leaveTypes.find((x) => x.id === lt.leaveTypeId);
-        return `<span class="tally" style="margin-top:6px; margin-right:6px">${src ? src.name : lt.leaveTypeId} <strong>${lt.category} · ${lt.days}d</strong></span>`;
+      .map((entry, i) => {
+        const src = leavePolicy.leaveTypes.find((x) => x.id === entry.leaveTypeId);
+        return `
+          <label class="lp-leave-row">
+            <input type="checkbox" data-idx="${i}" ${entry.included ? "checked" : ""} />
+            <span class="lp-leave-name">${src ? src.name : entry.leaveTypeId}</span>
+            <span class="lp-leave-days">
+              <input type="number" min="0" data-idx="${i}" value="${entry.days}" />
+              <span class="lp-leave-days-label">days</span>
+            </span>
+          </label>
+        `;
       })
       .join("");
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the muggle-friendly magic scroll's own policy-composition rule, drawing on this company's real leave types. Regenerate re-rolls which leave types are included and their category/days; name and status can still be edited by hand before saving.</p>
+        <p class="section-note">Every leave type this company actually has, pulled live. Check off which ones this policy should include — all start checked — and set how many days each gets; name and status can still be edited by hand before saving.</p>
         ${leavePolicyDefaultAvailable(leavePolicy.leaveTypes) ? `<button type="button" class="bulk-shortcut-btn" id="lpDefaultBtn">Create the default policy (Annual/Casual/Sick @ 12 days each) →</button>` : ""}
         <div class="field-row">
           <div class="field"><label for="lpName">Name</label><input type="text" id="lpName" value="${f.name}" /></div>
           <div class="field">
             <label>Status</label>
-            <div class="seg" id="lpStatusSeg" role="group" aria-label="Status">
+            <div class="seg seg-fill" id="lpStatusSeg" role="group" aria-label="Status">
               <button type="button" data-val="Active" aria-pressed="${f.status === "Active"}">Active</button>
               <button type="button" data-val="Inactive" aria-pressed="${f.status === "Inactive"}">Inactive</button>
             </div>
           </div>
         </div>
         <div style="margin-top:14px">
-          <label style="font-size:12.5px; font-weight:600; color:var(--text); display:block; margin-bottom:8px;">Included Leave Types (${f.leaveTypes.length} of ${leavePolicy.leaveTypes.length})</label>
-          <div style="display:flex; flex-wrap:wrap;">${rows}</div>
+          <label style="font-size:12.5px; font-weight:600; color:var(--text); display:block; margin-bottom:8px;">Leave Types</label>
+          <div class="lp-leave-list">${rows}</div>
         </div>
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
-          <button type="button" class="tiny-btn" id="lpRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="lpSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
         <span class="error-text" id="lpError">${leavePolicy.error}</span>
@@ -5917,7 +5927,13 @@
   }
 
   function readLeavePolicyForm() {
-    return { ...leavePolicy.fields, name: $("#lpName").value };
+    return {
+      ...leavePolicy.fields,
+      name: $("#lpName").value,
+      leaveTypes: leavePolicy.fields.leaveTypes
+        .filter((entry) => entry.included)
+        .map((entry) => ({ leaveTypeId: entry.leaveTypeId, category: entry.category, days: entry.days, carryForward: entry.carryForward })),
+    };
   }
 
   async function saveLeavePolicy(fields) {
@@ -5958,21 +5974,34 @@
     }
     if (!leavePolicy.leaveTypes || leavePolicy.leaveTypes.length === 0) return; // .dep-shortcut is wired centrally
 
+    /* Snapshotted before the Status toggle re-renders the whole tab body
+       — same class of bug as Attendance Policy/Custom Fields/Required
+       Documents/Leave Types: without this, a hand-typed Name is
+       silently lost on the next click. The per-row checkbox/day inputs
+       below don't need this themselves — their own listeners already
+       write straight into leavePolicy.fields on every change, so by the
+       time Status is clicked they're already current. */
+    const snapshotName = () => { leavePolicy.fields.name = $("#lpName").value; };
+
     $all("#lpStatusSeg button").forEach((btn) =>
       btn.addEventListener("click", () => {
+        snapshotName();
         leavePolicy.fields.status = btn.dataset.val;
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       })
     );
 
-    $("#lpRegenerateBtn").addEventListener("click", () => {
-      leavePolicy.fields = generateLeavePolicyFields(leavePolicy.leaveTypes);
-      leavePolicy.error = "";
-      leavePolicy.ok = "";
-      $("#setupBody").innerHTML = setupGroupPageTemplate();
-      wireSetupGroupPage();
-    });
+    $all(".lp-leave-row input[type=checkbox]").forEach((cb) =>
+      cb.addEventListener("change", (e) => {
+        leavePolicy.fields.leaveTypes[Number(e.target.dataset.idx)].included = e.target.checked;
+      })
+    );
+    $all(".lp-leave-row input[type=number]").forEach((inp) =>
+      inp.addEventListener("input", (e) => {
+        leavePolicy.fields.leaveTypes[Number(e.target.dataset.idx)].days = Number(e.target.value) || 0;
+      })
+    );
 
     const defaultBtn = $("#lpDefaultBtn");
     if (defaultBtn) {
@@ -5993,7 +6022,14 @@
       setBtnBusy(btn);
       try {
         await saveLeavePolicy(fields);
-        leavePolicy.fields = fields;
+        /* Only the name is copied back — leavePolicy.fields.leaveTypes
+           stays the full per-row list (every real leave type, its own
+           included/days state) so the checkboxes and inputs still show
+           correctly on the next render. `fields.leaveTypes` is the
+           already-filtered, already-stripped send body and would lose
+           every unchecked row and the `included` flag itself if it
+           replaced the cached fields wholesale. */
+        leavePolicy.fields.name = fields.name;
         leavePolicy.ok = "Saved.";
         leavePolicy.createdNames.push(fields.name);
         setup.doneModules.add("leave_policy");

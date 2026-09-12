@@ -475,6 +475,26 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
 .bulk-row:has(input:disabled) { cursor: default; opacity: 0.6; }
 .bulk-row-name { flex: 1; }
 
+/* Leave Policy's own checkable leave-type list (2026-09-12, redesigned
+   against a real admin-screen screenshot) — every real leave type this
+   company has, each individually checkable with its own Days input.
+   Same bordered-list shape as .bulk-list/.bulk-row above, under its own
+   names rather than reusing those directly: .bulk-row already has a
+   second, unrelated definition elsewhere in this file (Employee Add's
+   older bulk-shortcut strip), and a third meaning on the same class
+   would only make that existing collision worse. */
+.lp-leave-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.lp-leave-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; font-size: 13px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.lp-leave-row:last-child { border-bottom: none; }
+.lp-leave-name { flex: 1; }
+.lp-leave-days { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.lp-leave-days input[type="number"] { width: 56px; text-align: center; padding: 6px 4px; }
+.lp-leave-days-label { font-size: 12px; color: var(--text-faint); }
+
 .section {
   background: var(--surface);
   border: 1px solid var(--border);

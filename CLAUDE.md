@@ -1499,11 +1499,6 @@ came with a deliberate scoping decision, not an oversight:
   `dependencyNoticeHtml()`/cache-invalidate-on-save pattern, and
   `saveLeaveType()` nulls `leavePolicy.leaveTypes` on success exactly the
   way `saveDepartmentModule()` nulls `companyDesignation.departments`.
-  Every real leave type gets included in the generated policy body, each
-  assigned a `category`/`days` pair — a special-entitlement leave type
-  (`seMaxDaysPerInstance` set) is always forced into category `"Special"`
-  with that type's own fixed day count rather than a random pick, so the
-  policy can never contradict the leave type it's describing.
   `departmentIds` is sent empty (company-wide) — there's no per-
   department targeting UI here, matching the "headline fields only"
   scoping above.
@@ -1515,23 +1510,82 @@ came with a deliberate scoping decision, not an oversight:
   included leave type, so this isn't a multi-item run list, just a second
   fixed shape (`generateDefaultLeavePolicyFields()`) that a
   `.bulk-shortcut-btn` (`#lpDefaultBtn`) loads into the same single-item
-  form, the same way Regenerate loads a random one — Save afterward is
-  the same button, same call. Bundles this company's *real* Annual/
-  Casual/Sick leave types (`LEAVE_POLICY_DEFAULT_NAMES`, matched against
-  the real fetched list by their literal `name` — the exact 3 "Create the
-  default 3" on Leave Types always creates), each at a fixed `"Standard"`
-  category and `12` days, `carryForward: false` — all three confirmed
-  directly with the user rather than assumed. **Hidden entirely, not
-  shown-disabled, unless all 3 real names exist** (`leavePolicyDefault
-  Available()`) — confirmed with the user to hide rather than silently
-  build a 1- or 2-type policy from whichever subset exists, the same
-  "never silently incomplete" instinct Designation's bulk list already
-  holds itself to for a live dependency. Matching is by name, so it only
-  reliably finds leave types made by the "Create the default 3" button
-  itself — since the Kind dropdown was removed (above), a leave type
-  made through the single-item form can carry any typed name, and won't
-  match unless it happens to read "Annual Leave"/"Casual Leave"/"Sick
-  Leave" verbatim.
+  form — Save afterward is the same button, same call. Bundles this
+  company's *real* Annual/Casual/Sick leave types
+  (`LEAVE_POLICY_DEFAULT_NAMES`, matched against the real fetched list by
+  their literal `name` — the exact 3 "Create the default 3" on Leave
+  Types always creates), each at `12` days — confirmed directly with the
+  user rather than assumed. **Hidden entirely, not shown-disabled, unless
+  all 3 real names exist** (`leavePolicyDefaultAvailable()`) — confirmed
+  with the user to hide rather than silently build a 1- or 2-type policy
+  from whichever subset exists, the same "never silently incomplete"
+  instinct Designation's bulk list already holds itself to for a live
+  dependency. Matching is by name, so it only reliably finds leave types
+  made by the "Create the default 3" button itself — since the Kind
+  dropdown was removed (above), a leave type made through the
+  single-item form can carry any typed name, and won't match unless it
+  happens to read "Annual Leave"/"Casual Leave"/"Sick Leave" verbatim.
+
+  **The whole single-item form redesigned the same day, right after the
+  shortcut above shipped** — direct user instruction against a real
+  admin-screen screenshot ("Configure Leave Types"), plus a follow-up
+  screenshot flagging the Active/Inactive toggle specifically ("active
+  inactive shoman koro… UI valo lagtese na"). The old version picked a
+  *random subset* of this company's real leave types (minimum 3) with a
+  randomised `category`/`days` each, shown as small read-only `.tally`
+  chips — confirmed with the user this both looked bad and didn't match
+  how the real screen works. Now:
+  - **Every real leave type this company has is always listed** — not a
+    sample — each its own row (`.lp-leave-row`, a new bordered-list
+    component modelled directly on the reference screenshot; kept
+    separate from the existing `.bulk-list`/`.bulk-row` used for
+    Department/Designation/Leave Types' own bulk mode rather than reused,
+    since `.bulk-row` already carries an unrelated second meaning
+    elsewhere in `app.css` — a third meaning on the same class would only
+    make that existing collision worse).
+  - **Each row is individually checkable, default checked** — unchecking
+    one is what excludes it from the policy; confirmed directly ("checkbox
+    diba, oita default checked thakbe… uncheck korle policy te include
+    hobe na"). `included` is UI-only bookkeeping on `leavePolicy.fields
+    .leaveTypes[i]` and is never itself sent — `readLeavePolicyForm()`
+    filters out every unchecked entry and strips the flag back out when
+    building the real request body, the same "read what's actually on
+    screen at Save time" discipline every other module already follows
+    for its own hand-edited fields.
+  - **Each row also gets its own real Days input, defaulting to `12`, not
+    a random pick from a pool any more** — confirmed directly ("days er
+    alada ekta input box, default 12, user chaile change korbe").
+  - **Category is gone from the UI entirely** — confirmed directly
+    ("category dekhanor dorkar nai") — every included entry now sends a
+    flat `"Standard"`, dropping the old rule that forced a
+    special-entitlement leave type (`seMaxDaysPerInstance` set) into
+    `"Special"` with its own fixed day count. That old rule doesn't
+    silently linger anywhere: a special-entitlement leave type is now
+    just another row, unchecked or edited like any other, at the plain
+    12-day default unless the visitor changes it. `LEAVE_POLICY_CATEGORIES`/
+    `LEAVE_POLICY_STANDARD_DAYS` are deleted from `app-data.js` rather
+    than left unused, since nothing reads either any more.
+  - **Regenerate is gone** — confirmed directly ("na regenerate apatoto
+    lagbe na etay") — with every real leave type always listed and days
+    defaulting to a fixed 12 rather than a pool pick, there was nothing
+    left for it to re-roll. `generateDefaultLeavePolicyFields()` now
+    builds on the exact same full-list shape as the normal generator, just
+    starting with only Annual/Casual/Sick checked and every other real
+    leave type this company has unchecked, rather than building a
+    separate, shorter list — one shape, not two.
+  - **Active/Inactive got the same `.seg-fill` treatment** as Locations/
+    Custom Fields/Required Documents above, once flagged on a screenshot
+    as sitting lopsided in its box.
+  - **Found and fixed the same class of bug while rebuilding this exact
+    template**: the Status toggle re-renders the whole tab body, so its
+    handler now snapshots `#lpName`'s live value into `leavePolicy.fields
+    .name` first — same bug as Attendance Policy/Custom Fields/Required
+    Documents/Leave Types before it. The per-row checkbox/day inputs
+    don't need their own snapshot for this: their `change`/`input`
+    listeners already write straight into `leavePolicy.fields.leaveTypes`
+    on every edit, so by the time Status is clicked they're already
+    current — tested that unchecking a row, editing another row's days,
+    and hand-typing a new Name all survive a Status click intact.
 
 ### Holiday Calendar — Leave's third module (built 2026-09-12)
 
