@@ -1382,7 +1382,27 @@ came with a deliberate scoping decision, not an oversight:
   department targeting UI here, matching the "headline fields only"
   scoping above.
 
-### Attendance Policy (built 2026-09-10, real shape fixed 2026-09-10)
+### Holiday Calendar — Leave's third module (built 2026-09-12)
+
+Requested directly ("aro thakar kotha na, at least holiday calendar er
+ta") — the collection's "Sync Holiday's" request under Leave Settings
+had never gotten a module at all, missed the same way Attendance
+Settings was originally missed from the group list (2026-09-09).
+`GET /leave-management/holidays/public/sync` — genuinely unlike every
+other module in this app: a bare GET, no body, no query params, no
+pre-request script in the collection at all. There's nothing to
+generate or configure. Per the user directly, the whole module is "does
+this need syncing? yes → hit the API" — built as exactly that: one
+button (`holidayCalendarTemplate()`/`syncHolidays()`), no fields, no
+`createdNames` list (same reasoning as Company Profile/Tax/Attendance
+Policy — one company-wide thing to have done, not a list of named
+records). Same shape as Tax (a single real-write action button) except
+a `GET` checked for a plain `200`, not Tax's `PATCH`/`200` or every
+create module's `POST`/`201` — this endpoint doesn't create anything,
+so `201` would be the wrong signal to check for. No confirmed real
+admin-screen label exists for this screen (unlike Locations); "Holiday
+Calendar" is the user's own name for it, used as-is rather than
+guessed at further.
 
 Attendance group's only module. `POST /attendance/policy/create` — and
 the one place the collection's own static body tab is actively

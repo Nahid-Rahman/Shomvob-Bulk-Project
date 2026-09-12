@@ -1870,6 +1870,47 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- AU. Holiday Calendar — third Leave module, a bare GET trigger (2026-09-12) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Leave')");
+    await page.waitForTimeout(100);
+    check("AU is the third tab in the Leave group", (await page.locator(".settings-tabs .settings-tab").nth(2).textContent()).includes("Holiday Calendar"));
+
+    await page.click('.settings-tab[data-module="holiday_calendar"]');
+    await page.waitForTimeout(100);
+    check("AU nothing to configure — no field, no Regenerate", (await page.locator("#setupBody input, #setupBody select").count()) === 0);
+    check("AU it's the group's last module — no 'Go to next settings'", (await page.locator("#setupNextModuleBtn").count()) === 0);
+
+    let method = null;
+    let hitBody = "sent-something";
+    await page.route("**/api/v1/leave-management/holidays/public/sync", (route) => {
+      method = route.request().method();
+      hitBody = route.request().postData();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Holidays synced successfully" }) });
+    });
+    await page.click("#hcSyncBtn");
+    await page.waitForTimeout(150);
+    check("AU calls the real endpoint with GET, not POST", method === "GET", String(method));
+    check("AU a GET carries no body", hitBody === null || hitBody === undefined, String(hitBody));
+    check("AU shows the server's own success text", (await page.textContent("#setupBody")).includes("Synced."));
+    check("AU the tab picks up a done marker", (await page.locator('.settings-tab[data-module="holiday_calendar"] .op-dot').count()) === 1);
+
+    // a 401 gets the named session-expired message, same discipline as every other module
+    await page.unroute("**/api/v1/leave-management/holidays/public/sync");
+    await page.route("**/api/v1/leave-management/holidays/public/sync", (route) =>
+      route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ message: "Unauthorized access!" }) })
+    );
+    await page.click("#hcSyncBtn");
+    await page.waitForTimeout(150);
+    check("AU a 401 shows the named session-expired message, not the server's raw string",
+      (await page.textContent("#hcError")).includes("session with this company may have expired"));
+    check("AU no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   await browser.close();
   report("Company Setup", state, []);
 })();

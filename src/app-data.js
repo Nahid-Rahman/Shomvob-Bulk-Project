@@ -465,6 +465,7 @@ const SETTINGS_GROUPS = [
     modules: [
       { id: "leave_types", label: "Leave Types" },
       { id: "leave_policy", label: "Leave Policy" },
+      { id: "holiday_calendar", label: "Holiday Calendar" },
     ],
   },
   {

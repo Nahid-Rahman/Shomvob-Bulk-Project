@@ -2216,6 +2216,7 @@ const SETTINGS_GROUPS = [
     modules: [
       { id: "leave_types", label: "Leave Types" },
       { id: "leave_policy", label: "Leave Policy" },
+      { id: "holiday_calendar", label: "Holiday Calendar" },
     ],
   },
   {
@@ -3177,6 +3178,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     required_documents: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M9.5 13.5l2 2 4-4"/>',
     leave_types: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16"/><path d="M9 3v3M15 3v3"/><path d="M9 14l2 2 4-4"/>',
     leave_policy: '<path d="M12 3l7 3v6c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V6l7-3Z"/><path d="M9 12h6M9 15h4"/>',
+    holiday_calendar: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16"/><path d="M9 3v3M15 3v3"/><path d="M12.5 17a3.3 3.3 0 1 0-3-4.6"/><path d="M9 11.3l.5 1.5-1.5.3"/>',
     payroll_general: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',
     salary_components: '<ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/><path d="M5 12v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6"/>',
     configure_salary_components: '<circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/>',
@@ -6712,6 +6714,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     required_documents: { template: requiredDocumentTemplate, wire: wireRequiredDocumentEvents },
     leave_types: { template: leaveTypeTemplate, wire: wireLeaveTypeEvents },
     leave_policy: { template: leavePolicyTemplate, wire: wireLeavePolicyEvents },
+    holiday_calendar: { template: holidayCalendarTemplate, wire: wireHolidayCalendarEvents },
     payroll_general: { template: payrollGeneralTemplate, wire: wirePayrollGeneralEvents },
     salary_components: { template: salaryComponentTemplate, wire: wireSalaryComponentEvents },
     configure_salary_components: { template: salaryStructureTemplate, wire: wireSalaryStructureEvents },
@@ -8714,6 +8717,72 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     });
   }
 
+  /* ---------- Holiday Calendar — third Leave module (2026-09-12) ----------
+
+     GET /leave-management/holidays/public/sync. Genuinely unlike every
+     other module here: a bare GET with no body, no query params and no
+     pre-request script in the collection at all — there's nothing to
+     generate or configure, it's a single trigger that pulls this
+     company's public holiday calendar for real. Per the user directly:
+     the whole module is "does this need syncing? yes → hit the API." So
+     it's built the same shape as Tax (a single action button, no fields,
+     no createdNames list — there's one thing to have done, not a list of
+     named records), just a GET instead of a PATCH and a 200 success
+     instead of Tax's 200 too (this endpoint isn't a create, so 201 would
+     be wrong here). */
+  const holidaySync = { error: "", ok: "" };
+
+  function holidayCalendarTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Holiday Calendar</h2></div>`;
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Pulls this company's full public holiday calendar from the real Shomvob system. Nothing to configure — click to sync.</p>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="generate-btn" id="hcSyncBtn">Sync Holidays</button>
+        </div>
+        <span class="error-text" id="hcError">${holidaySync.error}</span>
+        ${holidaySync.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${holidaySync.ok}</div>` : ""}
+      </div>
+    `;
+  }
+
+  async function syncHolidays() {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/leave-management/holidays/public/sync`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${setup.companyToken}` },
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
+    if (res.status !== 200) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireHolidayCalendarEvents() {
+    const btn = $("#hcSyncBtn");
+    btn.addEventListener("click", async () => {
+      holidaySync.error = "";
+      holidaySync.ok = "";
+      setBtnBusy(btn);
+      try {
+        await syncHolidays();
+        holidaySync.ok = "Synced.";
+        setup.doneModules.add("holiday_calendar");
+      } catch (e) {
+        holidaySync.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
   /* ===================================================================
      Payroll — 11 modules ported from the Postman collection's own
      "Payroll Settings" folder. Three real dependencies live here:
@@ -10188,6 +10257,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     leavePolicy.error = "";
     leavePolicy.ok = "";
     leavePolicy.createdNames = [];
+    holidaySync.error = "";
+    holidaySync.ok = "";
     attendancePolicy.fields = null;
     attendancePolicy.error = "";
     attendancePolicy.ok = "";
