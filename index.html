@@ -7360,7 +7360,11 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      the run log, and a Stop button (checked between items, never
      mid-request) is the closest thing to a cancel this needs. */
   function isBulkRunActive() {
-    return !!(companyDepartment.bulk && companyDepartment.bulk.running) || !!(companyDesignation.bulk && companyDesignation.bulk.running);
+    return (
+      !!(companyDepartment.bulk && companyDepartment.bulk.running) ||
+      !!(companyDesignation.bulk && companyDesignation.bulk.running) ||
+      !!(leaveType.bulk && leaveType.bulk.running)
+    );
   }
 
   async function runBulkSequential(bulk, createFn, rerender) {
@@ -8122,7 +8126,58 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      exposed as editable fields for normal leave — everything else is
      still generated per the script's own conditional logic, just not
      surfaced as its own input row. See the note in app-data.js. */
-  const leaveType = { kindId: "annual", fields: null, error: "", ok: "", createdNames: [] };
+  const leaveType = { kindId: "annual", fields: null, error: "", ok: "", createdNames: [], bulk: null };
+
+  /* "Create the defaults" for Leave Types — Annual/Casual/Sick, the 3 a
+     company actually needs almost every time (2026-09-12, user request:
+     confirmed via a real payload that every one of this shape's other
+     fields sits at a fixed "off/default" value — not a per-kind random
+     roll like generateNormalLeaveTypeBody() below produces). Only `name`
+     varies; every other field is the exact value from that payload. */
+  function generateDefaultLeaveTypeBody(kind) {
+    return {
+      name: kind.name,
+      genderEligibility: kind.genderEligibility,
+      maritalStatusEligibility: kind.maritalStatusEligibility,
+      consecutiveLimit: false,
+      consecutiveDays: 5,
+      monthlyLimit: false,
+      monthlyLimitDays: 7,
+      prorataCalculation: true,
+      accrualStartType: "joining_date",
+      accrualStartMonths: 3,
+      allowBackdatedLeave: false,
+      backdatedLeaveDays: 30,
+      documentRequired: false,
+      documentThresholdDays: 2,
+      carryForwardEnabled: false,
+      maxCarryForwardDays: 10,
+      carryForwardIsExpiry: false,
+      carryForwardExpiryDays: 12,
+      sandwichRuleEnabled: false,
+      sandwichMode: "direct_cut",
+      sandwichIncludeWeekend: true,
+      sandwichIncludeHoliday: true,
+      sandwichIncludeCompanyEvent: false,
+      isBridge: false,
+      bridgeMode: "direct",
+      isLeaveReset: true,
+      leaveResetCycle: "calendar_year",
+      fiscalYearStartMonth: 4,
+      customResetMonth: null,
+      customResetDay: null,
+      specialEntitlementEnabled: false,
+      deductionPriority: [{ sourceKind: "requested" }],
+      isUnpaid: false,
+    };
+  }
+
+  function leaveTypeDefaultBulkItems() {
+    return ["annual", "casual", "sick"].map((kindId) => {
+      const kind = LEAVE_TYPE_KINDS.find((k) => k.id === kindId);
+      return { kindId, name: kind.name, selected: true, status: "pending", message: "" };
+    });
+  }
 
   function generateNormalLeaveTypeBody(kind) {
     const consecutiveLimit = Math.random() < 0.5;
@@ -8216,6 +8271,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function leaveTypeTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Leave Types</h2></div>`;
+    if (leaveType.bulk) return bulkListTemplate(head, leaveType.bulk, "ltBulk");
     if (!leaveType.fields) leaveType.fields = generateLeaveTypeBody(leaveType.kindId);
     const f = leaveType.fields;
     const kindOptions = LEAVE_TYPE_KINDS.map((k) => `<option value="${k.id}" ${k.id === leaveType.kindId ? "selected" : ""}>${k.name}</option>`).join("");
@@ -8279,10 +8336,11 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
     return `
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Leave Types</h2></div>
+        ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own leave-type rules. Pick a kind, then Regenerate re-rolls its details; name and the headline limits can still be edited by hand before saving.</p>
+        <button type="button" class="bulk-shortcut-btn" id="ltBulkEnterLink">Create the default 3 leave types (Annual, Casual, Sick) at once →</button>
         <div class="field-row">
-          <div class="field"><label for="ltKind">Kind</label><select id="ltKind">${kindOptions}</select></div>
+          <div class="field"><label for="ltKind">Or just this one — Kind</label><select id="ltKind">${kindOptions}</select></div>
           <div class="field"><label for="ltName">Name</label><input type="text" id="ltName" value="${f.name}" /></div>
         </div>
         ${detailsHtml}
@@ -8331,6 +8389,48 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
     };
+
+    if (leaveType.bulk) {
+      const bulk = leaveType.bulk;
+      $all(".bulk-list input[type=checkbox]").forEach((cb) =>
+        cb.addEventListener("change", (e) => {
+          bulk.items[Number(e.target.dataset.idx)].selected = e.target.checked;
+          rerender();
+        })
+      );
+      $("#ltBulkSelectAllBtn")?.addEventListener("click", () => {
+        const allSelected = bulk.items.every((it) => it.selected);
+        bulk.items.forEach((it) => (it.selected = !allSelected));
+        rerender();
+      });
+      $("#ltBulkCancelBtn")?.addEventListener("click", () => {
+        leaveType.bulk = null;
+        rerender();
+      });
+      $("#ltBulkStopBtn")?.addEventListener("click", () => {
+        bulk.stopRequested = true;
+      });
+      $("#ltBulkCreateBtn")?.addEventListener("click", async () => {
+        await runBulkSequential(
+          bulk,
+          async (item) => {
+            const kind = LEAVE_TYPE_KINDS.find((k) => k.id === item.kindId);
+            await saveLeaveType(generateDefaultLeaveTypeBody(kind));
+            leaveType.createdNames.push(item.name);
+          },
+          rerender
+        );
+        leavePolicy.leaveTypes = null; // a leave type may now exist for real — invalidate Leave Policy's stale dependency cache
+        if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("leave_types");
+        rerender(); // the done dot itself needs one more render — same reason as Department's bulk create
+      });
+      return;
+    }
+    $("#ltBulkEnterLink")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      leaveType.bulk = { items: leaveTypeDefaultBulkItems(), running: false, stopRequested: false };
+      rerender();
+    });
 
     $("#ltKind").addEventListener("change", (e) => {
       leaveType.kindId = e.target.value;
@@ -10046,6 +10146,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     leaveType.error = "";
     leaveType.ok = "";
     leaveType.createdNames = [];
+    leaveType.bulk = null;
     leavePolicy.leaveTypes = null;
     leavePolicy.loadError = "";
     leavePolicy.fields = null;

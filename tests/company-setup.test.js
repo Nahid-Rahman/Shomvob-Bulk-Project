@@ -1756,6 +1756,57 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- AS. Leave Types — "create the default 3" (Annual/Casual/Sick), a fixed shape, not a random roll (2026-09-12) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+    await page.click(".settings-card:has-text('Leave')");
+    await page.waitForTimeout(100);
+
+    check("AS the shortcut button is offered above the single-item form", (await page.locator("#ltBulkEnterLink").count()) === 1);
+    await page.click("#ltBulkEnterLink");
+    await page.waitForTimeout(80);
+    check("AS exactly 3 rows: Annual, Casual, Sick", (await page.locator(".bulk-row").count()) === 3);
+    check("AS Annual Leave is listed", (await page.locator(".bulk-row:has-text('Annual Leave')").count()) === 1);
+    check("AS Casual Leave is listed", (await page.locator(".bulk-row:has-text('Casual Leave')").count()) === 1);
+    check("AS Sick Leave is listed", (await page.locator(".bulk-row:has-text('Sick Leave')").count()) === 1);
+    check("AS all 3 start selected", await page.locator(".bulk-row input").evaluateAll((els) => els.every((el) => el.checked)));
+
+    let sent = [];
+    await page.route("**/api/v1/leave-types", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      sent.push(route.request().postDataJSON());
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave type created successfully" }) });
+    });
+    await page.click("#ltBulkCreateBtn");
+    await page.waitForFunction(() => !document.querySelector("#ltBulkStopBtn"), { timeout: 10000 });
+    check("AS all 3 were sent", sent.length === 3, String(sent.length));
+    check("AS names are exactly Annual/Casual/Sick Leave, in order", JSON.stringify(sent.map((s) => s.name)) === JSON.stringify(["Annual Leave", "Casual Leave", "Sick Leave"]));
+    check("AS every other field is identical across all 3 — a fixed shape, not a per-item random roll",
+      JSON.stringify({ ...sent[0], name: "X" }) === JSON.stringify({ ...sent[1], name: "X" }) && JSON.stringify({ ...sent[1], name: "X" }) === JSON.stringify({ ...sent[2], name: "X" }));
+    check("AS the fixed shape matches the real payload confirmed by the user — every optional thing off/default",
+      sent[0] &&
+        sent[0].consecutiveLimit === false &&
+        sent[0].monthlyLimit === false &&
+        sent[0].allowBackdatedLeave === false &&
+        sent[0].documentRequired === false &&
+        sent[0].carryForwardEnabled === false &&
+        sent[0].sandwichRuleEnabled === false &&
+        sent[0].isBridge === false &&
+        sent[0].isLeaveReset === true &&
+        sent[0].leaveResetCycle === "calendar_year" &&
+        sent[0].prorataCalculation === true,
+      JSON.stringify(sent[0]));
+    check("AS the tab picks up a done marker", (await page.locator('.settings-tab[data-module="leave_types"] .op-dot').count()) === 1);
+    // the run finished but stays on the bulk list (showing "done" statuses) until Back is clicked
+    await page.click("#ltBulkCancelBtn");
+    await page.waitForTimeout(60);
+    check("AS Back returns to the single-item form", (await page.locator("#ltSaveBtn").count()) === 1);
+    check("AS no page errors through the whole bulk flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   await browser.close();
   report("Company Setup", state, []);
 })();

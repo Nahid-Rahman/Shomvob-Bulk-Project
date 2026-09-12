@@ -1320,6 +1320,22 @@ came with a deliberate scoping decision, not an oversight:
   large the real body is, not a corner cut by accident — flagged to the
   user as one of the areas most likely to need a rework pass once tested
   against a real environment.
+  **"Create the default 3" (2026-09-12):** most companies only ever need
+  Annual/Casual/Sick to start, and don't need the other kinds' random
+  combinations at all — confirmed via a real payload the user supplied
+  showing every optional field at a fixed off/default value (`prorata
+  Calculation: true`, everything else `false`/its own default, `isLeave
+  Reset: true` with `leaveResetCycle: "calendar_year"`), not a per-kind
+  random roll. `generateDefaultLeaveTypeBody(kind)` returns exactly that
+  shape with only `name` varying; `leaveTypeDefaultBulkItems()` walks
+  `["annual", "casual", "sick"]` against `LEAVE_TYPE_KINDS`. Same bulk UI
+  shape as Department/Designation — `.bulk-shortcut-btn` above the
+  single-item form, `bulkListTemplate()`/`runBulkSequential()` reused as-
+  is, `isBulkRunActive()` and `resetModuleState()` both extended to know
+  about `leaveType.bulk`. Deliberately **not** matched against real,
+  already-existing leave types the way Designation's bulk list matches
+  real departments — these 3 are a fixed, known-good shape to *create*,
+  not something to reconcile against what a company already has.
 - **Leave Policy** — `POST /leave-policies`, the second real dependency
   (after Designation→Department): needs at least one Leave Type to exist
   (`fetchCompanyResource("/leave-types")`), same
