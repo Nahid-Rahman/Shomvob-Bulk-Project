@@ -318,10 +318,10 @@ Three things it is easy to break:
   accessibility setting nobody here was deliberately testing for." Fixed
   by deleting that whole block from `paintOperation()` — these five
   clips are now always `loop muted playsinline autoplay`, unconditionally,
-  same as before the setting was ever handled. **The login gate's own
-  cat video is untouched** — its separate reduced-motion handling
-  (`wireLogin()`, `#gateVideo`) still holds; only the operation-rail
-  videos changed, since that's what was actually asked about.
+  same as before the setting was ever handled. **The login gate's own cat
+  video got the identical fix the same day, once flagged as missed** ("login
+  page miss korse") — its matching block in `wireLogin()` (`#gateVideo`)
+  is gone too; see the login gate section below.
 
 ## The login gate is a joke, not a control
 
@@ -338,9 +338,15 @@ in its own footnote — keep that line.
 
 The card sits on the left with the user's own cat video
 (`assets/lazy_cat.mp4`) on the right; they stack under 860px. The video is
-muted, looping and autoplaying, except under
-`prefers-reduced-motion: reduce`, where it holds the first frame and gains
-controls so playing it stays the visitor's choice.
+always muted, looping and autoplaying. **It used to hold the first frame
+and gain controls under `prefers-reduced-motion: reduce`** — removed
+2026-09-12, the same day and the same fix as the operation media rail's
+five clips above, once the user pointed out this one had been missed
+("login page miss korse"). Same reasoning both times: the user's own
+reduced-motion setting was on, so the clip sat paused with a control bar
+rather than looping, and per direct instruction it should just keep
+playing. The `wireLogin()` block that swapped in `controls`/paused it is
+deleted outright, matching `paintOperation()`'s fix exactly.
 
 Nothing is persisted, so a reload asks again; one click clears it. (The
 appearance choice is the sole exception, and it is not behind the gate.)

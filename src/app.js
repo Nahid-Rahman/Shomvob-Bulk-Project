@@ -7631,16 +7631,6 @@
       });
     });
 
-    /* A looping video is motion nobody asked for. If the visitor has said
-       they don't want it, hold the first frame and give them controls so
-       playing it stays their choice. */
-    const video = $("#gateVideo");
-    if (video && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      video.autoplay = false;
-      video.loop = false;
-      video.controls = true;
-      video.pause();
-    }
   }
 
   /* ---------- guarding work in progress ----------
