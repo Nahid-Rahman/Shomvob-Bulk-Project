@@ -5526,53 +5526,6 @@
     });
   }
 
-  function generateNormalLeaveTypeBody(kind) {
-    const consecutiveLimit = Math.random() < 0.5;
-    const monthlyLimit = Math.random() < 0.5;
-    const allowBackdatedLeave = Math.random() < 0.5;
-    const documentRequired = Math.random() < 0.5;
-    const carryForwardEnabled = Math.random() < 0.5;
-    const carryForwardIsExpiry = carryForwardEnabled ? Math.random() < 0.5 : false;
-    const sandwichRuleEnabled = false;
-    const isBridge = false;
-    const leaveResetCycle = choice(["calendar_year", "employee_anniversary", "custom_date"]);
-    return {
-      name: kind.name,
-      genderEligibility: kind.genderEligibility,
-      maritalStatusEligibility: kind.maritalStatusEligibility,
-      consecutiveLimit,
-      consecutiveDays: consecutiveLimit ? randInt(5, 10) : 5,
-      monthlyLimit,
-      monthlyLimitDays: monthlyLimit ? randInt(7, 12) : 7,
-      prorataCalculation: true,
-      accrualStartType: choice(["joining_date", "confirmation_date", "custom"]),
-      accrualStartMonths: randInt(3, 5),
-      allowBackdatedLeave,
-      backdatedLeaveDays: allowBackdatedLeave ? choice([30, 60, 90]) : 30,
-      documentRequired,
-      documentThresholdDays: documentRequired ? randInt(3, 6) : 2,
-      carryForwardEnabled,
-      maxCarryForwardDays: carryForwardEnabled ? randInt(5, 15) : 10,
-      carryForwardIsExpiry,
-      carryForwardExpiryDays: carryForwardIsExpiry ? randInt(90, 120) : 12,
-      sandwichRuleEnabled,
-      sandwichMode: sandwichRuleEnabled ? choice(["optional", "direct_cut"]) : "direct_cut",
-      sandwichIncludeWeekend: sandwichRuleEnabled ? Math.random() < 0.5 : true,
-      sandwichIncludeHoliday: sandwichRuleEnabled ? Math.random() < 0.5 : true,
-      sandwichIncludeCompanyEvent: false,
-      isBridge,
-      bridgeMode: isBridge ? choice(["direct", "optional"]) : "direct",
-      isLeaveReset: true,
-      leaveResetCycle,
-      fiscalYearStartMonth: leaveResetCycle === "calendar_year" ? 4 : null,
-      customResetMonth: leaveResetCycle === "custom_date" ? randInt(1, 12) : null,
-      customResetDay: leaveResetCycle === "custom_date" ? 1 : null,
-      specialEntitlementEnabled: false,
-      deductionPriority: [{ sourceKind: "requested" }],
-      isUnpaid: false,
-    };
-  }
-
   /* Maternity/Paternity (special-entitlement) dropped from this form
      entirely, 2026-09-12, per direct user instruction ("Kind dropdown
      baad dao... oigula rare case, lagle nijera banay nibe") — this form
@@ -5583,10 +5536,21 @@
      visitor can type over." `generateSpecialLeaveTypeBody()` (the only
      caller this replaced) is gone rather than left dead — "Create the
      default 3" (Annual/Casual/Sick) still reads `LEAVE_TYPE_KINDS`
-     directly by id, unaffected by any of this. */
+     directly by id, unaffected by any of this.
+
+     Reuses `generateDefaultLeaveTypeBody()` outright rather than its own
+     generator, 2026-09-12 (direct user instruction: "Default 3 ta leave
+     e jemne payload disilam exact oitai hobe, just sandwich ar bridge
+     manipulate korte parbe") — every field (accrual start, leave reset
+     cycle, consecutive/monthly/backdated/document/carry-forward) is the
+     exact fixed shape "Create the default 3" already uses, not a random
+     roll; only Name (typed) and Sandwich/Bridge (the two toggles) are
+     ever user-controlled. The old `generateNormalLeaveTypeBody()`, which
+     randomised all of those, is deleted rather than left as a second,
+     now-unreachable way to build the same shape. */
   function generateLeaveTypeBody() {
     const startingKind = choice(LEAVE_TYPE_KINDS.filter((k) => !k.special));
-    return generateNormalLeaveTypeBody({ name: startingKind.name, genderEligibility: "all", maritalStatusEligibility: "all" });
+    return generateDefaultLeaveTypeBody({ name: startingKind.name, genderEligibility: "all", maritalStatusEligibility: "all" });
   }
 
   function leaveTypeTemplate() {
@@ -5661,7 +5625,7 @@
               : ""
           }
         </div>
-        <p class="section-note" style="margin-top:10px">Consecutive/monthly day limits, prorata, accrual, backdating, document requirement and the reset cycle are generated the same way the muggle-friendly magic scroll does it — Regenerate re-rolls them, they're just not each their own field here.</p>
+        <p class="section-note" style="margin-top:10px">Consecutive/monthly day limits, prorata, accrual, backdating, document requirement and the reset cycle all use the same fixed shape "Create the default 3" does — accrual from Joining Date, reset on the Calendar Year — they're just not each their own field here.</p>
       `;
     }
 

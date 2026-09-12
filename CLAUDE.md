@@ -1435,6 +1435,26 @@ came with a deliberate scoping decision, not an oversight:
   change handler, the dead `#ltInstancesSeg`/`#ltDocSeg` wiring, and
   `kindId` on both the module's state object and `resetModuleState()`
   are all gone along with it.
+  **Locked to the exact "Create the default 3" payload, same day, right
+  after the Kind dropdown was removed** — direct user instruction:
+  "Accrual Start... default From Joining date hobe. ar leave reset o
+  calender year. basically Default 3 ta leave e jemne payload disilam
+  exact oitai hobe. just user sandwich ar bridge ta manipulate korte
+  parbe." `accrualStartType`/`accrualStartMonths` and `leaveResetCycle`
+  were never their own fields — generated internally by the old
+  `generateNormalLeaveTypeBody()`, randomised between `joining_date`/
+  `confirmation_date`/`custom` and `calendar_year`/`employee_anniversary`/
+  `custom_date` respectively (along with consecutive/monthly/backdated/
+  document/carry-forward, also random 50/50 rolls each). All of that is
+  gone: `generateLeaveTypeBody()` now calls `generateDefaultLeaveTypeBody()`
+  directly (same fixed shape "Create the default 3" already used —
+  accrual from Joining Date, reset on the Calendar Year, every other
+  optional field off/default) rather than maintaining a second generator
+  that drifted from it. `generateNormalLeaveTypeBody()` is deleted, not
+  left dead, since this was its only caller. Sandwich/Bridge remain the
+  only two fields a user actually manipulates, exactly as asked — Name is
+  typed, everything else is now identical every time Regenerate is
+  clicked.
 - **Leave Policy** — `POST /leave-policies`, the second real dependency
   (after Designation→Department): needs at least one Leave Type to exist
   (`fetchCompanyResource("/leave-types")`), same
