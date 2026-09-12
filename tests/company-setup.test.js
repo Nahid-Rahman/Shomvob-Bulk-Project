@@ -811,13 +811,13 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click(".settings-card:has-text('Leave')");
     await page.waitForTimeout(100);
 
-    check("V opens on Annual Leave with the normal-leave toggles", (await page.locator("#ltSandwichSeg").count()) === 1 && (await page.locator("#ltBridgeSeg").count()) === 1);
+    check("V opens on Annual Leave with the normal-leave toggles", (await page.locator("#ltSandwichToggle").count()) === 1 && (await page.locator("#ltBridgeToggle").count()) === 1);
     check("V special-entitlement fields are absent for a normal kind", (await page.locator("#ltInstancesSeg").count()) === 0);
 
     await page.selectOption("#ltKind", "paternity");
     await page.waitForTimeout(60);
     check("V switching to a special-entitlement kind swaps the fields", (await page.locator("#ltInstancesSeg").count()) === 1);
-    check("V and the normal-leave toggles are gone", (await page.locator("#ltSandwichSeg").count()) === 0);
+    check("V and the normal-leave toggles are gone", (await page.locator("#ltSandwichToggle").count()) === 0);
 
     let sent = null;
     await page.route("**/api/v1/leave-types", (route) => {
@@ -1921,31 +1921,35 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     check("AV Consecutive/Monthly/Carry-Forward are no longer exposed as their own fields",
       (await page.locator("#ltConsecutiveSeg, #ltMonthlySeg, #ltCarrySeg").count()) === 0);
-    check("AV Sandwich and Bridge are exposed as real toggles instead", (await page.locator("#ltSandwichSeg").count()) === 1 && (await page.locator("#ltBridgeSeg").count()) === 1);
+    check("AV Sandwich and Bridge are real toggle switches, modeled on the real product's own screens",
+      (await page.locator("#ltSandwichToggle").count()) === 1 && (await page.locator("#ltBridgeToggle").count()) === 1);
 
     // force Sandwich/Bridge off first, regardless of what generated, then flip both on
-    await page.click('#ltSandwichSeg button[data-val="no"]');
-    await page.click('#ltBridgeSeg button[data-val="no"]');
+    if (await page.isChecked("#ltSandwichToggle")) await page.uncheck("#ltSandwichToggle");
+    if (await page.isChecked("#ltBridgeToggle")) await page.uncheck("#ltBridgeToggle");
     await page.waitForTimeout(60);
-    check("AV Sandwich sub-fields are hidden when off", (await page.locator("#ltSandwichMode, #ltSandwichWeekendSeg, #ltSandwichHolidaySeg").count()) === 0);
-    check("AV Bridge sub-field is hidden when off", (await page.locator("#ltBridgeMode").count()) === 0);
+    check("AV Sandwich sub-sections are hidden when off",
+      (await page.locator('input[name="ltSandwichMode"], #ltSandwichWeekendCb, #ltSandwichHolidayCb').count()) === 0);
+    check("AV Bridge sub-section is hidden when off", (await page.locator('input[name="ltBridgeMode"]').count()) === 0);
 
     await page.fill("#ltName", "Hand-Edited Leave Name");
-    await page.click('#ltSandwichSeg button[data-val="yes"]');
+    await page.check("#ltSandwichToggle");
     await page.waitForTimeout(60);
-    check("AV Sandwich sub-fields appear once turned on", (await page.locator("#ltSandwichMode").count()) === 1 && (await page.locator("#ltSandwichWeekendSeg").count()) === 1 && (await page.locator("#ltSandwichHolidaySeg").count()) === 1);
+    check("AV Sandwich sub-sections appear once turned on",
+      (await page.locator('input[name="ltSandwichMode"]').count()) === 2 && (await page.locator("#ltSandwichWeekendCb").count()) === 1 && (await page.locator("#ltSandwichHolidayCb").count()) === 1);
     check("AV hand-edited name survived the Sandwich toggle's re-render", (await page.inputValue("#ltName")) === "Hand-Edited Leave Name");
 
-    await page.click('#ltBridgeSeg button[data-val="yes"]');
+    await page.check("#ltBridgeToggle");
     await page.waitForTimeout(60);
-    check("AV Bridge Mode appears once turned on", (await page.locator("#ltBridgeMode").count()) === 1);
+    check("AV Bridge's policy cards appear once turned on", (await page.locator('input[name="ltBridgeMode"]').count()) === 2);
     check("AV hand-edited name still intact after the Bridge toggle too", (await page.inputValue("#ltName")) === "Hand-Edited Leave Name");
 
-    await page.selectOption("#ltSandwichMode", "optional");
-    await page.click('#ltSandwichWeekendSeg button[data-val="no"]');
-    await page.click('#ltSandwichHolidaySeg button[data-val="no"]');
-    await page.selectOption("#ltBridgeMode", "direct");
+    await page.click('input[name="ltSandwichMode"][value="optional"]');
+    await page.uncheck("#ltSandwichWeekendCb");
+    await page.uncheck("#ltSandwichHolidayCb");
+    await page.click('input[name="ltBridgeMode"][value="direct"]');
     await page.waitForTimeout(60);
+    check("AV the selected policy card picks up the 'on' highlight", (await page.getAttribute('label:has(input[name="ltSandwichMode"][value="optional"])', "class") || "").includes("on"));
     check("AV hand-edited name survived every sub-field change too", (await page.inputValue("#ltName")) === "Hand-Edited Leave Name");
 
     let sent = null;

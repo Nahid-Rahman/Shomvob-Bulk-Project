@@ -1119,6 +1119,51 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .choice.on .choice-text strong { color: var(--accent-strong); }
 .choice-text span { font-size: 11.5px; color: var(--text-faint); }
 
+/* Sandwich/Bridge Leave sub-cards (2026-09-12) — modeled directly on a
+   screenshot of the real product's own two settings screens, given by
+   the user specifically because the first pass ("plain Yes/No + a
+   select") didn't read well. Reuses .choice for the two policy cards
+   (same radio-card component Attendance Add's holiday-source picker
+   already uses, just laid out side by side here via .rule-choice-row
+   instead of .choice-list's stacked default) rather than inventing a
+   second card component; the toggle switch and scope box are new,
+   since nothing in this app needed either shape before. */
+.rule-card { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; background: var(--surface); }
+.rule-card + .rule-card { margin-top: 14px; }
+.rule-card-head { display: flex; align-items: flex-start; gap: 12px; }
+.rule-card-icon {
+  width: 34px; height: 34px; border-radius: var(--radius-sm); flex-shrink: 0;
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.rule-card-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.rule-card-desc { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+.rule-card-spacer { flex: 1; }
+.rule-section-label {
+  display: flex; align-items: center; gap: 6px; margin: 16px 0 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-faint);
+}
+.rule-choice-row { display: flex; gap: 10px; }
+.rule-choice-row .choice { flex: 1; }
+.rule-scope-box { background: var(--surface-2); border-radius: var(--radius-sm); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.rule-scope-box label { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--text); cursor: pointer; }
+.rule-scope-box input { accent-color: var(--accent); width: 16px; height: 16px; flex-shrink: 0; }
+
+/* A real sliding toggle switch — the one thing this app didn't have any
+   version of yet. Scoped to rule cards for now, not a wholesale swap
+   for .seg (which reads fine as-is everywhere it's already used). */
+.switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.switch-track { position: absolute; inset: 0; background: var(--border-strong); border-radius: 99px; transition: background 0.15s ease; }
+.switch-track::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+  background: #fff; border-radius: 50%; transition: transform 0.15s ease; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.switch input:checked + .switch-track { background: var(--accent); }
+.switch input:checked + .switch-track::after { transform: translateX(18px); }
+.switch input:focus-visible + .switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .field-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
 .field-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 14px; }
 
@@ -8337,63 +8382,70 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note" style="margin-top:10px">${f.seMaxDaysPerInstance} days per instance, ${f.seMaxTotalDays} total across ${f.seMaxInstances} instances a year — fixed for this leave type.</p>
       `;
     } else {
+      const sandwichIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16"/><path d="M9 3v3M15 3v3"/></svg>';
+      const bridgeIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5a3 3 0 0 1 0-4.2l2-2a3 3 0 0 1 4.2 4.2l-1 1"/><path d="M16 11.5a3 3 0 0 1 0 4.2l-2 2a3 3 0 0 1-4.2-4.2l1-1"/></svg>';
+      const clipboardIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V4"/><path d="M8.5 11h7M8.5 15h7"/></svg>';
+      const filterIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16l-6 7v6l-4 2v-8z"/></svg>';
       detailsHtml = `
-        <div class="field-row" style="margin-top:14px">
-          <div class="field">
-            <label>Sandwich Rule</label>
-            <div class="seg seg-fill" id="ltSandwichSeg" role="group" aria-label="Sandwich rule">
-              <button type="button" data-val="yes" aria-pressed="${f.sandwichRuleEnabled}">Yes</button>
-              <button type="button" data-val="no" aria-pressed="${!f.sandwichRuleEnabled}">No</button>
+        <div class="rule-card" style="margin-top:14px">
+          <div class="rule-card-head">
+            <div class="rule-card-icon">${sandwichIcon}</div>
+            <div>
+              <div class="rule-card-title">Sandwich Leave</div>
+              <div class="rule-card-desc">Configure how the system handles leaves taken before and after holidays and weekends.</div>
             </div>
+            <div class="rule-card-spacer"></div>
+            <label class="switch"><input type="checkbox" id="ltSandwichToggle" ${f.sandwichRuleEnabled ? "checked" : ""} /><span class="switch-track"></span></label>
           </div>
-          <div class="field">
-            <label>Bridge</label>
-            <div class="seg seg-fill" id="ltBridgeSeg" role="group" aria-label="Bridge">
-              <button type="button" data-val="yes" aria-pressed="${f.isBridge}">Yes</button>
-              <button type="button" data-val="no" aria-pressed="${!f.isBridge}">No</button>
-            </div>
+          ${
+            f.sandwichRuleEnabled
+              ? `
+          <div class="rule-section-label">${clipboardIcon}Action Policy</div>
+          <div class="rule-choice-row">
+            <label class="choice ${f.sandwichMode === "optional" ? "on" : ""}">
+              <input type="radio" name="ltSandwichMode" value="optional" ${f.sandwichMode === "optional" ? "checked" : ""} />
+              <span class="choice-text"><strong>Permission Based</strong><span>System will notify the approver about the sandwich leave but will not auto-deduct holidays.</span></span>
+            </label>
+            <label class="choice ${f.sandwichMode === "direct_cut" ? "on" : ""}">
+              <input type="radio" name="ltSandwichMode" value="direct_cut" ${f.sandwichMode === "direct_cut" ? "checked" : ""} />
+              <span class="choice-text"><strong>Count Automatically</strong><span>Automatically count including holidays and weekends as leave days.</span></span>
+            </label>
           </div>
+          <div class="rule-section-label">${filterIcon}Applicability Scope</div>
+          <div class="rule-scope-box">
+            <label><input type="checkbox" id="ltSandwichWeekendCb" ${f.sandwichIncludeWeekend ? "checked" : ""} /> Apply to Weekends</label>
+            <label><input type="checkbox" id="ltSandwichHolidayCb" ${f.sandwichIncludeHoliday ? "checked" : ""} /> Apply to Public Holidays</label>
+          </div>`
+              : ""
+          }
         </div>
-        ${
-          f.sandwichRuleEnabled
-            ? `
-        <div class="field-row" style="margin-top:14px">
-          <div class="field">
-            <label for="ltSandwichMode">Sandwich Mode</label>
-            <select id="ltSandwichMode">
-              <option value="optional" ${f.sandwichMode === "optional" ? "selected" : ""}>Optional</option>
-              <option value="direct_cut" ${f.sandwichMode === "direct_cut" ? "selected" : ""}>Direct Cut</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Include Weekend</label>
-            <div class="seg seg-fill" id="ltSandwichWeekendSeg" role="group" aria-label="Include weekend">
-              <button type="button" data-val="yes" aria-pressed="${f.sandwichIncludeWeekend}">Yes</button>
-              <button type="button" data-val="no" aria-pressed="${!f.sandwichIncludeWeekend}">No</button>
+        <div class="rule-card" style="margin-top:14px">
+          <div class="rule-card-head">
+            <div class="rule-card-icon">${bridgeIcon}</div>
+            <div>
+              <div class="rule-card-title">Bridge Leave</div>
+              <div class="rule-card-desc">Define how leave days will be treated when taken immediately before or after a holiday.</div>
             </div>
+            <div class="rule-card-spacer"></div>
+            <label class="switch"><input type="checkbox" id="ltBridgeToggle" ${f.isBridge ? "checked" : ""} /><span class="switch-track"></span></label>
           </div>
+          ${
+            f.isBridge
+              ? `
+          <div class="rule-section-label">${clipboardIcon}Bridge Action Policy</div>
+          <div class="rule-choice-row">
+            <label class="choice ${f.bridgeMode === "optional" ? "on" : ""}">
+              <input type="radio" name="ltBridgeMode" value="optional" ${f.bridgeMode === "optional" ? "checked" : ""} />
+              <span class="choice-text"><strong>Permission Based</strong><span>System will notify the approver about bridge leave but will not auto-deduct.</span></span>
+            </label>
+            <label class="choice ${f.bridgeMode === "direct" ? "on" : ""}">
+              <input type="radio" name="ltBridgeMode" value="direct" ${f.bridgeMode === "direct" ? "checked" : ""} />
+              <span class="choice-text"><strong>Count Automatically</strong><span>Automatically count leave taken immediately before or after a holiday as bridge leave.</span></span>
+            </label>
+          </div>`
+              : ""
+          }
         </div>
-        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)">
-          <label>Include Holiday</label>
-          <div class="seg seg-fill" id="ltSandwichHolidaySeg" role="group" aria-label="Include holiday">
-            <button type="button" data-val="yes" aria-pressed="${f.sandwichIncludeHoliday}">Yes</button>
-            <button type="button" data-val="no" aria-pressed="${!f.sandwichIncludeHoliday}">No</button>
-          </div>
-        </div>`
-            : ""
-        }
-        ${
-          f.isBridge
-            ? `
-        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)">
-          <label for="ltBridgeMode">Bridge Mode</label>
-          <select id="ltBridgeMode">
-            <option value="direct" ${f.bridgeMode === "direct" ? "selected" : ""}>Direct</option>
-            <option value="optional" ${f.bridgeMode === "optional" ? "selected" : ""}>Optional</option>
-          </select>
-        </div>`
-            : ""
-        }
         <p class="section-note" style="margin-top:10px">Consecutive/monthly day limits, prorata, accrual, backdating, document requirement and the reset cycle are generated the same way the muggle-friendly magic scroll does it — Regenerate re-rolls them, they're just not each their own field here.</p>
       `;
     }
@@ -8505,18 +8557,16 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
        hand-typed name typed just before any of these clicks would be
        silently lost without this snapshot first. */
     const snapshotName = () => { leaveType.fields.name = $("#ltName").value; };
-    const sandwichSeg = $("#ltSandwichSeg");
-    if (sandwichSeg) $all("button", sandwichSeg).forEach((btn) => btn.addEventListener("click", () => { snapshotName(); leaveType.fields.sandwichRuleEnabled = btn.dataset.val === "yes"; rerender(); }));
-    const bridgeSeg = $("#ltBridgeSeg");
-    if (bridgeSeg) $all("button", bridgeSeg).forEach((btn) => btn.addEventListener("click", () => { snapshotName(); leaveType.fields.isBridge = btn.dataset.val === "yes"; rerender(); }));
-    const sandwichModeSelect = $("#ltSandwichMode");
-    if (sandwichModeSelect) sandwichModeSelect.addEventListener("change", (e) => { snapshotName(); leaveType.fields.sandwichMode = e.target.value; rerender(); });
-    const sandwichWeekendSeg = $("#ltSandwichWeekendSeg");
-    if (sandwichWeekendSeg) $all("button", sandwichWeekendSeg).forEach((btn) => btn.addEventListener("click", () => { snapshotName(); leaveType.fields.sandwichIncludeWeekend = btn.dataset.val === "yes"; rerender(); }));
-    const sandwichHolidaySeg = $("#ltSandwichHolidaySeg");
-    if (sandwichHolidaySeg) $all("button", sandwichHolidaySeg).forEach((btn) => btn.addEventListener("click", () => { snapshotName(); leaveType.fields.sandwichIncludeHoliday = btn.dataset.val === "yes"; rerender(); }));
-    const bridgeModeSelect = $("#ltBridgeMode");
-    if (bridgeModeSelect) bridgeModeSelect.addEventListener("change", (e) => { snapshotName(); leaveType.fields.bridgeMode = e.target.value; rerender(); });
+    const sandwichToggle = $("#ltSandwichToggle");
+    if (sandwichToggle) sandwichToggle.addEventListener("change", (e) => { snapshotName(); leaveType.fields.sandwichRuleEnabled = e.target.checked; rerender(); });
+    const bridgeToggle = $("#ltBridgeToggle");
+    if (bridgeToggle) bridgeToggle.addEventListener("change", (e) => { snapshotName(); leaveType.fields.isBridge = e.target.checked; rerender(); });
+    $all('input[name="ltSandwichMode"]').forEach((radio) => radio.addEventListener("change", (e) => { snapshotName(); leaveType.fields.sandwichMode = e.target.value; rerender(); }));
+    const sandwichWeekendCb = $("#ltSandwichWeekendCb");
+    if (sandwichWeekendCb) sandwichWeekendCb.addEventListener("change", (e) => { snapshotName(); leaveType.fields.sandwichIncludeWeekend = e.target.checked; rerender(); });
+    const sandwichHolidayCb = $("#ltSandwichHolidayCb");
+    if (sandwichHolidayCb) sandwichHolidayCb.addEventListener("change", (e) => { snapshotName(); leaveType.fields.sandwichIncludeHoliday = e.target.checked; rerender(); });
+    $all('input[name="ltBridgeMode"]').forEach((radio) => radio.addEventListener("change", (e) => { snapshotName(); leaveType.fields.bridgeMode = e.target.value; rerender(); }));
     const instancesSeg = $("#ltInstancesSeg");
     if (instancesSeg) {
       $all("button", instancesSeg).forEach((btn) =>

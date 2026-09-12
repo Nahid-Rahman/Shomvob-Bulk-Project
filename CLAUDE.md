@@ -1357,18 +1357,37 @@ came with a deliberate scoping decision, not an oversight:
   original three exposed toggles — went back to being purely internal
   (generated, not shown), and **`Sandwich Rule`/`Bridge` took their
   place** as the real toggles instead, each revealing its own real sub-
-  fields only once turned on: Sandwich → `sandwichMode` (Optional/Direct
-  Cut select), `sandwichIncludeWeekend`, `sandwichIncludeHoliday` (all
-  three, confirmed with the user — `sandwichIncludeCompanyEvent` stays
-  internal-only since the script itself never varies it, always `false`);
-  Bridge → `bridgeMode` (Direct/Optional select). `prorataCalculation`
-  now defaults `true` unconditionally (was a coin flip) — not exposed as
-  its own toggle, just a fixed default per the user's ask. `.seg-fill` on
-  all of these, matching every other standalone Yes/No toggle fixed this
-  way above. **Found and fixed the same class of bug again while
-  rewriting this exact block**: none of the six new toggle/select
-  handlers snapshotted Name before re-rendering — same bug as
-  Attendance Policy, Custom Fields and Required Documents before it.
+  fields only once turned on: Sandwich → `sandwichMode`, `sandwich
+  IncludeWeekend`, `sandwichIncludeHoliday` (all three, confirmed with
+  the user — `sandwichIncludeCompanyEvent` stays internal-only since the
+  script itself never varies it, always `false`); Bridge → `bridgeMode`.
+  `prorataCalculation` now defaults `true` unconditionally (was a coin
+  flip) — not exposed as its own toggle, just a fixed default per the
+  user's ask.
+
+  **Redesigned the same day, on a second round of user feedback** ("UI
+  valo hoy ni" — the first pass, plain Yes/No `.seg` + a bare `<select>`,
+  didn't read well) **against a screenshot of the real product's own
+  Sandwich Leave / Bridge Leave settings screens**: each is now its own
+  `.rule-card` — an icon, title, description and a real sliding toggle
+  switch (`.switch`, new — this app had no toggle-switch component
+  before), matching the reference's card shape exactly. Once on, an
+  "Action Policy" section shows the two real choices as side-by-side
+  cards — reusing `.choice` (Attendance Add's own holiday-source radio
+  picker) rather than inventing a second card component, just laid out
+  via a new `.rule-choice-row` instead of `.choice-list`'s stacked
+  default — `sandwichMode`/`bridgeMode`'s `"optional"` maps to
+  "Permission Based" (notify the approver, no auto-deduct) and
+  `"direct_cut"`/`"direct"` maps to "Count Automatically" (auto-deduct),
+  named and worded to match the real screenshot. Sandwich alone also
+  gets an "Applicability Scope" box (`.rule-scope-box`, new) with two
+  real checkboxes — "Apply to Weekends"/"Apply to Public Holidays" —
+  for `sandwichIncludeWeekend`/`sandwichIncludeHoliday`, again matching
+  the reference layout rather than the first pass's plain Yes/No pairs.
+  **Found and fixed the same class of bug again while rewriting this
+  exact block**: none of the toggle/radio/checkbox handlers snapshotted
+  Name before re-rendering — same bug as Attendance Policy, Custom
+  Fields and Required Documents before it.
   **"Create the default 3" (2026-09-12):** most companies only ever need
   Annual/Casual/Sick to start, and don't need the other kinds' random
   combinations at all — confirmed via a real payload the user supplied
