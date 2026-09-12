@@ -329,13 +329,6 @@
       `<aside class="op-media"><figure class="op-media-frame">` +
       `<video src="${media}" loop muted playsinline autoplay preload="metadata"></video>` +
       `</figure></aside>`;
-    const vid = $(".op-media video");
-    if (vid && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      vid.autoplay = false;
-      vid.loop = false;
-      vid.controls = true;
-      vid.pause();
-    }
   }
 
   function renderMain() {

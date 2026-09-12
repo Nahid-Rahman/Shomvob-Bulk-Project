@@ -305,8 +305,23 @@ Three things it is easy to break:
 - **Below 1100px the split collapses** back to a single 760px column with
   the clip beneath, because the form needs its width back before the video
   does.
-- Videos are separate files in `assets/`, never data URIs, and they honour
-  `prefers-reduced-motion` the same way the login clip does.
+- Videos are separate files in `assets/`, never data URIs.
+  **Deliberately do *not* honour `prefers-reduced-motion` — reversed
+  2026-09-12, direct user instruction** ("eta continues play hoitei
+  thakbe without sound. shob page e jekhane ase" — this must keep
+  playing continuously, muted, on every page it appears): `paintOperation()`
+  originally paused these clips and swapped in native controls under
+  reduced motion, mirroring the login gate's own clip (below). Found live
+  — the user's own machine/browser has reduced motion on, so every
+  operation page's rail video sat paused on frame one with a control bar
+  showing, read as "the loop is broken" rather than "this respected an
+  accessibility setting nobody here was deliberately testing for." Fixed
+  by deleting that whole block from `paintOperation()` — these five
+  clips are now always `loop muted playsinline autoplay`, unconditionally,
+  same as before the setting was ever handled. **The login gate's own
+  cat video is untouched** — its separate reduced-motion handling
+  (`wireLogin()`, `#gateVideo`) still holds; only the operation-rail
+  videos changed, since that's what was actually asked about.
 
 ## The login gate is a joke, not a control
 
