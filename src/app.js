@@ -4058,11 +4058,27 @@
     if (handler) {
       body = body.replace("</h2></div>", `</h2>${settingsModuleIconHtml(mod.id)}</div>`);
     }
+    /* "Go to next settings" (2026-09-12, requested directly) — one tab
+       over within this same group, never across groups, and absent
+       entirely on a group's last module (nothing to go to). Rendered
+       outside `body` rather than injected into each module's own
+       template — unlike the module icon above, there's no single common
+       closing pattern across all 21 templates to anchor a replace() on,
+       and a page-level "next" control doesn't need to live inside the
+       card anyway. */
+    const modIndex = group.modules.findIndex((m) => m.id === setup.activeModule);
+    const nextMod = group.modules[modIndex + 1];
+    const nextHtml = nextMod
+      ? `<div style="margin-top:14px; display:flex; justify-content:flex-end;">
+           <button type="button" class="tiny-btn" id="setupNextModuleBtn" data-next="${nextMod.id}">Go to next settings: ${nextMod.label} →</button>
+         </div>`
+      : "";
     return `
       <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>
       <h2 style="font-size:19px; margin:14px 0 0;">${group.label}</h2>
       <div class="settings-tabs" role="tablist">${tabs}</div>
       <div style="margin-top:16px">${body}</div>
+      ${nextHtml}
     `;
   }
 
@@ -4093,6 +4109,14 @@
         renderSetupBody();
       });
     });
+    const nextBtn = $("#setupNextModuleBtn");
+    if (nextBtn) {
+      nextBtn.addEventListener("click", () => {
+        if (isBulkRunActive()) return;
+        setup.activeModule = nextBtn.dataset.next;
+        renderSetupBody();
+      });
+    }
     /* Wired once here rather than per module — any module's dependency
        notice can point at any other module without its own wiring. */
     $all(".dep-shortcut").forEach((link) => {
@@ -4683,7 +4707,13 @@
     rerender();
     for (const item of bulk.items) {
       if (bulk.stopRequested) break;
-      if (!item.selected) continue;
+      /* A finished item is never re-created, even if Create gets clicked
+         again — confirmed live, 2026-09-12: the Create button had no
+         disabled state once a run finished, so a second click quietly
+         sent duplicate real POSTs for everything already "done." This
+         guard is the real fix; the disabled button below (bulkListTemplate)
+         is what stops the click from happening in the first place. */
+      if (!item.selected || item.status === "done") continue;
       item.status = "creating";
       rerender();
       try {
@@ -4733,6 +4763,11 @@
     const selectableCount = bulk.items.filter((it) => it.status !== "skipped").length;
     const selectedCount = bulk.items.filter((it) => it.selected).length;
     const allSelected = selectableCount > 0 && selectedCount === selectableCount;
+    /* What Create would actually do if clicked right now — excludes
+       anything already "done," so a run that finished (and left Create
+       sitting there, clickable, with nothing left for it to do) can't
+       silently fire duplicate real creates on a second click. */
+    const pendingCount = bulk.items.filter((it) => it.selected && it.status !== "done" && it.status !== "skipped").length;
     let lastGroup = null;
     const rows = bulk.items
       .map((it, i) => {
@@ -4741,7 +4776,7 @@
         return `
           ${groupHeading}
           <label class="bulk-row">
-            <input type="checkbox" data-idx="${i}" ${it.selected ? "checked" : ""} ${it.status === "skipped" || bulk.running ? "disabled" : ""} />
+            <input type="checkbox" data-idx="${i}" ${it.selected ? "checked" : ""} ${it.status === "skipped" || it.status === "done" || bulk.running ? "disabled" : ""} />
             <span class="bulk-row-name">${it.name}</span>
             ${bulkStatusHtml(it)}
           </label>
@@ -4760,7 +4795,7 @@
             bulk.running
               ? `<button type="button" class="tiny-btn" id="${prefix}StopBtn">Stop</button>`
               : `<button type="button" class="tiny-btn" id="${prefix}CancelBtn">← Back</button>
-                 <button type="button" class="generate-btn" id="${prefix}CreateBtn">Create selected (${selectedCount})</button>`
+                 <button type="button" class="generate-btn" id="${prefix}CreateBtn" ${pendingCount === 0 ? "disabled" : ""}>Create selected (${pendingCount})</button>`
           }
         </div>
       </div>

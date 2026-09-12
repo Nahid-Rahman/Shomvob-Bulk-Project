@@ -1799,11 +1799,74 @@ async function toGrid(page, companyName = "Hogwarts") {
         sent[0].prorataCalculation === true,
       JSON.stringify(sent[0]));
     check("AS the tab picks up a done marker", (await page.locator('.settings-tab[data-module="leave_types"] .op-dot').count()) === 1);
+
+    /* Confirmed genuinely broken live, 2026-09-12: Create had no disabled
+       state once a run finished, so a second click re-sent duplicate
+       real creates for everything already "done." */
+    check("AS Create is disabled once every selected item is done — nothing left for it to do", await page.isDisabled("#ltBulkCreateBtn"));
+    check("AS a done item's checkbox is disabled too, not just visually finished", await page.locator(".bulk-row input").evaluateAll((els) => els.every((el) => el.disabled)));
+    await page.click("#ltBulkCreateBtn", { force: true }).catch(() => {});
+    await page.waitForTimeout(150);
+    check("AS a forced click on the disabled button sends nothing further", sent.length === 3, String(sent.length));
     // the run finished but stays on the bulk list (showing "done" statuses) until Back is clicked
     await page.click("#ltBulkCancelBtn");
     await page.waitForTimeout(60);
     check("AS Back returns to the single-item form", (await page.locator("#ltSaveBtn").count()) === 1);
     check("AS no page errors through the whole bulk flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AT. "Go to next settings" — one tab over within the group, absent on the last (2026-09-12) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+    await page.route("**/api/v1/departments/active", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "d1", name: "HR" }] }) })
+    );
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+
+    check("AT present on the first module, naming the second", (await page.textContent("#setupNextModuleBtn")).includes("Bank Info"));
+    await page.click("#setupNextModuleBtn");
+    await page.waitForTimeout(80);
+    check("AT clicking it actually switches to that module", (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "bank_info");
+    check("AT and now names the one after that", (await page.textContent("#setupNextModuleBtn")).includes("Locations"));
+
+    await page.click('.settings-tab[data-module="designations"]');
+    await page.waitForTimeout(80);
+    check("AT absent on a group's last module — nothing to go to", (await page.locator("#setupNextModuleBtn").count()) === 0);
+
+    // never crosses into the next group
+    await page.click(".settings-tab:has-text('Company Profile')");
+    await page.waitForTimeout(80);
+    for (let i = 0; i < 4; i++) {
+      await page.click("#setupNextModuleBtn");
+      await page.waitForTimeout(60);
+    }
+    check("AT five clicks from the first module lands on the group's own last module, not into another group",
+      (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "designations" && (await page.locator("#setupNextModuleBtn").count()) === 0);
+
+    // blocked the same way every other navigation is mid-bulk-run
+    await page.click('.settings-tab[data-module="departments"]');
+    await page.waitForTimeout(80);
+    await page.click("#deptBulkEnterLink");
+    await page.waitForTimeout(80);
+    await page.route("**/api/v1/departments", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      setTimeout(() => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Department created successfully", data: { id: "dx" } }) }), 150);
+    });
+    await page.click("#deptBulkCreateBtn");
+    await page.waitForSelector("#deptBulkStopBtn", { timeout: 5000 });
+    const hasNextMidRun = (await page.locator("#setupNextModuleBtn").count()) > 0;
+    if (hasNextMidRun) await page.click("#setupNextModuleBtn");
+    await page.waitForTimeout(60);
+    check("AT mid-bulk-run, Next is either absent or a click on it is ignored — still on Department Management",
+      (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "departments");
+    await page.click("#deptBulkStopBtn");
+    await page.waitForFunction(() => !document.querySelector("#deptBulkStopBtn"), { timeout: 5000 });
+
+    check("AT no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

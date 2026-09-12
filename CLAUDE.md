@@ -936,6 +936,22 @@ remembering if a "watermark" idea comes up again for this app: a large
 decorative background mark and "always inside a scrollable, variable-
 height card" don't mix well.
 
+### "Go to next settings" (2026-09-12)
+
+One tab over within the *current* group, never across into the next
+group, and absent entirely on a group's own last module — there's
+nothing to go to from there. Rendered in `setupGroupPageTemplate()`,
+outside the module's own `body` (unlike the per-module icon above,
+there's no single common closing pattern across all 21 templates to
+`replace()` on, and a page-level "next" control doesn't need to live
+inside the card anyway): `group.modules[modIndex + 1]` decides whether
+`#setupNextModuleBtn` renders at all, and its own label always names the
+specific module it goes to ("Go to next settings: Bank Info →"), not a
+generic "Next." Wired once in `wireSetupGroupPage()`, same
+`isBulkRunActive()` guard every other navigation here already has —
+mid-bulk-run, a click on it is ignored exactly like a tab click would
+be, rather than needing its own separate mid-run guard.
+
 ### A clear (×) button on every text/number field (2026-09-11)
 
 Requested directly, once real-API testing started turning up fields the
@@ -1160,6 +1176,21 @@ the primary one.
   with a select-all/deselect-all shortcut — tested that unchecking one
   before creating sends exactly the rest, not all 6/24, and that the
   unchecked item's row never leaves its starting "not started" state.
+- **Confirmed genuinely broken against a real company, found live
+  2026-09-12: Create had no disabled state once a run finished.** A
+  completed run left every item "done" but the Create button sitting
+  there fully clickable, with nothing telling it that clicking again
+  would just resend the same creates — confirmed live, an accidental
+  second click sent 3 duplicate real `leave-types` POSTs into a real
+  staging company. Fixed at the shared level (`bulkListTemplate()`/
+  `runBulkSequential()`, so this protects Department, Designation *and*
+  Leave Types' bulk mode below, all three at once): a `pendingCount`
+  (selected items not already `"done"`) drives both the button's label
+  and its `disabled` state, a `"done"` item's checkbox is disabled too
+  so it can't be re-selected, and `runBulkSequential()` itself now skips
+  any item already `"done"` regardless — belt and suspenders, so even a
+  forced click (devtools, or a future caller) can't resurrect a
+  duplicate create.
 - **Stop, checked between items, never mid-request.** The closest thing
   to a cancel this needs: clicking it lets whichever item is already in
   flight finish normally (a half-sent write would be worse than an extra
