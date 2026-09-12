@@ -1408,6 +1408,33 @@ came with a deliberate scoping decision, not an oversight:
   already-existing leave types the way Designation's bulk list matches
   real departments — these 3 are a fixed, known-good shape to *create*,
   not something to reconcile against what a company already has.
+  **The Kind dropdown dropped entirely, 2026-09-12** — direct user
+  instruction, working one change at a time rather than pattern-matched
+  ("eta kono pattern wise hobe na"): asked why both a Kind `<select>`
+  and a Name field existed showing the same value by default; told Kind
+  picked a behavioural template while Name was the literal string sent,
+  independently editable; user's call was "drop down baad dao, name
+  input korar field thakbe" — remove the dropdown, keep only a free-text
+  Name input, with the leave type still created (Sandwich/Bridge
+  settings included) based on whatever name is typed. Flagged that this
+  makes Maternity/Paternity (the two special-entitlement kinds)
+  unreachable from this form and asked whether a separate path was
+  needed; confirmed not — "oigula rare case, lagle nijera banay nibe"
+  (those are a rare case, the user will create them by hand if ever
+  needed). `generateSpecialLeaveTypeBody()` is deleted rather than left
+  dead, since nothing calls it any more; `generateLeaveTypeBody()` now
+  takes no argument and always returns the normal shape
+  (`genderEligibility`/`maritalStatusEligibility: "all"`,
+  `specialEntitlementEnabled: false`) — a random one of the 4 non-
+  special `LEAVE_TYPE_KINDS` names is still used as a purely cosmetic
+  starting `name`, same as any other module's "random starting value the
+  visitor can type over." `LEAVE_TYPE_KINDS` itself is untouched and
+  still holds all 6 entries (including maternity/paternity) — "Create
+  the default 3" above still reads it directly by id, unaffected by any
+  of this; only the single-item UI stops branching on it. The `#ltKind`
+  change handler, the dead `#ltInstancesSeg`/`#ltDocSeg` wiring, and
+  `kindId` on both the module's state object and `resetModuleState()`
+  are all gone along with it.
 - **Leave Policy** — `POST /leave-policies`, the second real dependency
   (after Designation→Department): needs at least one Leave Type to exist
   (`fetchCompanyResource("/leave-types")`), same

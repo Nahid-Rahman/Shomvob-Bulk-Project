@@ -5473,7 +5473,7 @@
      exposed as editable fields for normal leave — everything else is
      still generated per the script's own conditional logic, just not
      surfaced as its own input row. See the note in app-data.js. */
-  const leaveType = { kindId: "annual", fields: null, error: "", ok: "", createdNames: [], bulk: null };
+  const leaveType = { fields: null, error: "", ok: "", createdNames: [], bulk: null };
 
   /* "Create the defaults" for Leave Types — Annual/Casual/Sick, the 3 a
      company actually needs almost every time (2026-09-12, user request:
@@ -5573,79 +5573,30 @@
     };
   }
 
-  function generateSpecialLeaveTypeBody(kind) {
-    const seMaxInstances = choice([2, 3]);
-    return {
-      name: kind.name,
-      genderEligibility: kind.genderEligibility,
-      maritalStatusEligibility: kind.maritalStatusEligibility,
-      consecutiveLimit: false,
-      consecutiveDays: 5,
-      monthlyLimit: false,
-      monthlyLimitDays: 7,
-      prorataCalculation: false,
-      accrualStartType: "joining_date",
-      accrualStartMonths: 3,
-      allowBackdatedLeave: false,
-      backdatedLeaveDays: 30,
-      documentRequired: false,
-      documentThresholdDays: 2,
-      carryForwardEnabled: false,
-      maxCarryForwardDays: 10,
-      carryForwardIsExpiry: false,
-      carryForwardExpiryDays: 12,
-      sandwichRuleEnabled: false,
-      sandwichMode: "direct_cut",
-      sandwichIncludeWeekend: true,
-      sandwichIncludeHoliday: true,
-      sandwichIncludeCompanyEvent: false,
-      isBridge: false,
-      bridgeMode: "direct",
-      isLeaveReset: false,
-      specialEntitlementEnabled: true,
-      seMaxInstances,
-      seMaxDaysPerInstance: kind.seMaxDaysPerInstance,
-      seMaxTotalDays: seMaxInstances * kind.seMaxDaysPerInstance,
-      seRequireDocument: Math.random() < 0.5,
-      deductionPriority: [{ sourceKind: "requested" }],
-      isUnpaid: false,
-    };
-  }
-
-  function generateLeaveTypeBody(kindId) {
-    const kind = LEAVE_TYPE_KINDS.find((k) => k.id === kindId);
-    return kind.special ? generateSpecialLeaveTypeBody(kind) : generateNormalLeaveTypeBody(kind);
+  /* Maternity/Paternity (special-entitlement) dropped from this form
+     entirely, 2026-09-12, per direct user instruction ("Kind dropdown
+     baad dao... oigula rare case, lagle nijera banay nibe") — this form
+     only ever generates the normal shape now, so there's no longer a
+     kind to pick. A random name from the 4 non-special
+     `LEAVE_TYPE_KINDS` is still used as a starting suggestion, purely
+     cosmetic, same as any other module's "random starting value the
+     visitor can type over." `generateSpecialLeaveTypeBody()` (the only
+     caller this replaced) is gone rather than left dead — "Create the
+     default 3" (Annual/Casual/Sick) still reads `LEAVE_TYPE_KINDS`
+     directly by id, unaffected by any of this. */
+  function generateLeaveTypeBody() {
+    const startingKind = choice(LEAVE_TYPE_KINDS.filter((k) => !k.special));
+    return generateNormalLeaveTypeBody({ name: startingKind.name, genderEligibility: "all", maritalStatusEligibility: "all" });
   }
 
   function leaveTypeTemplate() {
     const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Leave Types</h2></div>`;
     if (leaveType.bulk) return bulkListTemplate(head, leaveType.bulk, "ltBulk");
-    if (!leaveType.fields) leaveType.fields = generateLeaveTypeBody(leaveType.kindId);
+    if (!leaveType.fields) leaveType.fields = generateLeaveTypeBody();
     const f = leaveType.fields;
-    const kindOptions = LEAVE_TYPE_KINDS.map((k) => `<option value="${k.id}" ${k.id === leaveType.kindId ? "selected" : ""}>${k.name}</option>`).join("");
 
     let detailsHtml;
-    if (f.specialEntitlementEnabled) {
-      detailsHtml = `
-        <div class="field-row" style="margin-top:14px">
-          <div class="field">
-            <label>Instances Per Year</label>
-            <div class="seg" id="ltInstancesSeg" role="group" aria-label="Instances per year">
-              <button type="button" data-val="2" aria-pressed="${f.seMaxInstances === 2}">2</button>
-              <button type="button" data-val="3" aria-pressed="${f.seMaxInstances === 3}">3</button>
-            </div>
-          </div>
-          <div class="field">
-            <label>Require Document</label>
-            <div class="seg" id="ltDocSeg" role="group" aria-label="Require document">
-              <button type="button" data-val="yes" aria-pressed="${f.seRequireDocument}">Yes</button>
-              <button type="button" data-val="no" aria-pressed="${!f.seRequireDocument}">No</button>
-            </div>
-          </div>
-        </div>
-        <p class="section-note" style="margin-top:10px">${f.seMaxDaysPerInstance} days per instance, ${f.seMaxTotalDays} total across ${f.seMaxInstances} instances a year — fixed for this leave type.</p>
-      `;
-    } else {
+    {
       const sandwichIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16"/><path d="M9 3v3M15 3v3"/></svg>';
       const bridgeIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5a3 3 0 0 1 0-4.2l2-2a3 3 0 0 1 4.2 4.2l-1 1"/><path d="M16 11.5a3 3 0 0 1 0 4.2l-2 2a3 3 0 0 1-4.2-4.2l1-1"/></svg>';
       const clipboardIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V4"/><path d="M8.5 11h7M8.5 15h7"/></svg>';
@@ -5717,12 +5668,9 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the muggle-friendly magic scroll's own leave-type rules. Pick a kind, then Regenerate re-rolls its details; name and the headline limits can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own leave-type rules. Regenerate re-rolls its details; name and the headline limits can still be edited by hand before saving.</p>
         <button type="button" class="bulk-shortcut-btn" id="ltBulkEnterLink">Create the default 3 leave types (Annual, Casual, Sick) at once →</button>
-        <div class="field-row">
-          <div class="field"><label for="ltKind">Or just this one — Kind</label><select id="ltKind">${kindOptions}</select></div>
-          <div class="field"><label for="ltName">Name</label><input type="text" id="ltName" value="${f.name}" /></div>
-        </div>
+        <div class="field"><label for="ltName">Or just this one — Name</label><input type="text" id="ltName" value="${f.name}" /></div>
         ${detailsHtml}
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
@@ -5806,14 +5754,6 @@
       rerender();
     });
 
-    $("#ltKind").addEventListener("change", (e) => {
-      leaveType.kindId = e.target.value;
-      leaveType.fields = generateLeaveTypeBody(leaveType.kindId);
-      leaveType.error = "";
-      leaveType.ok = "";
-      rerender();
-    });
-
     /* Every toggle/select below re-renders the whole tab body — same
        class of bug as Attendance Policy's weekend toggle and Custom
        Fields' toggles, found here while replacing this exact block:
@@ -5831,21 +5771,9 @@
     const sandwichHolidayCb = $("#ltSandwichHolidayCb");
     if (sandwichHolidayCb) sandwichHolidayCb.addEventListener("change", (e) => { snapshotName(); leaveType.fields.sandwichIncludeHoliday = e.target.checked; rerender(); });
     $all('input[name="ltBridgeMode"]').forEach((radio) => radio.addEventListener("change", (e) => { snapshotName(); leaveType.fields.bridgeMode = e.target.value; rerender(); }));
-    const instancesSeg = $("#ltInstancesSeg");
-    if (instancesSeg) {
-      $all("button", instancesSeg).forEach((btn) =>
-        btn.addEventListener("click", () => {
-          leaveType.fields.seMaxInstances = Number(btn.dataset.val);
-          leaveType.fields.seMaxTotalDays = leaveType.fields.seMaxInstances * leaveType.fields.seMaxDaysPerInstance;
-          rerender();
-        })
-      );
-    }
-    const docSeg = $("#ltDocSeg");
-    if (docSeg) $all("button", docSeg).forEach((btn) => btn.addEventListener("click", () => { leaveType.fields.seRequireDocument = btn.dataset.val === "yes"; rerender(); }));
 
     $("#ltRegenerateBtn").addEventListener("click", () => {
-      leaveType.fields = generateLeaveTypeBody(leaveType.kindId);
+      leaveType.fields = generateLeaveTypeBody();
       leaveType.error = "";
       leaveType.ok = "";
       rerender();
@@ -7584,7 +7512,6 @@
     requiredDocument.error = "";
     requiredDocument.ok = "";
     requiredDocument.createdNames = [];
-    leaveType.kindId = "annual";
     leaveType.fields = null;
     leaveType.error = "";
     leaveType.ok = "";

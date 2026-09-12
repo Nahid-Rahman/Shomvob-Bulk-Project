@@ -24,7 +24,6 @@ const { BUSY_MESSAGES } = loadAppData(["BUSY_MESSAGES"]);
 const { BANK_NAMES, BANK_SHORT_CODE_MAP } = loadAppData(["BANK_NAMES", "BANK_SHORT_CODE_MAP"]);
 const { OFFICE_NAMES, DEPARTMENT_NAMES, DESIGNATION_NAMES } = loadAppData(["OFFICE_NAMES", "DEPARTMENT_NAMES", "DESIGNATION_NAMES"]);
 const { CUSTOM_FIELD_PRESETS, REQUIRED_DOCUMENT_NAMES } = loadAppData(["CUSTOM_FIELD_PRESETS", "REQUIRED_DOCUMENT_NAMES"]);
-const { LEAVE_TYPE_KINDS } = loadAppData(["LEAVE_TYPE_KINDS"]);
 const { DEFAULT_DEPARTMENTS } = loadAppData(["DEFAULT_DEPARTMENTS"]);
 
 async function gotoSetup(page) {
@@ -803,7 +802,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
-  /* ---------- V. Leave Types — normal and special-entitlement kinds ---------- */
+  /* ---------- V. Leave Types — Kind dropdown removed, Name-only form (2026-09-12) ---------- */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
@@ -811,13 +810,11 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click(".settings-card:has-text('Leave')");
     await page.waitForTimeout(100);
 
-    check("V opens on Annual Leave with the normal-leave toggles", (await page.locator("#ltSandwichToggle").count()) === 1 && (await page.locator("#ltBridgeToggle").count()) === 1);
-    check("V special-entitlement fields are absent for a normal kind", (await page.locator("#ltInstancesSeg").count()) === 0);
+    check("V there is no Kind dropdown any more", (await page.locator("#ltKind").count()) === 0);
+    check("V just a free-text Name field, plus the sandwich/bridge toggles", (await page.locator("#ltName").count()) === 1 && (await page.locator("#ltSandwichToggle").count()) === 1 && (await page.locator("#ltBridgeToggle").count()) === 1);
+    check("V special-entitlement fields don't exist any more", (await page.locator("#ltInstancesSeg").count()) === 0 && (await page.locator("#ltDocSeg").count()) === 0);
 
-    await page.selectOption("#ltKind", "paternity");
-    await page.waitForTimeout(60);
-    check("V switching to a special-entitlement kind swaps the fields", (await page.locator("#ltInstancesSeg").count()) === 1);
-    check("V and the normal-leave toggles are gone", (await page.locator("#ltSandwichToggle").count()) === 0);
+    await page.fill("#ltName", "Hand-Typed Leave Name");
 
     let sent = null;
     await page.route("**/api/v1/leave-types", (route) => {
@@ -826,11 +823,9 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
     await page.click("#ltSaveBtn");
     await page.waitForTimeout(150);
-    const kind = LEAVE_TYPE_KINDS.find((k) => k.id === "paternity");
-    check("V paternity sends the fixed gender/marital eligibility", sent && sent.genderEligibility === "male" && sent.maritalStatusEligibility === "married");
-    check("V paternity sends its fixed per-instance day count", sent && sent.seMaxDaysPerInstance === kind.seMaxDaysPerInstance, JSON.stringify(sent));
-    check("V normal-leave fields are all forced off for a special-entitlement kind",
-      sent && sent.consecutiveLimit === false && sent.monthlyLimit === false && sent.sandwichRuleEnabled === false && sent.isBridge === false && sent.isLeaveReset === false);
+    check("V the typed name, not a generated one, is what's sent", sent && sent.name === "Hand-Typed Leave Name", JSON.stringify(sent));
+    check("V always sends the normal (non-special) eligibility shape", sent && sent.genderEligibility === "all" && sent.maritalStatusEligibility === "all" && sent.specialEntitlementEnabled === false, JSON.stringify(sent));
+    check("V sandwich/bridge default off since neither toggle was touched", sent && sent.sandwichRuleEnabled === false && sent.isBridge === false, JSON.stringify(sent));
     check("V the tab picks up a done marker", (await page.locator('.settings-tab[data-module="leave_types"] .op-dot').count()) === 1);
     check("V no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
