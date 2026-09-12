@@ -4763,6 +4763,19 @@
        sitting there, clickable, with nothing left for it to do) can't
        silently fire duplicate real creates on a second click. */
     const pendingCount = bulk.items.filter((it) => it.selected && it.status !== "done" && it.status !== "skipped").length;
+    /* A finished run left every row a small green "done" — technically
+       clear, but with the Create button now disabled and every checkbox
+       greyed out, the whole card reads as inert rather than as a
+       success (2026-09-12, user feedback: "kisu ekta dekhao, ektu mora
+       mora lagtese" — show something, this feels lifeless). Only when
+       every single item actually succeeded, never on a run with any
+       failure — those already have their own visible per-row message,
+       and a blanket "success" banner sitting above a failed row would
+       contradict it. */
+    const allDone =
+      !bulk.running &&
+      bulk.items.some((it) => it.status === "done") &&
+      bulk.items.every((it) => it.status === "done" || it.status === "skipped");
     let lastGroup = null;
     const rows = bulk.items
       .map((it, i) => {
@@ -4785,6 +4798,11 @@
           <button type="button" class="tiny-btn" id="${prefix}SelectAllBtn" ${bulk.running ? "disabled" : ""}>${allSelected ? "Deselect all" : "Select all"}</button>
         </div>
         <div class="bulk-list">${rows}</div>
+        ${
+          allDone
+            ? `<div class="validation-banner success" style="margin-top:14px">${iconCheck()}<span>All ${bulk.items.filter((it) => it.status === "done").length} created successfully.</span></div>`
+            : ""
+        }
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           ${
             bulk.running

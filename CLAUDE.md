@@ -1212,6 +1212,23 @@ the primary one.
   any item already `"done"` regardless — belt and suspenders, so even a
   forced click (devtools, or a future caller) can't resurrect a
   duplicate create.
+- **A finished run read as inert rather than a success, 2026-09-12**
+  (user feedback on a screenshot of exactly this state: "kisu ekta
+  dekhao, ektu mora mora lagtese" — show something, this feels
+  lifeless): every row already carried its own small green "done," but
+  with the Create button disabled and every checkbox greyed out, the
+  whole card had nothing that read as a positive result at a glance.
+  Fixed once more at the shared `bulkListTemplate()` level, so Department,
+  Designation and Leave Types' bulk mode all picked it up together: a new
+  `allDone` check (every item `"done"` or `"skipped"`, at least one
+  actually `"done"`, and the run not currently in progress) renders a
+  `.validation-banner.success` — the existing warning-coloured
+  `.validation-banner` component, given a plain success-coloured
+  modifier rather than a new banner shape — reading "All N created
+  successfully." right under the list. Deliberately **not** shown when
+  any item `"failed"`: that row already carries its own visible message,
+  and a blanket success banner sitting above a failed one would
+  contradict it rather than reinforce it.
 - **Stop, checked between items, never mid-request.** The closest thing
   to a cancel this needs: clicking it lets whichever item is already in
   flight finish normally (a half-sent write would be worse than an extra

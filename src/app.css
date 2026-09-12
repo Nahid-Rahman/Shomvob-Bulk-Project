@@ -740,6 +740,7 @@ input.invalid { border-color: var(--danger); }
   color: var(--warning);
 }
 .validation-banner.hidden { display: none; }
+.validation-banner.success { border-color: var(--success); background: var(--success-soft); color: var(--success); }
 
 /* ---- Company Setup (phase 2) ---- */
 .env-badge {
