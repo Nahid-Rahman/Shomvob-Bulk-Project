@@ -5809,6 +5809,40 @@
     };
   }
 
+  /* "Create the default policy" (2026-09-12, user request: "amra leave
+     type e default 3 ta leave create korte disilam. oi 3 ta diyei leave
+     policy default create korar ekta option diba, 12 din kore ekektay")
+     — bundles this company's real Annual/Casual/Sick leave types (the
+     exact 3 "Create the default 3" on Leave Types makes, matched by
+     their literal name) into one policy, 12 days each, `"Standard"`
+     category across the board — confirmed with the user rather than
+     assumed. Unlike Leave Types/Department/Designation's bulk mode,
+     there's nothing to loop here: a policy is one POST bundling every
+     included leave type, so this is a single fixed shape to load into
+     the same single-item form, not a multi-item run list. Only shown
+     when all 3 real leave types actually exist — confirmed with the
+     user to hide rather than partially build with whichever exist. */
+  const LEAVE_POLICY_DEFAULT_NAMES = ["Annual Leave", "Casual Leave", "Sick Leave"];
+
+  function leavePolicyDefaultAvailable(leaveTypes) {
+    return LEAVE_POLICY_DEFAULT_NAMES.every((name) => leaveTypes.some((lt) => lt.name === name));
+  }
+
+  function generateDefaultLeavePolicyFields(leaveTypes) {
+    const leaveTypesBody = LEAVE_POLICY_DEFAULT_NAMES.map((name) => {
+      const lt = leaveTypes.find((x) => x.name === name);
+      return { leaveTypeId: lt.id, category: "Standard", days: 12, carryForward: false };
+    });
+    return {
+      name: "Default Leave Policy",
+      description: LEAVE_POLICY_DESCRIPTION,
+      departmentIds: [],
+      employeeTypes: LEAVE_POLICY_EMPLOYEE_TYPES,
+      status: "Active",
+      leaveTypes: leaveTypesBody,
+    };
+  }
+
   function leavePolicyTemplate() {
     const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Leave Policy</h2></div>`;
     if (leavePolicy.loadError) {
@@ -5844,6 +5878,7 @@
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own policy-composition rule, drawing on this company's real leave types. Regenerate re-rolls which leave types are included and their category/days; name and status can still be edited by hand before saving.</p>
+        ${leavePolicyDefaultAvailable(leavePolicy.leaveTypes) ? `<button type="button" class="bulk-shortcut-btn" id="lpDefaultBtn">Create the default policy (Annual/Casual/Sick @ 12 days each) →</button>` : ""}
         <div class="field-row">
           <div class="field"><label for="lpName">Name</label><input type="text" id="lpName" value="${f.name}" /></div>
           <div class="field">
@@ -5927,6 +5962,17 @@
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
     });
+
+    const defaultBtn = $("#lpDefaultBtn");
+    if (defaultBtn) {
+      defaultBtn.addEventListener("click", () => {
+        leavePolicy.fields = generateDefaultLeavePolicyFields(leavePolicy.leaveTypes);
+        leavePolicy.error = "";
+        leavePolicy.ok = "";
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
 
     const btn = $("#lpSaveBtn");
     btn.addEventListener("click", async () => {

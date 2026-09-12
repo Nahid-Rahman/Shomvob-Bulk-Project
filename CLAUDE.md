@@ -1469,6 +1469,31 @@ came with a deliberate scoping decision, not an oversight:
   `departmentIds` is sent empty (company-wide) — there's no per-
   department targeting UI here, matching the "headline fields only"
   scoping above.
+  **"Create the default policy," 2026-09-12** — direct user instruction:
+  "amra leave type e default 3 ta leave create korte disilam. oi 3 ta
+  diyei leave policy default create korar ekta option diba. 12 din kore
+  ekektay." Unlike Leave Types/Department/Designation's own bulk mode,
+  there's nothing to loop here — a policy is one `POST` bundling every
+  included leave type, so this isn't a multi-item run list, just a second
+  fixed shape (`generateDefaultLeavePolicyFields()`) that a
+  `.bulk-shortcut-btn` (`#lpDefaultBtn`) loads into the same single-item
+  form, the same way Regenerate loads a random one — Save afterward is
+  the same button, same call. Bundles this company's *real* Annual/
+  Casual/Sick leave types (`LEAVE_POLICY_DEFAULT_NAMES`, matched against
+  the real fetched list by their literal `name` — the exact 3 "Create the
+  default 3" on Leave Types always creates), each at a fixed `"Standard"`
+  category and `12` days, `carryForward: false` — all three confirmed
+  directly with the user rather than assumed. **Hidden entirely, not
+  shown-disabled, unless all 3 real names exist** (`leavePolicyDefault
+  Available()`) — confirmed with the user to hide rather than silently
+  build a 1- or 2-type policy from whichever subset exists, the same
+  "never silently incomplete" instinct Designation's bulk list already
+  holds itself to for a live dependency. Matching is by name, so it only
+  reliably finds leave types made by the "Create the default 3" button
+  itself — since the Kind dropdown was removed (above), a leave type
+  made through the single-item form can carry any typed name, and won't
+  match unless it happens to read "Annual Leave"/"Casual Leave"/"Sick
+  Leave" verbatim.
 
 ### Holiday Calendar — Leave's third module (built 2026-09-12)
 

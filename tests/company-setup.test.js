@@ -893,6 +893,65 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- W2. Leave Policy — "Create the default policy" shortcut (2026-09-12) ---------- */
+  {
+    // Only 2 of the 3 default leave types exist — the shortcut must stay hidden, not partially build a policy.
+    const page1 = await browser.newContext().then((c) => c.newPage());
+    const errs1 = watchPageErrors(page1);
+    await toGrid(page1);
+    await page1.click(".settings-card:has-text('Leave')");
+    await page1.waitForTimeout(100);
+    await page1.route("**/api/v1/leave-types", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [
+        { id: "lt1", name: "Annual Leave", seMaxDaysPerInstance: null },
+        { id: "lt2", name: "Casual Leave", seMaxDaysPerInstance: null },
+      ] }) })
+    );
+    await page1.click('.settings-tab[data-module="leave_policy"]');
+    await page1.waitForSelector("#lpName", { timeout: 5000 });
+    check("W2 the shortcut is hidden when not all 3 default leave types exist yet", (await page1.locator("#lpDefaultBtn").count()) === 0);
+    check("W2 no page errors (incomplete case)", errs1.length === 0, errs1.join(" | "));
+    await page1.close();
+
+    // All 3 exist now (plus an unrelated 4th) — the shortcut appears and builds the fixed shape.
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Leave')");
+    await page.waitForTimeout(100);
+    await page.route("**/api/v1/leave-types", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [
+        { id: "lt1", name: "Annual Leave", seMaxDaysPerInstance: null },
+        { id: "lt2", name: "Casual Leave", seMaxDaysPerInstance: null },
+        { id: "lt3", name: "Sick Leave", seMaxDaysPerInstance: null },
+        { id: "lt4", name: "Maternity Leave", seMaxDaysPerInstance: 120 },
+      ] }) })
+    );
+    await page.click('.settings-tab[data-module="leave_policy"]');
+    await page.waitForSelector("#lpName", { timeout: 5000 });
+    check("W2 the shortcut appears once Annual/Casual/Sick all exist", (await page.locator("#lpDefaultBtn").count()) === 1);
+
+    await page.click("#lpDefaultBtn");
+    await page.waitForTimeout(80);
+    check("W2 clicking it fills Name with the fixed default name", (await page.inputValue("#lpName")) === "Default Leave Policy");
+
+    let sent = null;
+    await page.route("**/api/v1/leave-policies", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave policy created successfully" }) });
+    });
+    await page.click("#lpSaveBtn");
+    await page.waitForTimeout(150);
+    check("W2 only the 3 default leave types are included, not the unrelated 4th",
+      sent && sent.leaveTypes.length === 3 && !sent.leaveTypes.some((lt) => lt.leaveTypeId === "lt4"), JSON.stringify(sent));
+    check("W2 every one of them is Standard category, 12 days, no carry-forward",
+      sent && sent.leaveTypes.every((lt) => lt.category === "Standard" && lt.days === 12 && lt.carryForward === false), JSON.stringify(sent));
+    check("W2 the real ids of Annual/Casual/Sick are what's sent",
+      sent && ["lt1", "lt2", "lt3"].every((id) => sent.leaveTypes.some((lt) => lt.leaveTypeId === id)), JSON.stringify(sent));
+    check("W2 no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   /* ---------- X. Attendance Policy — the Attendance group's only module ---------- */
   {
     const page = await browser.newContext().then((c) => c.newPage());
