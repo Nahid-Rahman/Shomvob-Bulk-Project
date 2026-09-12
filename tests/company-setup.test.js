@@ -776,11 +776,15 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     const rdName = await page.inputValue("#rdName");
     check("U the generated document is one of the real ones", REQUIRED_DOCUMENT_NAMES.includes(rdName), rdName);
+    check("U status defaults to active, not randomised", (await page.getAttribute('#rdStatusSeg button[data-val="active"]', "aria-pressed")) === "true");
 
+    await page.fill("#rdName", "Hand-Edited Document Name");
     // force a known combination so the payload is fully predictable
     await page.click('#rdTypeSeg button[data-val="file"]');
+    check("U hand-edited name survived the Type toggle's re-render", (await page.inputValue("#rdName")) === "Hand-Edited Document Name");
     await page.click('#rdStatusSeg button[data-val="active"]');
     await page.click('#rdRequiredSeg button[data-val="yes"]');
+    check("U hand-edited name still intact after every toggle click", (await page.inputValue("#rdName")) === "Hand-Edited Document Name");
 
     let sent = null;
     await page.route("**/api/v1/required-documents", (route) => {
@@ -793,6 +797,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("U status is sent lowercase, this endpoint's own convention", sent && sent.status === "active", JSON.stringify(sent));
     check("U isRequired is sent as a real JSON boolean, not a string", sent && sent.isRequired === true, JSON.stringify(sent));
     check("U type reflects the toggle actually clicked", sent && sent.type === "file");
+    check("U the hand-edited name, not a regenerated one, is what's sent", sent && sent.name === "Hand-Edited Document Name", JSON.stringify(sent));
     check("U the tab picks up a done marker", (await page.locator('.settings-tab[data-module="required_documents"] .op-dot').count()) === 1);
     check("U no page errors", errs.length === 0, errs.join(" | "));
     await page.close();

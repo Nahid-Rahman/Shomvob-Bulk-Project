@@ -7994,7 +7994,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return {
       name: choice(REQUIRED_DOCUMENT_NAMES),
       type: choice(REQUIRED_DOCUMENT_TYPES),
-      status: choice(REQUIRED_DOCUMENT_STATUSES),
+      status: "active",
       isRequired: Math.random() < 0.5,
     };
   }
@@ -8010,7 +8010,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <div class="field"><label for="rdName">Document Name</label><input type="text" id="rdName" value="${f.name}" /></div>
           <div class="field">
             <label>Type</label>
-            <div class="seg" id="rdTypeSeg" role="group" aria-label="Type">
+            <div class="seg seg-fill" id="rdTypeSeg" role="group" aria-label="Type">
               <button type="button" data-val="file" aria-pressed="${f.type === "file"}">File</button>
               <button type="button" data-val="text" aria-pressed="${f.type === "text"}">Text</button>
             </div>
@@ -8019,14 +8019,14 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="field-row" style="margin-top:14px">
           <div class="field">
             <label>Status</label>
-            <div class="seg" id="rdStatusSeg" role="group" aria-label="Status">
+            <div class="seg seg-fill" id="rdStatusSeg" role="group" aria-label="Status">
               <button type="button" data-val="active" aria-pressed="${f.status === "active"}">Active</button>
               <button type="button" data-val="inactive" aria-pressed="${f.status === "inactive"}">Inactive</button>
             </div>
           </div>
           <div class="field">
             <label>Is Required</label>
-            <div class="seg" id="rdRequiredSeg" role="group" aria-label="Is required">
+            <div class="seg seg-fill" id="rdRequiredSeg" role="group" aria-label="Is required">
               <button type="button" data-val="yes" aria-pressed="${f.isRequired}">Yes</button>
               <button type="button" data-val="no" aria-pressed="${!f.isRequired}">No</button>
             </div>
@@ -8076,9 +8076,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
     };
-    $all("#rdTypeSeg button").forEach((btn) => btn.addEventListener("click", () => { requiredDocument.fields.type = btn.dataset.val; rerender(); }));
-    $all("#rdStatusSeg button").forEach((btn) => btn.addEventListener("click", () => { requiredDocument.fields.status = btn.dataset.val; rerender(); }));
-    $all("#rdRequiredSeg button").forEach((btn) => btn.addEventListener("click", () => { requiredDocument.fields.isRequired = btn.dataset.val === "yes"; rerender(); }));
+    /* Same class of bug as Attendance Policy's weekend toggle and Custom
+       Fields' three toggles: every seg here re-renders the whole tab
+       body, and Document Name's value= is sourced from the cached
+       fields object — so a hand-typed name would be silently overwritten
+       on the next toggle click without this snapshot first. */
+    const snapshotName = () => { requiredDocument.fields.name = $("#rdName").value; };
+    $all("#rdTypeSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotName(); requiredDocument.fields.type = btn.dataset.val; rerender(); }));
+    $all("#rdStatusSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotName(); requiredDocument.fields.status = btn.dataset.val; rerender(); }));
+    $all("#rdRequiredSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotName(); requiredDocument.fields.isRequired = btn.dataset.val === "yes"; rerender(); }));
 
     $("#rdRegenerateBtn").addEventListener("click", () => {
       requiredDocument.fields = generateRequiredDocumentFields();

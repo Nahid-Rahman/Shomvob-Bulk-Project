@@ -1289,7 +1289,15 @@ Both Employee Settings, both ported the same way as everything above.
   in the body shape; the one thing confirmed rather than assumed was
   that `status` goes over lowercase (`"active"`/`"inactive"`), unlike
   Custom Fields' status casing — checked against the literal collection
-  body rather than copied from the sibling module.
+  body rather than copied from the sibling module. `status` defaults to
+  `"active"` on generate now (2026-09-12, same "don't randomise a
+  deliberate choice" pass as Custom Fields) rather than a coin flip
+  between the two; `Type`/`Status`/`Is Required` all got `.seg-fill` too,
+  same layout fix as Locations/Custom Fields above. **Found and fixed
+  the same class of bug while in there**: none of the three toggle
+  handlers snapshotted Document Name before re-rendering, so a hand-typed
+  name typed just before any toggle click was silently lost — the same
+  bug Attendance Policy's weekend toggle and Custom Fields' toggles had.
 
 ### Leave Types, Leave Policy (built 2026-09-10)
 
