@@ -1351,6 +1351,24 @@ came with a deliberate scoping decision, not an oversight:
   large the real body is, not a corner cut by accident — flagged to the
   user as one of the areas most likely to need a rework pass once tested
   against a real environment.
+  **Which fields count as "headline," revised 2026-09-12 per direct user
+  instruction** ("ei part ta uthao... only Sandwich ar bridge ta niye
+  ashba"): `Consecutive Day Limit`/`Monthly Limit`/`Carry Forward` — the
+  original three exposed toggles — went back to being purely internal
+  (generated, not shown), and **`Sandwich Rule`/`Bridge` took their
+  place** as the real toggles instead, each revealing its own real sub-
+  fields only once turned on: Sandwich → `sandwichMode` (Optional/Direct
+  Cut select), `sandwichIncludeWeekend`, `sandwichIncludeHoliday` (all
+  three, confirmed with the user — `sandwichIncludeCompanyEvent` stays
+  internal-only since the script itself never varies it, always `false`);
+  Bridge → `bridgeMode` (Direct/Optional select). `prorataCalculation`
+  now defaults `true` unconditionally (was a coin flip) — not exposed as
+  its own toggle, just a fixed default per the user's ask. `.seg-fill` on
+  all of these, matching every other standalone Yes/No toggle fixed this
+  way above. **Found and fixed the same class of bug again while
+  rewriting this exact block**: none of the six new toggle/select
+  handlers snapshotted Name before re-rendering — same bug as
+  Attendance Policy, Custom Fields and Required Documents before it.
   **"Create the default 3" (2026-09-12):** most companies only ever need
   Annual/Casual/Sick to start, and don't need the other kinds' random
   combinations at all — confirmed via a real payload the user supplied

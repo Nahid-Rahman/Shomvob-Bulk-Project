@@ -8235,7 +8235,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       consecutiveDays: consecutiveLimit ? randInt(5, 10) : 5,
       monthlyLimit,
       monthlyLimitDays: monthlyLimit ? randInt(7, 12) : 7,
-      prorataCalculation: Math.random() < 0.5,
+      prorataCalculation: true,
       accrualStartType: choice(["joining_date", "confirmation_date", "custom"]),
       accrualStartMonths: randInt(3, 5),
       allowBackdatedLeave,
@@ -8340,35 +8340,61 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       detailsHtml = `
         <div class="field-row" style="margin-top:14px">
           <div class="field">
-            <label>Consecutive Day Limit</label>
-            <div class="seg" id="ltConsecutiveSeg" role="group" aria-label="Consecutive day limit">
-              <button type="button" data-val="yes" aria-pressed="${f.consecutiveLimit}">Yes</button>
-              <button type="button" data-val="no" aria-pressed="${!f.consecutiveLimit}">No</button>
+            <label>Sandwich Rule</label>
+            <div class="seg seg-fill" id="ltSandwichSeg" role="group" aria-label="Sandwich rule">
+              <button type="button" data-val="yes" aria-pressed="${f.sandwichRuleEnabled}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.sandwichRuleEnabled}">No</button>
             </div>
           </div>
-          ${f.consecutiveLimit ? `<div class="field"><label for="ltConsecutiveDays">Max Consecutive Days</label><input type="text" id="ltConsecutiveDays" value="${f.consecutiveDays}" /></div>` : ""}
+          <div class="field">
+            <label>Bridge</label>
+            <div class="seg seg-fill" id="ltBridgeSeg" role="group" aria-label="Bridge">
+              <button type="button" data-val="yes" aria-pressed="${f.isBridge}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.isBridge}">No</button>
+            </div>
+          </div>
         </div>
+        ${
+          f.sandwichRuleEnabled
+            ? `
         <div class="field-row" style="margin-top:14px">
           <div class="field">
-            <label>Monthly Limit</label>
-            <div class="seg" id="ltMonthlySeg" role="group" aria-label="Monthly limit">
-              <button type="button" data-val="yes" aria-pressed="${f.monthlyLimit}">Yes</button>
-              <button type="button" data-val="no" aria-pressed="${!f.monthlyLimit}">No</button>
-            </div>
+            <label for="ltSandwichMode">Sandwich Mode</label>
+            <select id="ltSandwichMode">
+              <option value="optional" ${f.sandwichMode === "optional" ? "selected" : ""}>Optional</option>
+              <option value="direct_cut" ${f.sandwichMode === "direct_cut" ? "selected" : ""}>Direct Cut</option>
+            </select>
           </div>
-          ${f.monthlyLimit ? `<div class="field"><label for="ltMonthlyDays">Max Days Per Month</label><input type="text" id="ltMonthlyDays" value="${f.monthlyLimitDays}" /></div>` : ""}
-        </div>
-        <div class="field-row" style="margin-top:14px">
           <div class="field">
-            <label>Carry Forward</label>
-            <div class="seg" id="ltCarrySeg" role="group" aria-label="Carry forward">
-              <button type="button" data-val="yes" aria-pressed="${f.carryForwardEnabled}">Yes</button>
-              <button type="button" data-val="no" aria-pressed="${!f.carryForwardEnabled}">No</button>
+            <label>Include Weekend</label>
+            <div class="seg seg-fill" id="ltSandwichWeekendSeg" role="group" aria-label="Include weekend">
+              <button type="button" data-val="yes" aria-pressed="${f.sandwichIncludeWeekend}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.sandwichIncludeWeekend}">No</button>
             </div>
           </div>
-          ${f.carryForwardEnabled ? `<div class="field"><label for="ltCarryDays">Max Carry-Forward Days</label><input type="text" id="ltCarryDays" value="${f.maxCarryForwardDays}" /></div>` : ""}
         </div>
-        <p class="section-note" style="margin-top:10px">Prorata, accrual, backdating, document requirement, sandwich/bridge rules and the reset cycle are generated the same way the muggle-friendly magic scroll does it — Regenerate re-rolls them, they're just not each their own field here.</p>
+        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)">
+          <label>Include Holiday</label>
+          <div class="seg seg-fill" id="ltSandwichHolidaySeg" role="group" aria-label="Include holiday">
+            <button type="button" data-val="yes" aria-pressed="${f.sandwichIncludeHoliday}">Yes</button>
+            <button type="button" data-val="no" aria-pressed="${!f.sandwichIncludeHoliday}">No</button>
+          </div>
+        </div>`
+            : ""
+        }
+        ${
+          f.isBridge
+            ? `
+        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)">
+          <label for="ltBridgeMode">Bridge Mode</label>
+          <select id="ltBridgeMode">
+            <option value="direct" ${f.bridgeMode === "direct" ? "selected" : ""}>Direct</option>
+            <option value="optional" ${f.bridgeMode === "optional" ? "selected" : ""}>Optional</option>
+          </select>
+        </div>`
+            : ""
+        }
+        <p class="section-note" style="margin-top:10px">Consecutive/monthly day limits, prorata, accrual, backdating, document requirement and the reset cycle are generated the same way the muggle-friendly magic scroll does it — Regenerate re-rolls them, they're just not each their own field here.</p>
       `;
     }
 
@@ -8395,13 +8421,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function readLeaveTypeForm() {
-    const f = { ...leaveType.fields, name: $("#ltName").value };
-    if (!f.specialEntitlementEnabled) {
-      if (f.consecutiveLimit) f.consecutiveDays = Number($("#ltConsecutiveDays").value);
-      if (f.monthlyLimit) f.monthlyLimitDays = Number($("#ltMonthlyDays").value);
-      if (f.carryForwardEnabled) f.maxCarryForwardDays = Number($("#ltCarryDays").value);
-    }
-    return f;
+    return { ...leaveType.fields, name: $("#ltName").value };
   }
 
   async function saveLeaveType(fields) {
@@ -8478,20 +8498,25 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       rerender();
     });
 
-    const consecutiveSeg = $("#ltConsecutiveSeg");
-    if (consecutiveSeg) $all("button", consecutiveSeg).forEach((btn) => btn.addEventListener("click", () => { leaveType.fields.consecutiveLimit = btn.dataset.val === "yes"; rerender(); }));
-    const monthlySeg = $("#ltMonthlySeg");
-    if (monthlySeg) $all("button", monthlySeg).forEach((btn) => btn.addEventListener("click", () => { leaveType.fields.monthlyLimit = btn.dataset.val === "yes"; rerender(); }));
-    const carrySeg = $("#ltCarrySeg");
-    if (carrySeg) {
-      $all("button", carrySeg).forEach((btn) =>
-        btn.addEventListener("click", () => {
-          leaveType.fields.carryForwardEnabled = btn.dataset.val === "yes";
-          if (!leaveType.fields.carryForwardEnabled) leaveType.fields.carryForwardIsExpiry = false;
-          rerender();
-        })
-      );
-    }
+    /* Every toggle/select below re-renders the whole tab body — same
+       class of bug as Attendance Policy's weekend toggle and Custom
+       Fields' toggles, found here while replacing this exact block:
+       Name's value= is sourced from the cached fields object, so a
+       hand-typed name typed just before any of these clicks would be
+       silently lost without this snapshot first. */
+    const snapshotName = () => { leaveType.fields.name = $("#ltName").value; };
+    const sandwichSeg = $("#ltSandwichSeg");
+    if (sandwichSeg) $all("button", sandwichSeg).forEach((btn) => btn.addEventListener("click", () => { snapshotName(); leaveType.fields.sandwichRuleEnabled = btn.dataset.val === "yes"; rerender(); }));
+    const bridgeSeg = $("#ltBridgeSeg");
+    if (bridgeSeg) $all("button", bridgeSeg).forEach((btn) => btn.addEventListener("click", () => { snapshotName(); leaveType.fields.isBridge = btn.dataset.val === "yes"; rerender(); }));
+    const sandwichModeSelect = $("#ltSandwichMode");
+    if (sandwichModeSelect) sandwichModeSelect.addEventListener("change", (e) => { snapshotName(); leaveType.fields.sandwichMode = e.target.value; rerender(); });
+    const sandwichWeekendSeg = $("#ltSandwichWeekendSeg");
+    if (sandwichWeekendSeg) $all("button", sandwichWeekendSeg).forEach((btn) => btn.addEventListener("click", () => { snapshotName(); leaveType.fields.sandwichIncludeWeekend = btn.dataset.val === "yes"; rerender(); }));
+    const sandwichHolidaySeg = $("#ltSandwichHolidaySeg");
+    if (sandwichHolidaySeg) $all("button", sandwichHolidaySeg).forEach((btn) => btn.addEventListener("click", () => { snapshotName(); leaveType.fields.sandwichIncludeHoliday = btn.dataset.val === "yes"; rerender(); }));
+    const bridgeModeSelect = $("#ltBridgeMode");
+    if (bridgeModeSelect) bridgeModeSelect.addEventListener("change", (e) => { snapshotName(); leaveType.fields.bridgeMode = e.target.value; rerender(); });
     const instancesSeg = $("#ltInstancesSeg");
     if (instancesSeg) {
       $all("button", instancesSeg).forEach((btn) =>

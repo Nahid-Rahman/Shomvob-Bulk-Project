@@ -811,13 +811,13 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click(".settings-card:has-text('Leave')");
     await page.waitForTimeout(100);
 
-    check("V opens on Annual Leave with the normal-leave toggles", (await page.locator("#ltConsecutiveSeg").count()) === 1);
+    check("V opens on Annual Leave with the normal-leave toggles", (await page.locator("#ltSandwichSeg").count()) === 1 && (await page.locator("#ltBridgeSeg").count()) === 1);
     check("V special-entitlement fields are absent for a normal kind", (await page.locator("#ltInstancesSeg").count()) === 0);
 
     await page.selectOption("#ltKind", "paternity");
     await page.waitForTimeout(60);
     check("V switching to a special-entitlement kind swaps the fields", (await page.locator("#ltInstancesSeg").count()) === 1);
-    check("V and the normal-leave toggles are gone", (await page.locator("#ltConsecutiveSeg").count()) === 0);
+    check("V and the normal-leave toggles are gone", (await page.locator("#ltSandwichSeg").count()) === 0);
 
     let sent = null;
     await page.route("**/api/v1/leave-types", (route) => {
@@ -1908,6 +1908,60 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AU a 401 shows the named session-expired message, not the server's raw string",
       (await page.textContent("#hcError")).includes("session with this company may have expired"));
     check("AU no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AV. Leave Types — Sandwich/Bridge are real toggles now, Consecutive/Monthly/Carry-Forward are back to internal-only (2026-09-12) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Leave')");
+    await page.waitForTimeout(100);
+
+    check("AV Consecutive/Monthly/Carry-Forward are no longer exposed as their own fields",
+      (await page.locator("#ltConsecutiveSeg, #ltMonthlySeg, #ltCarrySeg").count()) === 0);
+    check("AV Sandwich and Bridge are exposed as real toggles instead", (await page.locator("#ltSandwichSeg").count()) === 1 && (await page.locator("#ltBridgeSeg").count()) === 1);
+
+    // force Sandwich/Bridge off first, regardless of what generated, then flip both on
+    await page.click('#ltSandwichSeg button[data-val="no"]');
+    await page.click('#ltBridgeSeg button[data-val="no"]');
+    await page.waitForTimeout(60);
+    check("AV Sandwich sub-fields are hidden when off", (await page.locator("#ltSandwichMode, #ltSandwichWeekendSeg, #ltSandwichHolidaySeg").count()) === 0);
+    check("AV Bridge sub-field is hidden when off", (await page.locator("#ltBridgeMode").count()) === 0);
+
+    await page.fill("#ltName", "Hand-Edited Leave Name");
+    await page.click('#ltSandwichSeg button[data-val="yes"]');
+    await page.waitForTimeout(60);
+    check("AV Sandwich sub-fields appear once turned on", (await page.locator("#ltSandwichMode").count()) === 1 && (await page.locator("#ltSandwichWeekendSeg").count()) === 1 && (await page.locator("#ltSandwichHolidaySeg").count()) === 1);
+    check("AV hand-edited name survived the Sandwich toggle's re-render", (await page.inputValue("#ltName")) === "Hand-Edited Leave Name");
+
+    await page.click('#ltBridgeSeg button[data-val="yes"]');
+    await page.waitForTimeout(60);
+    check("AV Bridge Mode appears once turned on", (await page.locator("#ltBridgeMode").count()) === 1);
+    check("AV hand-edited name still intact after the Bridge toggle too", (await page.inputValue("#ltName")) === "Hand-Edited Leave Name");
+
+    await page.selectOption("#ltSandwichMode", "optional");
+    await page.click('#ltSandwichWeekendSeg button[data-val="no"]');
+    await page.click('#ltSandwichHolidaySeg button[data-val="no"]');
+    await page.selectOption("#ltBridgeMode", "direct");
+    await page.waitForTimeout(60);
+    check("AV hand-edited name survived every sub-field change too", (await page.inputValue("#ltName")) === "Hand-Edited Leave Name");
+
+    let sent = null;
+    await page.route("**/api/v1/leave-types", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave type created successfully" }) });
+    });
+    await page.click("#ltSaveBtn");
+    await page.waitForTimeout(150);
+    check("AV the hand-edited name is what's sent", sent && sent.name === "Hand-Edited Leave Name", JSON.stringify(sent));
+    check("AV sandwichRuleEnabled/isBridge reflect the toggles actually clicked", sent && sent.sandwichRuleEnabled === true && sent.isBridge === true);
+    check("AV the sub-field choices actually made are what's sent",
+      sent && sent.sandwichMode === "optional" && sent.sandwichIncludeWeekend === false && sent.sandwichIncludeHoliday === false && sent.bridgeMode === "direct",
+      JSON.stringify(sent));
+    check("AV prorataCalculation always defaults true now, not a coin flip", sent && sent.prorataCalculation === true);
+    check("AV no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
