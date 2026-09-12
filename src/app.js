@@ -5533,8 +5533,8 @@
     const documentRequired = Math.random() < 0.5;
     const carryForwardEnabled = Math.random() < 0.5;
     const carryForwardIsExpiry = carryForwardEnabled ? Math.random() < 0.5 : false;
-    const sandwichRuleEnabled = Math.random() < 0.5;
-    const isBridge = Math.random() < 0.5;
+    const sandwichRuleEnabled = false;
+    const isBridge = false;
     const leaveResetCycle = choice(["calendar_year", "employee_anniversary", "custom_date"]);
     return {
       name: kind.name,

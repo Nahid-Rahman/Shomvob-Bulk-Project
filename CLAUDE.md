@@ -1363,7 +1363,11 @@ came with a deliberate scoping decision, not an oversight:
   script itself never varies it, always `false`); Bridge → `bridgeMode`.
   `prorataCalculation` now defaults `true` unconditionally (was a coin
   flip) — not exposed as its own toggle, just a fixed default per the
-  user's ask.
+  user's ask. **`sandwichRuleEnabled`/`isBridge` themselves also default
+  `false` now** (were a coin flip too, on a third pass of the same
+  request) — both toggles start off, same "don't randomise a deliberate
+  choice" instinct as everything else fixed this way, the user turns
+  either on by hand when a test actually needs it.
 
   **Redesigned the same day, on a second round of user feedback** ("UI
   valo hoy ni" — the first pass, plain Yes/No `.seg` + a bare `<select>`,
