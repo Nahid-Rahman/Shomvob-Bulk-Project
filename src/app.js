@@ -4605,7 +4605,22 @@
      repeated CI runs; that's Postman's own test-fixture bookkeeping and
      doesn't apply here — one generated department at a time, same as
      every other module, no dedup list to maintain. */
-  const companyDepartment = { fields: null, error: "", ok: "", bulk: null, createdNames: [] };
+  const companyDepartment = { fields: null, error: "", ok: "", bulk: null, createdNames: [], existing: null };
+
+  /* Checked live against the real company, 2026-09-12 — same instruction
+     and same reasoning as Leave Types' loadLeaveTypeExisting() below: a
+     company that already has some (or all) of the 6 default departments
+     was still being offered all 6 as if none existed. Matched by name
+     (case-insensitive, trimmed — same comparison Designation's own preset
+     match already uses) against `GET /departments/active`, the same
+     endpoint Designation's dependency check already calls. */
+  async function loadDepartmentExisting() {
+    try {
+      companyDepartment.existing = await fetchCompanyResource("/departments/active");
+    } catch (e) {
+      companyDepartment.existing = [];
+    }
+  }
 
   function generateDepartmentFields() {
     return {
@@ -4626,8 +4641,13 @@
      department by department. `bulk` is null in normal single-department
      mode; entering bulk mode swaps the whole template, it doesn't sit
      alongside it. */
-  function departmentDefaultBulkItems() {
-    return DEFAULT_DEPARTMENTS.map((d) => ({ name: d.name, selected: true, status: "pending", message: "" }));
+  function departmentDefaultBulkItems(existing) {
+    return DEFAULT_DEPARTMENTS.map((d) => {
+      const already = existing.some((real) => real.name.trim().toLowerCase() === d.name.trim().toLowerCase());
+      return already
+        ? { name: d.name, selected: false, status: "skipped", message: "Already exists" }
+        : { name: d.name, selected: true, status: "pending", message: "" };
+    });
   }
 
   function departmentModuleTemplate() {
@@ -4816,12 +4836,29 @@
   }
 
   function wireDepartmentModuleEvents() {
+    const deptRerender = () => {
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    };
+    /* Checked as soon as this tab is opened, same background-check
+       pattern as Leave Types' loadLeaveTypeExisting() above — and the
+       same snapshot-before-rerender guard: this fetch can resolve after
+       the visitor has already started typing a department name, and
+       without reading #deptModName's live value first, deptRerender()
+       would silently overwrite it. */
+    if (companyDepartment.existing === null) {
+      loadDepartmentExisting().then(() => {
+        if (companyDepartment.fields) {
+          const nameInput = $("#deptModName");
+          if (nameInput) companyDepartment.fields.name = nameInput.value;
+        }
+        deptRerender();
+      });
+    }
+
     if (companyDepartment.bulk) {
       const bulk = companyDepartment.bulk;
-      const rerender = () => {
-        $("#setupBody").innerHTML = setupGroupPageTemplate();
-        wireSetupGroupPage();
-      };
+      const rerender = deptRerender;
       $all(".bulk-list input[type=checkbox]").forEach((cb) =>
         cb.addEventListener("change", (e) => {
           bulk.items[Number(e.target.dataset.idx)].selected = e.target.checked;
@@ -4851,14 +4888,16 @@
           rerender
         );
         companyDesignation.departments = null; // a real department may now exist — invalidate Designation's stale "none yet" cache
+        companyDepartment.existing = null; // this run's own creates must be reflected the next time "Create all 6 defaults" is entered
         if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("departments");
         rerender(); // the done dot itself needs one more render — runBulkSequential's own last one fired before doneModules was touched
       });
       return;
     }
-    $("#deptBulkEnterLink")?.addEventListener("click", (e) => {
+    $("#deptBulkEnterLink")?.addEventListener("click", async (e) => {
       e.preventDefault();
-      companyDepartment.bulk = { items: departmentDefaultBulkItems(), running: false, stopRequested: false };
+      if (companyDepartment.existing === null) await loadDepartmentExisting(); // covers the rare case of clicking before the background check above has resolved
+      companyDepartment.bulk = { items: departmentDefaultBulkItems(companyDepartment.existing), running: false, stopRequested: false };
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
     });
@@ -4887,6 +4926,7 @@
            is stale — clear it so the next visit re-checks live instead of
            still reporting zero. */
         companyDesignation.departments = null;
+        companyDepartment.existing = null; // "Create all 6 defaults" must see this one too, if its name happens to match
       } catch (e) {
         companyDepartment.error = e.message;
       }
@@ -4955,7 +4995,7 @@
      once (then cached for the rest of this company session — see
      saveDepartmentModule() for the one place that invalidates it), an
      empty array once checked with genuinely none, or the real list. */
-  const companyDesignation = { departments: null, loadError: "", fields: null, error: "", ok: "", bulk: null, createdNames: [] };
+  const companyDesignation = { departments: null, loadError: "", fields: null, error: "", ok: "", bulk: null, createdNames: [], existingDesignations: null };
 
   function generateDesignationFields(depts) {
     return { name: choice(DESIGNATION_NAMES), departmentId: depts[0].id, status: "Active" };
@@ -4977,23 +5017,44 @@
      they're named — gets `DESIGNATION_NAMES`'s 4 generic titles instead.
      Every row is now for a department that genuinely exists, so there's
      nothing left to skip. */
-  function designationDefaultBulkItems(depts) {
+  /* Checked live against the real company, 2026-09-12 — same instruction
+     as Leave Types'/Department's own existing-check above, applied here
+     too: a department that already has some (or all) of its 4 default
+     designations was still offering all 4 as if none existed. Matched by
+     name *and* department together — `Assistant Manager` in Cyberpunk and
+     `Assistant Manager` in IT Support are two different real rows on
+     `GET /designations/active`, so only the exact (name, department)
+     pair counts as already existing. */
+  function designationDefaultBulkItems(depts, existingDesignations) {
     const items = [];
     depts.forEach((dept) => {
       const preset = DEFAULT_DEPARTMENTS.find((d) => d.name.trim().toLowerCase() === dept.name.trim().toLowerCase());
       const designations = preset ? preset.designations : DESIGNATION_NAMES;
       designations.forEach((desigName) => {
-        items.push({
-          name: desigName,
-          departmentName: dept.name,
-          departmentId: dept.id,
-          selected: true,
-          status: "pending",
-          message: "",
-        });
+        const already = existingDesignations.some((ed) => ed.name === desigName && ed.department && ed.department.id === dept.id);
+        items.push(
+          already
+            ? { name: desigName, departmentName: dept.name, departmentId: dept.id, selected: false, status: "skipped", message: "Already exists" }
+            : { name: desigName, departmentName: dept.name, departmentId: dept.id, selected: true, status: "pending", message: "" }
+        );
       });
     });
     return items;
+  }
+
+  /* A soft check, unlike the departments dependency below — if this one
+     fails, the module still works, it just can't pre-mark duplicates
+     (same fallback Leave Types'/Department's own existing-checks use).
+     Kept as its own function, separate from loadDesignationDependency(),
+     so it can be re-run on its own after a designation is actually
+     created, without re-checking the (unrelated, already-known-good)
+     departments dependency too. */
+  async function loadExistingDesignations() {
+    try {
+      companyDesignation.existingDesignations = await fetchCompanyResource("/designations/active?status=Active");
+    } catch (e) {
+      companyDesignation.existingDesignations = [];
+    }
   }
 
   async function loadDesignationDependency() {
@@ -5002,7 +5063,9 @@
     } catch (e) {
       companyDesignation.departments = null;
       companyDesignation.loadError = e.message;
+      return;
     }
+    await loadExistingDesignations();
   }
 
   function designationTemplate() {
@@ -5131,14 +5194,20 @@
           },
           rerender
         );
+        companyDesignation.existingDesignations = null; // this run's own creates must be reflected the next time "Create 4 designations..." is entered
         if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("designations");
         rerender(); // the done dot itself needs one more render — same reason as Department's bulk create
       });
       return;
     }
-    $("#desigBulkEnterLink")?.addEventListener("click", (e) => {
+    $("#desigBulkEnterLink")?.addEventListener("click", async (e) => {
       e.preventDefault();
-      companyDesignation.bulk = { items: designationDefaultBulkItems(companyDesignation.departments), running: false, stopRequested: false };
+      if (companyDesignation.existingDesignations === null) await loadExistingDesignations(); // covers a stale invalidation from a previous create, and the rare in-flight-on-first-load case
+      companyDesignation.bulk = {
+        items: designationDefaultBulkItems(companyDesignation.departments, companyDesignation.existingDesignations),
+        running: false,
+        stopRequested: false,
+      };
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
     });
@@ -5166,6 +5235,7 @@
         companyDesignation.ok = "Saved.";
         companyDesignation.createdNames.push(fields.name);
         setup.doneModules.add("designations");
+        companyDesignation.existingDesignations = null; // "Create 4 designations..." must see this one too, if its (name, department) happens to match
       } catch (e) {
         companyDesignation.error = e.message;
       }
@@ -5484,7 +5554,22 @@
      exposed as editable fields for normal leave — everything else is
      still generated per the script's own conditional logic, just not
      surfaced as its own input row. See the note in app-data.js. */
-  const leaveType = { fields: null, error: "", ok: "", createdNames: [], bulk: null };
+  const leaveType = { fields: null, error: "", ok: "", createdNames: [], bulk: null, existing: null };
+
+  /* Checked live against the real company, 2026-09-12 — direct user
+     instruction: a company that already has some (or all) of the
+     Annual/Casual/Sick trio, made by hand or by an earlier "Create the
+     default 3" run, was still being offered all 3 as if none existed,
+     and clicking through would send a real duplicate-name POST.
+     Matched by literal name against `GET /leave-types`, same discipline
+     as Leave Policy's `leavePolicyDefaultAvailable()`. */
+  async function loadLeaveTypeExisting() {
+    try {
+      leaveType.existing = await fetchCompanyResource("/leave-types");
+    } catch (e) {
+      leaveType.existing = [];
+    }
+  }
 
   /* "Create the defaults" for Leave Types — Annual/Casual/Sick, the 3 a
      company actually needs almost every time (2026-09-12, user request:
@@ -5530,10 +5615,13 @@
     };
   }
 
-  function leaveTypeDefaultBulkItems() {
+  function leaveTypeDefaultBulkItems(existing) {
     return ["annual", "casual", "sick"].map((kindId) => {
       const kind = LEAVE_TYPE_KINDS.find((k) => k.id === kindId);
-      return { kindId, name: kind.name, selected: true, status: "pending", message: "" };
+      const already = existing.some((lt) => lt.name === kind.name);
+      return already
+        ? { kindId, name: kind.name, selected: false, status: "skipped", message: "Already exists" }
+        : { kindId, name: kind.name, selected: true, status: "pending", message: "" };
     });
   }
 
@@ -5687,6 +5775,29 @@
       wireSetupGroupPage();
     };
 
+    /* Checked as soon as this tab is opened, in the background, without
+       blocking the single-item form's own instant render — by the time
+       anyone actually clicks "Create the default 3," this has almost
+       always already resolved. Snapshots #ltName first: this fetch can
+       resolve well after the render it was fired from, so without this
+       its own rerender() would silently overwrite whatever the visitor
+       had already typed by then — the exact class of bug fixed
+       repeatedly elsewhere in this file, just triggered by a background
+       fetch instead of a toggle click. leaveType.fields may not exist
+       yet on a fresh tab-open (this can resolve before the template's
+       own first render ever runs), and #ltName may no longer be in the
+       DOM at all if the visitor has since navigated to a different tab
+       — both are guarded against. */
+    if (leaveType.existing === null) {
+      loadLeaveTypeExisting().then(() => {
+        if (leaveType.fields) {
+          const nameInput = $("#ltName");
+          if (nameInput) leaveType.fields.name = nameInput.value;
+        }
+        rerender();
+      });
+    }
+
     if (leaveType.bulk) {
       const bulk = leaveType.bulk;
       $all(".bulk-list input[type=checkbox]").forEach((cb) =>
@@ -5727,14 +5838,16 @@
            refetched list. */
         leavePolicy.leaveTypes = null;
         leavePolicy.fields = null;
+        leaveType.existing = null; // this run's own creates must be reflected the next time "Create the default 3" is entered
         if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("leave_types");
         rerender(); // the done dot itself needs one more render — same reason as Department's bulk create
       });
       return;
     }
-    $("#ltBulkEnterLink")?.addEventListener("click", (e) => {
+    $("#ltBulkEnterLink")?.addEventListener("click", async (e) => {
       e.preventDefault();
-      leaveType.bulk = { items: leaveTypeDefaultBulkItems(), running: false, stopRequested: false };
+      if (leaveType.existing === null) await loadLeaveTypeExisting(); // covers the rare case of clicking before the background check above has resolved
+      leaveType.bulk = { items: leaveTypeDefaultBulkItems(leaveType.existing), running: false, stopRequested: false };
       rerender();
     });
 
@@ -5784,6 +5897,7 @@
            built from the refetched leaveTypes. */
         leavePolicy.leaveTypes = null;
         leavePolicy.fields = null;
+        leaveType.existing = null; // "Create the default 3" must see this one too, if its name happens to match
       } catch (e) {
         leaveType.error = e.message;
       }
@@ -7570,6 +7684,7 @@
     companyDepartment.ok = "";
     companyDepartment.bulk = null;
     companyDepartment.createdNames = [];
+    companyDepartment.existing = null;
     companyDesignation.departments = null;
     companyDesignation.loadError = "";
     companyDesignation.fields = null;
@@ -7577,6 +7692,7 @@
     companyDesignation.ok = "";
     companyDesignation.bulk = null;
     companyDesignation.createdNames = [];
+    companyDesignation.existingDesignations = null;
     customField.fields = null;
     customField.error = "";
     customField.ok = "";
@@ -7590,6 +7706,7 @@
     leaveType.ok = "";
     leaveType.createdNames = [];
     leaveType.bulk = null;
+    leaveType.existing = null;
     leavePolicy.leaveTypes = null;
     leavePolicy.loadError = "";
     leavePolicy.fields = null;

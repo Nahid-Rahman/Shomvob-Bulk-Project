@@ -85,6 +85,24 @@ const statusbar = (page) => page.textContent("#setupStatusBar").then((t) => t.re
 async function toGrid(page, companyName = "Hogwarts") {
   await mockSupabaseOk(page);
   await mockCompanyOk(page, companyName, "company_admin");
+  /* Default "nothing exists yet" for the three background/foreground
+     existing-checks added 2026-09-12 (Leave Types, Department,
+     Designation's own "Create the default(s)" shortcuts) — every test
+     block below that cares about a specific existing/duplicate scenario
+     registers its own page.route() for these same patterns afterward,
+     which Playwright matches before this default. Without this, any
+     test that opens one of these three tabs sends a real, unmocked GET
+     that a headless browser's CORS policy blocks outright. */
+  await page.route("**/api/v1/leave-types", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+    else route.continue();
+  });
+  await page.route("**/api/v1/departments/active", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
+  );
+  await page.route("**/api/v1/designations/active**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
+  );
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");
@@ -818,6 +836,12 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sent = null;
     await page.route("**/api/v1/leave-types", (route) => {
+      /* Saving fires a trailing GET too — 2026-09-12, the "already
+         exists" existing-check is invalidated on save and immediately
+         re-fetched on the render right after, so this same URL pattern
+         sees both requests. Guard on method or that GET's empty body
+         (postDataJSON() returns null for it) silently clobbers `sent`. */
+      if (route.request().method() !== "POST") return route.fallback();
       sent = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave type created successfully" }) });
     });
@@ -854,14 +878,14 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.route("**/api/v1/leave-types", (route) => {
       if (route.request().method() === "POST") {
         route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave type created successfully" }) });
-      } else route.continue();
+      } else route.fallback(); // the Save success handler invalidates and immediately re-fetches Leave Types' own existing-check — this pattern now sees that trailing GET too
     });
     await page.click("#ltSaveBtn");
     await page.waitForTimeout(150);
 
     await page.unroute("**/api/v1/leave-types");
     await page.route("**/api/v1/leave-types", (route) => {
-      if (route.request().method() !== "GET") return route.continue();
+      if (route.request().method() !== "GET") return route.fallback();
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1549,6 +1573,44 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- AJ2. Department Management — already-existing defaults are marked, not re-offered (2026-09-12) ----------
+
+     Real bug, reported step by step by the user: a company that already
+     had some of its default departments (created earlier, by hand or by
+     an earlier bulk run) still had the bulk shortcut offer all 6 as if
+     none existed — clicking through would send a real duplicate-name
+     POST. Checked live against `GET /departments/active`, matched by
+     name (case-insensitive, trimmed). */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+    await page.route("**/api/v1/departments/active", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [
+        { id: "d1", name: "HR" },
+        { id: "d2", name: "operations" }, // deliberately different case, to confirm the match is case-insensitive
+      ] }) })
+    );
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.click('.settings-tab[data-module="departments"]');
+    await page.waitForSelector("#deptModName", { timeout: 5000 });
+    await page.waitForTimeout(200); // the background existing-check
+    await page.click("#deptBulkEnterLink");
+    await page.waitForTimeout(100);
+    check("AJ2 HR is marked already-existing, unchecked and disabled",
+      (await page.locator('.bulk-row:has-text("HR")').textContent()).includes("skipped") &&
+        !(await page.locator('.bulk-row:has-text("HR") input').isChecked()) &&
+        (await page.locator('.bulk-row:has-text("HR") input').isDisabled()));
+    check("AJ2 Operations is marked already-existing too, matched case-insensitively",
+      (await page.locator('.bulk-row:has-text("Operations")').textContent()).includes("skipped"));
+    check("AJ2 the other 4 defaults are still offered normally",
+      (await page.locator('.bulk-row:has-text("Engineering/IT") input').isChecked()) &&
+        !(await page.locator('.bulk-row:has-text("Engineering/IT") input').isDisabled()));
+    check("AJ2 Create selected only counts the 4 that don't already exist", (await page.textContent("#deptBulkCreateBtn")).includes("(4)"));
+    check("AJ2 no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   /* ---------- AK. Designation Management — bulk mode matches this company's *real* departments, whatever they're named (fixed 2026-09-12) ----------
 
      Confirmed genuinely wrong, found live: this used to walk the fixed
@@ -1609,6 +1671,45 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AK the custom department's real id was used, same as any other", sent.some((s) => s.departmentIds[0] === "rd3"));
     check("AK the tab picks up a done marker", (await page.locator('.settings-tab[data-module="designations"] .op-dot').count()) === 1);
     check("AK no page errors through the whole dependency + bulk flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AK2. Designation Management — already-existing (name, department) pairs are marked, not re-offered (2026-09-12) ----------
+
+     Same real bug as AJ2's, reported by the user step by step, applied
+     here: matched by name *and* department together, since the same
+     title can legitimately exist in more than one department — only the
+     exact (name, department) pair that already exists should be
+     excluded, everything else stays offered normally. */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+    await page.route("**/api/v1/departments/active", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [
+        { id: "rd0", name: "HR" },
+        { id: "rd1", name: "Engineering/IT" },
+      ] }) })
+    );
+    await page.route("**/api/v1/designations/active**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [
+        { id: "x1", name: "HR Business Partner", department: { id: "rd0", name: "HR" } },
+      ] }) })
+    );
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.click('.settings-tab[data-module="designations"]');
+    await page.waitForSelector("#desigName", { timeout: 5000 });
+    await page.click("#desigBulkEnterLink");
+    await page.waitForTimeout(80);
+
+    const rows = await page.locator(".bulk-row").evaluateAll((els) =>
+      els.map((el) => ({ text: el.querySelector(".bulk-row-name").textContent.trim(), skipped: el.textContent.includes("skipped") }))
+    );
+    const hrBusinessPartnerRows = rows.filter((r) => r.text === "HR Business Partner");
+    check("AK2 exactly one row is named 'HR Business Partner' (HR's own curated title, not duplicated into Engineering/IT)", hrBusinessPartnerRows.length === 1, JSON.stringify(rows));
+    check("AK2 that HR Business Partner row is marked already-existing", hrBusinessPartnerRows[0]?.skipped === true, JSON.stringify(rows));
+    check("AK2 every other row (including Engineering/IT's own titles) is left alone", rows.filter((r) => r.text !== "HR Business Partner").every((r) => !r.skipped), JSON.stringify(rows));
+    check("AK2 no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
@@ -1885,7 +1986,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sent = [];
     await page.route("**/api/v1/leave-types", (route) => {
-      if (route.request().method() !== "POST") return route.continue();
+      if (route.request().method() !== "POST") return route.fallback(); // a bulk-created leave type invalidates and re-fetches the existing-check too
       sent.push(route.request().postDataJSON());
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave type created successfully" }) });
     });
@@ -1923,6 +2024,45 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(60);
     check("AS Back returns to the single-item form", (await page.locator("#ltSaveBtn").count()) === 1);
     check("AS no page errors through the whole bulk flow", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AS2. Leave Types — already-existing defaults are marked, not re-offered (2026-09-12) ----------
+
+     Real bug, reported step by step by the user, illustrated with a
+     screenshot of a real company: it already had all 3 defaults plus a
+     4th, hand-made one — "Create the default 3" still offered all 3 as
+     if none existed. Checked live against `GET /leave-types`, matched by
+     literal name. */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page, "Nexa Technologies");
+    await page.route("**/api/v1/leave-types", (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [
+        { id: "lt1", name: "Annual Leave", seMaxDaysPerInstance: null },
+        { id: "lt2", name: "Senti Leave", seMaxDaysPerInstance: null }, // a hand-made 4th, unrelated to the 3 defaults
+      ] }) });
+    });
+    await page.click(".settings-card:has-text('Leave')");
+    await page.waitForSelector("#ltName", { timeout: 5000 });
+    await page.waitForTimeout(200); // the background existing-check
+    await page.click("#ltBulkEnterLink");
+    await page.waitForTimeout(100);
+    check("AS2 Annual Leave is marked already-existing, unchecked and disabled",
+      (await page.locator('.bulk-row:has-text("Annual Leave")').textContent()).includes("skipped") &&
+        !(await page.locator('.bulk-row:has-text("Annual Leave") input').isChecked()) &&
+        (await page.locator('.bulk-row:has-text("Annual Leave") input').isDisabled()));
+    check("AS2 Casual and Sick are still offered normally — only the real match is skipped",
+      (await page.locator('.bulk-row:has-text("Casual Leave") input').isChecked()) &&
+        !(await page.locator('.bulk-row:has-text("Casual Leave") input').isDisabled()) &&
+        (await page.locator('.bulk-row:has-text("Sick Leave") input').isChecked()) &&
+        !(await page.locator('.bulk-row:has-text("Sick Leave") input').isDisabled()));
+    check("AS2 the hand-made 4th (Senti Leave) doesn't appear in this fixed 3-item list at all",
+      (await page.locator('.bulk-row:has-text("Senti Leave")').count()) === 0);
+    check("AS2 Create selected only counts the 2 that don't already exist", (await page.textContent("#ltBulkCreateBtn")).includes("(2)"));
+    check("AS2 no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
@@ -2064,6 +2204,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sent = null;
     await page.route("**/api/v1/leave-types", (route) => {
+      if (route.request().method() !== "POST") return route.fallback(); // the Save success handler invalidates and immediately re-fetches the existing-check too
       sent = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave type created successfully" }) });
     });

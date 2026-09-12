@@ -1905,6 +1905,103 @@ running this pass — same open question as the "Bulk Master" company
 before it (still unanswered): clean these up, or leave them as
 disposable test-company data.
 
+### "Create the defaults" now checks what already exists first (2026-09-12)
+
+Reported step by step by the user, with a real screenshot: a company
+already had all 3 default leave types (the 3 "Create the default 3"
+makes) plus a 4th, hand-made one — and "Create the default 3" still
+offered all 3 as if none existed. The user's own framing of the fix:
+"tumi to leave type get kore easily name match kore dekhte paro kongula
+create hoise kongula hoy nai... eta tumi shob page er jonno koro" — check
+what's already real, mark it, and do this for every "create the
+defaults" shortcut, not just this one. Applied to all three: Leave
+Types, Department Management, Designation Management.
+
+**Mechanism is the same in all three, and needed no new shared
+infrastructure** — the bulk list's own `"skipped"` item status (already
+built for a since-removed, unrelated reason — see Designation's own
+history above) already meant exactly "disabled checkbox, unselected,
+shown with a reason" the moment an item carries it. So marking an
+already-existing default just means building its bulk item with
+`selected: false, status: "skipped", message: "Already exists"` instead
+of the normal `selected: true, status: "pending"` — `bulkListTemplate()`,
+`bulkStatusHtml()` and `runBulkSequential()` needed zero changes.
+
+- **Leave Types** — `leaveType.existing` (`null` until fetched), loaded
+  via `loadLeaveTypeExisting()` (`GET /leave-types`, the same endpoint
+  Leave Policy's own dependency check already uses) and matched by
+  literal `name` against the 3 defaults.
+- **Department Management** — `companyDepartment.existing`, loaded via
+  `loadDepartmentExisting()` (`GET /departments/active`, the same
+  endpoint Designation's own dependency check already uses) and matched
+  by name, case-insensitive and trimmed (same comparison Designation's
+  preset-matching already used).
+- **Designation Management** — `companyDesignation.existingDesignations`,
+  loaded via a new `loadExistingDesignations()` (`GET /designations/
+  active?status=Active` — a real endpoint neither this app nor the
+  Postman collection had ever called before; found and confirmed live
+  the same day the user asked for this fix, see below) and matched by
+  **name and department together** — `"Manager"` in Cyberpunk and
+  `"Manager"` in Operations are two different real rows, so only the
+  exact (name, department) pair counts as already existing, never a bare
+  name match across the whole company.
+
+**Neither Leave Types nor Department block their tab's own render on
+this check** — unlike Designation, which already blocks on a real
+dependency (Department must exist) before showing anything, these two
+modules' whole premise is instant, no-network-wait rendering, and this
+existing-check is a courtesy, not a hard requirement. Each fires the
+fetch as soon as the tab opens, in the background
+(`if (leaveType.existing === null) loadLeaveTypeExisting().then(...)`),
+and the "Create the default(s)" click handler `await`s it directly if
+the visitor somehow clicks before it resolves — so correctness never
+depends on timing, only on whether the network call itself has finished.
+Designation's own existing-designations check, by contrast, is folded
+into its already-blocking `loadDesignationDependency()` — by the time
+the tab renders anything at all, both its department dependency and its
+own existing-designations check are already resolved together.
+
+**A real bug in this fix itself, found before it ever reached tests**:
+the background fetch's own `.then(rerender)` re-renders the whole tab
+body the instant it resolves — which, if a visitor had already started
+typing a Name by then, silently overwrote it, the exact "snapshot before
+re-render" class of bug this file has fixed repeatedly for toggle/seg
+click handlers, just triggered by a background network response instead
+of a click this time. Fixed by reading `#ltName`/`#deptModName`'s live
+value into the cached fields object before calling rerender(), the same
+discipline, just relocated to a `.then()` callback instead of an event
+handler.
+
+**Invalidated the same way every other dependency cache in this section
+already is**: creating a leave type/department/designation (single-item
+*or* bulk) nulls the relevant `existing`/`existingDesignations` state, so
+the next time "Create the default(s)" is entered it reflects what's
+actually real now, not a stale snapshot from before this run. All three
+are also cleared in `resetModuleState()`, same as every other per-module
+cache on Sign out/Disconnect.
+
+**Confirming the Designation endpoint was itself a small investigation**
+— the user supplied a real staging URL (`/designations/active?status=
+Active`) and said to find the bearer token in "amar api automation
+json" (a real, non-sanitized Postman collection on their machine,
+distinct from the sanitized copy on the Desktop mentioned earlier).
+Unauthenticated `curl` probing alone couldn't confirm the route was
+real — a `401` on this exact path and on a deliberately made-up sibling
+path under the same `/designations/` prefix came back identical, meaning
+the auth guard sits in front of the whole resource, not the specific
+route, so a `401` here proves less than it did for the earlier
+`/attendance/policies` discovery. Real confirmation came from logging in
+with a real (temporary, in-memory-only, never written to any file)
+staging test-company account found in that same collection and hitting
+both this URL and the Postman collection's own plain `GET /designations`
+with the resulting bearer token — both are real, both return the exact
+same shape (`data`: a flat array, each entry carrying a nested
+`department: { id, name, ... }` object, not a flat `departmentId`
+field), confirming `/designations/active?status=Active` works and
+matches the wrapping shape `fetchCompanyResource()` already expects
+without needing another wrapper-key fallback like Salary Components
+needed.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group now has a real
