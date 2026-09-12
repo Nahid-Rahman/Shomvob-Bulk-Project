@@ -900,6 +900,55 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- W1. Leave Policy — a new leave type must actually appear in the list (2026-09-12) ----------
+     Real bug, found live: leavePolicy.leaveTypes (the dependency cache) was
+     invalidated on a new leave type save, but leavePolicy.fields — the
+     already-generated list of rows built from the old leaveTypes — was
+     not, so a stale 3-row list kept rendering forever even after a real
+     4th leave type existed and the dependency cache itself had correctly
+     refetched it. Fixed by nulling leavePolicy.fields alongside
+     leavePolicy.leaveTypes at every invalidation site. */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Leave')");
+    await page.waitForTimeout(100);
+
+    let leaveTypes = [
+      { id: "lt1", name: "Annual Leave", seMaxDaysPerInstance: null },
+      { id: "lt2", name: "Casual Leave", seMaxDaysPerInstance: null },
+      { id: "lt3", name: "Sick Leave", seMaxDaysPerInstance: null },
+    ];
+    await page.route("**/api/v1/leave-types", (route) => {
+      if (route.request().method() === "GET") {
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: leaveTypes }) });
+      } else {
+        route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "ok" }) });
+      }
+    });
+
+    // Open Leave Policy first, while the company still only has 3 — this is what generates and caches its fields object.
+    await page.click('.settings-tab[data-module="leave_policy"]');
+    await page.waitForSelector("#lpName", { timeout: 5000 });
+    check("W1 starts with the 3 that exist", (await page.locator(".lp-leave-row").count()) === 3);
+
+    // Create a 4th by hand; the server starts returning it too from now on.
+    await page.click('.settings-tab[data-module="leave_types"]');
+    await page.waitForSelector("#ltName", { timeout: 5000 });
+    await page.fill("#ltName", "Senti Leave");
+    leaveTypes = [...leaveTypes, { id: "lt4", name: "Senti Leave", seMaxDaysPerInstance: null }];
+    await page.click("#ltSaveBtn");
+    await page.waitForTimeout(150);
+
+    await page.click('.settings-tab[data-module="leave_policy"]');
+    await page.waitForSelector("#lpName", { timeout: 5000 });
+    check("W1 the newly created leave type actually appears, not a stale 3-row list",
+      (await page.locator(".lp-leave-row").count()) === 4 && (await page.locator(".lp-leave-row:has-text('Senti Leave')").count()) === 1);
+    check("W1 no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   /* ---------- W2. Leave Policy — "Create the default policy" shortcut (2026-09-12) ---------- */
   {
     // Only 2 of the 3 default leave types exist — the shortcut must stay hidden, not partially build a policy.

@@ -1587,6 +1587,36 @@ came with a deliberate scoping decision, not an oversight:
     current — tested that unchecking a row, editing another row's days,
     and hand-typing a new Name all survive a Status click intact.
 
+  **A real bug, found live the same day, right after this redesign
+  shipped: a newly created leave type never appeared in the list.**
+  Reported step by step by the user — a company sat at 4 real leave
+  types (the default 3, plus one made by hand through the single-item
+  Leave Types form), but Leave Policy kept showing only 3. Root cause:
+  `leavePolicy.leaveTypes` (the dependency cache — the real fetched list
+  used both for the "does at least one exist" check and to build the row
+  list) is correctly invalidated (`= null`) the moment a leave type is
+  saved, both from the single-item form and from "Create the default 3"
+  — but `leavePolicy.fields`, the **already-generated** list of rows
+  built from whatever `leaveTypes` looked like at the time, was not.
+  `leavePolicyTemplate()`'s `if (!leavePolicy.fields) leavePolicy.fields
+  = generateLeavePolicyFields(...)` guard only regenerates when `fields`
+  itself is `null` — so reopening the tab correctly refetched the real,
+  now-4-item `leaveTypes`, and then rendered straight from the *stale*
+  3-item `fields` anyway, since that guard saw a non-null object and
+  skipped regenerating. Exactly the shape of bug `resetModuleState()`
+  already guards against for Sign out/Disconnect (a derived `fields`
+  object surviving a cache invalidation it was built from) — just not
+  caught here since this dependency's `fields` is also rebuilt from a
+  live list, unlike, say, Designation's, which only checks a plain
+  count. Fixed by nulling `leavePolicy.fields` alongside every
+  `leavePolicy.leaveTypes = null`: the single-item Save success handler,
+  the bulk-create success handler, and the dependency-load retry button
+  (found while fixing the other two — the identical stale-`fields`-
+  survives-a-refetch shape, just on the error→retry path instead of the
+  save→invalidate one). Reproduced and verified against a mocked server
+  that starts at 3 leave types and grows to 4 mid-session — the 4th
+  didn't appear before the fix and does after, on all three sites.
+
 ### Holiday Calendar — Leave's third module (built 2026-09-12)
 
 Requested directly ("aro thakar kotha na, at least holiday calendar er

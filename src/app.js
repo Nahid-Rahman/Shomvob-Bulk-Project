@@ -5717,7 +5717,16 @@
           },
           rerender
         );
-        leavePolicy.leaveTypes = null; // a leave type may now exist for real — invalidate Leave Policy's stale dependency cache
+        /* A leave type may now exist for real — invalidate Leave Policy's
+           stale dependency cache. `fields` must go with it: it's already-
+           generated form state built from the old leaveTypes list, and
+           surviving this invalidation on its own is exactly the bug found
+           live 2026-09-12 — a newly created leave type never appeared in
+           Leave Policy's list because the stale fields object kept
+           rendering instead of a fresh one being generated from the
+           refetched list. */
+        leavePolicy.leaveTypes = null;
+        leavePolicy.fields = null;
         if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("leave_types");
         rerender(); // the done dot itself needs one more render — same reason as Department's bulk create
       });
@@ -5767,8 +5776,14 @@
         leaveType.createdNames.push(fields.name);
         setup.doneModules.add("leave_types");
         /* A leave type now exists for real — Leave Policy's cached
-           dependency check (if it ran already) is stale. */
+           dependency check is stale, and so is its already-generated
+           fields object (built from the old list) — found live
+           2026-09-12: without nulling fields too, a freshly created
+           leave type never appeared in Leave Policy's list, since the
+           stale fields kept rendering instead of a fresh one being
+           built from the refetched leaveTypes. */
         leavePolicy.leaveTypes = null;
+        leavePolicy.fields = null;
       } catch (e) {
         leaveType.error = e.message;
       }
@@ -5967,6 +5982,7 @@
       retryBtn.addEventListener("click", () => {
         leavePolicy.loadError = "";
         leavePolicy.leaveTypes = null;
+        leavePolicy.fields = null; // same reason as the two invalidation sites above — a stale fields object must not survive a leaveTypes refetch
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       });
