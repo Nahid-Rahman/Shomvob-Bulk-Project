@@ -1720,12 +1720,18 @@ Every module in the Postman collection's own "Payroll Settings" folder,
 ported the same way as everything above. Four real dependencies live in
 this group alone — more than the rest of the app combined:
 
-- **General** — `POST /payroll/configuration/payroll-cycle`. Cycle is
-  weighted (`PAYROLL_CYCLE_OPTIONS`: 55% calendar month, 40% fixed date,
-  5% bi-weekly, via the new `weightedChoice()` helper — the app's first,
-  ported from the collection's own `pickWeighted()`), with conditional
-  threshold/fixed-day/bi-weekly-date fields exactly as the script branches
-  on it. No dependency.
+- **General** — `POST /payroll/configuration/payroll-cycle`. Cycle
+  defaults to Calendar Month rather than being rolled — the user asked
+  for this directly (2026-09-13) after finding the original weighted
+  random pick (`PAYROLL_CYCLE_OPTIONS`, 55/40/5 via `weightedChoice()`)
+  meant Regenerate could silently swap which cycle was selected. Fixed
+  Date / Bi-weekly are still there, just user-picked via the seg rather
+  than random; `generatePayrollGeneralFields(payrollCycle =
+  "calendar_month")` takes the cycle as a parameter now, and both the seg
+  click handler and Regenerate call it with whichever cycle is currently
+  selected, so neither can change the cycle out from under the user.
+  Conditional threshold/fixed-day/bi-weekly-date fields still roll exactly
+  as the script branches on them. No dependency.
 - **Salary Components** — `POST /payroll/configuration/salary-components`.
   4 fixed presets (Medical/House Rent/Mobile/Internet Allowance) — the
   collection's own 4 separate requests, not a generated name — with only

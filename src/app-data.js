@@ -821,13 +821,6 @@ const ATTENDANCE_FIXED_BREAK_MINUTES = [30, 45, 60, 90];
    need an entirely new API — confirmed true below, not a guess. Every
    pool here is the script's own, ported verbatim. */
 
-/* General — POST /payroll/configuration/payroll-cycle. No dependency. */
-const PAYROLL_CYCLE_OPTIONS = [
-  { value: "calendar_month", weight: 55 },
-  { value: "fixed_date", weight: 40 },
-  { value: "bi_weekly", weight: 5 },
-];
-
 /* Salary Components — POST /payroll/configuration/salary-components. No
    dependency. These 4 are the Postman collection's own fixed examples
    (each its own request, not a generated name) — status/tax-countable/

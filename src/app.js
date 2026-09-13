@@ -6270,8 +6270,7 @@
   /* ---------- General — POST /payroll/configuration/payroll-cycle ---------- */
   const payrollGeneral = { fields: null, error: "", ok: "" };
 
-  function generatePayrollGeneralFields() {
-    const payrollCycle = weightedChoice(PAYROLL_CYCLE_OPTIONS);
+  function generatePayrollGeneralFields(payrollCycle = "calendar_month") {
     const body = { payrollCycle };
     function addThresholdRules() {
       body.thresholdRuleEnabled = Math.random() < 0.5;
@@ -6301,7 +6300,7 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the muggle-friendly magic scroll's own pay-cycle picker — calendar month is most common, fixed date next, bi-weekly rare. Regenerate re-rolls which cycle and its conditional fields.</p>
+        <p class="section-note">Payroll Cycle defaults to Calendar Month — pick Fixed Date or Bi-weekly yourself if that's what you need to test. Regenerate re-rolls the conditional fields for whichever cycle is currently selected, not the cycle itself.</p>
         <div class="field-row">
           <div class="field">
             <label>Payroll Cycle</label>
@@ -6349,28 +6348,14 @@
   function wirePayrollGeneralEvents() {
     $all("#pgCycleSeg button").forEach((btn) =>
       btn.addEventListener("click", () => {
-        const payrollCycle = btn.dataset.val;
-        payrollGeneral.fields = { payrollCycle };
-        if (payrollCycle === "calendar_month" || payrollCycle === "fixed_date") {
-          if (payrollCycle === "fixed_date") payrollGeneral.fields.fixedStartDay = randInt(1, 28);
-          payrollGeneral.fields.thresholdRuleEnabled = Math.random() < 0.5;
-          if (payrollGeneral.fields.thresholdRuleEnabled) {
-            payrollGeneral.fields.thresholdDays = randInt(5, 10);
-            payrollGeneral.fields.thresholdNotifyEmployee = Math.random() < 0.5;
-            payrollGeneral.fields.thresholdNotifyHr = Math.random() < 0.5;
-            payrollGeneral.fields.thresholdLogDecisions = Math.random() < 0.5;
-          }
-        } else {
-          const now = new Date();
-          payrollGeneral.fields.biWeeklyStartDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-        }
+        payrollGeneral.fields = generatePayrollGeneralFields(btn.dataset.val);
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       })
     );
 
     wireRegenerate("#pgRegenerateBtn", () => {
-      payrollGeneral.fields = generatePayrollGeneralFields();
+      payrollGeneral.fields = generatePayrollGeneralFields(payrollGeneral.fields.payrollCycle);
       payrollGeneral.error = "";
       payrollGeneral.ok = "";
       $("#setupBody").innerHTML = setupGroupPageTemplate();
