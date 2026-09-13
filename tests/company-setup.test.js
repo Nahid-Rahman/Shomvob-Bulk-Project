@@ -103,6 +103,13 @@ async function toGrid(page, companyName = "Hogwarts") {
   await page.route("**/api/v1/designations/active**", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
   );
+  /* Same default for Salary Components' own "Create the default 3"
+     existing-check (2026-09-13) — GET with no query string, distinct
+     from Configure Salary Components' own "?status=Active&limit=100"
+     GET and from the bare POST that saves one. */
+  await page.route("**/api/v1/payroll/configuration/salary-components?limit=100", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
+  );
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");

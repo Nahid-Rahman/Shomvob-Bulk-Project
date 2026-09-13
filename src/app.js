@@ -4731,7 +4731,8 @@
     return (
       !!(companyDepartment.bulk && companyDepartment.bulk.running) ||
       !!(companyDesignation.bulk && companyDesignation.bulk.running) ||
-      !!(leaveType.bulk && leaveType.bulk.running)
+      !!(leaveType.bulk && leaveType.bulk.running) ||
+      !!(salaryComponent.bulk && salaryComponent.bulk.running)
     );
   }
 
@@ -6386,7 +6387,37 @@
   }
 
   /* ---------- Salary Components — POST /payroll/configuration/salary-components ---------- */
-  const salaryComponent = { presetIdx: 0, fields: null, error: "", ok: "", createdNames: [] };
+  const salaryComponent = { presetIdx: 0, fields: null, error: "", ok: "", createdNames: [], existing: null, bulk: null };
+
+  /* Checked live against the real company, same discipline "create the
+     defaults" already holds itself to on Department/Designation/Leave
+     Types (2026-09-12) — matched by literal name against the company's
+     own existing salary components, whatever their status, so a company
+     that already has one or more of these doesn't get offered a
+     duplicate-name POST. */
+  async function loadSalaryComponentExisting() {
+    try {
+      salaryComponent.existing = await fetchCompanyResource("/payroll/configuration/salary-components?limit=100");
+    } catch (e) {
+      salaryComponent.existing = [];
+    }
+  }
+
+  /* "Create the defaults" for Salary Components — Medical, House Rent and
+     Internet Allowance, the 3 the user actually wants offered together
+     (2026-09-13, direct request). Mobile Allowance is deliberately left
+     out of this shortcut, same as Leave Types leaves Maternity/Paternity
+     out of "Create the default 3" — still reachable through the
+     single-item form's own Component dropdown. */
+  function salaryComponentDefaultBulkItems(existing) {
+    return [0, 1, 3].map((presetIdx) => {
+      const preset = SALARY_COMPONENT_PRESETS[presetIdx];
+      const already = existing.some((c) => c.name === preset.name);
+      return already
+        ? { presetIdx, name: preset.name, selected: false, status: "skipped", message: "Already exists" }
+        : { presetIdx, name: preset.name, selected: true, status: "pending", message: "" };
+    });
+  }
 
   function generateSalaryComponentFields(presetIdx) {
     const preset = SALARY_COMPONENT_PRESETS[presetIdx];
@@ -6401,6 +6432,7 @@
 
   function salaryComponentTemplate() {
     const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Salary Components</h2></div>`;
+    if (salaryComponent.bulk) return bulkListTemplate(head, salaryComponent.bulk, "scBulk");
     if (!salaryComponent.fields) salaryComponent.fields = generateSalaryComponentFields(salaryComponent.presetIdx);
     const f = salaryComponent.fields;
     const options = SALARY_COMPONENT_PRESETS.map((p, i) => `<option value="${i}" ${i === salaryComponent.presetIdx ? "selected" : ""}>${p.name}</option>`).join("");
@@ -6408,9 +6440,10 @@
       <div class="section">
         ${head}
         <p class="section-note">The muggle-friendly magic scroll's own 4 fixed components, one request each — status, tax-countability and pro-rata are the only randomised fields.</p>
+        <button type="button" class="bulk-shortcut-btn" id="scBulkEnterLink">Create the default 3 (Medical, House Rent, Internet) at once →</button>
         <div class="field-row">
           <div class="field">
-            <label for="scPreset">Component</label>
+            <label for="scPreset">Or just this one — Component</label>
             <select id="scPreset">${options}</select>
           </div>
           <div class="field">
@@ -6457,6 +6490,63 @@
   }
 
   function wireSalaryComponentEvents() {
+    const scRerender = () => {
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    };
+    /* Checked as soon as this tab is opened, same background-check
+       pattern as Leave Types'/Department's own existing-name checks. No
+       snapshot-before-rerender needed here — unlike those, nothing on
+       this form is free-typed; Component and Status are both controlled
+       by state that's already set by the time this resolves. */
+    if (salaryComponent.existing === null) {
+      loadSalaryComponentExisting().then(scRerender);
+    }
+
+    if (salaryComponent.bulk) {
+      const bulk = salaryComponent.bulk;
+      $all(".bulk-list input[type=checkbox]").forEach((cb) =>
+        cb.addEventListener("change", (e) => {
+          bulk.items[Number(e.target.dataset.idx)].selected = e.target.checked;
+          scRerender();
+        })
+      );
+      $("#scBulkSelectAllBtn")?.addEventListener("click", () => {
+        const selectable = bulk.items.filter((it) => it.status !== "skipped");
+        const allSelected = selectable.length > 0 && selectable.every((it) => it.selected);
+        selectable.forEach((it) => (it.selected = !allSelected));
+        scRerender();
+      });
+      $("#scBulkCancelBtn")?.addEventListener("click", () => {
+        salaryComponent.bulk = null;
+        scRerender();
+      });
+      $("#scBulkStopBtn")?.addEventListener("click", () => {
+        bulk.stopRequested = true;
+      });
+      $("#scBulkCreateBtn")?.addEventListener("click", async () => {
+        await runBulkSequential(
+          bulk,
+          async (item) => {
+            await saveSalaryComponent(generateSalaryComponentFields(item.presetIdx));
+            salaryComponent.createdNames.push(item.name);
+          },
+          scRerender
+        );
+        companySalaryStructure.components = null; // a real component may now exist — invalidate Configure Salary Components' stale dependency cache
+        salaryComponent.existing = null; // this run's own creates must be reflected the next time "Create the default 3" is entered
+        if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("salary_components");
+        scRerender(); // the done dot itself needs one more render, same reason as Department's bulk create
+      });
+      return;
+    }
+    $("#scBulkEnterLink")?.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (salaryComponent.existing === null) await loadSalaryComponentExisting(); // covers the rare case of clicking before the background check above has resolved
+      salaryComponent.bulk = { items: salaryComponentDefaultBulkItems(salaryComponent.existing), running: false, stopRequested: false };
+      scRerender();
+    });
+
     $("#scPreset").addEventListener("change", (e) => {
       salaryComponent.presetIdx = Number(e.target.value);
       salaryComponent.fields = generateSalaryComponentFields(salaryComponent.presetIdx);
@@ -6491,6 +6581,7 @@
         salaryComponent.createdNames.push(salaryComponent.fields.name);
         setup.doneModules.add("salary_components");
         companySalaryStructure.components = null;
+        salaryComponent.existing = null; // "Create the default 3" must see this one too, if its name happens to match
       } catch (e) {
         salaryComponent.error = e.message;
       }
@@ -7736,6 +7827,8 @@
     salaryComponent.error = "";
     salaryComponent.ok = "";
     salaryComponent.createdNames = [];
+    salaryComponent.existing = null;
+    salaryComponent.bulk = null;
     companySalaryStructure.components = null;
     companySalaryStructure.loadError = "";
     companySalaryStructure.fields = null;

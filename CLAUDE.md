@@ -1738,7 +1738,21 @@ this group alone — more than the rest of the app combined:
   4 fixed presets (Medical/House Rent/Mobile/Internet Allowance) — the
   collection's own 4 separate requests, not a generated name — with only
   status/tax-countability/pro-rata randomised per the script's own
-  weights. No dependency.
+  weights. No dependency. **"Create the defaults" bulk mode added
+  2026-09-13**, on the user's own request, offering Medical/House Rent/
+  Internet — Mobile Allowance is deliberately left out of the shortcut,
+  same as Leave Types leaves Maternity/Paternity out of "Create the
+  default 3"; still reachable through the single-item form's own
+  Component dropdown. Same shape as Department/Designation/Leave Types'
+  own bulk mode: `loadSalaryComponentExisting()` checks the company's
+  real existing components first (`GET
+  /payroll/configuration/salary-components?limit=100`, no status filter,
+  so an existing Inactive one still counts) and
+  `salaryComponentDefaultBulkItems()` marks a name that already exists as
+  skipped, same "never offer a duplicate-name POST" discipline. A
+  successful create (single-item or bulk) invalidates both its own
+  existing-check cache and Configure Salary Components' dependency
+  cache, same as a real department save invalidates Designation's.
 - **Configure Salary Components — the third real dependency.**
   `PUT /payroll/configuration/non-paygrade-structure` needs **2** Active
   salary components, not 1 — the collection's own script throws without
