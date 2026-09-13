@@ -4732,7 +4732,8 @@
       !!(companyDepartment.bulk && companyDepartment.bulk.running) ||
       !!(companyDesignation.bulk && companyDesignation.bulk.running) ||
       !!(leaveType.bulk && leaveType.bulk.running) ||
-      !!(salaryComponent.bulk && salaryComponent.bulk.running)
+      !!(salaryComponent.bulk && salaryComponent.bulk.running) ||
+      !!(bonusType.bulk && bonusType.bulk.running)
     );
   }
 
@@ -7116,7 +7117,35 @@
   }
 
   /* ---------- Bonus Types — POST /bonus/configuration/types ---------- */
-  const bonusType = { presetIdx: 0, fields: null, error: "", ok: "", createdNames: [] };
+  const bonusType = { presetIdx: 0, fields: null, error: "", ok: "", createdNames: [], existing: null, bulk: null };
+
+  /* Checked live against the real company, same discipline every other
+     "create the defaults" shortcut holds itself to — matched by literal
+     typeName against GET /bonus/configuration/types (a flat array, no
+     query params, unlike Salary Components' paginated endpoint). */
+  async function loadBonusTypeExisting() {
+    try {
+      bonusType.existing = await fetchCompanyResource("/bonus/configuration/types");
+    } catch (e) {
+      bonusType.existing = [];
+    }
+  }
+
+  /* "Create the defaults" for Bonus Types — Eid Bonus and Bangla New Year
+     Bonus, the 2 a company actually wants most (2026-09-13, direct
+     request). Special Bonus and Inactive Test Bonus are deliberately left
+     out of the shortcut, same as Salary Components leaves Mobile
+     Allowance out of its own "create the default 3" — still reachable
+     through the single-item form's own Bonus Type dropdown. */
+  function bonusTypeDefaultBulkItems(existing) {
+    return [0, 1].map((presetIdx) => {
+      const preset = BONUS_TYPE_PRESETS[presetIdx];
+      const already = existing.some((bt) => bt.typeName === preset.typeName);
+      return already
+        ? { presetIdx, name: preset.typeName, selected: false, status: "skipped", message: "Already exists" }
+        : { presetIdx, name: preset.typeName, selected: true, status: "pending", message: "" };
+    });
+  }
 
   function generateBonusTypeFields(presetIdx) {
     const preset = BONUS_TYPE_PRESETS[presetIdx];
@@ -7125,6 +7154,7 @@
 
   function bonusTypeTemplate() {
     const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">6</span>Bonus Types</h2></div>`;
+    if (bonusType.bulk) return bulkListTemplate(head, bonusType.bulk, "btBulk");
     if (!bonusType.fields) bonusType.fields = generateBonusTypeFields(bonusType.presetIdx);
     const f = bonusType.fields;
     const options = BONUS_TYPE_PRESETS.map((p, i) => `<option value="${i}" ${i === bonusType.presetIdx ? "selected" : ""}>${p.typeName}</option>`).join("");
@@ -7132,8 +7162,9 @@
       <div class="section">
         ${head}
         <p class="section-note">The muggle-friendly magic scroll's own 4 fixed bonus types, one request each — only the icon is randomised.</p>
+        <button type="button" class="bulk-shortcut-btn" id="btBulkEnterLink">Create the default 2 (Eid Bonus, Bangla New Year Bonus) at once →</button>
         <div class="field-row">
-          <div class="field"><label for="btPreset">Bonus Type</label><select id="btPreset">${options}</select></div>
+          <div class="field"><label for="btPreset">Or just this one — Bonus Type</label><select id="btPreset">${options}</select></div>
         </div>
         <p class="section-note" style="margin-top:8px">${f.description}</p>
         <div style="display:flex; gap:6px; margin-top:8px;">
@@ -7171,6 +7202,62 @@
   }
 
   function wireBonusTypeEvents() {
+    const btRerender = () => {
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    };
+    /* Checked as soon as this tab is opened, same background-check
+       pattern as Salary Components'/Leave Types' own existing-name
+       checks. No snapshot-before-rerender needed — nothing on this form
+       is free-typed. */
+    if (bonusType.existing === null) {
+      loadBonusTypeExisting().then(btRerender);
+    }
+
+    if (bonusType.bulk) {
+      const bulk = bonusType.bulk;
+      $all(".bulk-list input[type=checkbox]").forEach((cb) =>
+        cb.addEventListener("change", (e) => {
+          bulk.items[Number(e.target.dataset.idx)].selected = e.target.checked;
+          btRerender();
+        })
+      );
+      $("#btBulkSelectAllBtn")?.addEventListener("click", () => {
+        const selectable = bulk.items.filter((it) => it.status !== "skipped");
+        const allSelected = selectable.length > 0 && selectable.every((it) => it.selected);
+        selectable.forEach((it) => (it.selected = !allSelected));
+        btRerender();
+      });
+      $("#btBulkCancelBtn")?.addEventListener("click", () => {
+        bonusType.bulk = null;
+        btRerender();
+      });
+      $("#btBulkStopBtn")?.addEventListener("click", () => {
+        bulk.stopRequested = true;
+      });
+      $("#btBulkCreateBtn")?.addEventListener("click", async () => {
+        await runBulkSequential(
+          bulk,
+          async (item) => {
+            await saveBonusType(generateBonusTypeFields(item.presetIdx));
+            bonusType.createdNames.push(item.name);
+          },
+          btRerender
+        );
+        bonusPolicy.bonusTypes = null; // a real bonus type may now exist — invalidate Bonus Policy's stale dependency cache
+        bonusType.existing = null; // this run's own creates must be reflected the next time "Create the default 2" is entered
+        if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("bonus_types");
+        btRerender(); // the done dot itself needs one more render, same reason as every other bulk create
+      });
+      return;
+    }
+    $("#btBulkEnterLink")?.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (bonusType.existing === null) await loadBonusTypeExisting(); // covers the rare case of clicking before the background check above has resolved
+      bonusType.bulk = { items: bonusTypeDefaultBulkItems(bonusType.existing), running: false, stopRequested: false };
+      btRerender();
+    });
+
     $("#btPreset").addEventListener("change", (e) => {
       bonusType.presetIdx = Number(e.target.value);
       bonusType.fields = generateBonusTypeFields(bonusType.presetIdx);
@@ -7197,6 +7284,7 @@
         bonusType.createdNames.push(bonusType.fields.typeName);
         setup.doneModules.add("bonus_types");
         bonusPolicy.bonusTypes = null;
+        bonusType.existing = null; // "Create the default 2" must see this one too, if its name happens to match
       } catch (e) {
         bonusType.error = e.message;
       }
@@ -7993,6 +8081,8 @@
     bonusType.error = "";
     bonusType.ok = "";
     bonusType.createdNames = [];
+    bonusType.existing = null;
+    bonusType.bulk = null;
     bonusPolicy.bonusTypes = null;
     bonusPolicy.loadError = "";
     bonusPolicy.fields = null;

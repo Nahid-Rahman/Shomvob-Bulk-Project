@@ -110,6 +110,14 @@ async function toGrid(page, companyName = "Hogwarts") {
   await page.route("**/api/v1/payroll/configuration/salary-components?limit=100", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
   );
+  /* Same default for Bonus Types' own "Create the default 2" existing-
+     check (2026-09-13) — this endpoint is GET-and-POST on the exact same
+     URL, so the default has to branch on method rather than pick a
+     distinct query string like Salary Components' does. */
+  await page.route("**/api/v1/bonus/configuration/types", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+    else route.continue();
+  });
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");
@@ -1340,7 +1348,9 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sent = null;
     await page.route("**/api/v1/bonus/configuration/types", (route) => {
-      if (route.request().method() !== "POST") return route.continue();
+      if (route.request().method() === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+      }
       sent = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Bonus type created successfully." }) });
     });
@@ -1349,6 +1359,60 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AC sends the real fixed name and status, not generated ones", sent && sent.typeName === "Inactive Test Bonus" && sent.status === "Inactive");
     check("AC the tab picks up a done marker", (await page.locator('.settings-tab[data-module="bonus_types"] .op-dot').count()) === 1);
     check("AC no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AC2. Bonus Types — "Create the default 2" (2026-09-13) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.click('.settings-tab[data-module="bonus_types"]');
+    await page.waitForSelector("#btBulkEnterLink", { timeout: 5000 });
+
+    await page.click("#btBulkEnterLink");
+    await page.waitForSelector(".bulk-list", { timeout: 5000 });
+    const bodyText = await page.textContent("#setupBody");
+    check("AC2 offers exactly Eid Bonus and Bangla New Year Bonus", bodyText.includes("Eid Bonus") && bodyText.includes("Bangla New Year Bonus"));
+    check("AC2 leaves out Special Bonus and Inactive Test Bonus", !bodyText.includes("Special Bonus") && !bodyText.includes("Inactive Test Bonus"));
+
+    const created = [];
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+      }
+      const body = route.request().postDataJSON();
+      created.push(body.typeName);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Bonus type created successfully." }) });
+    });
+    await page.click("#btBulkCreateBtn");
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("done"), { timeout: 5000 });
+    await page.waitForTimeout(150);
+    check("AC2 creates exactly Eid Bonus and Bangla New Year Bonus, both real POSTs", created.length === 2 && created.includes("Eid Bonus") && created.includes("Bangla New Year Bonus"));
+    check("AC2 the tab picks up a done marker", (await page.locator('.settings-tab[data-module="bonus_types"] .op-dot').count()) === 1);
+    check("AC2 no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AC3. Bonus Types bulk — an existing name is skipped, not duplicated ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "bt-existing", typeName: "Eid Bonus", status: "Active" }] }) });
+      }
+      route.continue();
+    });
+    await page.click('.settings-tab[data-module="bonus_types"]');
+    await page.waitForSelector("#btBulkEnterLink", { timeout: 5000 });
+    await page.click("#btBulkEnterLink");
+    await page.waitForSelector(".bulk-list", { timeout: 5000 });
+    check("AC3 an already-existing default is shown skipped, not offered again", (await page.locator('.bulk-row:has-text("Eid Bonus")').textContent()).includes("skipped"));
+    check("AC3 Bangla New Year Bonus (the one that doesn't exist yet) is still offered normally", !(await page.locator('.bulk-row:has-text("Bangla New Year Bonus")').textContent()).includes("skipped"));
     await page.close();
   }
 
@@ -1373,7 +1437,9 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.route("**/api/v1/bonus/configuration/types", (route) => {
       if (route.request().method() === "POST") {
         route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Bonus type created successfully." }) });
-      } else route.continue();
+      } else {
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+      }
     });
     await page.click("#btSaveBtn");
     await page.waitForTimeout(150);

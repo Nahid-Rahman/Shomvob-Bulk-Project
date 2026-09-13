@@ -1834,7 +1834,30 @@ this group alone — more than the rest of the app combined:
   toggle (`#adRuleSeg`) switching it to `"consecutive_absent_days"`.
 - **Bonus Types** — `POST /bonus/configuration/types`. 4 fixed presets
   (Eid/Bangla New Year/Special/Inactive Test Bonus), only icon
-  randomised. No dependency.
+  randomised. No dependency. **"Create the defaults" bulk mode added
+  2026-09-13**, direct request, offering Eid Bonus and Bangla New Year
+  Bonus — Special Bonus and Inactive Test Bonus deliberately left out of
+  the shortcut, same as Salary Components leaves Mobile Allowance out of
+  its own "create the default 3"; still reachable through the
+  single-item form's Bonus Type dropdown. Same shape as every other bulk
+  mode: `loadBonusTypeExisting()` checks the company's real existing
+  types first (`GET /bonus/configuration/types`, a flat array, no query
+  params — unlike Salary Components' paginated one) matched by literal
+  `typeName`, and a name that already exists is marked skipped rather
+  than offered again. A successful create (single-item or bulk)
+  invalidates Bonus Policy's dependency cache, same as a bonus type
+  always has.
+
+  **Test gotcha found while building this:** GET and POST share the
+  exact same URL here (`/bonus/configuration/types`), unlike Salary
+  Components' distinct query strings — several existing test blocks
+  routed non-POST requests through `route.continue()` on the assumption
+  nothing but the header render ever GETs this path. Once this module
+  started GETting it in the background, those blocks' own `continue()`
+  sent a real, unmocked request to a fake `.shomvob.com` host and hung
+  the whole run rather than failing fast. Fixed by having every route
+  handler on this path answer GET with a real (mocked) response instead
+  of forwarding it.
 - **Bonus Policy — the fourth real dependency.** `POST
   /bonus/configuration/policies` needs ≥1 Bonus Type. The collection's
   own fully-specified example hardcodes Eid Ul Fitr's bonus type and a
