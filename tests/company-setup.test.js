@@ -1469,6 +1469,68 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- AD2. Bonus Policy — "Create the default 3" (2026-09-13) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "success",
+          data: [
+            { id: "bt-eid", typeName: "Eid Bonus", status: "Active" },
+            { id: "bt-bny", typeName: "Bangla New Year Bonus", status: "Active" },
+          ],
+        }),
+      });
+    });
+    await page.click('.settings-tab[data-module="bonus_policy"]');
+    await page.waitForSelector("#bpBulkEnterLink", { timeout: 5000 });
+    await page.click("#bpBulkEnterLink");
+    await page.waitForSelector(".bulk-list", { timeout: 5000 });
+    check("AD2 offers all 3 defaults when both real bonus types exist", (await page.textContent("#setupBody")).includes("Eid Ul Fitr Bonus Policy") && (await page.textContent("#setupBody")).includes("Eid Ul Adha Bonus Policy") && (await page.textContent("#setupBody")).includes("Bangla New Year Bonus Policy"));
+    check("AD2 nothing is skipped when both bonus types are real", (await page.locator(".bulk-row:has-text('skipped')").count()) === 0);
+
+    const created = [];
+    await page.route("**/api/v1/bonus/configuration/policies", (route) => {
+      created.push(route.request().postDataJSON());
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Bonus policy created successfully." }) });
+    });
+    await page.click("#bpBulkCreateBtn");
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("created successfully"), { timeout: 5000 });
+    check("AD2 creates all 3, both Eid policies pointing at the one real Eid Bonus type",
+      created.length === 3 &&
+      created.filter((p) => p.bonusTypeId === "bt-eid").length === 2 &&
+      created.some((p) => p.bonusTypeId === "bt-bny"));
+    check("AD2 the percentages are 40/40/20 as asked", created.find((p) => p.name === "Eid Ul Fitr Bonus Policy")?.bonusPercentage === 40 && created.find((p) => p.name === "Eid Ul Adha Bonus Policy")?.bonusPercentage === 40 && created.find((p) => p.name === "Bangla New Year Bonus Policy")?.bonusPercentage === 20, JSON.stringify(created));
+    check("AD2 no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AD3. Bonus Policy bulk — a missing bonus type shows skipped, named ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "bt-eid", typeName: "Eid Bonus", status: "Active" }] }) });
+    });
+    await page.click('.settings-tab[data-module="bonus_policy"]');
+    await page.waitForSelector("#bpBulkEnterLink", { timeout: 5000 });
+    await page.click("#bpBulkEnterLink");
+    await page.waitForSelector(".bulk-list", { timeout: 5000 });
+    check("AD3 the two Eid policies still offered normally", !(await page.locator('.bulk-row:has-text("Eid Ul Fitr")').textContent()).includes("skipped") && !(await page.locator('.bulk-row:has-text("Eid Ul Adha")').textContent()).includes("skipped"));
+    check("AD3 Bangla New Year is shown skipped, named, not silently dropped", (await page.locator('.bulk-row:has-text("Bangla New Year")').textContent()).includes("skipped"));
+    await page.close();
+  }
+
   /* ---------- AE. Payroll: Overtime — the fifth real dependency ---------- */
   {
     const page = await browser.newContext().then((c) => c.newPage());

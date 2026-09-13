@@ -2711,6 +2711,18 @@ const BONUS_POLICY_TENURE_UNITS = [
   { value: "years", weight: 10 },
 ];
 
+/* "Create the default 3" for Bonus Policy (2026-09-13, direct request):
+   both Eid policies point at the same real "Eid Bonus" type — there's
+   only one Eid bonus TYPE, but two festivals each get their own POLICY
+   against it, same as the real product's own shape. Fixed
+   paymentMethod/tenure, same "headline fields only, rest is a fixed
+   default shape" discipline as Leave Types' "Create the default 3". */
+const BONUS_POLICY_DEFAULT_ITEMS = [
+  { policyName: "Eid Ul Fitr Bonus Policy", bonusTypeName: "Eid Bonus", bonusPercentage: 40 },
+  { policyName: "Eid Ul Adha Bonus Policy", bonusTypeName: "Eid Bonus", bonusPercentage: 40 },
+  { policyName: "Bangla New Year Bonus Policy", bonusTypeName: "Bangla New Year Bonus", bonusPercentage: 20 },
+];
+
 /* Overtime — POST /payroll/configuration/overtime. No dependency. */
 const OVERTIME_CALCULATION_TYPES = [
   { value: "Fixed Rate", weight: 50 },
@@ -7490,7 +7502,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       !!(companyDesignation.bulk && companyDesignation.bulk.running) ||
       !!(leaveType.bulk && leaveType.bulk.running) ||
       !!(salaryComponent.bulk && salaryComponent.bulk.running) ||
-      !!(bonusType.bulk && bonusType.bulk.running)
+      !!(bonusType.bulk && bonusType.bulk.running) ||
+      !!(bonusPolicy.bulk && bonusPolicy.bulk.running)
     );
   }
 
@@ -10052,7 +10065,27 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   /* ---------- Bonus Policy — POST /bonus/configuration/policies ----------
      The fourth real dependency: needs at least one Bonus Type. */
-  const bonusPolicy = { bonusTypes: null, loadError: "", fields: null, error: "", ok: "", createdNames: [] };
+  const bonusPolicy = { bonusTypes: null, loadError: "", fields: null, error: "", ok: "", createdNames: [], bulk: null };
+
+  /* "Create the default 3" for Bonus Policy (2026-09-13, direct request):
+     Eid Ul Fitr and Eid Ul Adha both point at the one real "Eid Bonus"
+     type — there's only one Eid bonus TYPE, but two festivals each get
+     their own POLICY against it. A default item whose bonus type doesn't
+     exist yet shows disabled and skipped with the reason named, same
+     "never silently incomplete" rule the whole app holds itself to,
+     rather than just not appearing. There's no known GET endpoint for
+     listing existing policies (unlike every other "create the defaults"
+     shortcut), so this can't pre-check for a real duplicate name the way
+     those do — a second run risks a real duplicate-name POST, which the
+     server's own rejection would surface same as any other failure. */
+  function bonusPolicyDefaultBulkItems(bonusTypes) {
+    return BONUS_POLICY_DEFAULT_ITEMS.map((item) => {
+      const bt = bonusTypes.find((t) => t.typeName === item.bonusTypeName);
+      return bt
+        ? { name: item.policyName, bonusTypeName: item.bonusTypeName, bonusTypeId: bt.id, bonusPercentage: item.bonusPercentage, selected: true, status: "pending", message: "" }
+        : { name: item.policyName, bonusTypeName: item.bonusTypeName, bonusTypeId: null, bonusPercentage: item.bonusPercentage, selected: false, status: "skipped", message: `No real "${item.bonusTypeName}" bonus type yet` };
+    });
+  }
 
   async function loadBonusPolicyDependency() {
     try {
@@ -10097,14 +10130,16 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     if (bonusPolicy.bonusTypes.length === 0) {
       return `<div class="section">${head}<p class="section-note">A policy attaches to a bonus type — this company doesn't have any yet.</p>${dependencyNoticeHtml("Bonus Type", "payroll", "bonus_types")}</div>`;
     }
+    if (bonusPolicy.bulk) return bulkListTemplate(head, bonusPolicy.bulk, "bpBulk");
     if (!bonusPolicy.fields) bonusPolicy.fields = generateBonusPolicyFields(bonusPolicy.bonusTypes);
     const f = bonusPolicy.fields;
     return `
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own policy rule, drawing on this company's real bonus types. Name and bonus percentage can still be edited by hand before saving.</p>
+        <button type="button" class="bulk-shortcut-btn" id="bpBulkEnterLink">Create the default 3 (Eid Ul Fitr 40%, Eid Ul Adha 40%, Bangla New Year 20%) at once →</button>
         <div class="field-row">
-          <div class="field"><label for="bpName">Name</label><input type="text" id="bpName" value="${f.name}" /></div>
+          <div class="field"><label for="bpName">Or just this one — Name</label><input type="text" id="bpName" value="${f.name}" /></div>
           <div class="field"><label for="bpPercentage">Bonus %</label><input type="number" id="bpPercentage" value="${f.bonusPercentage}" min="1" max="200" /></div>
         </div>
         <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
@@ -10167,6 +10202,62 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       return;
     }
     if (!bonusPolicy.bonusTypes || bonusPolicy.bonusTypes.length === 0) return;
+
+    const bpRerender = () => {
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    };
+
+    if (bonusPolicy.bulk) {
+      const bulk = bonusPolicy.bulk;
+      $all(".bulk-list input[type=checkbox]").forEach((cb) =>
+        cb.addEventListener("change", (e) => {
+          bulk.items[Number(e.target.dataset.idx)].selected = e.target.checked;
+          bpRerender();
+        })
+      );
+      $("#bpBulkSelectAllBtn")?.addEventListener("click", () => {
+        const selectable = bulk.items.filter((it) => it.status !== "skipped");
+        const allSelected = selectable.length > 0 && selectable.every((it) => it.selected);
+        selectable.forEach((it) => (it.selected = !allSelected));
+        bpRerender();
+      });
+      $("#bpBulkCancelBtn")?.addEventListener("click", () => {
+        bonusPolicy.bulk = null;
+        bpRerender();
+      });
+      $("#bpBulkStopBtn")?.addEventListener("click", () => {
+        bulk.stopRequested = true;
+      });
+      $("#bpBulkCreateBtn")?.addEventListener("click", async () => {
+        await runBulkSequential(
+          bulk,
+          async (item) => {
+            await saveBonusPolicy({
+              name: item.name,
+              bonusTypeId: item.bonusTypeId,
+              calculationBasis: "Gross",
+              bonusPercentage: item.bonusPercentage,
+              paymentMethod: "off_cycle_payment",
+              departmentIds: [],
+              employmentStatuses: [],
+              tenureEnabled: false,
+              gradeLevelEnabled: false,
+            });
+            bonusPolicy.createdNames.push(item.name);
+          },
+          bpRerender
+        );
+        if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("bonus_policy");
+        bpRerender(); // the done dot itself needs one more render, same reason as every other bulk create
+      });
+      return;
+    }
+    $("#bpBulkEnterLink")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      bonusPolicy.bulk = { items: bonusPolicyDefaultBulkItems(bonusPolicy.bonusTypes), running: false, stopRequested: false };
+      bpRerender();
+    });
 
     wireRegenerate("#bpRegenerateBtn", () => {
       bonusPolicy.fields = generateBonusPolicyFields(bonusPolicy.bonusTypes);
@@ -10846,6 +10937,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     bonusPolicy.error = "";
     bonusPolicy.ok = "";
     bonusPolicy.createdNames = [];
+    bonusPolicy.bulk = null;
     overtime.fields = null;
     overtime.error = "";
     overtime.ok = "";

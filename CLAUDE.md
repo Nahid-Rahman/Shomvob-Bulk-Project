@@ -1864,6 +1864,25 @@ this group alone — more than the rest of the app combined:
   fixed 50%/Gross — generalised here to whichever bonus type the company
   actually has (this module lets the visitor's data decide, rather than
   assuming Eid exists), with name and bonus percentage left editable.
+  **"Create the default 3" added 2026-09-13, direct request** ("2 eid er
+  jonno 40% kore, bangla new year er jonno 20%"): Eid Ul Fitr Bonus
+  Policy and Eid Ul Adha Bonus Policy both at 40%, Bangla New Year Bonus
+  Policy at 20% — the two Eid policies both attach to the one real "Eid
+  Bonus" type, since there's only one Eid bonus TYPE but two festivals
+  each get their own POLICY against it (`BONUS_POLICY_DEFAULT_ITEMS` in
+  `app-data.js`). paymentMethod/tenure are fixed for the bulk shape
+  (off-cycle, no tenure gate), same "headline fields only" discipline as
+  Leave Types' own "Create the default 3". A default item whose bonus
+  type doesn't exist yet in this company shows disabled and skipped with
+  the reason named (`bonusPolicyDefaultBulkItems()`) — e.g. Bangla New
+  Year's policy is skipped, explained, if only Eid Bonus has been
+  created — rather than just not appearing, same "never silently
+  incomplete" rule the whole app holds itself to. **Unlike every other
+  "create the defaults" shortcut, this one has no existing-check against
+  real duplicates** — there's no known GET endpoint for listing a
+  company's existing bonus policies (only for bonus types), so a second
+  run risks a real duplicate-name POST; the server's own rejection
+  surfaces that the same way any other save failure does.
 - **Overtime — the fifth real dependency, found live 2026-09-10, fixed
   2026-09-11.** `POST /payroll/configuration/overtime`. Regular overtime
   is always enabled; weekend and holiday are independently rolled (80%

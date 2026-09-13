@@ -894,6 +894,18 @@ const BONUS_POLICY_TENURE_UNITS = [
   { value: "years", weight: 10 },
 ];
 
+/* "Create the default 3" for Bonus Policy (2026-09-13, direct request):
+   both Eid policies point at the same real "Eid Bonus" type — there's
+   only one Eid bonus TYPE, but two festivals each get their own POLICY
+   against it, same as the real product's own shape. Fixed
+   paymentMethod/tenure, same "headline fields only, rest is a fixed
+   default shape" discipline as Leave Types' "Create the default 3". */
+const BONUS_POLICY_DEFAULT_ITEMS = [
+  { policyName: "Eid Ul Fitr Bonus Policy", bonusTypeName: "Eid Bonus", bonusPercentage: 40 },
+  { policyName: "Eid Ul Adha Bonus Policy", bonusTypeName: "Eid Bonus", bonusPercentage: 40 },
+  { policyName: "Bangla New Year Bonus Policy", bonusTypeName: "Bangla New Year Bonus", bonusPercentage: 20 },
+];
+
 /* Overtime — POST /payroll/configuration/overtime. No dependency. */
 const OVERTIME_CALCULATION_TYPES = [
   { value: "Fixed Rate", weight: 50 },
