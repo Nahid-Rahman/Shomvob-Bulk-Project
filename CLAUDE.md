@@ -1736,10 +1736,14 @@ this group alone — more than the rest of the app combined:
   script branches on them. No dependency.
 - **Salary Components** — `POST /payroll/configuration/salary-components`.
   4 fixed presets (Medical/House Rent/Mobile/Internet Allowance) — the
-  collection's own 4 separate requests, not a generated name — with only
-  status/tax-countability/pro-rata randomised per the script's own
-  weights. No dependency. **"Create the defaults" bulk mode added
-  2026-09-13**, on the user's own request, offering Medical/House Rent/
+  collection's own 4 separate requests, not a generated name. Status,
+  tax-countability and pro-rata still start from the script's own
+  weighted roll, but as of 2026-09-13 (direct request: "yellow ta on off
+  korar option rakho, what if user change korte chay") the latter two are
+  real Yes/No seg toggles (`#scTaxSeg`/`#scProrataSeg`) rather than
+  read-only tally text — a QA engineer can flip either by hand before
+  saving, same as Status already could. No dependency. **"Create the
+  defaults" bulk mode added 2026-09-13**, on the user's own request, offering Medical/House Rent/
   Internet — Mobile Allowance is deliberately left out of the shortcut,
   same as Leave Types leaves Maternity/Paternity out of "Create the
   default 3"; still reachable through the single-item form's own
@@ -1843,6 +1847,15 @@ this group alone — more than the rest of the app combined:
 `weightedChoice(options)` (`app.js`) is new shared infrastructure — every
 Payroll module whose script weights its own random choices uses it
 rather than reimplementing the roll.
+
+**`.seg-fill` reached the rest of the app, 2026-09-13.** General's Cycle
+seg, Salary Components' Status seg and Custom Addition/Deduction's Type
+seg were the only `.seg` controls left anywhere in Company Setup still
+hugging their own left edge instead of filling the field — everywhere
+else (Locations, Custom Fields, Required Documents, Leave Policy) had
+already gotten this treatment across 2026-09-10/12. Direct user request
+("joto jaygay ase thik koro" — fix it wherever it still exists); all
+three now carry `.seg-fill` too.
 
 ### A live verification pass against the real staging API (2026-09-10)
 

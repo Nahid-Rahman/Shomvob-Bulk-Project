@@ -9068,7 +9068,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="field-row">
           <div class="field">
             <label>Payroll Cycle</label>
-            <div class="seg" id="pgCycleSeg" role="group" aria-label="Payroll cycle">
+            <div class="seg seg-fill" id="pgCycleSeg" role="group" aria-label="Payroll cycle">
               <button type="button" data-val="calendar_month" aria-pressed="${f.payrollCycle === "calendar_month"}">Calendar Month</button>
               <button type="button" data-val="fixed_date" aria-pressed="${f.payrollCycle === "fixed_date"}">Fixed Date</button>
               <button type="button" data-val="bi_weekly" aria-pressed="${f.payrollCycle === "bi_weekly"}">Bi-weekly</button>
@@ -9196,7 +9196,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return `
       <div class="section">
         ${head}
-        <p class="section-note">The muggle-friendly magic scroll's own 4 fixed components, one request each — status, tax-countability and pro-rata are the only randomised fields.</p>
+        <p class="section-note">The muggle-friendly magic scroll's own 4 fixed components, one request each. Status, tax-countability and pro-rata all start from its own weighted roll, but stay editable below before you save.</p>
         <button type="button" class="bulk-shortcut-btn" id="scBulkEnterLink">Create the default 3 (Medical, House Rent, Internet) at once →</button>
         <div class="field-row">
           <div class="field">
@@ -9205,16 +9205,28 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           </div>
           <div class="field">
             <label>Status</label>
-            <div class="seg" id="scStatusSeg" role="group" aria-label="Status">
+            <div class="seg seg-fill" id="scStatusSeg" role="group" aria-label="Status">
               <button type="button" data-val="Active" aria-pressed="${f.status === "Active"}">Active</button>
               <button type="button" data-val="Inactive" aria-pressed="${f.status === "Inactive"}">Inactive</button>
             </div>
           </div>
         </div>
         <p class="section-note" style="margin-top:8px">${f.description}</p>
-        <div style="display:flex; gap:6px; margin-top:8px;">
-          <span class="tally">Countable as tax component <strong>${f.countableAsTaxComponent ? "yes" : "no"}</strong></span>
-          <span class="tally">Pro-rata <strong>${f.proRataEnabled ? "yes" : "no"}</strong></span>
+        <div class="field-row" style="margin-top:8px">
+          <div class="field">
+            <label>Countable As Tax Component</label>
+            <div class="seg seg-fill" id="scTaxSeg" role="group" aria-label="Countable as tax component">
+              <button type="button" data-val="yes" aria-pressed="${f.countableAsTaxComponent}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.countableAsTaxComponent}">No</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Pro-rata</label>
+            <div class="seg seg-fill" id="scProrataSeg" role="group" aria-label="Pro-rata">
+              <button type="button" data-val="yes" aria-pressed="${f.proRataEnabled}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.proRataEnabled}">No</button>
+            </div>
+          </div>
         </div>
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
@@ -9314,6 +9326,22 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     $all("#scStatusSeg button").forEach((btn) =>
       btn.addEventListener("click", () => {
         salaryComponent.fields.status = btn.dataset.val;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
+
+    $all("#scTaxSeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        salaryComponent.fields.countableAsTaxComponent = btn.dataset.val === "yes";
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
+
+    $all("#scProrataSeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        salaryComponent.fields.proRataEnabled = btn.dataset.val === "yes";
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       })
@@ -10240,7 +10268,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="field-row">
           <div class="field">
             <label>Type</label>
-            <div class="seg" id="cadTypeSeg" role="group" aria-label="Type">
+            <div class="seg seg-fill" id="cadTypeSeg" role="group" aria-label="Type">
               <button type="button" data-val="Addition" aria-pressed="${f.type === "Addition"}">Addition</button>
               <button type="button" data-val="Deduction" aria-pressed="${f.type === "Deduction"}">Deduction</button>
             </div>
