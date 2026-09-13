@@ -9390,7 +9390,32 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     }
   }
 
+  /* Medical/House Rent/Internet — the same 3 "Create the default 3" on
+     Salary Components makes (Mobile left out there too). When a company
+     has all 3 for real, this is the default filler (2026-09-13, direct
+     request): Basic 60%, two of the three at 15% each, the third at 10%
+     — 60+15+15+10 = 100, matching this endpoint's own "always sums to
+     100" rule. Falls back to the original random-2-of-whatever-exists
+     behaviour when a company doesn't have all 3 by this exact name (a
+     custom company with differently-named components, say), so the
+     module still works rather than having nothing to generate. */
+  const SALARY_STRUCTURE_DEFAULT_NAMES = ["Medical Allowance", "House Rent Allowance", "Internet Allowance"];
+
   function generateSalaryStructureFields(components) {
+    const defaultThree = SALARY_STRUCTURE_DEFAULT_NAMES.map((name) => components.find((c) => c.name === name)).filter(Boolean);
+    if (defaultThree.length === 3) {
+      const [a, b, c] = shuffle(defaultThree);
+      return {
+        basicSalaryPercentage: 60,
+        proRataEnabled: true,
+        components: [
+          { salaryComponentId: a.id, percentage: 15 },
+          { salaryComponentId: b.id, percentage: 15 },
+          { salaryComponentId: c.id, percentage: 10 },
+        ],
+        deletedComponentIds: [],
+      };
+    }
     const split = choice(SALARY_STRUCTURE_SPLITS);
     const picked = shuffle(components).slice(0, 2);
     return {
@@ -9430,14 +9455,18 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     if (!companySalaryStructure.fields) companySalaryStructure.fields = generateSalaryStructureFields(companySalaryStructure.components);
     const f = companySalaryStructure.fields;
     const nameFor = (id) => (companySalaryStructure.components.find((c) => c.id === id) || {}).name || id;
+    const usingDefaultThree = f.components.length === 3;
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the muggle-friendly magic scroll's own split table — basic and the two components always sum to 100%. Regenerate re-rolls the split and which two components are used.</p>
+        <p class="section-note">${
+          usingDefaultThree
+            ? "This company has Medical, House Rent and Internet Allowance, so this uses exactly those three — Basic 60%, two of them 15% each, the third 10%. Regenerate re-rolls which two get 15%."
+            : "Generated from the muggle-friendly magic scroll's own split table — basic and the two components always sum to 100%. Regenerate re-rolls the split and which two components are used."
+        }</p>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">
           <span class="tally">Basic <strong>${f.basicSalaryPercentage}%</strong></span>
-          <span class="tally">${nameFor(f.components[0].salaryComponentId)} <strong>${f.components[0].percentage}%</strong></span>
-          <span class="tally">${nameFor(f.components[1].salaryComponentId)} <strong>${f.components[1].percentage}%</strong></span>
+          ${f.components.map((c) => `<span class="tally">${nameFor(c.salaryComponentId)} <strong>${c.percentage}%</strong></span>`).join("")}
         </div>
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">

@@ -1212,6 +1212,54 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- AA2. Configure Salary Components — the default filler (2026-09-13) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Payroll')");
+
+    /* When a company has all 3 of Salary Components' own "Create the
+       default 3" (Medical/House Rent/Internet Allowance), Configure
+       Salary Components uses exactly those 3 as its default filler
+       instead of a random 2 — Basic 60%, two of the three at 15% each,
+       the third at 10%. Direct user request. */
+    await page.route("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "success",
+          data: {
+            components: [
+              { id: "sc-med", name: "Medical Allowance", status: "Active" },
+              { id: "sc-hra", name: "House Rent Allowance", status: "Active" },
+              { id: "sc-net", name: "Internet Allowance", status: "Active" },
+            ],
+            metadata: { total: 3 },
+          },
+        }),
+      })
+    );
+    await page.click('.settings-tab[data-module="configure_salary_components"]');
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Basic"), { timeout: 5000 });
+    check("AA2 uses all 3 default components, not just 2", (await page.textContent("#setupBody")).includes("Medical Allowance") && (await page.textContent("#setupBody")).includes("House Rent Allowance") && (await page.textContent("#setupBody")).includes("Internet Allowance"));
+    check("AA2 Basic is fixed at 60%", (await page.textContent("#setupBody")).includes("Basic 60%"));
+
+    let sent = null;
+    await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => {
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Salary structure created successfully" }) });
+    });
+    await page.click("#ssSaveBtn");
+    await page.waitForTimeout(150);
+    check("AA2 basic + all 3 components sum to 100", sent && sent.basicSalaryPercentage + sent.components.reduce((s, c) => s + c.percentage, 0) === 100, JSON.stringify(sent));
+    check("AA2 the split is 60/15/15/10", sent && sent.basicSalaryPercentage === 60 && sent.components.filter((c) => c.percentage === 15).length === 2 && sent.components.filter((c) => c.percentage === 10).length === 1, JSON.stringify(sent));
+    check("AA2 all 3 real component IDs are used, none invented", sent && sent.components.every((c) => ["sc-med", "sc-hra", "sc-net"].includes(c.salaryComponentId)));
+    check("AA2 no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   /* ---------- AB. Payroll: Late Arrival, Absent Deduction — both need a Leave Type ---------- */
   {
     const page = await browser.newContext().then((c) => c.newPage());

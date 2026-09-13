@@ -1765,6 +1765,18 @@ this group alone — more than the rest of the app combined:
   least one" wording every other dependency notice uses, since "doesn't
   have a X yet" reads wrong when one already exists. Splits always sum to
   100 (`SALARY_STRUCTURE_SPLITS`, the script's own fixed table).
+  **A named default filler, 2026-09-13 (direct request):** when the
+  connected company has all 3 of Salary Components' own "Create the
+  default 3" — Medical, House Rent and Internet Allowance, matched by
+  literal name — this uses exactly those 3 rather than 2 random ones:
+  Basic 60%, two of the three at 15% each, the third at 10% (60+15+15+10
+  = 100). `generateSalaryStructureFields()` checks for all 3 by name
+  first; a company without all 3 (differently-named components, say)
+  falls back to the original random-2-of-whatever-exists behaviour
+  unchanged, so the module still generates something rather than having
+  nothing to offer. Regenerate re-rolls which two of the three land on
+  15% in the default-filler case, same as it re-rolls the split and pair
+  in the fallback case.
   **Confirmed genuinely broken against the real API, 2026-09-11, fixed
   the same day:** this dependency could never actually unblock, no matter
   how many Active salary components a company had. `fetchCompanyResource()`
