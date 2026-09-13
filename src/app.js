@@ -6824,14 +6824,19 @@
   const lateArrival = { leaveTypes: null, loadError: "", fields: null, error: "", ok: "" };
   const absentDeduction = { leaveTypes: null, loadError: "", fields: null, error: "", ok: "" };
 
+  /* latePenaltyEnabled/repeatedLatePenaltyEnabled used to be forced into
+     an exclusive pair (one always true via negation) so there was never
+     an "off" state at all. Direct request (2026-09-13): both default off
+     and are now independent real toggles below — the user decides
+     whether either, both, or neither applies, rather than the app
+     picking one for them. */
   function generateLateArrivalFields(leaveTypes) {
     const lt = choice(leaveTypes);
-    const latePenaltyEnabled = Math.random() < 0.5;
     return {
       lateThresholdEnabled: true,
       monthlyLateLimit: randInt(3, 7),
-      latePenaltyEnabled,
-      repeatedLatePenaltyEnabled: !latePenaltyEnabled,
+      latePenaltyEnabled: false,
+      repeatedLatePenaltyEnabled: false,
       latePenaltyThresholdDays: randInt(2, 5),
       latePenaltyDeductionType: choice(["Salary", "Leave"]),
       latePenaltyLeaveType: lt.id,
@@ -6856,10 +6861,25 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the muggle-friendly magic scroll's own late-arrival rule — deduction type, its two enable flags and the deduction basis all follow the scroll's own logic.</p>
-        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own late-arrival rule. Late Penalty and Repeated Late Penalty default off — turn on whichever you actually want to test.</p>
+        <div class="field-row" style="flex-wrap:wrap">
+          <div class="field" style="max-width:170px">
+            <label>Late Penalty</label>
+            <div class="seg seg-fill" id="laPenaltySeg" role="group" aria-label="Late penalty">
+              <button type="button" data-val="yes" aria-pressed="${f.latePenaltyEnabled}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.latePenaltyEnabled}">No</button>
+            </div>
+          </div>
+          <div class="field" style="max-width:210px">
+            <label>Repeated Late Penalty</label>
+            <div class="seg seg-fill" id="laRepeatedPenaltySeg" role="group" aria-label="Repeated late penalty">
+              <button type="button" data-val="yes" aria-pressed="${f.repeatedLatePenaltyEnabled}">Yes</button>
+              <button type="button" data-val="no" aria-pressed="${!f.repeatedLatePenaltyEnabled}">No</button>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
           <span class="tally">Monthly late limit <strong>${f.monthlyLateLimit}</strong></span>
-          <span class="tally">${f.latePenaltyEnabled ? "Late penalty" : "Repeated late penalty"} <strong>enabled</strong></span>
           <span class="tally">Threshold <strong>${f.latePenaltyThresholdDays} days</strong></span>
           <span class="tally">Deduction type <strong>${f.latePenaltyDeductionType}</strong></span>
           <span class="tally">Leave type <strong>${f._leaveTypeName}</strong></span>
@@ -6914,6 +6934,21 @@
     }
     if (!lateArrival.leaveTypes || lateArrival.leaveTypes.length === 0) return;
 
+    $all("#laPenaltySeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        lateArrival.fields.latePenaltyEnabled = btn.dataset.val === "yes";
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
+    $all("#laRepeatedPenaltySeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        lateArrival.fields.repeatedLatePenaltyEnabled = btn.dataset.val === "yes";
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
+
     wireRegenerate("#laRegenerateBtn", () => {
       lateArrival.fields = generateLateArrivalFields(lateArrival.leaveTypes);
       lateArrival.error = "";
@@ -6951,12 +6986,14 @@
     }
   }
 
+  /* ruleBasedOn used to be a coin flip between "consecutive" and "total"
+     with no off state at all. Direct request (2026-09-13): defaults to
+     "total_absent_days" (Repeated Absent Penalty off) now, toggled below. */
   function generateAbsentDeductionFields(leaveTypes) {
     const lt = choice(leaveTypes);
-    const repeatedAbsentPenaltyEnabled = Math.random() < 0.5;
     return {
       enabled: true,
-      ruleBasedOn: repeatedAbsentPenaltyEnabled ? "consecutive_absent_days" : "total_absent_days",
+      ruleBasedOn: "total_absent_days",
       thresholdDays: randInt(2, 5),
       absentDeductionType: choice(["salary_deduction", "leave_deduction"]),
       absentDeductionSalaryBasis: choice(PAYROLL_SALARY_BASIS_OPTIONS),
@@ -6981,8 +7018,15 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the muggle-friendly magic scroll's own absent-deduction rule.</p>
-        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own absent-deduction rule. Repeated Absent Penalty defaults off — turn it on to switch the rule to consecutive absent days.</p>
+        <div class="field">
+          <label>Repeated Absent Penalty</label>
+          <div class="seg seg-fill" id="adRuleSeg" role="group" aria-label="Repeated absent penalty">
+            <button type="button" data-val="yes" aria-pressed="${f.ruleBasedOn === "consecutive_absent_days"}">Yes</button>
+            <button type="button" data-val="no" aria-pressed="${f.ruleBasedOn === "total_absent_days"}">No</button>
+          </div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
           <span class="tally">Rule based on <strong>${f.ruleBasedOn.replace(/_/g, " ")}</strong></span>
           <span class="tally">Threshold <strong>${f.thresholdDays} days</strong></span>
           <span class="tally">Deduction type <strong>${f.absentDeductionType.replace(/_/g, " ")}</strong></span>
@@ -7037,6 +7081,14 @@
       return;
     }
     if (!absentDeduction.leaveTypes || absentDeduction.leaveTypes.length === 0) return;
+
+    $all("#adRuleSeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        absentDeduction.fields.ruleBasedOn = btn.dataset.val === "yes" ? "consecutive_absent_days" : "total_absent_days";
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
 
     wireRegenerate("#adRegenerateBtn", () => {
       absentDeduction.fields = generateAbsentDeductionFields(absentDeduction.leaveTypes);

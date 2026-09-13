@@ -1822,7 +1822,16 @@ this group alone — more than the rest of the app combined:
   the existing dependency shape but each with its **own** independent
   fetch/cache (`lateArrival`/`absentDeduction`, sharing
   `loadLeaveTypeDependencyInto(state)`) — tested that saving one doesn't
-  invalidate or interfere with the other's cache.
+  invalidate or interfere with the other's cache. **Both default off now,
+  2026-09-13 (direct request).** Late Arrival's `latePenaltyEnabled` and
+  `repeatedLatePenaltyEnabled` used to be forced into an exclusive pair —
+  one always rolled true via negation, so there was never an "off" state
+  at all — now both default `false` and are independent real Yes/No
+  toggles (`#laPenaltySeg`/`#laRepeatedPenaltySeg`); nothing stops both,
+  either, or neither being on. Absent Deduction's `ruleBasedOn` was a coin
+  flip between its two values with the same problem — defaults to
+  `"total_absent_days"` now, with a single "Repeated Absent Penalty"
+  toggle (`#adRuleSeg`) switching it to `"consecutive_absent_days"`.
 - **Bonus Types** — `POST /bonus/configuration/types`. 4 fixed presets
   (Eid/Bangla New Year/Special/Inactive Test Bonus), only icon
   randomised. No dependency.

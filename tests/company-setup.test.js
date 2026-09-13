@@ -1275,6 +1275,12 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Monthly late limit"), { timeout: 5000 });
     check("AB Late Arrival resolves its own leave-type dependency", (await page.textContent("#setupBody")).includes("Annual Leave"));
 
+    /* Late Penalty / Repeated Late Penalty used to be an exclusive pair
+       (one always true) with no off state. Direct request (2026-09-13):
+       both default off and are independent toggles now. */
+    check("AB Late Penalty defaults off", (await page.getAttribute('#laPenaltySeg button[data-val="no"]', "aria-pressed")) === "true");
+    check("AB Repeated Late Penalty defaults off", (await page.getAttribute('#laRepeatedPenaltySeg button[data-val="no"]', "aria-pressed")) === "true");
+
     let laSent = null;
     await page.route("**/api/v1/payroll/configuration/deduction-settings", (route) => {
       laSent = route.request().postDataJSON();
@@ -1282,12 +1288,21 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
     await page.click("#laSaveBtn");
     await page.waitForTimeout(150);
-    check("AB exactly one of the two late-penalty flags is true", laSent && (laSent.latePenaltyEnabled !== laSent.repeatedLatePenaltyEnabled));
+    check("AB both late-penalty flags are false by default, not forced exclusive", laSent && laSent.latePenaltyEnabled === false && laSent.repeatedLatePenaltyEnabled === false, JSON.stringify(laSent));
     check("AB the internal leave-type-name field never reaches the request", laSent && laSent._leaveTypeName === undefined);
     check("AB latePenaltyLeaveType carries the real leave type id", laSent && laSent.latePenaltyLeaveType === "lt1");
 
+    /* Turning one on leaves the other off — proves they're independent,
+       not still secretly negating each other. */
+    await page.click('#laPenaltySeg button[data-val="yes"]');
+    await page.waitForTimeout(80);
+    await page.click("#laSaveBtn");
+    await page.waitForTimeout(150);
+    check("AB Late Penalty toggles on independently of Repeated Late Penalty", laSent && laSent.latePenaltyEnabled === true && laSent.repeatedLatePenaltyEnabled === false, JSON.stringify(laSent));
+
     await page.click('.settings-tab[data-module="absent_deduction"]');
     await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Rule based on"), { timeout: 5000 });
+    check("AB Repeated Absent Penalty defaults off", (await page.getAttribute('#adRuleSeg button[data-val="no"]', "aria-pressed")) === "true");
     let adSent = null;
     await page.route("**/api/v1/payroll/configuration/absent-deduction-settings", (route) => {
       adSent = route.request().postDataJSON();
@@ -1296,7 +1311,14 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#adSaveBtn");
     await page.waitForTimeout(150);
     check("AB Absent Deduction resolves the dependency independently of Late Arrival", adSent && adSent.absentDeductionLeaveType === "lt1");
-    check("AB ruleBasedOn matches the real script's two values", adSent && ["consecutive_absent_days", "total_absent_days"].includes(adSent.ruleBasedOn));
+    check("AB ruleBasedOn defaults to total_absent_days (off)", adSent && adSent.ruleBasedOn === "total_absent_days", adSent && adSent.ruleBasedOn);
+
+    await page.click('#adRuleSeg button[data-val="yes"]');
+    await page.waitForTimeout(80);
+    await page.click("#adSaveBtn");
+    await page.waitForTimeout(150);
+    check("AB Repeated Absent Penalty toggles ruleBasedOn to consecutive_absent_days", adSent && adSent.ruleBasedOn === "consecutive_absent_days", adSent && adSent.ruleBasedOn);
+
     check("AB both tabs picked up done markers", (await page.locator('.settings-tab[data-module="late_arrival"] .op-dot').count()) === 1 && (await page.locator('.settings-tab[data-module="absent_deduction"] .op-dot').count()) === 1);
     check("AB no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
