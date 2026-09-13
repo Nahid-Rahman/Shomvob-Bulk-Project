@@ -9181,7 +9181,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return {
       name: preset.name,
       description: preset.description,
-      status: Math.random() < 0.9 ? "Active" : "Inactive",
+      /* Fixed to Active, not a roll (2026-09-13, found live): a random
+         Inactive here — a single-item save or, worse, one item inside a
+         "Create the default 3" bulk run — silently vanished from every
+         Active-only dependency check downstream (Configure Salary
+         Components' own default filler, and its plain ≥2-Active gate),
+         with nothing on this screen saying why. Status stays editable
+         via the seg toggle below same as always; only the starting
+         value is no longer random. */
+      status: "Active",
       countableAsTaxComponent: Math.random() < 0.1,
       proRataEnabled: Math.random() < 0.9,
     };
@@ -9196,7 +9204,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return `
       <div class="section">
         ${head}
-        <p class="section-note">The muggle-friendly magic scroll's own 4 fixed components, one request each. Status, tax-countability and pro-rata all start from its own weighted roll, but stay editable below before you save.</p>
+        <p class="section-note">The muggle-friendly magic scroll's own 4 fixed components, one request each. Status defaults to Active; tax-countability and pro-rata start from its own weighted roll. All three stay editable below before you save.</p>
         <button type="button" class="bulk-shortcut-btn" id="scBulkEnterLink">Create the default 3 (Medical, House Rent, Internet) at once →</button>
         <div class="field-row">
           <div class="field">

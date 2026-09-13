@@ -1736,13 +1736,22 @@ this group alone — more than the rest of the app combined:
   script branches on them. No dependency.
 - **Salary Components** — `POST /payroll/configuration/salary-components`.
   4 fixed presets (Medical/House Rent/Mobile/Internet Allowance) — the
-  collection's own 4 separate requests, not a generated name. Status,
-  tax-countability and pro-rata still start from the script's own
-  weighted roll, but as of 2026-09-13 (direct request: "yellow ta on off
-  korar option rakho, what if user change korte chay") the latter two are
-  real Yes/No seg toggles (`#scTaxSeg`/`#scProrataSeg`) rather than
-  read-only tally text — a QA engineer can flip either by hand before
-  saving, same as Status already could. No dependency. **"Create the
+  collection's own 4 separate requests, not a generated name.
+  Tax-countability and pro-rata start from the script's own weighted
+  roll; Status defaults to Active outright, not a roll at all — **a real
+  bug, found live 2026-09-13**: at the original 90/10 weighted roll, a
+  single-item save or one item inside a "Create the default 3" bulk run
+  could land on Inactive with nothing on screen saying so, and an
+  Inactive component is invisible to every Active-only dependency check
+  downstream — Configure Salary Components' own ≥2-Active gate, and its
+  default filler below. Traced from a real screenshot: a company whose
+  "Create the default 3" run had silently produced an Inactive Medical/
+  House Rent/Internet fell back to unrelated pre-existing components
+  instead. As of 2026-09-13 all three (Status included) are still real
+  Yes/No/Active/Inactive seg toggles (`#scStatusSeg`/`#scTaxSeg`/
+  `#scProrataSeg`) a QA engineer can flip by hand before saving — only
+  the starting value for Status is no longer random. No dependency.
+  **"Create the
   defaults" bulk mode added 2026-09-13**, on the user's own request, offering Medical/House Rent/
   Internet — Mobile Allowance is deliberately left out of the shortcut,
   same as Leave Types leaves Maternity/Paternity out of "Create the
