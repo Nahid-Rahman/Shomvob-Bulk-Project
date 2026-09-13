@@ -1785,7 +1785,18 @@ this group alone — more than the rest of the app combined:
   unchanged, so the module still generates something rather than having
   nothing to offer. Regenerate re-rolls which two of the three land on
   15% in the default-filler case, same as it re-rolls the split and pair
-  in the fallback case.
+  in the fallback case. **Every percentage is a real editable number
+  input now, not read-only tally text** (2026-09-13, same "let the user
+  override the generated default" freedom Leave Policy's own Days input
+  already has) — Basic and each component's percentage
+  (`#ssBasicPct`/`#ssCompPct{i}`) can be hand-edited before Save;
+  `readSalaryStructureForm()` reads whatever's currently in those inputs
+  at save time, keyed back to the right `salaryComponentId` by array
+  index rather than trusting anything in the DOM to identify which
+  component a row is. The save handler writes the read values back into
+  `companySalaryStructure.fields` before the request, so a failed save
+  re-renders with whatever was typed still in place rather than reverting
+  to the last-generated numbers.
   **Confirmed genuinely broken against the real API, 2026-09-11, fixed
   the same day:** this dependency could never actually unblock, no matter
   how many Active salary components a company had. `fetchCompanyResource()`

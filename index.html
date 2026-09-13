@@ -9469,12 +9469,23 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         ${head}
         <p class="section-note">${
           usingDefaultThree
-            ? "This company has Medical, House Rent and Internet Allowance, so this uses exactly those three — Basic 60%, two of them 15% each, the third 10%. Regenerate re-rolls which two get 15%."
-            : "Generated from the muggle-friendly magic scroll's own split table — basic and the two components always sum to 100%. Regenerate re-rolls the split and which two components are used."
+            ? "This company has Medical, House Rent and Internet Allowance, so this uses exactly those three — Basic 60%, two of them 15% each, the third 10%. Regenerate re-rolls which two get 15%; every percentage below is still yours to change before saving."
+            : "Generated from the muggle-friendly magic scroll's own split table — basic and the two components always sum to 100%. Regenerate re-rolls the split and which two components are used; every percentage below is still yours to change before saving."
         }</p>
-        <div style="display:flex; flex-wrap:wrap; gap:6px;">
-          <span class="tally">Basic <strong>${f.basicSalaryPercentage}%</strong></span>
-          ${f.components.map((c) => `<span class="tally">${nameFor(c.salaryComponentId)} <strong>${c.percentage}%</strong></span>`).join("")}
+        <div class="field-row" style="flex-wrap:wrap">
+          <div class="field" style="max-width:110px">
+            <label for="ssBasicPct">Basic %</label>
+            <input type="number" id="ssBasicPct" value="${f.basicSalaryPercentage}" min="0" max="100" />
+          </div>
+          ${f.components
+            .map(
+              (c, i) => `
+          <div class="field" style="max-width:150px">
+            <label for="ssCompPct${i}">${nameFor(c.salaryComponentId)} %</label>
+            <input type="number" class="ss-comp-pct" data-idx="${i}" id="ssCompPct${i}" value="${c.percentage}" min="0" max="100" />
+          </div>`
+            )
+            .join("")}
         </div>
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
@@ -9485,6 +9496,20 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         ${companySalaryStructure.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companySalaryStructure.ok}</div>` : ""}
       </div>
     `;
+  }
+
+  /* Reads whatever is currently in the % inputs — same "hand-edit before
+     saving" freedom Leave Policy already gives its own Days input.
+     salaryComponentId per row comes from the already-generated fields,
+     never the DOM, so re-typing a percentage can't accidentally change
+     which real component a row is talking about. */
+  function readSalaryStructureForm() {
+    const f = companySalaryStructure.fields;
+    return {
+      ...f,
+      basicSalaryPercentage: Number($("#ssBasicPct").value),
+      components: f.components.map((c, i) => ({ ...c, percentage: Number($(`#ssCompPct${i}`).value) })),
+    };
   }
 
   async function saveSalaryStructure(fields) {
@@ -9537,9 +9562,11 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     btn.addEventListener("click", async () => {
       companySalaryStructure.error = "";
       companySalaryStructure.ok = "";
+      const fields = readSalaryStructureForm();
+      companySalaryStructure.fields = fields; // keep whatever was typed even if the save below fails
       setBtnBusy(btn);
       try {
-        await saveSalaryStructure(companySalaryStructure.fields);
+        await saveSalaryStructure(fields);
         companySalaryStructure.ok = "Saved.";
         setup.doneModules.add("configure_salary_components");
       } catch (e) {
