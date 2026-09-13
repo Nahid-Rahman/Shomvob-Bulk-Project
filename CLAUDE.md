@@ -897,9 +897,19 @@ plus one line from `BUSY_MESSAGES` (`app-data.js`), picked at random via
 a moment of the app's own voice instead of a bare disabled button. Kept
 mostly English per the "no Banglish in the product" rule, except one
 entry kept verbatim as a deliberate wink rather than dropped outright.
-Regenerate has no real wait (it's synchronous, no network call) and
-deliberately doesn't get a fake spinner — the busy state is reserved for
-places with an actual delay to fill.
+**Reversed 2026-09-13:** Regenerate has no real wait — it's synchronous,
+no network call — and for the first three days of this section that was
+the reason it got no spinner at all: the busy state was reserved for
+places with an actual delay to fill. In practice a re-roll can land on
+values that look similar to the old ones (same bank name, same policy
+number range), so a click with truly zero feedback read as "did this do
+anything?" — reported directly by the user. Every Regenerate button now
+goes through `wireRegenerate()` in `app.js`: it shows a spinner + "Regenerating…"
+for a minimum of `REGENERATE_MIN_MS` (1000ms) before the real re-roll and
+re-render run, even though the re-roll itself is instant. This is a
+deliberately fake wait, unlike every other spinner in this section, which
+is why it's its own small helper rather than reusing `setBtnBusy()` —
+that pair is reserved for calls with a real network wait to fill.
 
 **Colour pass (2026-09-09):** the first build of this section leaned on
 plain white/grey/black and read as flat next to the rest of the app.

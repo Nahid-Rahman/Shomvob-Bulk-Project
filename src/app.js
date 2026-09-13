@@ -3584,6 +3584,25 @@
     delete btn.dataset.idleHtml;
   }
 
+  /* Regenerate has no real network wait — it's a synchronous re-roll — so
+     with zero feedback a click can look like it did nothing at all,
+     especially when the new values happen to look similar to the old ones.
+     Every Regenerate button in Company Setup routes through this: it shows
+     the spinner for at least REGENERATE_MIN_MS before the real regenerate
+     + re-render runs, so the click always reads as "this did something"
+     rather than a silent no-op. The button itself is destroyed by the
+     re-render that follows, so there's nothing to restore afterward. */
+  const REGENERATE_MIN_MS = 1000;
+  function wireRegenerate(id, regenerate) {
+    const btn = $(id);
+    btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.innerHTML = `${iconSpinner()}<span>Regenerating…</span>`;
+      setTimeout(regenerate, REGENERATE_MIN_MS);
+    });
+  }
+
   /* `open` is a bool: the eye when the password is hidden (click to
      reveal), the slashed eye once it's shown (click to hide again) — the
      icon always names the action a click will take, not the current
@@ -4277,7 +4296,7 @@
   }
 
   function wireCompanyProfileEvents() {
-    $("#cpRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#cpRegenerateBtn", () => {
       companyProfile.fields = generateCompanyProfileFields();
       companyProfile.error = "";
       companyProfile.ok = "";
@@ -4411,7 +4430,7 @@
   }
 
   function wireBankInfoEvents() {
-    $("#biRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#biRegenerateBtn", () => {
       bankInfo.fields = generateBankInfoFields();
       bankInfo.error = "";
       bankInfo.ok = "";
@@ -4568,7 +4587,7 @@
       });
     });
 
-    $("#brRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#brRegenerateBtn", () => {
       companyBranch.fields = generateBranchFields();
       companyBranch.error = "";
       companyBranch.ok = "";
@@ -4901,7 +4920,7 @@
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
     });
-    $("#deptModRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#deptModRegenerateBtn", () => {
       companyDepartment.fields = generateDepartmentFields();
       companyDepartment.error = "";
       companyDepartment.ok = "";
@@ -5215,7 +5234,7 @@
     $("#desigDept").addEventListener("change", (e) => {
       companyDesignation.fields.departmentId = e.target.value;
     });
-    $("#desigRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#desigRegenerateBtn", () => {
       companyDesignation.fields = generateDesignationFields(companyDesignation.departments);
       companyDesignation.error = "";
       companyDesignation.ok = "";
@@ -5386,7 +5405,7 @@
       rerender();
     });
 
-    $("#cfRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#cfRegenerateBtn", () => {
       customField.fields = generateCustomFieldFields();
       customField.error = "";
       customField.ok = "";
@@ -5518,7 +5537,7 @@
     $all("#rdStatusSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotName(); requiredDocument.fields.status = btn.dataset.val; rerender(); }));
     $all("#rdRequiredSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotName(); requiredDocument.fields.isRequired = btn.dataset.val === "yes"; rerender(); }));
 
-    $("#rdRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#rdRegenerateBtn", () => {
       requiredDocument.fields = generateRequiredDocumentFields();
       requiredDocument.error = "";
       requiredDocument.ok = "";
@@ -5869,7 +5888,7 @@
     if (sandwichHolidayCb) sandwichHolidayCb.addEventListener("change", (e) => { snapshotName(); leaveType.fields.sandwichIncludeHoliday = e.target.checked; rerender(); });
     $all('input[name="ltBridgeMode"]').forEach((radio) => radio.addEventListener("change", (e) => { snapshotName(); leaveType.fields.bridgeMode = e.target.value; rerender(); }));
 
-    $("#ltRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#ltRegenerateBtn", () => {
       leaveType.fields = generateLeaveTypeBody();
       leaveType.error = "";
       leaveType.ok = "";
@@ -6350,7 +6369,7 @@
       })
     );
 
-    $("#pgRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#pgRegenerateBtn", () => {
       payrollGeneral.fields = generatePayrollGeneralFields();
       payrollGeneral.error = "";
       payrollGeneral.ok = "";
@@ -6462,7 +6481,7 @@
       })
     );
 
-    $("#scRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#scRegenerateBtn", () => {
       salaryComponent.fields = generateSalaryComponentFields(salaryComponent.presetIdx);
       salaryComponent.error = "";
       salaryComponent.ok = "";
@@ -6602,7 +6621,7 @@
     }
     if (!companySalaryStructure.components || companySalaryStructure.components.length < 2) return; // .dep-shortcut wired centrally
 
-    $("#ssRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#ssRegenerateBtn", () => {
       companySalaryStructure.fields = generateSalaryStructureFields(companySalaryStructure.components);
       companySalaryStructure.error = "";
       companySalaryStructure.ok = "";
@@ -6721,7 +6740,7 @@
     }
     if (!lateArrival.leaveTypes || lateArrival.leaveTypes.length === 0) return;
 
-    $("#laRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#laRegenerateBtn", () => {
       lateArrival.fields = generateLateArrivalFields(lateArrival.leaveTypes);
       lateArrival.error = "";
       lateArrival.ok = "";
@@ -6845,7 +6864,7 @@
     }
     if (!absentDeduction.leaveTypes || absentDeduction.leaveTypes.length === 0) return;
 
-    $("#adRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#adRegenerateBtn", () => {
       absentDeduction.fields = generateAbsentDeductionFields(absentDeduction.leaveTypes);
       absentDeduction.error = "";
       absentDeduction.ok = "";
@@ -6933,7 +6952,7 @@
       wireSetupGroupPage();
     });
 
-    $("#btRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#btRegenerateBtn", () => {
       bonusType.fields = generateBonusTypeFields(bonusType.presetIdx);
       bonusType.error = "";
       bonusType.ok = "";
@@ -7078,7 +7097,7 @@
     }
     if (!bonusPolicy.bonusTypes || bonusPolicy.bonusTypes.length === 0) return;
 
-    $("#bpRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#bpRegenerateBtn", () => {
       bonusPolicy.fields = generateBonusPolicyFields(bonusPolicy.bonusTypes);
       bonusPolicy.error = "";
       bonusPolicy.ok = "";
@@ -7250,7 +7269,7 @@
     }
     if (!overtime.policies.some((p) => p.overtimeEnabled)) return;
 
-    $("#otRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#otRegenerateBtn", () => {
       overtime.fields = generateOvertimeFields();
       overtime.error = "";
       overtime.ok = "";
@@ -7338,7 +7357,7 @@
   }
 
   function wireAttendanceBonusEvents() {
-    $("#abRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#abRegenerateBtn", () => {
       attendanceBonusCfg.fields = generateAttendanceBonusFields();
       attendanceBonusCfg.error = "";
       attendanceBonusCfg.ok = "";
@@ -7435,7 +7454,7 @@
       })
     );
 
-    $("#cadRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#cadRegenerateBtn", () => {
       customAdditionDeduction.fields = generateCustomAdditionDeductionFields(customAdditionDeduction.type);
       customAdditionDeduction.error = "";
       customAdditionDeduction.ok = "";
@@ -7631,7 +7650,7 @@
   }
 
   function wireAttendancePolicyEvents() {
-    $("#apRegenerateBtn").addEventListener("click", () => {
+    wireRegenerate("#apRegenerateBtn", () => {
       attendancePolicy.fields = generateAttendancePolicyFields();
       attendancePolicy.error = "";
       attendancePolicy.ok = "";

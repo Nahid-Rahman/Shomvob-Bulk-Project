@@ -374,7 +374,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     const beforeTeg = await page.inputValue("#cpTegNo");
     await page.click("#cpRegenerateBtn");
-    await page.waitForTimeout(80);
+    await page.waitForTimeout(1200);
     const afterTeg = await page.inputValue("#cpTegNo");
     check("J Regenerate re-rolls the fields", beforeTeg !== afterTeg);
     check("J a fresh tegNo is still a 13-digit number", /^[1-9]\d{12}$/.test(afterTeg), afterTeg);
@@ -446,7 +446,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("N beftnCode is the same short code + BFT", beftn === `${expectedCode}BFT`, `${beftn} vs ${expectedCode}BFT`);
 
     await page.click("#biRegenerateBtn");
-    await page.waitForTimeout(80);
+    await page.waitForTimeout(1200);
     const acct2 = await page.inputValue("#biAccountNumber");
     check("N Regenerate re-rolls the fields", acct1 !== acct2 || bankName !== (await page.inputValue("#biBankName")));
 
@@ -1044,7 +1044,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     const titleBefore = await page.inputValue("#apTitle");
     await page.click("#apRegenerateBtn");
-    await page.waitForTimeout(60);
+    await page.waitForTimeout(1200);
     const titleAfter = await page.inputValue("#apTitle");
     check("X regenerate re-rolls the title (policy number changes)", titleBefore !== titleAfter);
 
@@ -1859,7 +1859,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AP the list appears after the first save, naming it", (await page.textContent("#setupBody")).includes(`Created this session (1)`) && (await page.textContent("#setupBody")).includes(firstName));
 
     await page.click("#deptModRegenerateBtn");
-    await page.waitForTimeout(60);
+    await page.waitForTimeout(1200);
     const secondName = await page.inputValue("#deptModName");
     await page.click("#deptModSaveBtn");
     await page.waitForTimeout(150);
