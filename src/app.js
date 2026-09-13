@@ -6270,7 +6270,13 @@
   /* ---------- General — POST /payroll/configuration/payroll-cycle ---------- */
   const payrollGeneral = { fields: null, error: "", ok: "" };
 
-  function generatePayrollGeneralFields(payrollCycle = "calendar_month") {
+  function generatePayrollGeneralFields(payrollCycle) {
+    /* No cycle passed in → a fresh weighted roll, which is what
+       Regenerate wants. The seg click handler always passes the clicked
+       value explicitly, and the very first load (below) always passes
+       "calendar_month" explicitly, so neither of those ever lands on a
+       random cycle — only Regenerate can change which cycle is picked. */
+    payrollCycle = payrollCycle || weightedChoice(PAYROLL_CYCLE_OPTIONS);
     const body = { payrollCycle };
     function addThresholdRules() {
       body.thresholdRuleEnabled = Math.random() < 0.5;
@@ -6295,12 +6301,12 @@
 
   function payrollGeneralTemplate() {
     const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">1</span>General</h2></div>`;
-    if (!payrollGeneral.fields) payrollGeneral.fields = generatePayrollGeneralFields();
+    if (!payrollGeneral.fields) payrollGeneral.fields = generatePayrollGeneralFields("calendar_month");
     const f = payrollGeneral.fields;
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Payroll Cycle defaults to Calendar Month — pick Fixed Date or Bi-weekly yourself if that's what you need to test. Regenerate re-rolls the conditional fields for whichever cycle is currently selected, not the cycle itself.</p>
+        <p class="section-note">Payroll Cycle opens on Calendar Month rather than a random pick — click Fixed Date or Bi-weekly yourself if that's what you need to test. Regenerate re-rolls everything including which cycle is picked, weighted the same way the muggle-friendly magic scroll's own script weights it: calendar month most common, fixed date next, bi-weekly rare.</p>
         <div class="field-row">
           <div class="field">
             <label>Payroll Cycle</label>
@@ -6355,7 +6361,7 @@
     );
 
     wireRegenerate("#pgRegenerateBtn", () => {
-      payrollGeneral.fields = generatePayrollGeneralFields(payrollGeneral.fields.payrollCycle);
+      payrollGeneral.fields = generatePayrollGeneralFields();
       payrollGeneral.error = "";
       payrollGeneral.ok = "";
       $("#setupBody").innerHTML = setupGroupPageTemplate();
