@@ -2099,6 +2099,17 @@ use:**
   border) — `.modal-run-list` picked up its own small bottom margin and
   the banner's `margin-top` went from 14px to 20px, so the two read as
   distinct rather than glued together.
+- **Same complaint again, a follow-up screenshot, on the master run's
+  group headings this time** ("ar tomake na bollam egula ekdom gaye
+  lagayona" — didn't I already say don't let these touch): a group with
+  only 1-2 modules (Attendance Settings, just Attendance Policy) read as
+  glued to the previous group's last row, only the background tint
+  telling the two apart. `.modal-run-list .bulk-group-label:not
+  (:first-child)` now gets its own `margin-top` and `border-top` — every
+  group but the very first gets real separation from whatever came
+  before it. Scoped to `.modal-run-list` specifically so Designation's
+  own grouped bulk list (the same `.bulk-group-label` class, built
+  2026-09-10) is untouched.
 - **The persistent strip's "Role" row showed the real login response
   verbatim** (`company_admin`) instead of something readable. `format
   RoleLabel(type)` title-cases the raw snake_case value for display only

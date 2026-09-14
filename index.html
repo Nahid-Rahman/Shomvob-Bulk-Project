@@ -1501,6 +1501,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    sentence — same modal shell, its own width rather than a new component. */
 .modal-card-wide { max-width: 560px; }
 .modal-run-list { margin: 14px 0 6px; max-height: 46vh; overflow-y: auto; }
+/* A group heading in the master run's list (2026-09-14, direct request:
+   "ekdom lege gese" — a group with just 1-2 modules read as glued to the
+   previous group's last row, only the background tint telling them
+   apart) — margin-top gives every group but the very first real
+   breathing room from whatever came before it, scoped to this list only
+   so Designation's own grouped bulk list (same .bulk-group-label class,
+   below) is untouched. */
+.modal-run-list .bulk-group-label:not(:first-child) { margin-top: 12px; border-top: 1px solid var(--border); }
 .modal-title { font-size: 19px; letter-spacing: -0.01em; }
 .modal-body {
   margin-top: 9px;
