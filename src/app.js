@@ -3978,7 +3978,6 @@
      reminder is that it follows you into a module page, not just the
      grid. This template is now just the hint line and the cards. */
   function setupConnectedTemplate() {
-    if (setup.masterRun) return masterRunTemplate(setup.masterRun);
     const cards = SETTINGS_GROUPS.map((g) => {
       const done = groupDoneCount(g);
       const all = done === g.modules.length;
@@ -3999,19 +3998,15 @@
     }).join("");
     return `
       <p class="setup-hint-line">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
-      <button type="button" class="bulk-shortcut-btn" id="masterRunEnterBtn" style="margin-bottom:14px">Set up a fresh company with the real defaults →</button>
+      <button type="button" class="bulk-shortcut-btn" id="masterRunEnterBtn" style="margin-top:10px">Set up a fresh company with the real defaults →</button>
       <div class="settings-grid" style="grid-template-columns:repeat(${SETTINGS_GROUPS.length}, 1fr)">${cards}</div>
     `;
   }
 
   function wireSetupConnected() {
-    if (setup.masterRun) {
-      wireMasterRunPanel();
-      return;
-    }
     $("#masterRunEnterBtn")?.addEventListener("click", () => {
-      setup.masterRun = { items: buildDefaultRunItems(MASTER_RUN_MODULE_IDS), running: false, stopRequested: false };
-      rerenderMasterRun();
+      setup.masterRun = { items: buildDefaultRunItems(MASTER_RUN_MODULE_IDS), running: false, stopRequested: false, groupHeadings: true };
+      openRunModal(setup.masterRun, "Set up a fresh company", "A curated set of the modules a fresh company actually needs — not every module in every group. Anything already done this session is skipped automatically.");
     });
     $all(".settings-card").forEach((card) => {
       card.addEventListener("click", () => {
@@ -4067,13 +4062,6 @@
 
   function setupGroupPageTemplate() {
     const group = SETTINGS_GROUPS.find((g) => g.id === setup.activeGroup);
-    if (setup.groupRun && setup.groupRun.groupId === group.id) {
-      return `
-        <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>
-        <h2 style="font-size:19px; margin:14px 0 0;">${group.label}</h2>
-        <div style="margin-top:16px">${groupRunTemplate(setup.groupRun, group)}</div>
-      `;
-    }
     const tabs = group.modules
       .map(
         (m) => `
@@ -4135,20 +4123,15 @@
     $("#setupBackToModules").addEventListener("click", (e) => {
       e.preventDefault();
       if (isBulkRunActive()) return;
-      setup.groupRun = null;
       setup.activeGroup = null;
       setup.activeModule = null;
       renderSetupBody();
     });
 
-    if (setup.groupRun) {
-      wireGroupRunPanel();
-      return;
-    }
     $("#groupRunEnterBtn")?.addEventListener("click", () => {
       const group = SETTINGS_GROUPS.find((g) => g.id === setup.activeGroup);
-      setup.groupRun = { groupId: group.id, items: buildDefaultRunItems(group.modules.map((m) => m.id)), running: false, stopRequested: false };
-      rerenderGroupRun();
+      setup.groupRun = { groupId: group.id, items: buildDefaultRunItems(group.modules.map((m) => m.id)), running: false, stopRequested: false, groupHeadings: false };
+      openRunModal(setup.groupRun, `Run ${group.label}'s defaults`, `Runs each module's own "Create the default(s)" in order — anything already done this session is skipped automatically.`);
     });
 
     $all(".settings-tab").forEach((tab) => {
@@ -8653,34 +8636,22 @@
     rerender();
   }
 
-  /* Rerender used by the group run — guarded against the DOM having moved
-     on from under it. The sidebar nav guards above stop that from
-     happening via a click mid-run, but this is the belt to that braces,
-     the same "won't crash even if it somehow gets called after the page
-     changed" discipline the rest of this section already holds itself to. */
-  function rerenderGroupRun() {
-    const el = document.getElementById("setupBody");
-    if (!el) return;
-    el.innerHTML = setupGroupPageTemplate();
-    wireSetupGroupPage();
-  }
+  /* A modal overlay rather than replacing the underlying page (2026-09-14,
+     direct request: "ekta modal type open kore dekhaba je konta konta run
+     hocche and sesh hole success" — open a modal showing which ones are
+     running, and success once finished). The group/grid page stays exactly
+     as it was rendered when the modal opened; `closeRunModal()` gives it
+     one fresh render so done dots/tallies pick up whatever the run just
+     did, rather than the modal fighting that page for every tick's
+     re-render the way the first version of this feature did. */
 
-  /* Same, for the master run — re-renders the group grid itself rather
-     than a group's own page. */
-  function rerenderMasterRun() {
-    const el = document.getElementById("setupBody");
-    if (!el) return;
-    el.innerHTML = setupConnectedTemplate();
-    wireSetupConnected();
-  }
-
-  /* Shared row markup for both run panels — reuses `.bulk-row`/
-     `bulkStatusHtml()` from the single-module bulk lists above rather than
-     a third status-rendering shape, just with no checkbox (nothing here is
-     individually selectable — everything not already done runs). The
-     master run's items span every group, so it also gets a section
-     heading per group, same `.bulk-group-label` Designation's own grouped
-     bulk list already uses. */
+  /* Shared row markup — reuses `.bulk-row`/`bulkStatusHtml()` from the
+     single-module bulk lists above rather than a third status-rendering
+     shape, just with no checkbox (nothing here is individually selectable
+     — everything not already done runs). The master run's items span
+     every group, so it also gets a section heading per group
+     (`runState.groupHeadings`), same `.bulk-group-label` Designation's own
+     grouped bulk list already uses; a single group's own run doesn't. */
   function defaultRunRowsHtml(items, withGroupHeadings) {
     let lastGroup = null;
     return items
@@ -8692,78 +8663,53 @@
       .join("");
   }
 
-  function defaultRunFooterHtml(runState, prefix, startLabel) {
+  function openRunModal(runState, title, note) {
+    $("#runDefaultsTitle").textContent = title;
+    $("#runDefaultsNote").textContent = note;
+    $("#runDefaultsModal").hidden = false;
+    renderRunModalBody(runState);
+  }
+
+  function closeRunModal() {
+    $("#runDefaultsModal").hidden = true;
+    setup.groupRun = null;
+    setup.masterRun = null;
+    renderSetupBody(); // one fresh render of whichever page is behind, so done dots/tallies reflect what the run just did
+  }
+
+  /* The rerender callback runDefaultsSequential() calls after every item —
+     re-renders only the modal's own contents, never the page behind it. */
+  function rerenderRunModal() {
+    const runState = setup.groupRun || setup.masterRun;
+    if (!runState) return;
+    renderRunModalBody(runState);
+  }
+
+  function renderRunModalBody(runState) {
+    $("#runDefaultsList").innerHTML = defaultRunRowsHtml(runState.items, !!runState.groupHeadings);
     const doneCount = runState.items.filter((it) => it.status === "done").length;
     const skippedCount = runState.items.filter((it) => it.status === "skipped").length;
     const failedCount = runState.items.filter((it) => it.status === "failed").length;
     const allSettled = runState.items.every((it) => it.status !== "pending" && it.status !== "creating");
     const hasRemaining = runState.items.some((it) => it.status === "pending");
-    return `
-      ${
-        !runState.running && allSettled
-          ? `<div class="validation-banner success" style="margin-top:14px">${iconCheck()}<span>Finished — ${doneCount} run, ${skippedCount} skipped${
-              failedCount ? `, ${failedCount} failed` : ""
-            }.</span></div>`
-          : ""
-      }
-      <div class="setup-actions" style="flex-direction:row; align-items:center;">
-        ${
-          runState.running
-            ? `<button type="button" class="tiny-btn" id="${prefix}StopBtn">Stop</button>`
-            : `<button type="button" class="tiny-btn" id="${prefix}CancelBtn">← Back</button>
-               <button type="button" class="generate-btn" id="${prefix}StartBtn" ${hasRemaining ? "" : "disabled"}>${doneCount + skippedCount + failedCount > 0 ? "Run remaining" : startLabel}</button>`
-        }
-      </div>
-    `;
-  }
-
-  function groupRunTemplate(runState, group) {
-    return `
-      <div class="section">
-        <div class="section-head"><h2 class="section-title">Run ${group.label}'s defaults</h2></div>
-        <p class="section-note">Runs each module's own "Create the default(s)" in order — anything already done this session is skipped automatically.</p>
-        <div class="bulk-list">${defaultRunRowsHtml(runState.items, false)}</div>
-        ${defaultRunFooterHtml(runState, "groupRun", "Start")}
-      </div>
-    `;
-  }
-
-  function masterRunTemplate(runState) {
-    return `
-      <div class="section">
-        <div class="section-head"><h2 class="section-title">Run every default</h2></div>
-        <p class="section-note">A curated set of the modules a fresh company actually needs — not every module in every group — running each one's own "Create the default(s)" in order. Anything already done this session is skipped automatically.</p>
-        <div class="bulk-list">${defaultRunRowsHtml(runState.items, true)}</div>
-        ${defaultRunFooterHtml(runState, "masterRun", "Start")}
-      </div>
-    `;
-  }
-
-  function wireGroupRunPanel() {
-    const runState = setup.groupRun;
-    $("#groupRunCancelBtn")?.addEventListener("click", () => {
-      setup.groupRun = null;
-      rerenderGroupRun();
-    });
-    $("#groupRunStopBtn")?.addEventListener("click", () => {
+    $("#runDefaultsBanner").innerHTML =
+      !runState.running && allSettled
+        ? `<div class="validation-banner success" style="margin-top:14px">${iconCheck()}<span>Finished — ${doneCount} run, ${skippedCount} skipped${
+            failedCount ? `, ${failedCount} failed` : ""
+          }.</span></div>`
+        : "";
+    $("#runDefaultsActions").innerHTML = runState.running
+      ? `<button type="button" class="tiny-btn" id="runDefaultsStopBtn">Stop</button>`
+      : `<button type="button" class="tiny-btn modal-keep" id="runDefaultsCloseBtn">${allSettled ? "Close" : "← Back"}</button>
+         <button type="button" class="generate-btn" id="runDefaultsStartBtn" ${hasRemaining ? "" : "disabled"}>${
+          doneCount + skippedCount + failedCount > 0 ? "Run remaining" : "Start"
+        }</button>`;
+    $("#runDefaultsCloseBtn")?.addEventListener("click", closeRunModal);
+    $("#runDefaultsStopBtn")?.addEventListener("click", () => {
       runState.stopRequested = true;
     });
-    $("#groupRunStartBtn")?.addEventListener("click", () => {
-      runDefaultsSequential(runState, rerenderGroupRun);
-    });
-  }
-
-  function wireMasterRunPanel() {
-    const runState = setup.masterRun;
-    $("#masterRunCancelBtn")?.addEventListener("click", () => {
-      setup.masterRun = null;
-      rerenderMasterRun();
-    });
-    $("#masterRunStopBtn")?.addEventListener("click", () => {
-      runState.stopRequested = true;
-    });
-    $("#masterRunStartBtn")?.addEventListener("click", () => {
-      runDefaultsSequential(runState, rerenderMasterRun);
+    $("#runDefaultsStartBtn")?.addEventListener("click", () => {
+      runDefaultsSequential(runState, rerenderRunModal);
     });
   }
 

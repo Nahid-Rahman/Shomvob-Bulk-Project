@@ -1483,6 +1483,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   box-shadow: var(--shadow);
   padding: 22px 24px 18px;
 }
+/* "Run defaults" (2026-09-14) needs room for a module list, not a
+   sentence — same modal shell, its own width rather than a new component. */
+.modal-card-wide { max-width: 560px; }
+.modal-run-list { margin-top: 14px; max-height: 46vh; overflow-y: auto; }
 .modal-title { font-size: 19px; letter-spacing: -0.01em; }
 .modal-body {
   margin-top: 9px;

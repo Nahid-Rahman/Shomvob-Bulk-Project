@@ -1995,11 +1995,7 @@ exists to remove. Two triggers, same machinery underneath (all in
 **Two triggers, both confirmed with the user before building:**
 
 - **"Run this group's defaults"** (`#groupRunEnterBtn`) sits at the top
-  of a group's own tab page, above the tab strip. Swaps the whole page
-  (tabs + module body) into a run list (`groupRunTemplate()`,
-  `setup.groupRun = { groupId, items, running, stopRequested }`) covering
-  every module in that group — all of it, including modules the master
-  run below leaves out.
+  of a group's own tab page, above the tab strip.
 - **"Run every default"** (`#masterRunEnterBtn`) sits at the top of the
   group grid page. **Deliberately a curated subset, not literally every
   module** — the user's own explicit list, given after the per-group
@@ -2012,18 +2008,35 @@ exists to remove. Two triggers, same machinery underneath (all in
   Late Arrival/Absent Deduction/Overtime/Attendance Bonus/Custom
   Addition-Deduction are deliberately left out of the master run** — a
   per-group run still covers all of them, only the whole-company one is
-  scoped down. `masterRunTemplate()` groups its rows by group label
-  (`.bulk-group-label`, the same grouped-list shape Designation's own
-  bulk list already uses) since it spans multiple groups; the per-group
-  one doesn't need headings.
+  scoped down.
 
-**Both run panels share one row/footer renderer**
-(`defaultRunRowsHtml()`/`defaultRunFooterHtml()`), reusing `.bulk-row`/
-`bulkStatusHtml()` from the single-module bulk lists — just with no
-checkbox, since nothing here is individually selectable; everything not
-already done simply runs. A finished run shows the same
-`.validation-banner.success` shape Department/Designation/Leave Types'
-own bulk mode already uses ("Finished — N run, N skipped, N failed.").
+**Shows as a modal, not a page swap — reworked the same day, direct
+request** ("ekta modal type open kore dekhaba je konta konta run hocche
+and sesh hole success"): the first version of this feature replaced the
+group's tab page (or the group grid) with the run list, the same "swap
+the whole body" shape the single-module bulk lists already use. Redone as
+`#runDefaultsModal`, a static shell in `part1.html` (same `.modal`/
+`.modal-card` component `#discardModal`/"Hey Lazy!" already uses, its own
+wider variant — `.modal-card-wide`, 560px — since a module list needs more
+room than a sentence) that opens as an overlay *on top of* whichever page
+triggered it, rather than replacing it. `openRunModal(runState, title,
+note)` fills in the title/note and un-hides the modal;
+`renderRunModalBody(runState)` re-renders only the modal's own list/
+banner/actions on every tick `runDefaultsSequential()` fires — the page
+behind it is untouched throughout the run, and gets exactly one fresh
+render (`renderSetupBody()`) when `closeRunModal()` runs, so done dots
+and group-card tallies pick up whatever the run just did without being
+fought over on every single item. `runState.groupHeadings` (`true` only
+for the master run) decides whether `defaultRunRowsHtml()` groups its
+rows by group label (`.bulk-group-label`, the same grouped-list shape
+Designation's own bulk list already uses) — reused from `.bulk-row`/
+`bulkStatusHtml()`, just with no checkbox, since nothing here is
+individually selectable; everything not already done simply runs. A
+finished run shows the same `.validation-banner.success` shape
+Department/Designation/Leave Types' own bulk mode already uses
+("Finished — N run, N skipped, N failed."), and the modal's own
+close/back button reads "Close" once everything has settled or "← Back"
+while it hasn't.
 
 **Because Overtime isn't in the master run's list, its real dependency on
 Attendance Policy having overtime enabled — which now defaults off, see
@@ -2031,18 +2044,27 @@ the Attendance Policy entry above — never actually comes up there; it
 only matters for a per-group Payroll run**, where it still shows as a
 named skip in the run list rather than a silent gap or a failed request.
 
-**Navigation guards extended, not reinvented.** `isBulkRunActive()` now
-also checks `setup.groupRun?.running`/`setup.masterRun?.running`, so the
+**Navigation guards extended, not reinvented.** `isBulkRunActive()` still
+checks `setup.groupRun?.running`/`setup.masterRun?.running`, so the
 existing mid-run block on tabs/back-link/next-module/dep-shortcut clicks
-covers these two runs for free. **New this time**: the three sidebar nav
-buttons (Dashboard, an Operation, Company Setup itself) now check
-`isBulkRunActive()` too — previously only in-page navigation was guarded,
-but a whole-company run genuinely can take a while, and switching away
-mid-run via the sidebar would have pointed the run's own re-renders at a
-`#setupBody` that no longer exists. `rerenderGroupRun()`/
-`rerenderMasterRun()` also guard defensively (`document.getElementById
-("setupBody")` null-checked before writing) — belt to that guard's
-braces, in case a re-render somehow still fires after the page moved on.
+covers these two runs for free — though since the modal is a fixed,
+full-viewport overlay, none of those controls are even reachable by a
+click while it's open regardless; the guard is belt-and-braces now more
+than load-bearing. The three sidebar nav buttons (Dashboard, an
+Operation, Company Setup itself) also check `isBulkRunActive()`, same
+reasoning — a whole-company run can take a while, and this covers the
+edge case of the modal somehow not being frontmost.
+
+**The button spacing above the master run button was uneven, found on a
+screenshot the same day** ("etar margin padding ta thik koro, equal hoy
+ni") — `#masterRunEnterBtn` sat directly under `.setup-hint-line` with no
+gap of its own (a bare inline `margin-bottom` that didn't match the hint
+line's `margin-top: 22px` above it), so the hint text and the button read
+as cramped together while the whole pair had generous space above and
+below. Fixed with `margin-top: 10px` on the button instead, so the gap
+above it and the 18px gap below it (from `.bulk-shortcut-btn`'s own
+`margin-bottom`, unchanged) both read as deliberate rather than the pair
+looking glued together.
 
 Confirmed end-to-end against a mocked staging company built for exactly
 this (`tests/company-setup.test.js`, blocks AW/AX/AX2): a master run on a

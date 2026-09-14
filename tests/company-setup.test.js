@@ -2062,7 +2062,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(100);
     await page.click('.settings-tab[data-module="departments"]');
     await page.waitForTimeout(100);
-    check("AP nothing shown before any save", (await page.locator(".bulk-list, :text('Created this session')").count()) === 0);
+    check("AP nothing shown before any save", (await page.locator("#setupBody .bulk-list, :text('Created this session')").count()) === 0);
 
     let n = 0;
     await page.route("**/api/v1/departments", (route) => {
@@ -2544,22 +2544,25 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     check("AW master run button is on the group grid", (await page.locator("#masterRunEnterBtn").count()) === 1);
     await page.click("#masterRunEnterBtn");
-    await page.waitForSelector("#masterRunStartBtn", { timeout: 5000 });
-    check("AW lists exactly the curated 15 modules, not all 22", (await page.locator(".bulk-row").count()) === 15);
-    check("AW Employee Settings' modules are not in the list", (await page.locator('.bulk-row:has-text("Custom Fields"), .bulk-row:has-text("Required Documents")').count()) === 0);
+    await page.waitForSelector("#runDefaultsStartBtn", { timeout: 5000 });
+    check("AW opens as a modal, not a page swap — the grid is still there behind it", (await page.locator(".settings-card").count()) === 5);
+    check("AW modal title names what it's doing", (await page.locator("#runDefaultsTitle").textContent()).includes("fresh company"));
+    check("AW lists exactly the curated 15 modules, not all 22", (await page.locator("#runDefaultsList .bulk-row").count()) === 15);
+    check("AW Employee Settings' modules are not in the list", (await page.locator('#runDefaultsList .bulk-row:has-text("Custom Fields"), #runDefaultsList .bulk-row:has-text("Required Documents")').count()) === 0);
     check("AW excluded Payroll modules are not in the list",
-      (await page.locator('.bulk-row:has-text("Late Arrival"), .bulk-row:has-text("Absent Deduction"), .bulk-row:has-text("Overtime"), .bulk-row:has-text("Attendance Bonus"), .bulk-row:has-text("Custom Addition")').count()) === 0);
+      (await page.locator('#runDefaultsList .bulk-row:has-text("Late Arrival"), #runDefaultsList .bulk-row:has-text("Absent Deduction"), #runDefaultsList .bulk-row:has-text("Overtime"), #runDefaultsList .bulk-row:has-text("Attendance Bonus"), #runDefaultsList .bulk-row:has-text("Custom Addition")').count()) === 0);
+    check("AW master run's list is grouped by group label", (await page.locator("#runDefaultsList .bulk-group-label").count()) >= 4);
 
-    await page.click("#masterRunStartBtn");
-    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Finished"), { timeout: 15000 });
-    const finishedText = (await page.locator(".validation-banner.success").textContent()).trim();
+    await page.click("#runDefaultsStartBtn");
+    await page.waitForFunction(() => document.querySelector("#runDefaultsBanner").textContent.includes("Finished"), { timeout: 15000 });
+    const finishedText = (await page.locator("#runDefaultsBanner .validation-banner.success").textContent()).trim();
     check("AW finishes with all 15 run, nothing skipped or failed (every dependency in the list resolves itself)", finishedText.includes("15 run") && finishedText.includes("0 skipped") && !finishedText.includes("failed"), finishedText);
 
     check("AW General defaults to Calendar Month", sentPayrollCycle && sentPayrollCycle.payrollCycle === "calendar_month", JSON.stringify(sentPayrollCycle));
     check("AW Department's own 6 defaults were created", createdDepartments.length === 6, JSON.stringify(createdDepartments));
     check("AW Designation's own 24 defaults were created (dependency on Department resolved automatically)", createdDesignations.length === 24);
     check("AW Leave Types' own default 3 were created", JSON.stringify(createdLeaveTypes.sort()) === JSON.stringify(["Annual Leave", "Casual Leave", "Sick Leave"].sort()));
-    check("AW Leave Policy ran too (dependency on Leave Types resolved automatically)", (await page.locator('.bulk-row:has-text("Leave Policy")').textContent()).includes("done"));
+    check("AW Leave Policy ran too (dependency on Leave Types resolved automatically)", (await page.locator('#runDefaultsList .bulk-row:has-text("Leave Policy")').textContent()).includes("done"));
     check("AW Salary Components' own default 3 were created", JSON.stringify(createdSalaryComponents.sort()) === JSON.stringify(["Medical Allowance", "House Rent Allowance", "Internet Allowance"].sort()));
     check("AW Configure Salary Components ran with the 60/15/15/10 default filler (dependency resolved automatically)",
       sentSalaryStructure && sentSalaryStructure.basicSalaryPercentage === 60 && sentSalaryStructure.components.filter((c) => c.percentage === 15).length === 2 && sentSalaryStructure.components.filter((c) => c.percentage === 10).length === 1,
@@ -2567,11 +2570,12 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AW Bonus Types' own default 2 were created", JSON.stringify(createdBonusTypes.sort()) === JSON.stringify(["Eid Bonus", "Bangla New Year Bonus"].sort()));
     check("AW Bonus Policy's default 3 were created, both Eid ones pointing at the one real Eid Bonus type",
       createdBonusPolicies.length === 3 && createdBonusPolicies.includes("Eid Ul Fitr Bonus Policy") && createdBonusPolicies.includes("Eid Ul Adha Bonus Policy") && createdBonusPolicies.includes("Bangla New Year Bonus Policy"));
-    check("AW Tax row shows done", (await page.locator('.bulk-row:has-text("Tax")').textContent()).includes("done"));
+    check("AW Tax row shows done", (await page.locator('#runDefaultsList .bulk-row:has-text("Tax")').textContent()).includes("done"));
 
-    await page.click("#masterRunCancelBtn");
-    await page.waitForSelector(".settings-card", { timeout: 5000 });
-    check("AW back on the grid, every touched group card shows its done count updated", (await page.locator(".settings-card:has-text('Payroll') .tally").textContent()).trim() !== "0/11 done");
+    check("AW Close button reads 'Close' once everything is settled", (await page.locator("#runDefaultsCloseBtn").textContent()).trim() === "Close");
+    await page.click("#runDefaultsCloseBtn");
+    await page.waitForSelector("#runDefaultsModal[hidden]", { state: "attached", timeout: 5000 });
+    check("AW every touched group card shows its done count updated after closing", (await page.locator(".settings-card:has-text('Payroll') .tally").textContent()).trim() !== "0/11 done");
     check("AW no page errors through the whole run", errs.length === 0, errs.join(" | "));
     await page.close();
   }
@@ -2619,20 +2623,23 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click(".settings-card:has-text('Payroll')");
     await page.waitForSelector("#groupRunEnterBtn", { timeout: 5000 });
     await page.click("#groupRunEnterBtn");
-    await page.waitForSelector("#groupRunStartBtn", { timeout: 5000 });
-    check("AX group run is scoped to only this group's own 11 modules", (await page.locator(".bulk-row").count()) === 11);
-    check("AX no group heading shown for a single-group run", (await page.locator(".bulk-group-label").count()) === 0);
+    await page.waitForSelector("#runDefaultsStartBtn", { timeout: 5000 });
+    check("AX opens as a modal, not a page swap — the group's own tabs are still there behind it", (await page.locator(".settings-tab").count()) === 11);
+    check("AX modal title names the group", (await page.locator("#runDefaultsTitle").textContent()).includes("Payroll"));
+    check("AX group run is scoped to only this group's own 11 modules", (await page.locator("#runDefaultsList .bulk-row").count()) === 11);
+    check("AX no group heading shown for a single-group run", (await page.locator("#runDefaultsList .bulk-group-label").count()) === 0);
 
-    await page.click("#groupRunCancelBtn");
+    await page.click("#runDefaultsCloseBtn");
+    await page.waitForSelector("#runDefaultsModal[hidden]", { state: "attached", timeout: 5000 });
     await page.waitForSelector("#pgSaveBtn", { timeout: 5000 });
     await page.click("#pgSaveBtn");
     await page.waitForTimeout(150);
     await page.click("#groupRunEnterBtn");
-    await page.waitForSelector("#groupRunStartBtn", { timeout: 5000 });
-    check("AX a module already done via its own single-item Save is pre-marked skipped", (await page.locator('.bulk-row:has-text("General")').textContent()).includes("skipped"));
+    await page.waitForSelector("#runDefaultsStartBtn", { timeout: 5000 });
+    check("AX a module already done via its own single-item Save is pre-marked skipped", (await page.locator('#runDefaultsList .bulk-row:has-text("General")').textContent()).includes("skipped"));
 
     slowGeneral = false; // General is already done from above; the slow route only matters for the Stop test below on a fresh page
-    await page.click("#groupRunCancelBtn");
+    await page.click("#runDefaultsCloseBtn");
     await page.close();
   }
 
@@ -2678,17 +2685,18 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click(".settings-card:has-text('Payroll')");
     await page.waitForSelector("#groupRunEnterBtn", { timeout: 5000 });
     await page.click("#groupRunEnterBtn");
-    await page.waitForSelector("#groupRunStartBtn", { timeout: 5000 });
-    await page.click("#groupRunStartBtn");
-    await page.waitForSelector("#groupRunStopBtn", { timeout: 5000 });
-    await page.click("#groupRunStopBtn");
-    await page.waitForSelector("#groupRunStartBtn", { timeout: 5000 });
-    const afterStopText = (await page.locator(".bulk-list").textContent()).replace(/\s+/g, " ");
+    await page.waitForSelector("#runDefaultsStartBtn", { timeout: 5000 });
+    await page.click("#runDefaultsStartBtn");
+    await page.waitForSelector("#runDefaultsStopBtn", { timeout: 5000 });
+    await page.click("#runDefaultsStopBtn");
+    await page.waitForSelector("#runDefaultsStartBtn", { timeout: 5000 });
+    const afterStopText = (await page.locator("#runDefaultsList").textContent()).replace(/\s+/g, " ");
     check("AX2 Stop lets the in-flight module finish, then halts before the next", /General\s+done/.test(afterStopText) && !/Salary Components\s+done/.test(afterStopText));
     check("AX2 the module after the stopped one never actually sent a request", createdSalaryComponents.length === 0);
+    check("AX2 Back button reads '← Back' while not everything is settled yet", (await page.locator("#runDefaultsCloseBtn").textContent()).trim() === "← Back");
 
-    await page.click("#groupRunStartBtn");
-    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Finished"), { timeout: 15000 });
+    await page.click("#runDefaultsStartBtn");
+    await page.waitForFunction(() => document.querySelector("#runDefaultsBanner").textContent.includes("Finished"), { timeout: 15000 });
     check("AX2 resuming doesn't redo the already-finished module", createdGeneral.length === 1);
     check("AX2 resuming continues the rest", createdSalaryComponents.length >= 1);
     check("AX2 no page errors", errs.length === 0, errs.join(" | "));
