@@ -1759,9 +1759,17 @@ this group alone — more than the rest of the app combined:
   (payrollCycle)` takes an optional cycle now — pass one explicitly
   (initial load passes `"calendar_month"`, the seg click handler passes
   whichever button was clicked) and it's used as-is; call it with nothing
-  (Regenerate does) and it rolls a fresh weighted pick instead. Conditional
-  threshold/fixed-day/bi-weekly-date fields still roll exactly as the
-  script branches on them. No dependency.
+  (Regenerate does) and it rolls a fresh weighted pick instead.
+  Fixed-day/bi-weekly-date fields still roll exactly as the script
+  branches on them. **`thresholdRuleEnabled` defaults off now, not a coin
+  flip** (2026-09-14, direct request — confirmed against a real body,
+  `{"payrollCycle":"calendar_month","thresholdRuleEnabled":false}`): it
+  used to be `Math.random() < 0.5` for `calendar_month`/`fixed_date`, with
+  `thresholdDays`/`thresholdNotifyEmployee`/`thresholdNotifyHr`/
+  `thresholdLogDecisions` only ever filled in when it rolled true. Same
+  "don't randomise a deliberate choice" instinct as everything else fixed
+  this way — the sub-fields are simply never sent now, matching the exact
+  body above. No dependency.
 - **Salary Components** — `POST /payroll/configuration/salary-components`.
   4 fixed presets (Medical/House Rent/Mobile/Internet Allowance) — the
   collection's own 4 separate requests, not a generated name.

@@ -9081,14 +9081,14 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
        random cycle — only Regenerate can change which cycle is picked. */
     payrollCycle = payrollCycle || weightedChoice(PAYROLL_CYCLE_OPTIONS);
     const body = { payrollCycle };
+    /* thresholdRuleEnabled defaults off, not a coin flip (2026-09-14,
+       direct request — confirmed against a real request body:
+       {"payrollCycle":"calendar_month","thresholdRuleEnabled":false}).
+       Same "don't randomise a deliberate choice" instinct as everything
+       else fixed this way this session; the sub-fields below only ever
+       existed to fill in a threshold rule that's now off by default. */
     function addThresholdRules() {
-      body.thresholdRuleEnabled = Math.random() < 0.5;
-      if (body.thresholdRuleEnabled) {
-        body.thresholdDays = randInt(5, 10);
-        body.thresholdNotifyEmployee = Math.random() < 0.5;
-        body.thresholdNotifyHr = Math.random() < 0.5;
-        body.thresholdLogDecisions = Math.random() < 0.5;
-      }
+      body.thresholdRuleEnabled = false;
     }
     if (payrollCycle === "calendar_month") addThresholdRules();
     if (payrollCycle === "fixed_date") {

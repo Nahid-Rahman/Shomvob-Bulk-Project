@@ -1099,6 +1099,18 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click(".settings-card:has-text('Payroll')");
     await page.waitForSelector("#pgCycleSeg", { timeout: 5000 });
     check("Y lands on Payroll's first module", (await page.locator('.settings-tab[data-module="payroll_general"][aria-current="true"]').count()) === 1);
+    check("Y no Threshold chip shown by default — thresholdRuleEnabled defaults off, not a coin flip (2026-09-14)", !(await page.textContent("#setupBody")).includes("Threshold"));
+
+    let sentDefault = null;
+    await page.route("**/api/v1/payroll/configuration/payroll-cycle", (route) => {
+      sentDefault = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Pay cycle updated. Current period recalculated." }) });
+    });
+    await page.click("#pgSaveBtn");
+    await page.waitForTimeout(150);
+    check("Y the default body matches exactly {payrollCycle: calendar_month, thresholdRuleEnabled: false}",
+      JSON.stringify(sentDefault) === JSON.stringify({ payrollCycle: "calendar_month", thresholdRuleEnabled: false }), JSON.stringify(sentDefault));
+    await page.unroute("**/api/v1/payroll/configuration/payroll-cycle");
 
     await page.click('#pgCycleSeg button[data-val="fixed_date"]');
     await page.waitForTimeout(60);
