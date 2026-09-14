@@ -227,7 +227,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("D the connected banner's rows name the right company, env and role",
       bannerRows[0].includes("Company") && bannerRows[0].includes("Sports Academy") &&
       bannerRows[1].includes("Environment") && bannerRows[1].includes("Staging") &&
-      bannerRows[2].includes("Role") && bannerRows[2].includes("company_admin"),
+      bannerRows[2].includes("Role") && bannerRows[2].includes("Company Admin"),
       JSON.stringify(bannerRows));
 
     check("D no page errors across the happy path", errs.length === 0, errs.join(" | "));

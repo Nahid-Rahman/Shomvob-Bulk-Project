@@ -2070,6 +2070,27 @@ Department/Designation/Leave Types' own bulk mode already uses
 close/back button reads "Close" once everything has settled or "← Back"
 while it hasn't.
 
+**Three more polish items, same day, from a screenshot of the modal in
+use:**
+
+- **Each row is numbered** (`.section-num`, the same small accent badge
+  every module's own header already uses for its number, reused here
+  rather than inventing a second numbering style) — a running 1-based
+  index across the whole list, continuing straight through group
+  headings in the master run rather than resetting per group, since it's
+  showing the actual order things run in, not a per-group count.
+- **The gap between the module list and the "Finished" banner was too
+  tight** ("ekdom border er sathe lege gese" — right up against the
+  border) — `.modal-run-list` picked up its own small bottom margin and
+  the banner's `margin-top` went from 14px to 20px, so the two read as
+  distinct rather than glued together.
+- **The persistent strip's "Role" row showed the real login response
+  verbatim** (`company_admin`) instead of something readable. `format
+  RoleLabel(type)` title-cases the raw snake_case value for display only
+  (`"company_admin"` → `"Company Admin"`) — nothing else in this section
+  reads the formatted version; every real request still uses
+  `setup.companyUserType` untouched.
+
 **Because Overtime isn't in the master run's list, its real dependency on
 Attendance Policy having overtime enabled — which now defaults off, see
 the Attendance Policy entry above — never actually comes up there; it

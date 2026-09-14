@@ -3737,6 +3737,19 @@
      for the reminder to persist past the grid (into every module page)
      is what the strip was already built to do — it just didn't yet
      carry the fuller, connected-state content. */
+  /* The real company login's own `user.type` comes back snake_case
+     ("company_admin") — shown as-is until now. Title-cased for display
+     only (2026-09-14, direct request); whatever's actually sent anywhere
+     else in this section is untouched, this only ever feeds the "Role"
+     row's text. */
+  function formatRoleLabel(type) {
+    if (!type) return "Unknown Type";
+    return type
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+
   function setupStatusBarHtml() {
     if (!setup.toolToken) return "";
     const env = ENVIRONMENTS[setup.env];
@@ -3756,7 +3769,7 @@
         <div class="rules-body" style="border-top:none; padding:0; margin-top:10px;">
           <div class="rule-row"><span class="rule-col">Company</span><span class="rule-val">${setup.companyName}</span></div>
           <div class="rule-row"><span class="rule-col">Environment</span><span class="rule-val">${env.label}</span></div>
-          <div class="rule-row"><span class="rule-col">Role</span><span class="rule-val">${setup.companyUserType || "unknown type"}</span></div>
+          <div class="rule-row"><span class="rule-col">Role</span><span class="rule-val">${formatRoleLabel(setup.companyUserType)}</span></div>
         </div>
         <div class="setup-connected-actions">
           <button type="button" class="disconnect-btn" id="setupDisconnectBtn">Disconnect this company</button>
@@ -8653,10 +8666,10 @@
   function defaultRunRowsHtml(items, withGroupHeadings) {
     let lastGroup = null;
     return items
-      .map((it) => {
+      .map((it, i) => {
         const heading =
           withGroupHeadings && it.groupLabel !== lastGroup ? ((lastGroup = it.groupLabel), `<div class="bulk-group-label">${it.groupLabel}</div>`) : "";
-        return `${heading}<div class="bulk-row" style="cursor:default"><span class="bulk-row-name">${it.label}</span>${bulkStatusHtml(it)}</div>`;
+        return `${heading}<div class="bulk-row" style="cursor:default"><span class="section-num" style="margin-right:10px">${i + 1}</span><span class="bulk-row-name">${it.label}</span>${bulkStatusHtml(it)}</div>`;
       })
       .join("");
   }
@@ -8692,7 +8705,7 @@
     const hasRemaining = runState.items.some((it) => it.status === "pending");
     $("#runDefaultsBanner").innerHTML =
       !runState.running && allSettled
-        ? `<div class="validation-banner success" style="margin-top:14px">${iconCheck()}<span>Finished — ${doneCount} run, ${skippedCount} skipped${
+        ? `<div class="validation-banner success" style="margin-top:20px">${iconCheck()}<span>Finished — ${doneCount} run, ${skippedCount} skipped${
             failedCount ? `, ${failedCount} failed` : ""
           }.</span></div>`
         : "";
