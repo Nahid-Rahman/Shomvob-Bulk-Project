@@ -846,17 +846,21 @@ wizard.** Two levels, both implemented:
   page's internal workflow.
 - **Level 1 — the group grid.** Once connected, `setupConnectedTemplate()`
   renders one card per entry in `SETTINGS_GROUPS`
-  (`src/app-data.js`) — Company Settings, Employee Settings, Leave,
-  Payroll, Attendance — each showing an `n/total done` count for the
-  session (`groupDoneCount()`), and always laid out in a single row
-  (`grid-template-columns: repeat(SETTINGS_GROUPS.length, 1fr)`, set
-  inline rather than a fixed number, so it stays one row whatever the
-  count is — falls back to wrapping under 900px, where equal-width
-  columns stop being legible). **Clicking a card opens that group**;
-  there is no enforced order between groups. (Offboarding filled this
-  slot in the first draft and was wrong — it isn't one of the real
-  Settings groups in the Postman collection; Attendance Settings is, and
-  had been missed entirely. Corrected 2026-09-09.)
+  (`src/app-data.js`) — **Company Settings, Employee Settings,
+  Attendance, Leave, Payroll** (this order, direct request 2026-09-14 —
+  `SETTINGS_GROUPS`' array order is the only thing that decides it, so
+  reordering the cards is just reordering that array) — each showing an
+  `n/total done` count for the session (`groupDoneCount()`), and always
+  laid out in a single row (`grid-template-columns: repeat(SETTINGS_GROUPS
+  .length, 1fr)`, set inline rather than a fixed number, so it stays one
+  row whatever the count is — falls back to wrapping under 900px, where
+  equal-width columns stop being legible). **Clicking a card opens that
+  group**; there is no *enforced* order (nothing blocks opening Payroll
+  before Leave), the array order is purely the grid's left-to-right
+  reading order. (Offboarding filled this slot in the first draft and was
+  wrong — it isn't one of the real Settings groups in the Postman
+  collection; Attendance Settings is, and had been missed entirely.
+  Corrected 2026-09-09.)
 - **Level 2 — a group's own tabbed page**, added the same day after
   comparing two real screenshots of the actual HRIS admin (its "Company
   Settings" and "Org Structure" pages both use exactly this pattern —

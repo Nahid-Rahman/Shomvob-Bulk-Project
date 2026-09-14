@@ -326,7 +326,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("H one card per settings group", (await page.locator(".settings-card").count()) === 5);
     check("H group labels match SETTINGS_GROUPS",
       JSON.stringify(await page.locator(".settings-card-name").allTextContents()) ===
-        JSON.stringify(["Company Settings", "Employee Settings", "Leave", "Payroll", "Attendance"]));
+        JSON.stringify(["Company Settings", "Employee Settings", "Attendance", "Leave", "Payroll"]));
     check("H every card starts at 0 done",
       (await page.locator(".tally").allTextContents()).every((t) => /^0\//.test(t.trim())));
     check("H Payroll's count reflects its real 11 modules",

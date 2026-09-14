@@ -460,6 +460,11 @@ const SETTINGS_GROUPS = [
     ],
   },
   {
+    id: "attendance",
+    label: "Attendance",
+    modules: [{ id: "attendance_policy", label: "Attendance Policy" }],
+  },
+  {
     id: "leave",
     label: "Leave",
     modules: [
@@ -484,11 +489,6 @@ const SETTINGS_GROUPS = [
       { id: "custom_addition_deduction", label: "Custom Addition/Deduction" },
       { id: "tax", label: "Tax" },
     ],
-  },
-  {
-    id: "attendance",
-    label: "Attendance",
-    modules: [{ id: "attendance_policy", label: "Attendance Policy" }],
   },
 ];
 
