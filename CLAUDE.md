@@ -2110,6 +2110,28 @@ use:**
   before it. Scoped to `.modal-run-list` specifically so Designation's
   own grouped bulk list (the same `.bulk-group-label` class, built
   2026-09-10) is untouched.
+- **The module list's own scrollbar, and a widened modal with a quote
+  panel** — two asks on the same screenshot: hide the visible scrollbar
+  on a long run's list, and "right e modal ta boro kore ektu ekta quote
+  dite chaitesilam" (widen the modal and put a quote on the right).
+  `.modal-run-list` gets `scrollbar-width: none` (Firefox) plus a
+  `::-webkit-scrollbar { display: none }` rule (Chromium/Safari) — the
+  list still scrolls, nothing about its behaviour changed, it just no
+  longer shows a track. `.modal-card-wide` (a single-column max-width)
+  is replaced by `.modal-card-split`: a flex row of `.modal-card-main`
+  (the existing title/note/list/banner/actions, unchanged) and a new
+  `.modal-quote-panel` sibling — a fixed-width column, left border,
+  `var(--accent-soft)` background, holding the user's own line ("When
+  one (API) falls, we continue.") attributed to "— Clair Obscure:
+  Expedition 33". Purely decorative — no state, no wiring — so it's
+  hand-written directly into `#runDefaultsModal` in `part1.html` rather
+  than built in `renderRunModalBody()`. Collapses to a stacked column
+  under 760px (border moves from left to top) rather than disappearing,
+  since it's meant to be part of the experience, not a nice-to-have that
+  only survives on a wide screen. Uses only existing theme tokens
+  (`--accent-soft`, `--accent-strong`, `--text-faint`, `--border`), so it
+  reads correctly in light/dark/auto with no new colours — checked with
+  Playwright screenshots in both.
 - **The persistent strip's "Role" row showed the real login response
   verbatim** (`company_admin`) instead of something readable. `format
   RoleLabel(type)` title-cases the raw snake_case value for display only
