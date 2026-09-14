@@ -4011,7 +4011,7 @@
     }).join("");
     return `
       <p class="setup-hint-line">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
-      <button type="button" class="bulk-shortcut-btn" id="masterRunEnterBtn" style="margin-top:10px">Set up a fresh company with the real defaults →</button>
+      <button type="button" class="bulk-shortcut-btn" id="masterRunEnterBtn" style="margin-top:10px">Set up a fresh company →</button>
       <div class="settings-grid" style="grid-template-columns:repeat(${SETTINGS_GROUPS.length}, 1fr)">${cards}</div>
     `;
   }
@@ -4113,7 +4113,7 @@
     return `
       <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>
       <h2 style="font-size:19px; margin:14px 0 0;">${group.label}</h2>
-      <button type="button" class="bulk-shortcut-btn" id="groupRunEnterBtn" style="margin-top:12px">Run ${group.label}'s defaults →</button>
+      <button type="button" class="bulk-shortcut-btn" id="groupRunEnterBtn" style="margin-top:12px">Run defaults for ${group.label} →</button>
       <div class="settings-tabs" role="tablist" style="margin-top:12px">${tabs}</div>
       <div style="margin-top:16px">${body}</div>
       ${nextHtml}
@@ -4144,7 +4144,7 @@
     $("#groupRunEnterBtn")?.addEventListener("click", () => {
       const group = SETTINGS_GROUPS.find((g) => g.id === setup.activeGroup);
       setup.groupRun = { groupId: group.id, items: buildDefaultRunItems(group.modules.map((m) => m.id)), running: false, stopRequested: false, groupHeadings: false };
-      openRunModal(setup.groupRun, `Run ${group.label}'s defaults`, `Runs each module's own "Create the default(s)" in order — anything already done this session is skipped automatically.`);
+      openRunModal(setup.groupRun, `Run defaults for ${group.label}`, `Runs each module's own "Create the default(s)" in order — anything already done this session is skipped automatically.`);
     });
 
     $all(".settings-tab").forEach((tab) => {

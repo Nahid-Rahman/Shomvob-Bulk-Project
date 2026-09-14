@@ -461,12 +461,12 @@ const SETTINGS_GROUPS = [
   },
   {
     id: "attendance",
-    label: "Attendance",
+    label: "Attendance Settings",
     modules: [{ id: "attendance_policy", label: "Attendance Policy" }],
   },
   {
     id: "leave",
-    label: "Leave",
+    label: "Leave Settings",
     modules: [
       { id: "leave_types", label: "Leave Types" },
       { id: "leave_policy", label: "Leave Policy" },
@@ -475,7 +475,7 @@ const SETTINGS_GROUPS = [
   },
   {
     id: "payroll",
-    label: "Payroll",
+    label: "Payroll Settings",
     modules: [
       { id: "payroll_general", label: "General" },
       { id: "salary_components", label: "Salary Components" },

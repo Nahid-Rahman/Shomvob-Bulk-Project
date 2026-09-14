@@ -847,20 +847,35 @@ wizard.** Two levels, both implemented:
 - **Level 1 — the group grid.** Once connected, `setupConnectedTemplate()`
   renders one card per entry in `SETTINGS_GROUPS`
   (`src/app-data.js`) — **Company Settings, Employee Settings,
-  Attendance, Leave, Payroll** (this order, direct request 2026-09-14 —
-  `SETTINGS_GROUPS`' array order is the only thing that decides it, so
-  reordering the cards is just reordering that array) — each showing an
-  `n/total done` count for the session (`groupDoneCount()`), and always
-  laid out in a single row (`grid-template-columns: repeat(SETTINGS_GROUPS
-  .length, 1fr)`, set inline rather than a fixed number, so it stays one
-  row whatever the count is — falls back to wrapping under 900px, where
-  equal-width columns stop being legible). **Clicking a card opens that
-  group**; there is no *enforced* order (nothing blocks opening Payroll
-  before Leave), the array order is purely the grid's left-to-right
-  reading order. (Offboarding filled this slot in the first draft and was
-  wrong — it isn't one of the real Settings groups in the Postman
-  collection; Attendance Settings is, and had been missed entirely.
-  Corrected 2026-09-09.)
+  Attendance Settings, Leave Settings, Payroll Settings** (this order,
+  direct request 2026-09-14 — `SETTINGS_GROUPS`' array order is the only
+  thing that decides it, so reordering the cards is just reordering that
+  array) — each showing an `n/total done` count for the session
+  (`groupDoneCount()`), and always laid out in a single row
+  (`grid-template-columns: repeat(SETTINGS_GROUPS.length, 1fr)`, set
+  inline rather than a fixed number, so it stays one row whatever the
+  count is — falls back to wrapping under 900px, where equal-width
+  columns stop being legible). **Clicking a card opens that group**;
+  there is no *enforced* order (nothing blocks opening Payroll Settings
+  before Leave Settings), the array order is purely the grid's
+  left-to-right reading order. (Offboarding filled this slot in the first
+  draft and was wrong — it isn't one of the real Settings groups in the
+  Postman collection; Attendance Settings is, and had been missed
+  entirely. Corrected 2026-09-09.)
+
+  **All 5 group labels finally match the real Postman collection's own
+  folder names, 2026-09-14** ("Attendance Leave Payroll er sathe Settings
+  word ta nai" — flagged directly, from a screenshot). The collection's
+  top-level Settings folders are literally named "Company Settings",
+  "Employee Settings", "Attendance Settings", "Leave Settings", "Payroll
+  Settings" (confirmed by reading `HRIS_Collection_sanitized_for_other_pc.json`
+  directly) — `SETTINGS_GROUPS`' own labels for the last three had
+  drifted to the bare "Attendance"/"Leave"/"Payroll" at some point and
+  were never caught, despite "Attendance Settings" being named correctly
+  in this very file's own prose (above) the whole time. Every existing
+  `.settings-card:has-text('Payroll')`-style test selector still matches
+  fine, since Playwright's `:has-text()` is substring, not exact — only
+  the one test asserting the exact label array needed updating.
 - **Level 2 — a group's own tabbed page**, added the same day after
   comparing two real screenshots of the actual HRIS admin (its "Company
   Settings" and "Org Structure" pages both use exactly this pattern —
@@ -2090,6 +2105,17 @@ use:**
   (`"company_admin"` → `"Company Admin"`) — nothing else in this section
   reads the formatted version; every real request still uses
   `setup.companyUserType` untouched.
+
+**The master and per-group button/title wording was clunky, flagged the
+same day** ("grammaticallly shunte okay lagtese na" — didn't read right
+out loud): the master button dropped its trailing "...with the real
+defaults" (the modal's own note line already explains that this is a
+curated set, so the button just reads "Set up a fresh company →" now,
+matching its modal's title exactly). The per-group button/title changed
+from `` `Run ${group.label}'s defaults` `` to `` `Run defaults for
+${group.label}` `` — the possessive reads especially awkward now that
+group labels all end in "Settings" (below): "Run Payroll Settings's
+defaults" was the kind of sentence that prompted this whole fix.
 
 **Because Overtime isn't in the master run's list, its real dependency on
 Attendance Policy having overtime enabled — which now defaults off, see
