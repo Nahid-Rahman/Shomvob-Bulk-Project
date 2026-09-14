@@ -7792,6 +7792,7 @@
         ${head}
         <p class="section-note">The muggle-friendly magic scroll's own fixed names, paired by type.</p>
         <div class="field-row">
+          <div class="field"><label for="cadName">Name</label><input type="text" id="cadName" value="${f.name}" /></div>
           <div class="field">
             <label>Type</label>
             <div class="seg seg-fill" id="cadTypeSeg" role="group" aria-label="Type">
@@ -7799,9 +7800,14 @@
               <button type="button" data-val="Deduction" aria-pressed="${f.type === "Deduction"}">Deduction</button>
             </div>
           </div>
-          <div class="field"><label for="cadName">Name</label><input type="text" id="cadName" value="${f.name}" /></div>
         </div>
-        <span class="tally" style="margin-top:8px">Carry forward <strong>${f.carryingNext ? "yes" : "no"}</strong></span>
+        <div class="field" style="margin-top:8px; max-width:170px">
+          <label>Carry Forward</label>
+          <div class="seg seg-fill" id="cadCarrySeg" role="group" aria-label="Carry forward">
+            <button type="button" data-val="yes" aria-pressed="${f.carryingNext}">Yes</button>
+            <button type="button" data-val="no" aria-pressed="${!f.carryingNext}">No</button>
+          </div>
+        </div>
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="tiny-btn" id="cadRegenerateBtn">↻ Regenerate</button>
@@ -7839,9 +7845,17 @@
   function wireCustomAdditionDeductionEvents() {
     $all("#cadTypeSeg button").forEach((btn) =>
       btn.addEventListener("click", () => {
-        customAdditionDeduction.fields.name = $("#cadName").value;
         customAdditionDeduction.type = btn.dataset.val;
         customAdditionDeduction.fields = generateCustomAdditionDeductionFields(customAdditionDeduction.type);
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      })
+    );
+
+    $all("#cadCarrySeg button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        customAdditionDeduction.fields.name = $("#cadName").value; // snapshot before the toggle's own re-render
+        customAdditionDeduction.fields.carryingNext = btn.dataset.val === "yes";
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       })

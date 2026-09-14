@@ -1921,7 +1921,16 @@ this group alone — more than the rest of the app combined:
 - **Custom Addition/Deduction** — `POST /payroll/configuration/custom-fields`.
   Name pools paired by type (`CUSTOM_ADDITION_NAMES`/`CUSTOM_DEDUCTION_NAMES`)
   so an Addition never gets a Deduction-shaped name; switching type
-  re-rolls the name from the right pool. No dependency.
+  re-rolls the name from the right pool. No dependency. **Reordered and
+  Carry Forward given a real toggle, 2026-09-14 (direct request):** Name
+  now leads the field row with Type beside it (was the other way round);
+  Carry Forward was read-only tally text showing a coin flip with no way
+  to change it — now a `#cadCarrySeg` Yes/No toggle, same shape as every
+  other exposed toggle in this section, wired to snapshot Name first so
+  clicking it can't lose a hand-typed value. Switching Type still
+  regenerates the whole fields object (name + carryingNext both re-roll
+  from the new type's pool), unchanged — only Carry Forward's own toggle
+  and Regenerate change it independently of that.
 - **Tax — the one place the collection genuinely stops short.**
   `PATCH /payroll/configuration/tax-rules/toggle/Enable` is an
   enable/disable toggle, full stop — there is no endpoint anywhere in the

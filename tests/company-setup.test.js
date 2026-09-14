@@ -1628,6 +1628,16 @@ async function toGrid(page, companyName = "Hogwarts") {
       ["Late Fee", "Device Penalty"].includes(await page.inputValue("#cadName")));
 
     await page.fill("#cadName", "Custom Hand-Typed Deduction");
+
+    /* Carry Forward is a real Yes/No toggle now (2026-09-14, direct
+       request), not read-only tally text — and toggling it must not
+       lose the hand-typed name sitting in the sibling input. */
+    const carryBefore = (await page.getAttribute('#cadCarrySeg button[data-val="yes"]', "aria-pressed")) === "true";
+    await page.click(`#cadCarrySeg button[data-val="${carryBefore ? "no" : "yes"}"]`);
+    await page.waitForTimeout(60);
+    check("AG Carry Forward toggle flips", (await page.getAttribute('#cadCarrySeg button[data-val="yes"]', "aria-pressed")) === String(!carryBefore));
+    check("AG toggling Carry Forward doesn't lose the hand-typed name", (await page.inputValue("#cadName")) === "Custom Hand-Typed Deduction");
+
     let sent = null;
     await page.route("**/api/v1/payroll/configuration/custom-fields", (route) => {
       sent = route.request().postDataJSON();
@@ -1636,6 +1646,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#cadSaveBtn");
     await page.waitForTimeout(150);
     check("AG the hand-typed name, not a pool one, is what's sent", sent && sent.name === "Custom Hand-Typed Deduction" && sent.type === "Deduction");
+    check("AG carryingNext reflects the toggle, not a random roll", sent && sent.carryingNext === !carryBefore);
     check("AG the tab picks up a done marker", (await page.locator('.settings-tab[data-module="custom_addition_deduction"] .op-dot').count()) === 1);
     check("AG no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
