@@ -1718,6 +1718,30 @@ left to toggle now that weekend days don't exist), everything else is
 generated correctly per the rules above and shown read-only as a row of
 summary chips instead of the old per-shift tally row.
 
+**Every optional flag fixed to a deliberate default, 2026-09-14 (direct
+request), replacing the section above's original random rolls**: Overtime,
+Break and Deduct Break all default off; `earlyCheckInLimit`/
+`maxCheckOutLimit` both default to a fixed 120 minutes rather than a pool
+pick (the "must be ≥ max overtime duration" rule above no longer applies
+day-to-day since overtime defaults off). `ATTENDANCE_OVERTIME_MAX_MINUTES`/
+`_COOLDOWN_MINUTES`/`_SLOT_MINUTES`/`ATTENDANCE_EARLY_CHECKIN_LIMITS`/
+`ATTENDANCE_MAX_CHECKOUT_LIMITS`/`ATTENDANCE_FIXED_BREAK_MINUTES` are all
+gone from `app-data.js` — nothing left reads them. Because Overtime now
+always defaults off, Payroll → Overtime's own dependency on an Attendance
+Policy having overtime enabled (below) is never satisfied by this
+module's default alone; that's expected, not a regression — see "Run
+defaults" further down.
+
+**The generated title/description dropped their random number the same
+day** ("default run er khetre just office standard policy rakho, number
+ta dorkar nai" — a real staging screenshot showed `Office Standard Policy
+49207`, and the trailing digits weren't wanted): `title` is now always
+the literal `"Office Standard Policy"`, description always `"Default
+attendance policy for standard working hours"`, with no `Date.now()`-
+based suffix. `title` stays the one editable field, same as before —
+Regenerate now leaves it unchanged too, since there's nothing left on it
+to re-roll.
+
 ### Payroll — all 11 modules (built 2026-09-10)
 
 Every module in the Postman collection's own "Payroll Settings" folder,

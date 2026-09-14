@@ -1058,10 +1058,11 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("X generated settings chips are shown", (await page.locator(".tally").count()) >= 1);
 
     const titleBefore = await page.inputValue("#apTitle");
+    check("X the default title is the fixed 'Office Standard Policy', no random number (2026-09-14, direct request)", titleBefore === "Office Standard Policy");
     await page.click("#apRegenerateBtn");
     await page.waitForTimeout(1200);
     const titleAfter = await page.inputValue("#apTitle");
-    check("X regenerate re-rolls the title (policy number changes)", titleBefore !== titleAfter);
+    check("X regenerate keeps the same fixed title — nothing left to re-roll", titleAfter === "Office Standard Policy");
 
     await page.fill("#apTitle", "Hand-Edited Policy Title");
 

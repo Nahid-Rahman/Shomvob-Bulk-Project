@@ -7983,15 +7983,13 @@
      be satisfied by this policy alone; the run log shows that as a
      named failure like any other, it isn't hidden. */
   function generateAttendancePolicyFields() {
-    const policyNumber = String(Date.now()).slice(-5);
-
     const overtimeConfigs = { isEnabled: false };
     const breakConfig = { breakEnabled: false, allowMultipleBreaks: true, maxBreakPerDay: 5 };
     const fixedBreakSettings = { fixedBreakEnabled: false, durationMinutes: 60 };
 
     return {
-      title: `Office Standard Policy ${policyNumber}`,
-      description: `Default attendance policy for standard working hours ${policyNumber}`,
+      title: "Office Standard Policy",
+      description: "Default attendance policy for standard working hours",
       overtimeConfigs,
       earlyCheckInLimit: 120,
       maxCheckOutLimit: 120,
