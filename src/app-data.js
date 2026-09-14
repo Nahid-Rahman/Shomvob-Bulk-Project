@@ -806,13 +806,10 @@ const LEAVE_POLICY_EMPLOYEE_TYPES = ["Permanent", "Part-time", "Intern", "Contra
    keep the script's own shape unchanged — confirmed correct against the
    real payload. Same "headline fields only" scoping as Leave Types: only
    title is exposed as an editable input, everything else is generated
-   correctly per the rules below but not surfaced as its own input row. */
-const ATTENDANCE_OVERTIME_MAX_MINUTES = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300];
-const ATTENDANCE_OVERTIME_COOLDOWN_MINUTES = [15, 30];
-const ATTENDANCE_OVERTIME_SLOT_MINUTES = [30, 60, 90];
-const ATTENDANCE_EARLY_CHECKIN_LIMITS = [30, 60, 90, 120];
-const ATTENDANCE_MAX_CHECKOUT_LIMITS = [60, 90, 120, 150, 180, 210, 240, 270, 300];
-const ATTENDANCE_FIXED_BREAK_MINUTES = [30, 45, 60, 90];
+   correctly per the rules below but not surfaced as its own input row.
+   Overtime/Break/Deduct Break all default off and both check-in/check-
+   out limits default to 120 minutes (2026-09-14, direct request) — no
+   longer random pools, see generateAttendancePolicyFields() in app.js. */
 
 /* ===== Payroll — 11 modules, all ported from the Postman collection's own
    "Payroll Settings" folder (2026-09-10). The user's own call ahead of

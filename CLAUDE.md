@@ -1953,6 +1953,109 @@ already gotten this treatment across 2026-09-10/12. Direct user request
 ("joto jaygay ase thik koro" — fix it wherever it still exists); all
 three now carry `.seg-fill` too.
 
+### "Run defaults" — per-group and whole-company orchestration (2026-09-14)
+
+Requested directly, and described as one of "two big tasks" left: going
+into each of the ~20 settings modules one at a time and clicking its own
+"Create the default(s)" was exactly the kind of tedium this whole app
+exists to remove. Two triggers, same machinery underneath (all in
+`app.js`, no new file):
+
+- **`findSettingsModule(id)`** looks up a module's label/group by id.
+- **`MODULE_DEFAULT_RUNNERS`** has one entry per settings module — 22
+  small `runDefaultX()` functions, one per module, each doing exactly
+  what that module's own "Create the default(s)" flow already does: a
+  bulk sequential create for the 6 modules that have one (Department,
+  Designation, Leave Types, Salary Components, Bonus Types, Bonus
+  Policy), or a single generate+save for every other module. Same
+  success side effects as each module's own click handler (`doneModules`,
+  `createdNames`, dependency-cache invalidation) — this isn't a second
+  way to create a record, only a second trigger for the first one, so
+  nothing here duplicates business logic, just calls straight into the
+  existing `generateXFields()`/`saveX()`/bulk-item functions directly
+  instead of through that module's own tab UI.
+- **`runDefaultsSequential(runState, rerender)`** walks a list of module
+  ids one at a time (never in parallel, same discipline
+  `runBulkSequential()` already holds itself to for a single module's own
+  bulk create). A module already in `setup.doneModules` is skipped before
+  its runner is ever called — **the direct request this satisfies**: "2
+  of 5 done, click the 3rd, only the remaining 3 run." It's also what
+  makes Stop-then-resume free — re-clicking Start after a Stop only
+  touches whatever hasn't settled (done/skipped/failed) yet, checked at
+  the top of the loop before the `doneModules` check even runs.
+- **`SETTINGS_GROUPS`' own array order is already the dependency-safe
+  order** every real cross-module dependency in this app needs
+  (Department before Designation, Leave Types before Leave Policy,
+  Salary Components before Configure Salary Components, Bonus Types
+  before Bonus Policy — all already true of the existing module-within-
+  group order from when each group was first built) — so a per-group run
+  just walks that group's own module list top to bottom, no separate
+  ordering table to maintain.
+
+**Two triggers, both confirmed with the user before building:**
+
+- **"Run this group's defaults"** (`#groupRunEnterBtn`) sits at the top
+  of a group's own tab page, above the tab strip. Swaps the whole page
+  (tabs + module body) into a run list (`groupRunTemplate()`,
+  `setup.groupRun = { groupId, items, running, stopRequested }`) covering
+  every module in that group — all of it, including modules the master
+  run below leaves out.
+- **"Run every default"** (`#masterRunEnterBtn`) sits at the top of the
+  group grid page. **Deliberately a curated subset, not literally every
+  module** — the user's own explicit list, given after the per-group
+  button was built and tested: Company Settings (Company Profile, Bank
+  Info, Locations, Department, Designation), Attendance Policy, Leave
+  (Leave Types, Leave Policy, Holiday Calendar), and 6 of Payroll's 11
+  (General, Salary Components, Configure Salary Components, Bonus Types,
+  Bonus Policy, Tax) — 15 modules total, in `MASTER_RUN_MODULE_IDS`.
+  **Employee Settings (Custom Fields, Required Documents) and Payroll's
+  Late Arrival/Absent Deduction/Overtime/Attendance Bonus/Custom
+  Addition-Deduction are deliberately left out of the master run** — a
+  per-group run still covers all of them, only the whole-company one is
+  scoped down. `masterRunTemplate()` groups its rows by group label
+  (`.bulk-group-label`, the same grouped-list shape Designation's own
+  bulk list already uses) since it spans multiple groups; the per-group
+  one doesn't need headings.
+
+**Both run panels share one row/footer renderer**
+(`defaultRunRowsHtml()`/`defaultRunFooterHtml()`), reusing `.bulk-row`/
+`bulkStatusHtml()` from the single-module bulk lists — just with no
+checkbox, since nothing here is individually selectable; everything not
+already done simply runs. A finished run shows the same
+`.validation-banner.success` shape Department/Designation/Leave Types'
+own bulk mode already uses ("Finished — N run, N skipped, N failed.").
+
+**Because Overtime isn't in the master run's list, its real dependency on
+Attendance Policy having overtime enabled — which now defaults off, see
+the Attendance Policy entry above — never actually comes up there; it
+only matters for a per-group Payroll run**, where it still shows as a
+named skip in the run list rather than a silent gap or a failed request.
+
+**Navigation guards extended, not reinvented.** `isBulkRunActive()` now
+also checks `setup.groupRun?.running`/`setup.masterRun?.running`, so the
+existing mid-run block on tabs/back-link/next-module/dep-shortcut clicks
+covers these two runs for free. **New this time**: the three sidebar nav
+buttons (Dashboard, an Operation, Company Setup itself) now check
+`isBulkRunActive()` too — previously only in-page navigation was guarded,
+but a whole-company run genuinely can take a while, and switching away
+mid-run via the sidebar would have pointed the run's own re-renders at a
+`#setupBody` that no longer exists. `rerenderGroupRun()`/
+`rerenderMasterRun()` also guard defensively (`document.getElementById
+("setupBody")` null-checked before writing) — belt to that guard's
+braces, in case a re-render somehow still fires after the page moved on.
+
+Confirmed end-to-end against a mocked staging company built for exactly
+this (`tests/company-setup.test.js`, blocks AW/AX/AX2): a master run on a
+fresh company creates all 6 default departments, all 24 default
+designations (Department→Designation dependency resolved with zero
+manual clicks), the default 3 leave types, a default leave policy
+bundling them at 12 days each, the default 3 salary components, a
+Configure Salary Components save using the 60/15/15/10 default filler,
+the default 2 bonus types and the default 3 bonus policies (both Eid
+ones correctly pointing at the one real Eid Bonus type) — 15 run, 0
+skipped, 0 failed. Stop halts before the next module (never mid-request);
+resuming afterward doesn't redo the module that already finished.
+
 ### A live verification pass against the real staging API (2026-09-10)
 
 Every module up to this point had only ever been checked against the

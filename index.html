@@ -2623,13 +2623,10 @@ const LEAVE_POLICY_EMPLOYEE_TYPES = ["Permanent", "Part-time", "Intern", "Contra
    keep the script's own shape unchanged — confirmed correct against the
    real payload. Same "headline fields only" scoping as Leave Types: only
    title is exposed as an editable input, everything else is generated
-   correctly per the rules below but not surfaced as its own input row. */
-const ATTENDANCE_OVERTIME_MAX_MINUTES = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300];
-const ATTENDANCE_OVERTIME_COOLDOWN_MINUTES = [15, 30];
-const ATTENDANCE_OVERTIME_SLOT_MINUTES = [30, 60, 90];
-const ATTENDANCE_EARLY_CHECKIN_LIMITS = [30, 60, 90, 120];
-const ATTENDANCE_MAX_CHECKOUT_LIMITS = [60, 90, 120, 150, 180, 210, 240, 270, 300];
-const ATTENDANCE_FIXED_BREAK_MINUTES = [30, 45, 60, 90];
+   correctly per the rules below but not surfaced as its own input row.
+   Overtime/Break/Deduct Break all default off and both check-in/check-
+   out limits default to 120 minutes (2026-09-14, direct request) — no
+   longer random pools, see generateAttendancePolicyFields() in app.js. */
 
 /* ===== Payroll — 11 modules, all ported from the Postman collection's own
    "Payroll Settings" folder (2026-09-10). The user's own call ahead of
@@ -3039,6 +3036,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     homeBtn.setAttribute("aria-current", String(currentOp === "welcome"));
     homeBtn.innerHTML = `<span class="op-item-label">${opIcon("welcome")}Dashboard</span>`;
     homeBtn.addEventListener("click", () => {
+      if (isBulkRunActive()) return;
       currentOp = "welcome";
       renderSidebar();
       renderMain();
@@ -3056,6 +3054,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span>${op.status === "soon" ? '<span class="pill-soon">Soon</span>' : ""}`;
       if (op.status !== "soon") {
         btn.addEventListener("click", () => {
+          if (isBulkRunActive()) return;
           currentOp = op.id;
           renderSidebar();
           renderMain();
@@ -3073,6 +3072,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       btn.setAttribute("aria-current", String(op.id === currentOp));
       btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span>`;
       btn.addEventListener("click", () => {
+        if (isBulkRunActive()) return;
         currentOp = op.id;
         renderSidebar();
         renderMain();
@@ -6231,6 +6231,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     activeGroup: null, // a SETTINGS_GROUPS id, or null to show the group grid
     activeModule: null, // a module id within activeGroup's tab strip
     doneModules: new Set(), // module ids saved for real this session — resets on sign-out/reload like everything else here
+    groupRun: null, // { groupId, items: [{id,label,status,message}], running, stopRequested } — "Run this group's defaults" (2026-09-14)
+    masterRun: null, // same shape, but items span every group in SETTINGS_GROUPS order — "Run every default"
   };
 
   /* Reload used to wipe both logins unconditionally — flagged as a real
@@ -6742,6 +6744,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      reminder is that it follows you into a module page, not just the
      grid. This template is now just the hint line and the cards. */
   function setupConnectedTemplate() {
+    if (setup.masterRun) return masterRunTemplate(setup.masterRun);
     const cards = SETTINGS_GROUPS.map((g) => {
       const done = groupDoneCount(g);
       const all = done === g.modules.length;
@@ -6762,11 +6765,20 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     }).join("");
     return `
       <p class="setup-hint-line">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
+      <button type="button" class="bulk-shortcut-btn" id="masterRunEnterBtn" style="margin-bottom:14px">Set up a fresh company with the real defaults →</button>
       <div class="settings-grid" style="grid-template-columns:repeat(${SETTINGS_GROUPS.length}, 1fr)">${cards}</div>
     `;
   }
 
   function wireSetupConnected() {
+    if (setup.masterRun) {
+      wireMasterRunPanel();
+      return;
+    }
+    $("#masterRunEnterBtn")?.addEventListener("click", () => {
+      setup.masterRun = { items: buildDefaultRunItems(MASTER_RUN_MODULE_IDS), running: false, stopRequested: false };
+      rerenderMasterRun();
+    });
     $all(".settings-card").forEach((card) => {
       card.addEventListener("click", () => {
         const group = SETTINGS_GROUPS.find((g) => g.id === card.dataset.group);
@@ -6821,6 +6833,13 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   function setupGroupPageTemplate() {
     const group = SETTINGS_GROUPS.find((g) => g.id === setup.activeGroup);
+    if (setup.groupRun && setup.groupRun.groupId === group.id) {
+      return `
+        <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>
+        <h2 style="font-size:19px; margin:14px 0 0;">${group.label}</h2>
+        <div style="margin-top:16px">${groupRunTemplate(setup.groupRun, group)}</div>
+      `;
+    }
     const tabs = group.modules
       .map(
         (m) => `
@@ -6859,7 +6878,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return `
       <a href="#" id="setupBackToModules" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">← Back to Company Setup</a>
       <h2 style="font-size:19px; margin:14px 0 0;">${group.label}</h2>
-      <div class="settings-tabs" role="tablist">${tabs}</div>
+      <button type="button" class="bulk-shortcut-btn" id="groupRunEnterBtn" style="margin-top:12px">Run ${group.label}'s defaults →</button>
+      <div class="settings-tabs" role="tablist" style="margin-top:12px">${tabs}</div>
       <div style="margin-top:16px">${body}</div>
       ${nextHtml}
     `;
@@ -6871,20 +6891,32 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
        place guaranteed to run after doneModules actually changes, and is
        where the "what did I already do" marker needs to be kept current. */
     saveLastSetupSession();
-    /* A bulk "create the defaults" run (Department/Designation) updates
-       its own list by re-rendering whichever module is currently active
-       — navigating to a different tab mid-run would point those updates
-       at the wrong module instead of the running one, and the list *is*
-       the run log, so losing sight of it isn't harmless the way jumping
-       between two idle tabs is. Blocked here, centrally, rather than
-       disabling every tab/link individually. */
+    /* A bulk "create the defaults" run (Department/Designation, or now a
+       whole group's/every group's "Run defaults") updates its own list by
+       re-rendering whichever page started it — navigating away mid-run
+       would point those updates at the wrong place instead of the running
+       one, and the list *is* the run log, so losing sight of it isn't
+       harmless the way jumping between two idle tabs is. Blocked here,
+       centrally, rather than disabling every tab/link individually. */
     $("#setupBackToModules").addEventListener("click", (e) => {
       e.preventDefault();
       if (isBulkRunActive()) return;
+      setup.groupRun = null;
       setup.activeGroup = null;
       setup.activeModule = null;
       renderSetupBody();
     });
+
+    if (setup.groupRun) {
+      wireGroupRunPanel();
+      return;
+    }
+    $("#groupRunEnterBtn")?.addEventListener("click", () => {
+      const group = SETTINGS_GROUPS.find((g) => g.id === setup.activeGroup);
+      setup.groupRun = { groupId: group.id, items: buildDefaultRunItems(group.modules.map((m) => m.id)), running: false, stopRequested: false };
+      rerenderGroupRun();
+    });
+
     $all(".settings-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
         if (isBulkRunActive()) return;
@@ -7503,7 +7535,9 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       !!(leaveType.bulk && leaveType.bulk.running) ||
       !!(salaryComponent.bulk && salaryComponent.bulk.running) ||
       !!(bonusType.bulk && bonusType.bulk.running) ||
-      !!(bonusPolicy.bulk && bonusPolicy.bulk.running)
+      !!(bonusPolicy.bulk && bonusPolicy.bulk.running) ||
+      !!(setup.groupRun && setup.groupRun.running) ||
+      !!(setup.masterRun && setup.masterRun.running)
     );
   }
 
@@ -10720,50 +10754,30 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   /* ===== Attendance Policy — the Attendance group's only module ===== */
   const attendancePolicy = { fields: null, error: "", ok: "" };
 
+  /* Overtime, Break and Deduct Break all default off, and both check-in/
+     check-out limits default to 2 hours (2026-09-14, direct request) —
+     none of these were exposed as their own toggle yet ("headline fields
+     only" scoping, above), so this is the whole default shape rather
+     than a starting value the visitor overrides. Previously all three
+     "enabled" flags were independent coin flips, which is exactly why
+     Payroll Overtime's real dependency on this policy having overtime
+     enabled couldn't be relied on — a fixed default settles it, on the
+     user's own call, even though it means Overtime's dependency won't
+     be satisfied by this policy alone; the run log shows that as a
+     named failure like any other, it isn't hidden. */
   function generateAttendancePolicyFields() {
     const policyNumber = String(Date.now()).slice(-5);
 
-    const overtimeEnabled = Math.random() < 0.5;
-    const overtimeConfigs = { isEnabled: overtimeEnabled };
-    if (overtimeEnabled) {
-      overtimeConfigs.hasMaxOvertime = Math.random() < 0.5;
-      if (overtimeConfigs.hasMaxOvertime) overtimeConfigs.maxOvertimeMinutes = choice(ATTENDANCE_OVERTIME_MAX_MINUTES);
-      overtimeConfigs.hasCooldown = Math.random() < 0.5;
-      if (overtimeConfigs.hasCooldown) overtimeConfigs.cooldownMinutes = choice(ATTENDANCE_OVERTIME_COOLDOWN_MINUTES);
-      overtimeConfigs.hasSlotDuration = Math.random() < 0.5;
-      if (overtimeConfigs.hasSlotDuration) overtimeConfigs.slotDurationMinutes = choice(ATTENDANCE_OVERTIME_SLOT_MINUTES);
-    }
-
-    const breakEnabled = Math.random() < 0.5;
-    const breakConfig = { breakEnabled };
-    if (breakEnabled) {
-      breakConfig.maxDurationMinutes = randInt(1, 480);
-      breakConfig.breakStartAfterMinutes = randInt(0, 720);
-      breakConfig.allowMultipleBreaks = Math.random() < 0.5;
-      breakConfig.maxBreakPerDay = randInt(1, 10);
-    } else {
-      breakConfig.allowMultipleBreaks = true;
-      breakConfig.maxBreakPerDay = 5;
-    }
-
-    const fixedBreakEnabled = Math.random() < 0.5;
-    const fixedBreakSettings = {
-      fixedBreakEnabled,
-      durationMinutes: fixedBreakEnabled ? choice(ATTENDANCE_FIXED_BREAK_MINUTES) : 60,
-    };
-
-    // Real API rule: maxCheckOutLimit must be >= maxOvertimeMinutes when set.
-    let maxCheckOutLimit = choice(ATTENDANCE_MAX_CHECKOUT_LIMITS);
-    if (overtimeConfigs.hasMaxOvertime && maxCheckOutLimit < overtimeConfigs.maxOvertimeMinutes) {
-      maxCheckOutLimit = overtimeConfigs.maxOvertimeMinutes;
-    }
+    const overtimeConfigs = { isEnabled: false };
+    const breakConfig = { breakEnabled: false, allowMultipleBreaks: true, maxBreakPerDay: 5 };
+    const fixedBreakSettings = { fixedBreakEnabled: false, durationMinutes: 60 };
 
     return {
       title: `Office Standard Policy ${policyNumber}`,
       description: `Default attendance policy for standard working hours ${policyNumber}`,
       overtimeConfigs,
-      earlyCheckInLimit: choice(ATTENDANCE_EARLY_CHECKIN_LIMITS),
-      maxCheckOutLimit,
+      earlyCheckInLimit: 120,
+      maxCheckOutLimit: 120,
       breakConfig,
       fixedBreakSettings,
     };
@@ -10965,6 +10979,558 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     customAdditionDeduction.createdNames = [];
     payrollTax.error = "";
     payrollTax.ok = "";
+    setup.groupRun = null;
+    setup.masterRun = null;
+  }
+
+  /* ---------- "Run defaults" — per-group and whole-company orchestration (2026-09-14) ----------
+
+     Requested directly: going into each of the ~20 settings modules one at a
+     time and clicking its own "Create the default(s)" was exactly the kind
+     of tedium this whole app exists to remove. Two triggers, same machinery
+     underneath — a "Run this group's defaults" button on a group's own tab
+     page, and a "Run every default" button on the group grid that walks
+     every group in order:
+
+       - `MODULE_DEFAULT_RUNNERS` has one entry per settings module — it
+         does exactly what that module's own "Create the default(s)" flow
+         already does (a bulk sequential create for the 6 modules that have
+         one, a single generate+save for every other module), just called
+         directly instead of through that module's own tab UI. Same success
+         side effects (doneModules, createdNames, dependency-cache
+         invalidation) as each module's own click handler — this isn't a
+         second way to create a record, only a second trigger for the first.
+       - A module already in `setup.doneModules` is skipped before its
+         runner is ever called — "2 of 5 done, click the 3rd, only the
+         remaining 3 run" is the direct request this satisfies, and it's
+         also what makes Stop-then-resume free: re-clicking Start after a
+         Stop only touches whatever hasn't settled yet.
+       - `SETTINGS_GROUPS`' own array order (Company → Employee → Attendance
+         → Leave → Payroll, and within Payroll: Salary Components before
+         Configure Salary Components, Bonus Types before Bonus Policy) is
+         already the dependency-safe order every real cross-module
+         dependency in this app needs, so a per-group run just walks that
+         group's own module list in that order, no separate ordering table
+         to maintain.
+       - The master run ("Run every default") is deliberately a curated
+         subset of modules, not literally everything (`MASTER_RUN_MODULE_
+         IDS`, below) — direct request 2026-09-14, an explicit list rather
+         than "every module in every group": Employee Settings and
+         Payroll's Late Arrival/Absent Deduction/Overtime/Attendance Bonus/
+         Custom Addition-Deduction are all left out of it. Since Overtime
+         isn't in that list, its real cross-group dependency on Attendance
+         Policy having overtime enabled — which now defaults off, above —
+         never actually comes up in the master run; it only matters for a
+         per-group Payroll run, where it still shows as a named skip
+         rather than a silent gap. A per-group run always covers that
+         group's *entire* module list regardless of what the master list
+         includes — only the master run itself is scoped down. */
+
+  function findSettingsModule(id) {
+    for (const group of SETTINGS_GROUPS) {
+      const mod = group.modules.find((m) => m.id === id);
+      if (mod) return { ...mod, groupId: group.id, groupLabel: group.label };
+    }
+    return null;
+  }
+
+  async function runDefaultCompanyProfile() {
+    const fields = generateCompanyProfileFields();
+    await saveCompanyProfile(fields);
+    companyProfile.fields = fields;
+    companyProfile.ok = "Saved.";
+    setup.doneModules.add("company_profile");
+    return { status: "done" };
+  }
+
+  async function runDefaultBankInfo() {
+    const fields = generateBankInfoFields();
+    await saveBankInfo(fields);
+    bankInfo.fields = fields;
+    bankInfo.ok = "Saved.";
+    setup.doneModules.add("bank_info");
+    return { status: "done" };
+  }
+
+  async function runDefaultBranches() {
+    const fields = generateBranchFields();
+    await saveBranch(fields);
+    companyBranch.fields = fields;
+    companyBranch.ok = "Saved.";
+    companyBranch.createdNames.push(fields.officeName);
+    setup.doneModules.add("branches");
+    return { status: "done" };
+  }
+
+  async function runDefaultDepartments() {
+    if (companyDepartment.existing === null) await loadDepartmentExisting();
+    const items = departmentDefaultBulkItems(companyDepartment.existing);
+    const pending = items.filter((it) => it.status !== "skipped");
+    if (pending.length === 0) return { status: "skipped", message: "All default departments already exist" };
+    for (const item of pending) {
+      await saveDepartmentModule({ name: item.name, code: "", status: "Active", parentId: null, businessLineId: null, departmentHeadId: null });
+      companyDepartment.createdNames.push(item.name);
+    }
+    companyDesignation.departments = null;
+    companyDepartment.existing = null;
+    setup.doneModules.add("departments");
+    return { status: "done" };
+  }
+
+  async function runDefaultDesignations() {
+    if (companyDesignation.departments === null) await loadDesignationDependency();
+    if (!companyDesignation.departments || companyDesignation.departments.length === 0) {
+      return { status: "skipped", message: "Needs at least one Department first" };
+    }
+    const items = designationDefaultBulkItems(companyDesignation.departments, companyDesignation.existingDesignations || []);
+    const pending = items.filter((it) => it.status !== "skipped");
+    if (pending.length === 0) return { status: "skipped", message: "All default designations already exist" };
+    for (const item of pending) {
+      await saveDesignation({ name: item.name, departmentIds: [item.departmentId], status: "Active" });
+      companyDesignation.createdNames.push(item.name);
+    }
+    companyDesignation.existingDesignations = null;
+    setup.doneModules.add("designations");
+    return { status: "done" };
+  }
+
+  async function runDefaultCustomFields() {
+    const f = generateCustomFieldFields();
+    const body = { fieldName: f.fieldName, type: f.type, enableFilter: f.enableFilter, shownAsColumn: f.shownAsColumn, status: f.status };
+    if (f.choices) body.options = { choices: f.choices };
+    await saveCustomField(body);
+    customField.fields = f;
+    customField.ok = "Saved.";
+    customField.createdNames.push(body.fieldName);
+    setup.doneModules.add("custom_fields");
+    return { status: "done" };
+  }
+
+  async function runDefaultRequiredDocuments() {
+    const fields = generateRequiredDocumentFields();
+    await saveRequiredDocument(fields);
+    requiredDocument.fields = fields;
+    requiredDocument.ok = "Saved.";
+    requiredDocument.createdNames.push(fields.name);
+    setup.doneModules.add("required_documents");
+    return { status: "done" };
+  }
+
+  async function runDefaultAttendancePolicy() {
+    const fields = generateAttendancePolicyFields();
+    await saveAttendancePolicy(fields);
+    attendancePolicy.fields = fields;
+    attendancePolicy.ok = "Saved.";
+    setup.doneModules.add("attendance_policy");
+    overtime.policies = null;
+    return { status: "done" };
+  }
+
+  async function runDefaultLeaveTypes() {
+    if (leaveType.existing === null) await loadLeaveTypeExisting();
+    const items = leaveTypeDefaultBulkItems(leaveType.existing);
+    const pending = items.filter((it) => it.status !== "skipped");
+    if (pending.length === 0) return { status: "skipped", message: "All default leave types already exist" };
+    for (const item of pending) {
+      const kind = LEAVE_TYPE_KINDS.find((k) => k.id === item.kindId);
+      await saveLeaveType(generateDefaultLeaveTypeBody(kind));
+      leaveType.createdNames.push(item.name);
+    }
+    leavePolicy.leaveTypes = null;
+    leavePolicy.fields = null;
+    leaveType.existing = null;
+    setup.doneModules.add("leave_types");
+    return { status: "done" };
+  }
+
+  async function runDefaultLeavePolicy() {
+    if (leavePolicy.leaveTypes === null) await loadLeavePolicyDependency();
+    if (!leavePolicy.leaveTypes || leavePolicy.leaveTypes.length === 0) {
+      return { status: "skipped", message: "Needs at least one Leave Type first" };
+    }
+    if (!leavePolicyDefaultAvailable(leavePolicy.leaveTypes)) {
+      return { status: "skipped", message: "Needs the default Annual/Casual/Sick leave types first" };
+    }
+    const generated = generateDefaultLeavePolicyFields(leavePolicy.leaveTypes);
+    const fields = {
+      ...generated,
+      leaveTypes: generated.leaveTypes
+        .filter((entry) => entry.included)
+        .map((entry) => ({ leaveTypeId: entry.leaveTypeId, category: entry.category, days: entry.days, carryForward: entry.carryForward })),
+    };
+    await saveLeavePolicy(fields);
+    leavePolicy.fields = generated;
+    leavePolicy.ok = "Saved.";
+    leavePolicy.createdNames.push(fields.name);
+    setup.doneModules.add("leave_policy");
+    return { status: "done" };
+  }
+
+  async function runDefaultHolidayCalendar() {
+    await syncHolidays();
+    holidaySync.ok = "Synced.";
+    setup.doneModules.add("holiday_calendar");
+    return { status: "done" };
+  }
+
+  async function runDefaultPayrollGeneral() {
+    const fields = generatePayrollGeneralFields("calendar_month");
+    await savePayrollGeneral(fields);
+    payrollGeneral.fields = fields;
+    payrollGeneral.ok = "Saved.";
+    setup.doneModules.add("payroll_general");
+    return { status: "done" };
+  }
+
+  async function runDefaultSalaryComponents() {
+    if (salaryComponent.existing === null) await loadSalaryComponentExisting();
+    const items = salaryComponentDefaultBulkItems(salaryComponent.existing);
+    const pending = items.filter((it) => it.status !== "skipped");
+    if (pending.length === 0) return { status: "skipped", message: "All default components already exist" };
+    for (const item of pending) {
+      await saveSalaryComponent(generateSalaryComponentFields(item.presetIdx));
+      salaryComponent.createdNames.push(item.name);
+    }
+    companySalaryStructure.components = null;
+    salaryComponent.existing = null;
+    setup.doneModules.add("salary_components");
+    return { status: "done" };
+  }
+
+  async function runDefaultConfigureSalaryComponents() {
+    if (companySalaryStructure.components === null) await loadSalaryStructureDependency();
+    if (!companySalaryStructure.components || companySalaryStructure.components.length < 2) {
+      return { status: "skipped", message: "Needs at least 2 Active Salary Components first" };
+    }
+    const fields = generateSalaryStructureFields(companySalaryStructure.components);
+    await saveSalaryStructure(fields);
+    companySalaryStructure.fields = fields;
+    companySalaryStructure.ok = "Saved.";
+    setup.doneModules.add("configure_salary_components");
+    return { status: "done" };
+  }
+
+  async function runDefaultLateArrival() {
+    if (lateArrival.leaveTypes === null) await loadLeaveTypeDependencyInto(lateArrival);
+    if (!lateArrival.leaveTypes || lateArrival.leaveTypes.length === 0) {
+      return { status: "skipped", message: "Needs at least one Leave Type first" };
+    }
+    const fields = generateLateArrivalFields(lateArrival.leaveTypes);
+    await saveLateArrival(fields);
+    lateArrival.fields = fields;
+    lateArrival.ok = "Saved.";
+    setup.doneModules.add("late_arrival");
+    return { status: "done" };
+  }
+
+  async function runDefaultAbsentDeduction() {
+    if (absentDeduction.leaveTypes === null) await loadLeaveTypeDependencyInto(absentDeduction);
+    if (!absentDeduction.leaveTypes || absentDeduction.leaveTypes.length === 0) {
+      return { status: "skipped", message: "Needs at least one Leave Type first" };
+    }
+    const fields = generateAbsentDeductionFields(absentDeduction.leaveTypes);
+    await saveAbsentDeduction(fields);
+    absentDeduction.fields = fields;
+    absentDeduction.ok = "Saved.";
+    setup.doneModules.add("absent_deduction");
+    return { status: "done" };
+  }
+
+  async function runDefaultBonusTypes() {
+    if (bonusType.existing === null) await loadBonusTypeExisting();
+    const items = bonusTypeDefaultBulkItems(bonusType.existing);
+    const pending = items.filter((it) => it.status !== "skipped");
+    if (pending.length === 0) return { status: "skipped", message: "All default bonus types already exist" };
+    for (const item of pending) {
+      await saveBonusType(generateBonusTypeFields(item.presetIdx));
+      bonusType.createdNames.push(item.name);
+    }
+    bonusPolicy.bonusTypes = null;
+    bonusType.existing = null;
+    setup.doneModules.add("bonus_types");
+    return { status: "done" };
+  }
+
+  async function runDefaultBonusPolicy() {
+    if (bonusPolicy.bonusTypes === null) await loadBonusPolicyDependency();
+    if (!bonusPolicy.bonusTypes || bonusPolicy.bonusTypes.length === 0) {
+      return { status: "skipped", message: "Needs at least one Bonus Type first" };
+    }
+    const items = bonusPolicyDefaultBulkItems(bonusPolicy.bonusTypes);
+    const pending = items.filter((it) => it.status !== "skipped");
+    if (pending.length === 0) return { status: "skipped", message: "Needs Eid Bonus and/or Bangla New Year Bonus to exist first" };
+    for (const item of pending) {
+      await saveBonusPolicy({
+        name: item.name,
+        bonusTypeId: item.bonusTypeId,
+        calculationBasis: "Gross",
+        bonusPercentage: item.bonusPercentage,
+        paymentMethod: "off_cycle_payment",
+        departmentIds: [],
+        employmentStatuses: [],
+        tenureEnabled: false,
+        gradeLevelEnabled: false,
+      });
+      bonusPolicy.createdNames.push(item.name);
+    }
+    setup.doneModules.add("bonus_policy");
+    return { status: "done" };
+  }
+
+  async function runDefaultOvertime() {
+    if (overtime.policies === null) await loadOvertimeDependency();
+    if (!overtime.policies || !overtime.policies.some((p) => p.overtimeEnabled)) {
+      return { status: "skipped", message: "Needs an Attendance Policy with overtime enabled first" };
+    }
+    const fields = generateOvertimeFields();
+    await saveOvertime(fields);
+    overtime.fields = fields;
+    overtime.ok = "Saved.";
+    setup.doneModules.add("overtime");
+    return { status: "done" };
+  }
+
+  async function runDefaultAttendanceBonus() {
+    const fields = generateAttendanceBonusFields();
+    await saveAttendanceBonus(fields);
+    attendanceBonusCfg.fields = fields;
+    attendanceBonusCfg.ok = "Saved.";
+    setup.doneModules.add("attendance_bonus");
+    return { status: "done" };
+  }
+
+  async function runDefaultCustomAdditionDeduction() {
+    const fields = generateCustomAdditionDeductionFields(customAdditionDeduction.type || "Addition");
+    await saveCustomAdditionDeduction(fields);
+    customAdditionDeduction.fields = fields;
+    customAdditionDeduction.ok = "Saved.";
+    customAdditionDeduction.createdNames.push(`${fields.name} (${fields.type})`);
+    setup.doneModules.add("custom_addition_deduction");
+    return { status: "done" };
+  }
+
+  async function runDefaultTax() {
+    await savePayrollTax();
+    payrollTax.ok = "Saved.";
+    setup.doneModules.add("tax");
+    return { status: "done" };
+  }
+
+  const MODULE_DEFAULT_RUNNERS = {
+    company_profile: runDefaultCompanyProfile,
+    bank_info: runDefaultBankInfo,
+    branches: runDefaultBranches,
+    departments: runDefaultDepartments,
+    designations: runDefaultDesignations,
+    custom_fields: runDefaultCustomFields,
+    required_documents: runDefaultRequiredDocuments,
+    attendance_policy: runDefaultAttendancePolicy,
+    leave_types: runDefaultLeaveTypes,
+    leave_policy: runDefaultLeavePolicy,
+    holiday_calendar: runDefaultHolidayCalendar,
+    payroll_general: runDefaultPayrollGeneral,
+    salary_components: runDefaultSalaryComponents,
+    configure_salary_components: runDefaultConfigureSalaryComponents,
+    late_arrival: runDefaultLateArrival,
+    absent_deduction: runDefaultAbsentDeduction,
+    bonus_types: runDefaultBonusTypes,
+    bonus_policy: runDefaultBonusPolicy,
+    overtime: runDefaultOvertime,
+    attendance_bonus: runDefaultAttendanceBonus,
+    custom_addition_deduction: runDefaultCustomAdditionDeduction,
+    tax: runDefaultTax,
+  };
+
+  /* "Run every default" (the master run) is deliberately a curated subset,
+     not every module in MODULE_DEFAULT_RUNNERS — direct request 2026-09-14,
+     an explicit list rather than "everything": Employee Settings (Custom
+     Fields, Required Documents) and Payroll's Late Arrival/Absent
+     Deduction/Overtime/Attendance Bonus/Custom Addition-Deduction are all
+     deliberately left out of the master run. A per-group "Run this group's
+     defaults" button still covers that group's *entire* module list,
+     including these — only the whole-company master run is scoped down. */
+  const MASTER_RUN_MODULE_IDS = [
+    "company_profile",
+    "bank_info",
+    "branches",
+    "departments",
+    "designations",
+    "attendance_policy",
+    "leave_types",
+    "leave_policy",
+    "holiday_calendar",
+    "payroll_general",
+    "salary_components",
+    "configure_salary_components",
+    "bonus_types",
+    "bonus_policy",
+    "tax",
+  ];
+
+  function buildDefaultRunItems(moduleIds) {
+    return moduleIds.map((id) => {
+      const mod = findSettingsModule(id);
+      const already = setup.doneModules.has(id);
+      return {
+        id,
+        label: mod.label,
+        groupId: mod.groupId,
+        groupLabel: mod.groupLabel,
+        selected: !already,
+        status: already ? "skipped" : "pending",
+        message: already ? "Already done" : "",
+      };
+    });
+  }
+
+  /* Shared by the per-group and master runs — walks the list one module at
+     a time (never in parallel, same discipline runBulkSequential() already
+     holds itself to for a single module's own bulk create), skipping
+     anything already settled (done/skipped/failed, whether from an earlier
+     Stop-then-resume or from doneModules at build time) rather than
+     re-running it. A real save failure is caught here, not inside each
+     runner, so no individual runner needs its own try/catch. */
+  async function runDefaultsSequential(runState, rerender) {
+    runState.running = true;
+    runState.stopRequested = false;
+    rerender();
+    for (const item of runState.items) {
+      if (runState.stopRequested) break;
+      if (item.status === "done" || item.status === "skipped" || item.status === "failed") continue;
+      if (setup.doneModules.has(item.id)) {
+        item.status = "skipped";
+        item.message = "Already done";
+        rerender();
+        continue;
+      }
+      item.status = "creating";
+      rerender();
+      try {
+        const result = await MODULE_DEFAULT_RUNNERS[item.id]();
+        item.status = result.status;
+        item.message = result.message || "";
+      } catch (e) {
+        item.status = "failed";
+        item.message = e.message;
+      }
+      rerender();
+    }
+    runState.running = false;
+    rerender();
+  }
+
+  /* Rerender used by the group run — guarded against the DOM having moved
+     on from under it. The sidebar nav guards above stop that from
+     happening via a click mid-run, but this is the belt to that braces,
+     the same "won't crash even if it somehow gets called after the page
+     changed" discipline the rest of this section already holds itself to. */
+  function rerenderGroupRun() {
+    const el = document.getElementById("setupBody");
+    if (!el) return;
+    el.innerHTML = setupGroupPageTemplate();
+    wireSetupGroupPage();
+  }
+
+  /* Same, for the master run — re-renders the group grid itself rather
+     than a group's own page. */
+  function rerenderMasterRun() {
+    const el = document.getElementById("setupBody");
+    if (!el) return;
+    el.innerHTML = setupConnectedTemplate();
+    wireSetupConnected();
+  }
+
+  /* Shared row markup for both run panels — reuses `.bulk-row`/
+     `bulkStatusHtml()` from the single-module bulk lists above rather than
+     a third status-rendering shape, just with no checkbox (nothing here is
+     individually selectable — everything not already done runs). The
+     master run's items span every group, so it also gets a section
+     heading per group, same `.bulk-group-label` Designation's own grouped
+     bulk list already uses. */
+  function defaultRunRowsHtml(items, withGroupHeadings) {
+    let lastGroup = null;
+    return items
+      .map((it) => {
+        const heading =
+          withGroupHeadings && it.groupLabel !== lastGroup ? ((lastGroup = it.groupLabel), `<div class="bulk-group-label">${it.groupLabel}</div>`) : "";
+        return `${heading}<div class="bulk-row" style="cursor:default"><span class="bulk-row-name">${it.label}</span>${bulkStatusHtml(it)}</div>`;
+      })
+      .join("");
+  }
+
+  function defaultRunFooterHtml(runState, prefix, startLabel) {
+    const doneCount = runState.items.filter((it) => it.status === "done").length;
+    const skippedCount = runState.items.filter((it) => it.status === "skipped").length;
+    const failedCount = runState.items.filter((it) => it.status === "failed").length;
+    const allSettled = runState.items.every((it) => it.status !== "pending" && it.status !== "creating");
+    const hasRemaining = runState.items.some((it) => it.status === "pending");
+    return `
+      ${
+        !runState.running && allSettled
+          ? `<div class="validation-banner success" style="margin-top:14px">${iconCheck()}<span>Finished — ${doneCount} run, ${skippedCount} skipped${
+              failedCount ? `, ${failedCount} failed` : ""
+            }.</span></div>`
+          : ""
+      }
+      <div class="setup-actions" style="flex-direction:row; align-items:center;">
+        ${
+          runState.running
+            ? `<button type="button" class="tiny-btn" id="${prefix}StopBtn">Stop</button>`
+            : `<button type="button" class="tiny-btn" id="${prefix}CancelBtn">← Back</button>
+               <button type="button" class="generate-btn" id="${prefix}StartBtn" ${hasRemaining ? "" : "disabled"}>${doneCount + skippedCount + failedCount > 0 ? "Run remaining" : startLabel}</button>`
+        }
+      </div>
+    `;
+  }
+
+  function groupRunTemplate(runState, group) {
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">Run ${group.label}'s defaults</h2></div>
+        <p class="section-note">Runs each module's own "Create the default(s)" in order — anything already done this session is skipped automatically.</p>
+        <div class="bulk-list">${defaultRunRowsHtml(runState.items, false)}</div>
+        ${defaultRunFooterHtml(runState, "groupRun", "Start")}
+      </div>
+    `;
+  }
+
+  function masterRunTemplate(runState) {
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">Run every default</h2></div>
+        <p class="section-note">A curated set of the modules a fresh company actually needs — not every module in every group — running each one's own "Create the default(s)" in order. Anything already done this session is skipped automatically.</p>
+        <div class="bulk-list">${defaultRunRowsHtml(runState.items, true)}</div>
+        ${defaultRunFooterHtml(runState, "masterRun", "Start")}
+      </div>
+    `;
+  }
+
+  function wireGroupRunPanel() {
+    const runState = setup.groupRun;
+    $("#groupRunCancelBtn")?.addEventListener("click", () => {
+      setup.groupRun = null;
+      rerenderGroupRun();
+    });
+    $("#groupRunStopBtn")?.addEventListener("click", () => {
+      runState.stopRequested = true;
+    });
+    $("#groupRunStartBtn")?.addEventListener("click", () => {
+      runDefaultsSequential(runState, rerenderGroupRun);
+    });
+  }
+
+  function wireMasterRunPanel() {
+    const runState = setup.masterRun;
+    $("#masterRunCancelBtn")?.addEventListener("click", () => {
+      setup.masterRun = null;
+      rerenderMasterRun();
+    });
+    $("#masterRunStopBtn")?.addEventListener("click", () => {
+      runState.stopRequested = true;
+    });
+    $("#masterRunStartBtn")?.addEventListener("click", () => {
+      runDefaultsSequential(runState, rerenderMasterRun);
+    });
   }
 
   function wireCompanySetupEvents() {

@@ -2436,6 +2436,265 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
+  /* ---------- AW. "Run every default" — the master orchestration, a curated list (2026-09-14) ----------
+
+     One click runs a curated set of modules — not literally every module
+     in every group — direct request, with an explicit list: Company
+     Settings (Company Profile, Bank Info, Locations, Department,
+     Designation), Attendance Policy, Leave (Leave Types, Leave Policy,
+     Holiday Calendar), and 6 of Payroll's 11 (General, Salary Components,
+     Configure Salary Components, Bonus Types, Bonus Policy, Tax) —
+     Employee Settings and Payroll's Late Arrival/Absent Deduction/
+     Overtime/Attendance Bonus/Custom Addition-Deduction are deliberately
+     left out (`MASTER_RUN_MODULE_IDS` in app.js). Every real cross-module
+     dependency within that list (Department→Designation, Leave Types→
+     Leave Policy, Salary Components→Configure Salary Components, Bonus
+     Types→Bonus Policy) resolves itself automatically because
+     `MASTER_RUN_MODULE_IDS` preserves SETTINGS_GROUPS' own dependency-safe
+     order. */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    const createdDepartments = [];
+    const createdDesignations = [];
+    const createdLeaveTypes = [];
+    const createdSalaryComponents = [];
+    const createdBonusTypes = [];
+    const createdBonusPolicies = [];
+    const realDepartments = [];
+    const realDesignations = [];
+    const realLeaveTypes = [];
+    const realSalaryComponents = [];
+    const realBonusTypes = [];
+
+    await toGrid(page);
+
+    await page.route("**/api/v1/company-profile", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/company-bank-informations/save", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/company/branches", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+
+    await page.route("**/api/v1/departments/active", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: realDepartments }) }));
+    await page.route("**/api/v1/departments", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = route.request().postDataJSON();
+      const id = "dep-" + (realDepartments.length + 1);
+      realDepartments.push({ id, name: body.name });
+      createdDepartments.push(body.name);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok", data: { id } }) });
+    });
+
+    await page.route("**/api/v1/designations/active**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: realDesignations }) }));
+    await page.route("**/api/v1/designations", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = route.request().postDataJSON();
+      realDesignations.push({ id: "des-" + (realDesignations.length + 1), name: body.name, department: { id: body.departmentIds[0] } });
+      createdDesignations.push(body.name);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+
+    await page.route("**/api/v1/attendance/policy/create", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+
+    await page.route("**/api/v1/leave-types", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: realLeaveTypes }) });
+      const body = route.request().postDataJSON();
+      realLeaveTypes.push({ id: "lt-" + (realLeaveTypes.length + 1), name: body.name });
+      createdLeaveTypes.push(body.name);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+    await page.route("**/api/v1/leave-policies", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/leave-management/holidays/public/sync", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+
+    let sentPayrollCycle = null;
+    await page.route("**/api/v1/payroll/configuration/payroll-cycle", (route) => {
+      sentPayrollCycle = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+
+    await page.route("**/api/v1/payroll/configuration/salary-components?limit=100", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: realSalaryComponents }) }));
+    await page.route("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { components: realSalaryComponents, metadata: { total: realSalaryComponents.length } } }) })
+    );
+    await page.route("**/api/v1/payroll/configuration/salary-components", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = route.request().postDataJSON();
+      realSalaryComponents.push({ id: "sc-" + (realSalaryComponents.length + 1), name: body.name, status: body.status });
+      createdSalaryComponents.push(body.name);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok", data: { id: "sc-x" } }) });
+    });
+    let sentSalaryStructure = null;
+    await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => {
+      sentSalaryStructure = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: realBonusTypes }) });
+      const body = route.request().postDataJSON();
+      realBonusTypes.push({ id: "bt-" + (realBonusTypes.length + 1), typeName: body.typeName });
+      createdBonusTypes.push(body.typeName);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+    await page.route("**/api/v1/bonus/configuration/policies", (route) => {
+      const body = route.request().postDataJSON();
+      createdBonusPolicies.push(body.name);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+
+    await page.route("**/api/v1/payroll/configuration/tax-rules/toggle/Enable", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+
+    check("AW master run button is on the group grid", (await page.locator("#masterRunEnterBtn").count()) === 1);
+    await page.click("#masterRunEnterBtn");
+    await page.waitForSelector("#masterRunStartBtn", { timeout: 5000 });
+    check("AW lists exactly the curated 15 modules, not all 22", (await page.locator(".bulk-row").count()) === 15);
+    check("AW Employee Settings' modules are not in the list", (await page.locator('.bulk-row:has-text("Custom Fields"), .bulk-row:has-text("Required Documents")').count()) === 0);
+    check("AW excluded Payroll modules are not in the list",
+      (await page.locator('.bulk-row:has-text("Late Arrival"), .bulk-row:has-text("Absent Deduction"), .bulk-row:has-text("Overtime"), .bulk-row:has-text("Attendance Bonus"), .bulk-row:has-text("Custom Addition")').count()) === 0);
+
+    await page.click("#masterRunStartBtn");
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Finished"), { timeout: 15000 });
+    const finishedText = (await page.locator(".validation-banner.success").textContent()).trim();
+    check("AW finishes with all 15 run, nothing skipped or failed (every dependency in the list resolves itself)", finishedText.includes("15 run") && finishedText.includes("0 skipped") && !finishedText.includes("failed"), finishedText);
+
+    check("AW General defaults to Calendar Month", sentPayrollCycle && sentPayrollCycle.payrollCycle === "calendar_month", JSON.stringify(sentPayrollCycle));
+    check("AW Department's own 6 defaults were created", createdDepartments.length === 6, JSON.stringify(createdDepartments));
+    check("AW Designation's own 24 defaults were created (dependency on Department resolved automatically)", createdDesignations.length === 24);
+    check("AW Leave Types' own default 3 were created", JSON.stringify(createdLeaveTypes.sort()) === JSON.stringify(["Annual Leave", "Casual Leave", "Sick Leave"].sort()));
+    check("AW Leave Policy ran too (dependency on Leave Types resolved automatically)", (await page.locator('.bulk-row:has-text("Leave Policy")').textContent()).includes("done"));
+    check("AW Salary Components' own default 3 were created", JSON.stringify(createdSalaryComponents.sort()) === JSON.stringify(["Medical Allowance", "House Rent Allowance", "Internet Allowance"].sort()));
+    check("AW Configure Salary Components ran with the 60/15/15/10 default filler (dependency resolved automatically)",
+      sentSalaryStructure && sentSalaryStructure.basicSalaryPercentage === 60 && sentSalaryStructure.components.filter((c) => c.percentage === 15).length === 2 && sentSalaryStructure.components.filter((c) => c.percentage === 10).length === 1,
+      JSON.stringify(sentSalaryStructure));
+    check("AW Bonus Types' own default 2 were created", JSON.stringify(createdBonusTypes.sort()) === JSON.stringify(["Eid Bonus", "Bangla New Year Bonus"].sort()));
+    check("AW Bonus Policy's default 3 were created, both Eid ones pointing at the one real Eid Bonus type",
+      createdBonusPolicies.length === 3 && createdBonusPolicies.includes("Eid Ul Fitr Bonus Policy") && createdBonusPolicies.includes("Eid Ul Adha Bonus Policy") && createdBonusPolicies.includes("Bangla New Year Bonus Policy"));
+    check("AW Tax row shows done", (await page.locator('.bulk-row:has-text("Tax")').textContent()).includes("done"));
+
+    await page.click("#masterRunCancelBtn");
+    await page.waitForSelector(".settings-card", { timeout: 5000 });
+    check("AW back on the grid, every touched group card shows its done count updated", (await page.locator(".settings-card:has-text('Payroll') .tally").textContent()).trim() !== "0/11 done");
+    check("AW no page errors through the whole run", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AX. "Run this group's defaults" — scoped to one group, skip-if-done, Stop/resume (2026-09-14) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    const createdGeneral = [];
+    const createdSalaryComponents = [];
+    const realSalaryComponents = [];
+    let slowGeneral = false;
+
+    await toGrid(page);
+    await page.route("**/api/v1/payroll/configuration/payroll-cycle", async (route) => {
+      if (slowGeneral) await new Promise((r) => setTimeout(r, 800));
+      createdGeneral.push(1);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+    await page.route("**/api/v1/payroll/configuration/salary-components?limit=100", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: realSalaryComponents }) }));
+    await page.route("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { components: realSalaryComponents, metadata: { total: realSalaryComponents.length } } }) })
+    );
+    await page.route("**/api/v1/payroll/configuration/salary-components", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = route.request().postDataJSON();
+      realSalaryComponents.push({ id: "sc-" + (realSalaryComponents.length + 1), name: body.name, status: body.status });
+      createdSalaryComponents.push(body.name);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok", data: { id: "sc-x" } }) });
+    });
+    await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/deduction-settings", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/absent-deduction-settings", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+    await page.route("**/api/v1/bonus/configuration/policies", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/attendance/policies", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) }));
+    await page.route("**/api/v1/payroll/configuration/overtime", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/attendance-bonus", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/custom-fields", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/tax-rules/toggle/Enable", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.waitForSelector("#groupRunEnterBtn", { timeout: 5000 });
+    await page.click("#groupRunEnterBtn");
+    await page.waitForSelector("#groupRunStartBtn", { timeout: 5000 });
+    check("AX group run is scoped to only this group's own 11 modules", (await page.locator(".bulk-row").count()) === 11);
+    check("AX no group heading shown for a single-group run", (await page.locator(".bulk-group-label").count()) === 0);
+
+    await page.click("#groupRunCancelBtn");
+    await page.waitForSelector("#pgSaveBtn", { timeout: 5000 });
+    await page.click("#pgSaveBtn");
+    await page.waitForTimeout(150);
+    await page.click("#groupRunEnterBtn");
+    await page.waitForSelector("#groupRunStartBtn", { timeout: 5000 });
+    check("AX a module already done via its own single-item Save is pre-marked skipped", (await page.locator('.bulk-row:has-text("General")').textContent()).includes("skipped"));
+
+    slowGeneral = false; // General is already done from above; the slow route only matters for the Stop test below on a fresh page
+    await page.click("#groupRunCancelBtn");
+    await page.close();
+  }
+
+  /* ---------- AX2. Stop halts before the next module; resuming doesn't redo the finished one ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    const createdGeneral = [];
+    const createdSalaryComponents = [];
+    const realSalaryComponents = [];
+
+    await toGrid(page);
+    await page.route("**/api/v1/payroll/configuration/payroll-cycle", async (route) => {
+      await new Promise((r) => setTimeout(r, 800));
+      createdGeneral.push(1);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+    await page.route("**/api/v1/payroll/configuration/salary-components?limit=100", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: realSalaryComponents }) }));
+    await page.route("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { components: realSalaryComponents, metadata: { total: realSalaryComponents.length } } }) })
+    );
+    await page.route("**/api/v1/payroll/configuration/salary-components", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = route.request().postDataJSON();
+      realSalaryComponents.push({ id: "sc-" + (realSalaryComponents.length + 1), name: body.name, status: body.status });
+      createdSalaryComponents.push(body.name);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok", data: { id: "sc-x" } }) });
+    });
+    await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/deduction-settings", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/absent-deduction-settings", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+    await page.route("**/api/v1/bonus/configuration/policies", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/attendance/policies", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) }));
+    await page.route("**/api/v1/payroll/configuration/overtime", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/attendance-bonus", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/custom-fields", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/tax-rules/toggle/Enable", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.waitForSelector("#groupRunEnterBtn", { timeout: 5000 });
+    await page.click("#groupRunEnterBtn");
+    await page.waitForSelector("#groupRunStartBtn", { timeout: 5000 });
+    await page.click("#groupRunStartBtn");
+    await page.waitForSelector("#groupRunStopBtn", { timeout: 5000 });
+    await page.click("#groupRunStopBtn");
+    await page.waitForSelector("#groupRunStartBtn", { timeout: 5000 });
+    const afterStopText = (await page.locator(".bulk-list").textContent()).replace(/\s+/g, " ");
+    check("AX2 Stop lets the in-flight module finish, then halts before the next", /General\s+done/.test(afterStopText) && !/Salary Components\s+done/.test(afterStopText));
+    check("AX2 the module after the stopped one never actually sent a request", createdSalaryComponents.length === 0);
+
+    await page.click("#groupRunStartBtn");
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Finished"), { timeout: 15000 });
+    check("AX2 resuming doesn't redo the already-finished module", createdGeneral.length === 1);
+    check("AX2 resuming continues the rest", createdSalaryComponents.length >= 1);
+    check("AX2 no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   await browser.close();
   report("Company Setup", state, []);
 })();
