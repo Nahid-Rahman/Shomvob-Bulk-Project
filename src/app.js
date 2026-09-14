@@ -4011,7 +4011,8 @@
     }).join("");
     return `
       <p class="setup-hint-line">Pick any card below — nothing here has to be done in order, and nothing else is touched until you open it.</p>
-      <button type="button" class="bulk-shortcut-btn" id="masterRunEnterBtn" style="margin-top:10px">Set up a fresh company →</button>
+      <button type="button" class="bulk-shortcut-btn" id="masterRunEnterBtn" style="margin-top:10px">Run the standard setup →</button>
+      <p class="section-note" style="margin-top:6px">You'll be ready to go in one click.</p>
       <div class="settings-grid" style="grid-template-columns:repeat(${SETTINGS_GROUPS.length}, 1fr)">${cards}</div>
     `;
   }
@@ -4019,7 +4020,12 @@
   function wireSetupConnected() {
     $("#masterRunEnterBtn")?.addEventListener("click", () => {
       setup.masterRun = { items: buildDefaultRunItems(MASTER_RUN_MODULE_IDS), running: false, stopRequested: false, groupHeadings: true };
-      openRunModal(setup.masterRun, "Set up a fresh company", "A curated set of the modules a fresh company actually needs — not every module in every group. Anything already done this session is skipped automatically.");
+      openRunModal(
+        setup.masterRun,
+        "Run the standard setup",
+        "A curated set of the modules a company actually needs — not every module in every group. Anything already done this session is skipped automatically.",
+        RUN_MODAL_QUOTES.master
+      );
     });
     $all(".settings-card").forEach((card) => {
       card.addEventListener("click", () => {
@@ -4144,7 +4150,12 @@
     $("#groupRunEnterBtn")?.addEventListener("click", () => {
       const group = SETTINGS_GROUPS.find((g) => g.id === setup.activeGroup);
       setup.groupRun = { groupId: group.id, items: buildDefaultRunItems(group.modules.map((m) => m.id)), running: false, stopRequested: false, groupHeadings: false };
-      openRunModal(setup.groupRun, `Run defaults for ${group.label}`, `Runs each module's own "Create the default(s)" in order — anything already done this session is skipped automatically.`);
+      openRunModal(
+        setup.groupRun,
+        `Run defaults for ${group.label}`,
+        `Runs each module's own "Create the default(s)" in order — anything already done this session is skipped automatically.`,
+        RUN_MODAL_QUOTES.group
+      );
     });
 
     $all(".settings-tab").forEach((tab) => {
@@ -8595,6 +8606,19 @@
     "tax",
   ];
 
+  /* Two different quotes for the two modal triggers, on purpose (2026-09-14,
+     direct request — "quote ta alada kora jay eta je alada bujhanor jonno",
+     the quote itself is what tells a per-group run apart from the whole-
+     company one at a glance): the per-group run keeps the quote this modal
+     shipped with; the whole-company run gets its own. */
+  const RUN_MODAL_QUOTES = {
+    group: { text: "When one (API) falls, we continue.", attr: "— Clair Obscure: Expedition 33" },
+    master: {
+      text: "I'm enjoying the uselessness of today and readying my usefulness for tomorrow.",
+      attr: "— Clair Obscure: Expedition 33",
+    },
+  };
+
   function buildDefaultRunItems(moduleIds) {
     return moduleIds.map((id) => {
       const mod = findSettingsModule(id);
@@ -8674,9 +8698,11 @@
       .join("");
   }
 
-  function openRunModal(runState, title, note) {
+  function openRunModal(runState, title, note, quote) {
     $("#runDefaultsTitle").textContent = title;
     $("#runDefaultsNote").textContent = note;
+    $("#runDefaultsQuoteText").textContent = `“${quote.text}”`;
+    $("#runDefaultsQuoteAttr").textContent = quote.attr;
     $("#runDefaultsModal").hidden = false;
     renderRunModalBody(runState);
   }

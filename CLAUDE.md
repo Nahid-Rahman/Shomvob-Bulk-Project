@@ -2132,6 +2132,27 @@ use:**
   (`--accent-soft`, `--accent-strong`, `--text-faint`, `--border`), so it
   reads correctly in light/dark/auto with no new colours — checked with
   Playwright screenshots in both.
+- **The quote panel is now two different quotes, one per trigger — direct
+  follow-up request** ("full company er khetre quote ta alada kora jay
+  eta je alada bujhanor jonno" — for the whole-company run, the quote
+  itself is what should signal that this is a different, bigger action):
+  the per-group run keeps the original ("When one (API) falls, we
+  continue." — Clair Obscure: Expedition 33) unchanged; the whole-company
+  run gets its own ("I'm enjoying the uselessness of today and readying
+  my usefulness for tomorrow." — also Clair Obscure: Expedition 33, the
+  user's own second pick). No longer hand-written directly into
+  `part1.html` — the quote text/attribution moved to two empty elements
+  (`#runDefaultsQuoteText`/`#runDefaultsQuoteAttr`) that `openRunModal()`
+  now fills from a fourth `quote` argument, sourced from
+  `RUN_MODAL_QUOTES.group`/`.master` depending on which button opened it.
+  **Also fixed the same day, flagged in the same message**: the master
+  button's own copy called this "a fresh company" ("fresh company to na"
+  — this isn't a fresh company, it's an existing one just getting its
+  necessary defaults filled in) — reworded throughout: button now reads
+  "Run the standard setup →" with a small subtext underneath ("You'll be
+  ready to go in one click."), the modal's own title matches ("Run the
+  standard setup"), and the note text drops "a fresh company actually
+  needs" for "a company actually needs."
 - **The persistent strip's "Role" row showed the real login response
   verbatim** (`company_admin`) instead of something readable. `format
   RoleLabel(type)` title-cases the raw snake_case value for display only

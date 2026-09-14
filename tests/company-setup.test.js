@@ -2559,7 +2559,8 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#masterRunEnterBtn");
     await page.waitForSelector("#runDefaultsStartBtn", { timeout: 5000 });
     check("AW opens as a modal, not a page swap — the grid is still there behind it", (await page.locator(".settings-card").count()) === 5);
-    check("AW modal title names what it's doing", (await page.locator("#runDefaultsTitle").textContent()).includes("fresh company"));
+    check("AW modal title names what it's doing", (await page.locator("#runDefaultsTitle").textContent()).includes("standard setup"));
+    check("AW master run gets its own quote", (await page.locator("#runDefaultsQuoteText").textContent()).includes("uselessness of today"));
     check("AW lists exactly the curated 15 modules, not all 22", (await page.locator("#runDefaultsList .bulk-row").count()) === 15);
     check("AW Employee Settings' modules are not in the list", (await page.locator('#runDefaultsList .bulk-row:has-text("Custom Fields"), #runDefaultsList .bulk-row:has-text("Required Documents")').count()) === 0);
     check("AW excluded Payroll modules are not in the list",
@@ -2639,6 +2640,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForSelector("#runDefaultsStartBtn", { timeout: 5000 });
     check("AX opens as a modal, not a page swap — the group's own tabs are still there behind it", (await page.locator(".settings-tab").count()) === 11);
     check("AX modal title names the group", (await page.locator("#runDefaultsTitle").textContent()).includes("Payroll"));
+    check("AX per-group run keeps the original quote, distinct from the master run's", (await page.locator("#runDefaultsQuoteText").textContent()).includes("we continue"));
     check("AX group run is scoped to only this group's own 11 modules", (await page.locator("#runDefaultsList .bulk-row").count()) === 11);
     check("AX no group heading shown for a single-group run", (await page.locator("#runDefaultsList .bulk-group-label").count()) === 0);
 
