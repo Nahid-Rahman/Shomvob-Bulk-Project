@@ -4436,7 +4436,29 @@
        - accountNumber goes over the wire as a JSON NUMBER, not a string
          (the collection's own body has it unquoted) — kept as a string in
          the form for editing, converted with Number() only at send time. */
-  const bankInfo = { fields: null, busy: false, error: "", ok: "" };
+  const bankInfo = { fields: null, busy: false, error: "", ok: "", existing: undefined }; // existing: undefined = not yet checked, same reasoning as companyProfile.existing above
+
+  async function loadBankInfoExisting() {
+    try {
+      bankInfo.existing = await fetchCompanyConfig("/company-bank-informations");
+    } catch (e) {
+      bankInfo.existing = null;
+    }
+  }
+
+  const BANK_INFO_FIELD_LABELS = { bankName: "Bank Name", accountNumber: "Account Number", npsbCode: "NPSB Code", beftnCode: "BEFTN Code", mfsCode: "MFS Code" };
+
+  function bankInfoExistingNoticeHtml(existing) {
+    if (!existing) return "";
+    const filled = Object.keys(BANK_INFO_FIELD_LABELS).filter((k) => existing[k] !== null && existing[k] !== undefined && existing[k] !== "");
+    if (filled.length === 0) return "";
+    return `
+      <div style="display:flex; gap:9px; align-items:flex-start; border-radius:6px; padding:12px 14px; margin-bottom:14px; font-size:13px; border:1px solid var(--warning); background:var(--warning-soft); color:var(--warning);">
+        ${iconWarn()}
+        <div>This company already has values for: <strong>${filled.map((k) => BANK_INFO_FIELD_LABELS[k]).join(", ")}</strong>. Saving again will overwrite this real data.</div>
+      </div>
+    `;
+  }
 
   function bankShortCodeFor(bankName) {
     const mapped = BANK_SHORT_CODE_MAP[bankName];
@@ -4475,6 +4497,7 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Bank Info</h2></div>
         <p class="section-note">Generated from the muggle-friendly magic scroll's own bank list and short-code map. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        ${bankInfoExistingNoticeHtml(bankInfo.existing)}
         <div class="field-row">
           <div class="field"><label for="biBankName">Bank Name</label><input type="text" id="biBankName" value="${f.bankName}" /></div>
           <div class="field"><label for="biAccountNumber">Account Number</label><input type="text" id="biAccountNumber" value="${f.accountNumber}" /></div>
@@ -4531,6 +4554,14 @@
   }
 
   function wireBankInfoEvents() {
+    if (bankInfo.existing === undefined) {
+      loadBankInfoExisting().then(() => {
+        if (bankInfo.fields) bankInfo.fields = readBankInfoForm();
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
     wireRegenerate("#biRegenerateBtn", () => {
       bankInfo.fields = generateBankInfoFields();
       bankInfo.error = "";
@@ -4549,6 +4580,7 @@
         await saveBankInfo(fields);
         bankInfo.fields = fields;
         bankInfo.ok = "Saved.";
+        bankInfo.existing = undefined;
         setup.doneModules.add("bank_info");
       } catch (e) {
         bankInfo.error = e.message;
@@ -8215,6 +8247,7 @@
     bankInfo.fields = null;
     bankInfo.error = "";
     bankInfo.ok = "";
+    bankInfo.existing = undefined;
     companyBranch.fields = null;
     companyBranch.error = "";
     companyBranch.ok = "";
@@ -8390,6 +8423,7 @@
     await saveBankInfo(fields);
     bankInfo.fields = fields;
     bankInfo.ok = "Saved.";
+    bankInfo.existing = undefined;
     setup.doneModules.add("bank_info");
     return { status: "done" };
   }

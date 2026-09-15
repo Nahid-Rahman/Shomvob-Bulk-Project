@@ -127,6 +127,12 @@ async function toGrid(page, companyName = "Hogwarts") {
     if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "No company profile found", data: null }) });
     else route.continue();
   });
+  /* Same default for Bank Info's own "already has values" notice
+     (2026-09-15) — distinct URL from the real POST save
+     (.../company-bank-informations/save), so no method branch needed. */
+  await page.route("**/api/v1/company-bank-informations", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Company bank information retrieved successfully", data: null }) })
+  );
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");
@@ -2793,6 +2799,45 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(150);
     check("AZ no notice when nothing is configured yet", (await page.textContent("#setupBody")).includes("already has values") === false);
     check("AZ no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BA. Bank Info gets the same "already has values" notice (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/company-bank-informations", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "success",
+          message: "Company bank information retrieved successfully",
+          data: { bankName: "Dutch-Bangla Bank", accountNumber: "1234567890", npsbCode: "DBBLACT", beftnCode: "DBBLBFT", mfsCode: null },
+        }),
+      })
+    );
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.click('.settings-tab[data-module="bank_info"]');
+    await page.waitForTimeout(150);
+    const noticeText = await page.textContent("#setupBody");
+    check("BA names exactly the fields that have real values", noticeText.includes("already has values for: Bank Name, Account Number, NPSB Code, BEFTN Code."));
+    check("BA warns that saving again overwrites it", noticeText.includes("Saving again will overwrite this real data"));
+    check("BA no page errors — confirms the background re-check doesn't loop", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BB. ...and shows nothing when bank info doesn't exist yet ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page); // its own default answers GET /company-bank-informations with data: null
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.click('.settings-tab[data-module="bank_info"]');
+    await page.waitForTimeout(150);
+    check("BB no notice when nothing is configured yet", (await page.textContent("#setupBody")).includes("already has values") === false);
+    check("BB no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

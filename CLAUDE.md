@@ -2340,6 +2340,21 @@ successful save (single-item or the "Run defaults" runner) resets
 `existing` back to `undefined` so the next render's check reflects what
 was just written, and `resetModuleState()` resets it on Sign out/Disconnect.
 
+**Bank Info got the identical treatment the same day** ("bank info er
+get korte parso?" — the next module in the same serial, one-at-a-time
+pass, per the user's own explicit instruction to go through Company
+Settings in order rather than jump ahead): `loadBankInfoExisting()`
+GETs `/company-bank-informations` (a distinct URL from the real save
+endpoint, `.../company-bank-informations/save`, so no method-branch
+needed the way Company Profile's shared GET/PATCH URL required),
+`bankInfoExistingNoticeHtml()` names which of the five real fields
+(`bankName`, `accountNumber`, `npsbCode`, `beftnCode`, `mfsCode`) are
+non-empty. Same `existing: undefined` sentinel, same invalidate-on-save
+(single-item and `runDefaultBankInfo()`), same `resetModuleState()`
+entry — the exact same shape as Company Profile's, copied rather than
+generalised into a shared helper since there are only two of these so
+far and their field lists/labels are the only thing that differs.
+
 ### A live verification pass against the real staging API (2026-09-10)
 
 Every module up to this point had only ever been checked against the
