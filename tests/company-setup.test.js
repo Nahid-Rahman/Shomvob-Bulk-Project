@@ -2506,6 +2506,15 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
 
     await page.route("**/api/v1/attendance/policy/create", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/attendance/policies", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) }));
+
+    /* 2026-09-15: "Run defaults" now checks each config-type module's own
+       real GET before running it, so a fresh company's own 15-run pass
+       needs a default "not configured yet" answer for all five — matches
+       the real API's own shape, confirmed live against a real disposable
+       staging company (curl). */
+    await page.route("**/api/v1/company-profile", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "No company profile found", data: null }) }));
+    await page.route("**/api/v1/company-bank-informations", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Company bank information retrieved successfully", data: null }) }));
 
     await page.route("**/api/v1/leave-types", (route) => {
       if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: realLeaveTypes }) });
@@ -2519,6 +2528,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sentPayrollCycle = null;
     await page.route("**/api/v1/payroll/configuration/payroll-cycle", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Pay cycle has not been configured yet.", data: null }) });
       sentPayrollCycle = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
     });
@@ -2536,6 +2546,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
     let sentSalaryStructure = null;
     await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "No salary structure found for this company. Please configure one first.", data: {} }) });
       sentSalaryStructure = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
     });
@@ -2554,6 +2565,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
 
     await page.route("**/api/v1/payroll/configuration/tax-rules/toggle/Enable", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/tax-rules/list", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { rules: [], isEnabled: false } }) }));
 
     check("AW master run button is on the group grid", (await page.locator("#masterRunEnterBtn").count()) === 1);
     await page.click("#masterRunEnterBtn");
@@ -2605,6 +2617,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     await toGrid(page);
     await page.route("**/api/v1/payroll/configuration/payroll-cycle", async (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Pay cycle has not been configured yet.", data: null }) });
       if (slowGeneral) await new Promise((r) => setTimeout(r, 800));
       createdGeneral.push(1);
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
@@ -2620,7 +2633,10 @@ async function toGrid(page, companyName = "Hogwarts") {
       createdSalaryComponents.push(body.name);
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok", data: { id: "sc-x" } }) });
     });
-    await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "No salary structure found for this company. Please configure one first.", data: {} }) });
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
     await page.route("**/api/v1/payroll/configuration/deduction-settings", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
     await page.route("**/api/v1/payroll/configuration/absent-deduction-settings", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
     await page.route("**/api/v1/bonus/configuration/types", (route) => {
@@ -2633,6 +2649,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.route("**/api/v1/payroll/configuration/attendance-bonus", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
     await page.route("**/api/v1/payroll/configuration/custom-fields", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
     await page.route("**/api/v1/payroll/configuration/tax-rules/toggle/Enable", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/tax-rules/list", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { rules: [], isEnabled: false } }) }));
 
     await page.click(".settings-card:has-text('Payroll')");
     await page.waitForSelector("#groupRunEnterBtn", { timeout: 5000 });
@@ -2668,6 +2685,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     await toGrid(page);
     await page.route("**/api/v1/payroll/configuration/payroll-cycle", async (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Pay cycle has not been configured yet.", data: null }) });
       await new Promise((r) => setTimeout(r, 800));
       createdGeneral.push(1);
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
@@ -2683,7 +2701,10 @@ async function toGrid(page, companyName = "Hogwarts") {
       createdSalaryComponents.push(body.name);
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok", data: { id: "sc-x" } }) });
     });
-    await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "No salary structure found for this company. Please configure one first.", data: {} }) });
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
     await page.route("**/api/v1/payroll/configuration/deduction-settings", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
     await page.route("**/api/v1/payroll/configuration/absent-deduction-settings", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
     await page.route("**/api/v1/bonus/configuration/types", (route) => {
@@ -2696,6 +2717,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.route("**/api/v1/payroll/configuration/attendance-bonus", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
     await page.route("**/api/v1/payroll/configuration/custom-fields", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
     await page.route("**/api/v1/payroll/configuration/tax-rules/toggle/Enable", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+    await page.route("**/api/v1/payroll/configuration/tax-rules/list", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { rules: [], isEnabled: false } }) }));
 
     await page.click(".settings-card:has-text('Payroll')");
     await page.waitForSelector("#groupRunEnterBtn", { timeout: 5000 });

@@ -5034,7 +5034,33 @@
        existed, permanently blocking Configure Salary Components. */
     if (Array.isArray(data.data)) return data.data;
     if (data.data && Array.isArray(data.data.components)) return data.data.components;
+    if (data.data && Array.isArray(data.data.policies)) return data.data.policies;
     return [];
+  }
+
+  /* The GET-with-bearer-token counterpart to fetchCompanyResource() for a
+     single company-wide record rather than a list — company-profile,
+     bank info, payroll cycle and the salary structure are all "one
+     config, not a list of named things" (same modules that never get a
+     createdNames list either — see CLAUDE.md). Returns the raw `data`
+     field as-is: `null` when nothing has been configured yet, a real
+     object once it has. Used by "Run defaults" (2026-09-15) to check
+     whether a config-type module already has real data before running
+     it again, rather than only checking this session's own doneModules. */
+  async function fetchCompanyConfig(path) {
+    const env = ENVIRONMENTS[setup.env];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}${path}`, {
+        headers: { Authorization: `Bearer ${setup.companyToken}` },
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
+    if (!res.ok) throw new Error(data.message || "The server rejected this.");
+    return data.data;
   }
 
   /* The calm inline notice a blocked module shows — one named prerequisite
@@ -8274,6 +8300,11 @@
   }
 
   async function runDefaultCompanyProfile() {
+    const existing = await fetchCompanyConfig("/company-profile");
+    if (existing !== null) {
+      setup.doneModules.add("company_profile");
+      return { status: "skipped", message: "This company already has a profile configured" };
+    }
     const fields = generateCompanyProfileFields();
     await saveCompanyProfile(fields);
     companyProfile.fields = fields;
@@ -8283,6 +8314,11 @@
   }
 
   async function runDefaultBankInfo() {
+    const existing = await fetchCompanyConfig("/company-bank-informations");
+    if (existing !== null) {
+      setup.doneModules.add("bank_info");
+      return { status: "skipped", message: "This company already has bank info configured" };
+    }
     const fields = generateBankInfoFields();
     await saveBankInfo(fields);
     bankInfo.fields = fields;
@@ -8356,6 +8392,11 @@
   }
 
   async function runDefaultAttendancePolicy() {
+    const existing = await fetchCompanyResource("/attendance/policies");
+    if (existing.length > 0) {
+      setup.doneModules.add("attendance_policy");
+      return { status: "skipped", message: "This company already has an attendance policy" };
+    }
     const fields = generateAttendancePolicyFields();
     await saveAttendancePolicy(fields);
     attendancePolicy.fields = fields;
@@ -8413,6 +8454,11 @@
   }
 
   async function runDefaultPayrollGeneral() {
+    const existing = await fetchCompanyConfig("/payroll/configuration/payroll-cycle");
+    if (existing !== null) {
+      setup.doneModules.add("payroll_general");
+      return { status: "skipped", message: "This company already has a payroll cycle configured" };
+    }
     const fields = generatePayrollGeneralFields("calendar_month");
     await savePayrollGeneral(fields);
     payrollGeneral.fields = fields;
@@ -8437,6 +8483,11 @@
   }
 
   async function runDefaultConfigureSalaryComponents() {
+    const existing = await fetchCompanyConfig("/payroll/configuration/non-paygrade-structure");
+    if (existing && existing.id) {
+      setup.doneModules.add("configure_salary_components");
+      return { status: "skipped", message: "This company already has a salary structure configured" };
+    }
     if (companySalaryStructure.components === null) await loadSalaryStructureDependency();
     if (!companySalaryStructure.components || companySalaryStructure.components.length < 2) {
       return { status: "skipped", message: "Needs at least 2 Active Salary Components first" };
@@ -8549,6 +8600,11 @@
   }
 
   async function runDefaultTax() {
+    const existing = await fetchCompanyConfig("/payroll/configuration/tax-rules/list");
+    if (existing && existing.isEnabled) {
+      setup.doneModules.add("tax");
+      return { status: "skipped", message: "Tax is already enabled for this company" };
+    }
     await savePayrollTax();
     payrollTax.ok = "Saved.";
     setup.doneModules.add("tax");

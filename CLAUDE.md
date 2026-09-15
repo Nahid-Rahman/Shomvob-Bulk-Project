@@ -2211,6 +2211,76 @@ ones correctly pointing at the one real Eid Bonus type) — 15 run, 0
 skipped, 0 failed. Stop halts before the next module (never mid-request);
 resuming afterward doesn't redo the module that already finished.
 
+### "Run defaults" now checks the real company, not just this session (2026-09-15)
+
+Requested directly, as the next thing to build after the feature above:
+`doneModules` only ever remembered what *this session* had run — a
+company already set up in an earlier session, or by hand outside this
+app entirely, had no way to tell "Run defaults" that a module's real
+data already exists, so a second run would try to create a second
+Company Profile, a second Bank Info record, and so on. The user's own
+framing: "shob settings e age call kore dekhbo GET api diye data ache
+kina. thakle oi specific ta run korte dibo na" — check with a real GET
+first, and don't run a module if it turns out already-configured.
+
+**None of the endpoints needed for this were in the sanitized Postman
+collection** — checked first, confirmed absent for all six candidates
+(`company-profile`, `payroll/configuration/payroll-cycle`, `payroll/
+configuration/non-paygrade-structure`, `payroll/configuration/tax-rules`,
+`company-bank-informations`, `bonus/configuration/policies`). Rather
+than guess plausible paths blind, they were found the same way `GET
+/attendance/policies` was found earlier in the project: real `curl`
+calls against the disposable staging test company the user opened for
+exactly this (`Bulk Test 03`) — credentials typed directly into shell
+commands for this one session, never written to any file. Five of six
+guessed straight from the module's own save-endpoint name; the sixth
+(Tax) the user supplied directly after independent guessing failed —
+`GET /payroll/configuration/tax-rules/list`, whose response carries a
+top-level `isEnabled` alongside the fixed list of tax rules, confirmed
+by writing real data into `Bulk Test 03` (company profile, bank info, a
+leave type + policy, two salary components + a structure, an attendance
+policy, a bonus type + policy, a payroll cycle, and enabling tax) and
+reading each one back to see exactly how the "already configured" shape
+differs from the "nothing yet" shape:
+
+| Module | Real GET endpoint | "Already configured" condition |
+|---|---|---|
+| Company Profile | `GET /company-profile` | `data.data !== null` |
+| Bank Info | `GET /company-bank-informations` | `data.data !== null` |
+| Payroll General | `GET /payroll/configuration/payroll-cycle` | `data.data !== null` |
+| Configure Salary Components | `GET /payroll/configuration/non-paygrade-structure` | `data.data.id` exists (empty `{}`, not `null`, when unconfigured) |
+| Attendance Policy | `GET /attendance/policies` (already used by Overtime's own dependency check) | array non-empty |
+| Tax | `GET /payroll/configuration/tax-rules/list` | `data.data.isEnabled === true` |
+
+`fetchCompanyConfig(path)` (`app.js`) is the new, small counterpart to
+`fetchCompanyResource()` for this shape — a single company-wide record
+rather than a list, returning `data.data` as-is (`null` or a real
+object) rather than coercing to an array. Each of the five single-record
+runners (`runDefaultCompanyProfile`, `runDefaultBankInfo`,
+`runDefaultPayrollGeneral`, `runDefaultConfigureSalaryComponents`,
+`runDefaultTax`) now calls it first and returns `{status: "skipped",
+message: "..."}` naming what's already there, before ever generating or
+saving anything; `runDefaultAttendancePolicy` does the same directly
+against `fetchCompanyResource("/attendance/policies")`, which it was
+already going to invalidate on success. All five still mark the module
+`done` in `setup.doneModules` on a skip too — a real, already-configured
+module should read as done, not as still-pending.
+
+**Leave Policy and Bonus Policy are intentionally not done the same
+way, yet** — both can legitimately hold more than one real record, so
+"a policy already exists" doesn't mean *our* default policy already
+exists. `GET /leave-policies` (confirmed real, in the collection all
+along, unlike the five above) and `GET /bonus/configuration/policies`
+(not in the collection, found and confirmed the same way, wrapped as
+`data.data.policies` — `fetchCompanyResource()`'s existing components-
+key fallback widened to also recognise a `policies` key, the exact
+future case its own comment already flagged) both work, but matching
+correctly needs a decision on what counts as "already done" when the
+company has *some* policies but not the exact ones our default would
+create — raised directly with the user rather than assumed, still being
+worked through together in real time against `Bulk Test 03` rather than
+decided in the abstract; not implemented yet as of this entry.
+
 ### A live verification pass against the real staging API (2026-09-10)
 
 Every module up to this point had only ever been checked against the
