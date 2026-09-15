@@ -6216,7 +6216,23 @@
      script does (a random subset, minimum 3 or however many exist) —
      Regenerate re-rolls the selection; name and status are the exposed
      editable fields. */
-  const leavePolicy = { leaveTypes: null, loadError: "", fields: null, error: "", ok: "", createdNames: [] };
+  const leavePolicy = { leaveTypes: null, loadError: "", fields: null, error: "", ok: "", createdNames: [], existing: null };
+
+  /* Named, not just counted (2026-09-15, direct request: "leave ar bonus
+     e jodi policy thake, name dekhaba ager motoi je eta ase. then chaile
+     new create korte parbe eta bole diba" — if a policy exists, show its
+     name the same way it's already shown elsewhere; say a new one can
+     still be created). A company can hold more than one real policy, so
+     this is the same plain, non-warning shape as every list-type module
+     above — GET /leave-policies, confirmed real (it's been in the
+     collection the whole time, unlike most of the others). */
+  async function loadLeavePolicyExisting() {
+    try {
+      leavePolicy.existing = await fetchCompanyResource("/leave-policies");
+    } catch (e) {
+      leavePolicy.existing = [];
+    }
+  }
 
   async function loadLeavePolicyDependency() {
     try {
@@ -6330,6 +6346,11 @@
       <div class="section">
         ${head}
         <p class="section-note">Every leave type this company actually has, pulled live. Check off which ones this policy should include — all start checked — and set how many days each gets; name and status can still be edited by hand before saving.</p>
+        ${
+          leavePolicy.existing && leavePolicy.existing.length > 0
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${leavePolicy.existing.length === 1 ? "a leave policy" : `${leavePolicy.existing.length} leave policies`}: <strong>${leavePolicy.existing.map((p) => p.name).join(", ")}</strong>. A new one can still be created.</p>`
+            : ""
+        }
         ${leavePolicyDefaultAvailable(leavePolicy.leaveTypes) ? `<button type="button" class="bulk-shortcut-btn" id="lpDefaultBtn">Create the default policy (Annual/Casual/Sick @ 12 days each) →</button>` : ""}
         <div class="field-row">
           <div class="field"><label for="lpName">Name</label><input type="text" id="lpName" value="${f.name}" /></div>
@@ -6414,6 +6435,14 @@
        time Status is clicked they're already current. */
     const snapshotName = () => { leavePolicy.fields.name = $("#lpName").value; };
 
+    if (leavePolicy.existing === null) {
+      loadLeavePolicyExisting().then(() => {
+        if (leavePolicy.fields) snapshotName();
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
     $all("#lpStatusSeg button").forEach((btn) =>
       btn.addEventListener("click", () => {
         snapshotName();
@@ -6463,6 +6492,7 @@
         leavePolicy.fields.name = fields.name;
         leavePolicy.ok = "Saved.";
         leavePolicy.createdNames.push(fields.name);
+        leavePolicy.existing = null;
         setup.doneModules.add("leave_policy");
       } catch (e) {
         leavePolicy.error = e.message;
@@ -7646,7 +7676,22 @@
 
   /* ---------- Bonus Policy — POST /bonus/configuration/policies ----------
      The fourth real dependency: needs at least one Bonus Type. */
-  const bonusPolicy = { bonusTypes: null, loadError: "", fields: null, error: "", ok: "", createdNames: [], bulk: null };
+  const bonusPolicy = { bonusTypes: null, loadError: "", fields: null, error: "", ok: "", createdNames: [], bulk: null, existing: null };
+
+  /* Same named-not-just-counted treatment as Leave Policy above
+     (2026-09-15, same direct request). GET /bonus/configuration/policies
+     — not in the collection, found and confirmed the same way as the
+     other undocumented endpoints this session, wrapped as
+     `data.data.policies` (fetchCompanyResource()'s own wrapper-key
+     fallback was widened to recognise this alongside `components`
+     earlier the same day, once this shape was confirmed). */
+  async function loadBonusPolicyExisting() {
+    try {
+      bonusPolicy.existing = await fetchCompanyResource("/bonus/configuration/policies");
+    } catch (e) {
+      bonusPolicy.existing = [];
+    }
+  }
 
   /* "Create the default 3" for Bonus Policy (2026-09-13, direct request):
      Eid Ul Fitr and Eid Ul Adha both point at the one real "Eid Bonus"
@@ -7718,6 +7763,11 @@
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own policy rule, drawing on this company's real bonus types. Name and bonus percentage can still be edited by hand before saving.</p>
+        ${
+          bonusPolicy.existing && bonusPolicy.existing.length > 0
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${bonusPolicy.existing.length === 1 ? "a bonus policy" : `${bonusPolicy.existing.length} bonus policies`}: <strong>${bonusPolicy.existing.map((p) => p.name).join(", ")}</strong>. A new one can still be created.</p>`
+            : ""
+        }
         <button type="button" class="bulk-shortcut-btn" id="bpBulkEnterLink">Create the default 3 (Eid Ul Fitr 40%, Eid Ul Adha 40%, Bangla New Year 20%) at once →</button>
         <div class="field-row">
           <div class="field"><label for="bpName">Or just this one — Name</label><input type="text" id="bpName" value="${f.name}" /></div>
@@ -7789,6 +7839,18 @@
       wireSetupGroupPage();
     };
 
+    if (bonusPolicy.existing === null) {
+      loadBonusPolicyExisting().then(() => {
+        if (bonusPolicy.fields) {
+          const nameInput = $("#bpName");
+          const pctInput = $("#bpPercentage");
+          if (nameInput) bonusPolicy.fields.name = nameInput.value;
+          if (pctInput) bonusPolicy.fields.bonusPercentage = Number(pctInput.value);
+        }
+        bpRerender();
+      });
+    }
+
     if (bonusPolicy.bulk) {
       const bulk = bonusPolicy.bulk;
       $all(".bulk-list input[type=checkbox]").forEach((cb) =>
@@ -7829,6 +7891,7 @@
           },
           bpRerender
         );
+        bonusPolicy.existing = null;
         if (bulk.items.some((it) => it.status === "done")) setup.doneModules.add("bonus_policy");
         bpRerender(); // the done dot itself needs one more render, same reason as every other bulk create
       });
@@ -7859,6 +7922,7 @@
         bonusPolicy.fields = { ...fields, _bonusTypeName: bonusPolicy.fields._bonusTypeName };
         bonusPolicy.ok = "Saved.";
         bonusPolicy.createdNames.push(fields.name);
+        bonusPolicy.existing = null;
         setup.doneModules.add("bonus_policy");
       } catch (e) {
         bonusPolicy.error = e.message;
@@ -8556,6 +8620,7 @@
     leavePolicy.error = "";
     leavePolicy.ok = "";
     leavePolicy.createdNames = [];
+    leavePolicy.existing = null;
     holidaySync.error = "";
     holidaySync.ok = "";
     attendancePolicy.fields = null;
@@ -8603,6 +8668,7 @@
     bonusPolicy.ok = "";
     bonusPolicy.createdNames = [];
     bonusPolicy.bulk = null;
+    bonusPolicy.existing = null;
     overtime.fields = null;
     overtime.error = "";
     overtime.ok = "";
@@ -8822,6 +8888,7 @@
     leavePolicy.fields = generated;
     leavePolicy.ok = "Saved.";
     leavePolicy.createdNames.push(fields.name);
+    leavePolicy.existing = null;
     setup.doneModules.add("leave_policy");
     return { status: "done" };
   }
@@ -8945,6 +9012,7 @@
       });
       bonusPolicy.createdNames.push(item.name);
     }
+    bonusPolicy.existing = null;
     setup.doneModules.add("bonus_policy");
     return { status: "done" };
   }

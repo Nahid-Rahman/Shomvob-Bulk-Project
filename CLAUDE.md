@@ -2473,7 +2473,45 @@ Required Documents' own test (`U`) already branched its mock on method
 correctly, so this batch just needed `toGrid()`'s own new defaults for
 the three brand-new endpoints, not a test-side fix.
 
-### A live verification pass against the real staging API (2026-09-10)
+**Leave Policy and Bonus Policy resolved the same day — the ambiguous
+case deferred earlier that morning.** The open question then was what
+"already done" should mean when a company has *some* real policy but
+not necessarily the exact default one this app would create. Resolved
+directly, simpler than anything considered while it was still abstract:
+"leave ar bonus e jodi policy thake, name dekhaba ager motoi je eta ase.
+then chaile new create korte parbe eta bole diba" — if a policy exists,
+name it, the same way every module above already does; say a new one
+can still be created. **Not a skip, not a block** — unlike the six
+single-record modules, Save stays fully enabled and nothing is
+disabled; the notice is purely informational, closer in spirit to
+Locations' plain count than to Company Profile's warning box, except it
+names the real policy instead of just counting it (a company holding
+more than one distinctly-named policy is normal here, unlike a company
+profile).
+
+`loadLeavePolicyExisting()` GETs `/leave-policies` (flat array — this
+one's been in the collection the whole time, unlike most of the others
+this session) and `loadBonusPolicyExisting()` GETs `/bonus/configuration/
+policies` (wrapped as `data.data.policies` — the same fallback key
+widened into `fetchCompanyResource()` earlier the same day). Both wired
+the same way as their sibling modules: existing-check fires once per
+tab-open, snapshots the Name/Percentage inputs first (same "don't lose
+a hand-typed value to a background rerender" discipline as everywhere
+else), invalidates on every real save — single-item, Leave Policy's own
+"Create the default policy" shortcut, and Bonus Policy's both the
+single-item Save and its "Create the default 3" bulk run.
+
+**A flaky test found only under the full 8-suite run, not in
+isolation**, while confirming Configure Salary Components' own notice
+(built earlier the same day) still held: its test waited for the literal
+word "Basic" to appear, which the form's own "Basic %" label already
+satisfies the instant the ≥2-Active-components dependency resolves —
+before the *separate* background existing-check has necessarily
+resolved too. Passed reliably alone, where the background fetch's mocked
+delay is negligible against the rest of the test's own pacing; failed
+under real system load from seven other suites already running. Fixed
+by waiting for the notice's own text specifically, not a word it shares
+with the surrounding form.
 
 Every module up to this point had only ever been checked against the
 Postman collection's own text and Playwright's mocked responses — never

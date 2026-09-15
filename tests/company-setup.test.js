@@ -170,6 +170,18 @@ async function toGrid(page, companyName = "Hogwarts") {
   await page.route("**/api/v1/payroll/configuration/custom-fields/list", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { customFields: [], total: 0, maxAllowed: 10, remaining: 10 } }) })
   );
+  /* Same defaults for Leave Policy and Bonus Policy's own "N already
+     exist, named" notices (2026-09-15) — both share their save URL
+     with this GET, so branch on method rather than assume nothing else
+     ever calls it. */
+  await page.route("**/api/v1/leave-policies", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+    else route.continue();
+  });
+  await page.route("**/api/v1/bonus/configuration/policies", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { policies: [], total: 0 } }) });
+    else route.continue();
+  });
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");
@@ -987,6 +999,11 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sent = null;
     await page.route("**/api/v1/leave-policies", (route) => {
+      /* GET and POST share this exact URL — Leave Policy's own
+         "already has values" background check (2026-09-15) also GETs
+         this path and would otherwise clobber sent right after the
+         real POST sets it, same gotcha fixed elsewhere in this file. */
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
       sent = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave policy created successfully" }) });
     });
@@ -1095,6 +1112,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sent = null;
     await page.route("**/api/v1/leave-policies", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
       sent = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Leave policy created successfully" }) });
     });
@@ -1545,6 +1563,11 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.fill("#bpName", "Hand-Edited Policy Name");
     let sent = null;
     await page.route("**/api/v1/bonus/configuration/policies", (route) => {
+      /* GET and POST share this exact URL — Bonus Policy's own
+         "already has values" background check (2026-09-15) also GETs
+         this path and would otherwise clobber sent right after the
+         real POST sets it, same gotcha fixed elsewhere in this file. */
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { policies: [], total: 0 } }) });
       sent = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Bonus policy created successfully." }) });
     });
@@ -1587,6 +1610,10 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     const created = [];
     await page.route("**/api/v1/bonus/configuration/policies", (route) => {
+      /* Same GET/POST-URL-sharing gotcha as AD above — the bulk run's own
+         post-completion existing-check re-fire would otherwise push a
+         spurious null entry into `created`. */
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { policies: [], total: 0 } }) });
       created.push(route.request().postDataJSON());
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Bonus policy created successfully." }) });
     });
@@ -2635,6 +2662,7 @@ async function toGrid(page, companyName = "Hogwarts") {
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
     });
     await page.route("**/api/v1/bonus/configuration/policies", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { policies: [], total: 0 } }) });
       const body = route.request().postDataJSON();
       createdBonusPolicies.push(body.name);
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
@@ -2949,7 +2977,12 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
     await page.click(".settings-card:has-text('Payroll')");
     await page.click('.settings-tab[data-module="configure_salary_components"]');
-    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Basic"), { timeout: 5000 });
+    /* Waiting for "Basic" alone is satisfied by the form's own "Basic %"
+       label the instant the dependency resolves — before the separate
+       background existing-check has necessarily resolved too. Wait for
+       the notice's own text specifically instead, so this isn't a race
+       against system load (found flaky under the full 8-suite run). */
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("already configured — Basic"), { timeout: 5000 });
     check("BD names the already-configured Basic %", (await page.textContent("#setupBody")).includes("already configured — Basic 65%"));
     check("BD no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
@@ -3092,6 +3125,58 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(150);
     check("BK Required Documents names the real count", (await page.textContent("#setupBody")).includes("already has 2 required documents — more can still be added from here"));
     check("BK no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BL. Leave Policy names the real existing policy, offers a new one anyway (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/leave-types", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "lt-1", name: "Annual Leave" }] }) });
+    });
+    await page.route("**/api/v1/leave-policies", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "lp-1", name: "Head Office Leave Policy" }] }) });
+    });
+    await page.click(".settings-card:has-text('Leave')");
+    await page.click('.settings-tab[data-module="leave_policy"]');
+    await page.waitForTimeout(150);
+    const text = await page.textContent("#setupBody");
+    check("BL names the real existing policy", text.includes("already has a leave policy: Head Office Leave Policy"));
+    check("BL says a new one can still be created", text.includes("A new one can still be created"));
+    check("BL Save button is still there — nothing is blocked", (await page.locator("#lpSaveBtn").count()) === 1);
+    check("BL no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BM. Bonus Policy gets the same treatment (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "bt-1", typeName: "Eid Bonus" }] }) });
+    });
+    await page.route("**/api/v1/bonus/configuration/policies", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "success", data: { policies: [{ id: "bp-1", name: "Eid Ul Fitr Bonus Policy" }, { id: "bp-2", name: "Eid Ul Adha Bonus Policy" }], total: 2 } }),
+      });
+    });
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.click('.settings-tab[data-module="bonus_policy"]');
+    await page.waitForTimeout(150);
+    const text = await page.textContent("#setupBody");
+    check("BM names both real existing policies", text.includes("already has 2 bonus policies: Eid Ul Fitr Bonus Policy, Eid Ul Adha Bonus Policy"));
+    check("BM says a new one can still be created", text.includes("A new one can still be created"));
+    check("BM Save button is still there — nothing is blocked", (await page.locator("#bpSaveBtn").count()) === 1);
+    check("BM no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
