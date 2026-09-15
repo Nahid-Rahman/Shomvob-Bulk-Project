@@ -2513,6 +2513,21 @@ under real system load from seven other suites already running. Fixed
 by waiting for the notice's own text specifically, not a word it shares
 with the surrounding form.
 
+**Late Arrival, Absent Deduction, Overtime and Attendance Bonus are
+deliberately left out of this whole feature** — confirmed with the
+user directly rather than left as a gap nobody noticed: no known GET
+endpoint exists for any of the four (checked against the sanitized
+Postman collection; would need the same kind of real-API probing that
+found `/attendance/policies` and `/payroll/configuration/tax-rules/list`
+earlier), and the user's own call was that it isn't worth building —
+"ei 4 ta dorkar nai I guess. egula use korbe na keu" (nobody's likely
+to actually use these). Revisit only if that changes; don't build it
+speculatively. **Holiday Calendar** was never a candidate either, for a
+different reason — it's a bare sync action with nothing to configure or
+duplicate, so "already has values" doesn't apply to it at all.
+
+### A live verification pass against the real staging API (2026-09-10)
+
 Every module up to this point had only ever been checked against the
 Postman collection's own text and Playwright's mocked responses — never
 against the real, running Shomvob staging server. The user offered a
