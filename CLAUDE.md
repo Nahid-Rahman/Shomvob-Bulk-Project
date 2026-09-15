@@ -474,6 +474,47 @@ variant (`.main-inner.wide + .app-footer` selector) so it lines up with
 Company Setup's wider column too. Plain `var(--text-faint)`, no new
 colour — reads correctly in light/dark/auto for free.
 
+## Generate now opens a modal instead of downloading immediately (2026-09-15)
+
+Direct request, all five generators: clicking Generate used to call
+`XLSX.writeFile()` straight away (an immediate browser download) plus a
+success toast. Now it builds the workbook exactly as before, but shows
+`#generateCompleteModal` (title, the same details text the toast used
+to carry, and a fixed quote — "Learn from the ones that came before,
+and lay the trail, for the ones who come after.", no attribution given)
+with a **Download Now** button that's the one place `XLSX.writeFile()`
+still gets called. The sidebar's own button is renamed from "Generate
+Excel file" to plain **"Generate File"**, since generating and
+downloading are no longer the same click.
+
+**Closing without downloading discards it, on purpose** — confirmed
+directly rather than assumed: "close dile...notun generate korte hobe?"
+(if you close, does it need a fresh generate?) — yes, and that's fine,
+since every one of these five operations already regenerates from
+scratch in a couple of seconds on every click; there was never a
+"resume the last one" concept anywhere else in this stateless app, and
+inventing one here just for this modal wasn't worth it.
+
+**Mechanism**: each of the five `downloadXWorkbook()` functions
+(`downloadWorkbook`, `downloadAttendanceWorkbook`, `downloadLeaveWorkbook`,
+`downloadPayrollWorkbook`, `downloadAssetsWorkbook`) now *builds* the
+workbook and returns `{ wb, filename }` instead of calling
+`XLSX.writeFile()` itself; each `handleXGenerate()` passes that pair to
+the new shared `openGenerateCompleteModal(title, bodyText, wb, filename)`
+instead of `showToast()` on success — validation-failure and error
+toasts are untouched, only the success path changed. `openGenerateCompleteModal()`
+mirrors `askDiscard()`'s own clone-and-replace pattern (`button.cloneNode`
++ `replaceWith`) so a second Generate click can't stack handlers from
+the first, and the same Escape-to-close wiring.
+
+**`tests/lib.js`'s shared `generate()` helper updated to match** — it
+used to click `#generateBtn` and wait directly for the browser's own
+`download` event; now it clicks Generate, waits for `#gcDownloadBtn` to
+become visible, then clicks *that* before waiting for the download.
+Fixed in the one shared place all five suites call through, so no
+per-suite test changes were needed — confirmed by the full run staying
+at the exact same check counts (46/39/51/21/34) as before this change.
+
 ## Deployment
 
 **Live at https://shomvob-bulk-project.vercel.app** — Vercel project

@@ -255,8 +255,7 @@
     XLSX.utils.book_append_sheet(wb, ws, "Employees_List_Upload");
     const stamp = fmtDate(today).replace(/-/g, "");
     const filename = `${prefix}_employee_bulk_upload_${stamp}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    return filename;
+    return { wb, filename };
   }
 
   /* ================= UI ================= */
@@ -942,8 +941,8 @@
     const prefix = $("#prefixInput").value;
     try {
       const rows = generateWorkbookRows(count, prefix, nameTheme, finalDepts);
-      const filename = downloadWorkbook(rows, prefix);
-      showToast(`${filename} — ${count} employees, and you typed none of them 🎉`);
+      const { wb, filename } = downloadWorkbook(rows, prefix);
+      openGenerateCompleteModal("Employee Add file is ready!", `${filename} — ${count} employees, and you typed none of them.`, wb, filename);
     } catch (err) {
       console.error(err);
       showToast("Couldn't generate the file. The console has the details.", true);
@@ -1246,8 +1245,7 @@
     XLSX.utils.book_append_sheet(wb, ws, ATTENDANCE_SHEET);
     const stamp = fmtDate(today).replace(/-/g, "");
     const filename = `attendance_bulk_upload_${stamp}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    return filename;
+    return { wb, filename };
   }
 
   /* ---------- attendance UI ---------- */
@@ -2143,8 +2141,8 @@
         showToast("That produced no rows at all — check the percentages and the date range.", true);
         return;
       }
-      const filename = downloadAttendanceWorkbook(rows);
-      showToast(`${filename} — ${rows.length - 1} attendance rows 🎉`);
+      const { wb, filename } = downloadAttendanceWorkbook(rows);
+      openGenerateCompleteModal("Employee Attendance Add file is ready!", `${filename} — ${rows.length - 1} attendance rows.`, wb, filename);
     } catch (err) {
       console.error(err);
       showToast("Couldn't generate the file. The console has the details.", true);
@@ -2285,8 +2283,7 @@
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, leave.sheetName || LEAVE_SHEET_FALLBACK);
     const filename = `leave_balance_already_used_update_${fmtDate(today)}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    return filename;
+    return { wb, filename };
   }
 
   /* ---------- UI ---------- */
@@ -2485,9 +2482,9 @@
     }
     try {
       const result = generateLeaveRows();
-      const filename = downloadLeaveWorkbook(result.rows);
+      const { wb, filename } = downloadLeaveWorkbook(result.rows);
       const tail = result.unchanged ? ` (${result.unchanged} left untouched)` : "";
-      showToast(`${filename} — filled ${result.filled} rows${tail} 🎉`);
+      openGenerateCompleteModal("Leave Balance Add file is ready!", `${filename} — filled ${result.filled} rows${tail}.`, wb, filename);
       renderLeavePreview();
     } catch (err) {
       console.error(err);
@@ -2595,8 +2592,7 @@
     /* reuse the uploaded file's own name: it carries a company code we have
        no way to derive */
     const filename = payroll.fileName || `custom-additions-deductions-${fmtDate(today)}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    return filename;
+    return { wb, filename };
   }
 
   /* ---------- UI ---------- */
@@ -2855,9 +2851,9 @@
     }
     try {
       const result = generatePayrollRows();
-      const filename = downloadPayrollWorkbook(result.rows);
+      const { wb, filename } = downloadPayrollWorkbook(result.rows);
       const tail = result.kept ? `, ${result.kept} left untouched` : "";
-      showToast(`${filename} — filled ${result.filled} cells${tail} 🎉`);
+      openGenerateCompleteModal("Payroll Custom Field Add file is ready!", `${filename} — filled ${result.filled} cells${tail}.`, wb, filename);
       renderPayrollPreview();
     } catch (err) {
       console.error(err);
@@ -3083,8 +3079,7 @@
     XLSX.utils.book_append_sheet(wb, ws, ASSETS_SHEET);
     const stamp = fmtDate(today).replace(/-/g, "");
     const filename = `${assets.prefix}_assets_bulk_upload_${stamp}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    return filename;
+    return { wb, filename };
   }
 
   /* ---------- UI ---------- */
@@ -3405,11 +3400,11 @@
     }
     try {
       const result = generateAssetRows();
-      const filename = downloadAssetsWorkbook(result.rows);
+      const { wb, filename } = downloadAssetsWorkbook(result.rows);
       const tail = assets.idSrc.ids.length
         ? ` — ${result.assigned} assigned (${result.assignPct}%)`
         : " — all unassigned";
-      showToast(`${filename} — ${assets.count} assets${tail} 🎉`);
+      openGenerateCompleteModal("Assets Add file is ready!", `${filename} — ${assets.count} assets${tail}.`, wb, filename);
     } catch (err) {
       console.error(err);
       showToast("Couldn't generate the file. The console has the details.", true);
@@ -9345,6 +9340,45 @@
   /* Set while we are deliberately reloading, so the beforeunload guard
      doesn't ask a second time on top of our own dialog. */
   let leavingOnPurpose = false;
+
+  /* The five generators' own success state, replacing an immediate
+     download + toast (2026-09-15, direct request): the workbook is built
+     the moment Generate is clicked, same as before, but the actual
+     browser download is deferred to a "Download Now" click inside this
+     modal — closing without downloading just discards it, same as
+     nothing else in this app persisting anything either; the next
+     Generate click builds a fresh one from scratch, a few seconds' work
+     at most. Mirrors askDiscard()'s own clone-and-replace pattern so
+     reopening this modal on a second Generate click can't stack up
+     handlers from the first. */
+  function openGenerateCompleteModal(title, bodyText, wb, filename) {
+    const modal = $("#generateCompleteModal");
+    const downloadBtn = $("#gcDownloadBtn");
+    const closeBtn = $("#gcCloseBtn");
+    $("#gcTitle").textContent = title;
+    $("#gcBody").textContent = bodyText;
+
+    const close = () => {
+      modal.hidden = true;
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+    };
+    const freshDownload = downloadBtn.cloneNode(true);
+    const freshClose = closeBtn.cloneNode(true);
+    downloadBtn.replaceWith(freshDownload);
+    closeBtn.replaceWith(freshClose);
+    freshDownload.addEventListener("click", () => {
+      XLSX.writeFile(wb, filename);
+      close();
+    });
+    freshClose.addEventListener("click", close);
+    document.addEventListener("keydown", onKey);
+
+    modal.hidden = false;
+    freshDownload.focus();
+  }
 
   function askDiscard(body, confirmLabel, onConfirm) {
     const modal = $("#discardModal");

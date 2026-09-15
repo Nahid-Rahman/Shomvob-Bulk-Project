@@ -115,11 +115,16 @@ async function signIn(page) {
   await gate.waitFor({ state: "detached" });
 }
 
-/* Clicks Generate, waits for the download, saves it and parses it. */
+/* Clicks Generate, waits for the "file ready" modal, clicks Download Now
+   inside it (2026-09-15 — Generate no longer downloads immediately, it
+   opens this modal first), waits for the real download, saves it and
+   parses it. */
 async function generate(page, XLSX, tag) {
+  await page.click("#generateBtn");
+  await page.waitForSelector("#gcDownloadBtn", { state: "visible" });
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.click("#generateBtn"),
+    page.click("#gcDownloadBtn"),
   ]);
   const file = path.join(DOWNLOADS, tag + ".xlsx");
   await download.saveAs(file);

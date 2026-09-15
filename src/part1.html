@@ -124,12 +124,24 @@ __APP_CSS__
       <span class="action-summary" id="actionSummary"></span>
       <button type="button" class="generate-btn" id="generateBtn" disabled>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13m0 0 4-4m-4 4-4-4M4 19h16"/></svg>
-        Generate Excel file
+        Generate File
       </button>
     </div>
   </main>
 </div>
 <div class="toast" id="toast"></div>
+
+<div class="modal" id="generateCompleteModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="gcTitle">
+    <h2 class="modal-title" id="gcTitle"></h2>
+    <p class="modal-body" id="gcBody"></p>
+    <p class="modal-quote-text" style="margin-top:16px">&ldquo;Learn from the ones that came before, and lay the trail, for the ones who come after.&rdquo;</p>
+    <div class="modal-actions">
+      <button type="button" class="tiny-btn" id="gcCloseBtn">Close</button>
+      <button type="button" class="generate-btn" id="gcDownloadBtn">Download Now ↓</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal" id="discardModal" hidden>
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="discardTitle">
