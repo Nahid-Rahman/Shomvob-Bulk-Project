@@ -452,6 +452,28 @@ the page ships no external assets. `opIcon(id)` falls back to the old
 `.op-dot` when an id has no icon, so a new operation renders sensibly
 before you draw one for it.
 
+## App-wide footer (2026-09-15)
+
+One line at the bottom of every page's own scrollable content —
+`#appFooter`, a static sibling of `#mainContent` inside `.main-scroll`
+in `part1.html`, so it's never re-rendered per page the way `#mainContent`
+itself is; `init()` sets its text once, the only moving part being the
+year (`today.getFullYear()`). Direct request, wording confirmed exactly:
+"© {year} Mahmudur Rahman Nahid — Made with !Love, not for !promotion."
+— the `!` is a deliberate programmer's-negation joke on both words, in
+keeping with the app's existing dry, self-deprecating tone (see
+"Operations" above); don't "fix" it into plain English.
+
+Pulled up into `.main-inner`'s own generous 140px bottom padding
+(`margin-top: -100px` on `.app-footer`) rather than adding yet more
+empty space below it — sits just under the last real content on every
+page, before the fixed `.action-bar` (a normal flex sibling of
+`.main-scroll`, not overlapping it, so there was never a stacking
+concern). Matches `.main-inner`'s own max-width, including the `.wide`
+variant (`.main-inner.wide + .app-footer` selector) so it lines up with
+Company Setup's wider column too. Plain `var(--text-faint)`, no new
+colour — reads correctly in light/dark/auto for free.
+
 ## Deployment
 
 **Live at https://shomvob-bulk-project.vercel.app** — Vercel project

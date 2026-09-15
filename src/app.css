@@ -349,6 +349,19 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
 .main-scroll { flex: 1; overflow-y: auto; }
 .main-inner { max-width: 760px; margin: 0 auto; padding: 40px 32px 140px; }
 
+/* Sits right after .main-inner inside the same scroll area, on every
+   page — pulled up into .main-inner's own generous bottom padding
+   rather than adding yet more empty space below it. */
+.app-footer {
+  max-width: 760px;
+  margin: -100px auto 0;
+  padding: 0 32px 32px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+.main-inner.wide + .app-footer { max-width: 1100px; }
+
 /* Company Setup only — its field-rows, textareas and tab strip actually
    use the extra room; the five generators keep the narrower, more
    readable 760px column they were designed at. */

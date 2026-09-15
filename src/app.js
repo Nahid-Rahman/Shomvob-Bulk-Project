@@ -9458,6 +9458,9 @@
     wireLogin();
     wireLogout();
     wireUnloadGuard();
+    /* Static, same on every page, set once rather than re-rendered by
+       every page template — the year is the only moving part. */
+    $("#appFooter").textContent = `© ${today.getFullYear()} Mahmudur Rahman Nahid — Made with !Love, not for !promotion.`;
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     att.from = fmtDate(monthStart);
     att.to = fmtDate(today);
