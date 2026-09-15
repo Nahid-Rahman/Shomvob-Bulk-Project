@@ -4238,7 +4238,51 @@
     busy: false,
     error: "",
     ok: "",
+    /* `undefined` until checked, not `null` — unlike every other module's
+       "existing" cache, `null` is itself the real, meaningful GET answer
+       here ("no profile yet"), so it can't double as the "haven't asked
+       yet" sentinel the way it does everywhere else in this file. */
+    existing: undefined,
   };
+
+  /* The GET counterpart to saveCompanyProfile() — 2026-09-15, direct
+     request: the real HRIS admin panel already shows this company's
+     profile filled in, but Bulk Forge's own tab jumped straight to a
+     fresh "generate one" form with no sign anything was already there.
+     Doesn't block anything (Company Profile has no mandatory fields —
+     confirmed 2026-09-11, a real save with every field emptied still
+     succeeded) — this is a courtesy notice, not a dependency check. */
+  async function loadCompanyProfileExisting() {
+    try {
+      companyProfile.existing = await fetchCompanyConfig("/company-profile");
+    } catch (e) {
+      companyProfile.existing = null;
+    }
+  }
+
+  const COMPANY_PROFILE_FIELD_LABELS = {
+    legalName: "Legal Name",
+    tegNo: "TEG NO",
+    taxId: "Tax ID",
+    industry: "Industry",
+    businessType: "Business Type",
+    website: "Website",
+    description: "Description",
+    missionStatement: "Mission Statement",
+    visionStatement: "Vision Statement",
+  };
+
+  function companyProfileExistingNoticeHtml(existing) {
+    if (!existing) return "";
+    const filled = Object.keys(COMPANY_PROFILE_FIELD_LABELS).filter((k) => existing[k] !== null && existing[k] !== undefined && existing[k] !== "");
+    if (filled.length === 0) return "";
+    return `
+      <div style="display:flex; gap:9px; align-items:flex-start; border-radius:6px; padding:12px 14px; margin-bottom:14px; font-size:13px; border:1px solid var(--warning); background:var(--warning-soft); color:var(--warning);">
+        ${iconWarn()}
+        <div>This company already has values for: <strong>${filled.map((k) => COMPANY_PROFILE_FIELD_LABELS[k]).join(", ")}</strong>. Saving again will overwrite this real data.</div>
+      </div>
+    `;
+  }
 
   function generateCompanyProfileFields() {
     const suffix = choice(COMPANY_LEGAL_SUFFIXES);
@@ -4279,6 +4323,7 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Company Profile</h2></div>
         <p class="section-note">Generated from ${setup.companyName}'s own name plus the muggle-friendly magic scroll's own pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        ${companyProfileExistingNoticeHtml(companyProfile.existing)}
         <div class="field-row">
           <div class="field"><label for="cpLegalName">Legal Name</label><input type="text" id="cpLegalName" value="${f.legalName}" /></div>
           <div class="field"><label for="cpTegNo">TEG NO</label><input type="text" id="cpTegNo" value="${f.tegNo}" /></div>
@@ -4338,6 +4383,19 @@
   }
 
   function wireCompanyProfileEvents() {
+    /* Checked once per tab-open, in the background, same shape as Leave
+       Types'/Department's own existing-check (loadLeaveTypeExisting()
+       above) — snapshots whatever's currently in the form first, since
+       this fetch can resolve after the visitor has already started
+       typing over the generated defaults. */
+    if (companyProfile.existing === undefined) {
+      loadCompanyProfileExisting().then(() => {
+        if (companyProfile.fields) companyProfile.fields = readCompanyProfileForm();
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
     wireRegenerate("#cpRegenerateBtn", () => {
       companyProfile.fields = generateCompanyProfileFields();
       companyProfile.error = "";
@@ -4356,6 +4414,7 @@
         await saveCompanyProfile(fields);
         companyProfile.fields = fields;
         companyProfile.ok = "Saved.";
+        companyProfile.existing = undefined;
         setup.doneModules.add("company_profile");
       } catch (e) {
         companyProfile.error = e.message;
@@ -5060,7 +5119,13 @@
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
     if (!res.ok) throw new Error(data.message || "The server rejected this.");
-    return data.data;
+    /* Never `undefined` — that's the "haven't checked yet" sentinel
+       companyProfile.existing (and any future caller) relies on to fire
+       its background check exactly once. A response with no `data` key
+       at all (found live: a mocked test route that echoes back a bare
+       {status,message} on every method) would otherwise land back on
+       `undefined` and re-trigger the same check forever. */
+    return data.data === undefined ? null : data.data;
   }
 
   /* The calm inline notice a blocked module shows — one named prerequisite
@@ -8146,6 +8211,7 @@
     companyProfile.fields = null;
     companyProfile.error = "";
     companyProfile.ok = "";
+    companyProfile.existing = undefined;
     bankInfo.fields = null;
     bankInfo.error = "";
     bankInfo.ok = "";
@@ -8309,6 +8375,7 @@
     await saveCompanyProfile(fields);
     companyProfile.fields = fields;
     companyProfile.ok = "Saved.";
+    companyProfile.existing = undefined;
     setup.doneModules.add("company_profile");
     return { status: "done" };
   }

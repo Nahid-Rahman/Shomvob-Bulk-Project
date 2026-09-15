@@ -118,6 +118,15 @@ async function toGrid(page, companyName = "Hogwarts") {
     if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
     else route.continue();
   });
+  /* Same default for Company Profile's own "already has values" notice
+     (2026-09-15) — every test opening this tab needs a default answer
+     for its background GET, same reasoning as the four above; a real,
+     unmocked request here is what a headless browser's CORS policy
+     blocks outright, hanging the whole run instead of failing fast. */
+  await page.route("**/api/v1/company-profile", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "No company profile found", data: null }) });
+    else route.continue();
+  });
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");
@@ -404,6 +413,11 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sentBody = null;
     await page.route("**/api/v1/company-profile", (route) => {
+      /* GET and PATCH share this exact URL — the background "already has
+         values" check (2026-09-15) also GETs this path, and would
+         otherwise clobber sentBody right after the real PATCH sets it,
+         same gotcha as Bonus Types' GET/POST-sharing route above. */
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: null }) });
       sentBody = route.request().postDataJSON();
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Company profile saved successfully" }) });
     });
@@ -2737,6 +2751,48 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AX2 resuming doesn't redo the already-finished module", createdGeneral.length === 1);
     check("AX2 resuming continues the rest", createdSalaryComponents.length >= 1);
     check("AX2 no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AY. Company Profile names which real fields already have values (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    /* Registered before the tab is ever opened — companyProfile.existing
+       is only ever checked once per connection (undefined -> real
+       value), so the override has to be in place before that first
+       background fetch fires, not after. */
+    await page.route("**/api/v1/company-profile", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "success",
+          message: "Company profile found successfully",
+          data: { legalName: "Hogwarts School Ltd.", tegNo: "1234567890123", taxId: null, industry: "Education", businessType: null, website: null, description: null, missionStatement: null, visionStatement: null },
+        }),
+      });
+    });
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(150);
+    const noticeText = await page.textContent("#setupBody");
+    check("AY names exactly the fields that have real values", noticeText.includes("already has values for: Legal Name, TEG NO, Industry."));
+    check("AY warns that saving again overwrites it", noticeText.includes("Saving again will overwrite this real data"));
+    check("AY no page errors — confirms the background re-check doesn't loop", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- AZ. ...and shows nothing when the real profile doesn't exist yet ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page); // its own default answers GET /company-profile with data: null
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(150);
+    check("AZ no notice when nothing is configured yet", (await page.textContent("#setupBody")).includes("already has values") === false);
+    check("AZ no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

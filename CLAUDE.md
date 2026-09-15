@@ -2281,6 +2281,65 @@ create — raised directly with the user rather than assumed, still being
 worked through together in real time against `Bulk Test 03` rather than
 decided in the abstract; not implemented yet as of this entry.
 
+### Company Profile names which real fields already have values (2026-09-15)
+
+A follow-up the same day, from the user actually clicking through the
+real HRIS admin panel and Bulk Forge side by side against `Bulk Test
+03`: the admin panel showed a fully-filled-in Company Profile, but Bulk
+Forge's own tab jumped straight to a fresh "generate one" form with no
+sign anything was already there. Company Profile has no mandatory
+fields (confirmed 2026-09-11 — a real save with every field emptied
+still succeeded), so "done" can't be judged by field-completeness the
+way another module's dependency check would be; the fix instead
+surfaces the real values themselves. Confirmed directly with the user
+between two options — replacing the form entirely with a read-only
+"already configured" view, or keeping the existing generate/edit/save
+form with a notice above it — the user picked the second, with the
+wording "following fields already have values, running again will
+overwrite data."
+
+`loadCompanyProfileExisting()` GETs `/company-profile` once per company
+connection (`companyProfile.existing`, checked in `wireCompanyProfileEvents()`
+the same shape as Leave Types'/Department's own background existing-check
+above — snapshots the form first, since this fetch can resolve after
+the visitor has started typing over the generated defaults) and
+`companyProfileExistingNoticeHtml()` renders a warning-coloured notice
+naming exactly which of the nine real fields (`legalName`, `tegNo`,
+`taxId`, `industry`, `businessType`, `website`, `description`,
+`missionStatement`, `visionStatement`) are non-empty on the real record
+— not just "this exists," the specific fields, so a QA engineer sees at
+a glance what would be overwritten. Absent entirely when nothing is
+configured yet (`existing === null`) or hasn't been checked yet
+(`existing === undefined`).
+
+**`companyProfile.existing` uses `undefined`, not `null`, as its "not
+yet checked" sentinel** — deliberately different from every other
+existing-check in this file (`leaveType.existing` etc., all `null`
+until fetched), because a real `null` answer from `fetchCompanyConfig()`
+is itself the meaningful "no profile yet" result here, so it can't
+double as "haven't asked." Missing this distinction caused a real,
+confirmed infinite-render bug during development: `fetchCompanyConfig()`
+returned bare `undefined` (not `null`) whenever a response happened to
+carry no `data` key at all, which is exactly the sentinel value —
+`companyProfile.existing` would silently reset to "not yet checked"
+after every single check, so the very next render fired the same
+background check again, forever. Fixed at the source: `fetchCompanyConfig()`
+now normalises a missing `data` key to `null` explicitly, so `undefined`
+is only ever produced by the one place meant to produce it (the state
+object's own initial value). Reproduced directly by the test suite
+itself before this fix: test J's own mocked Save route answered every
+method identically with a bare `{status,message}` body and no `data`
+key, which is exactly the shape that triggered it (and had also been
+silently clobbering the same test's own `sentBody` capture, since the
+background re-check's GET shared that mocked test route with the real
+PATCH — same gotcha as Bonus Types' GET/POST-sharing route above; fixed
+by branching the test's own mock on method, not by changing the app).
+
+Invalidated the same way every other per-module cache here is: a
+successful save (single-item or the "Run defaults" runner) resets
+`existing` back to `undefined` so the next render's check reflects what
+was just written, and `resetModuleState()` resets it on Sign out/Disconnect.
+
 ### A live verification pass against the real staging API (2026-09-10)
 
 Every module up to this point had only ever been checked against the
