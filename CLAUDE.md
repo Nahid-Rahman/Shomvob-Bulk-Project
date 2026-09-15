@@ -2422,6 +2422,57 @@ of this file's tests (`P`, at both this section and its geolocation-on
 sibling) hit the identical GET/POST-sharing-a-URL race the four modules
 above did, fixed the same way.
 
+**Extended to every other list-type module the same day** ("similar
+behavior jeshob page e paba okhaneo same jinish kore felo" — wherever
+you find the same shape, do the same thing there too): the same plain,
+non-warning count as Locations, applied everywhere a company can
+legitimately hold more than one real record.
+
+- **Department Management, Leave Types, Salary Components, Bonus
+  Types** — each already had its own `existing` array fetched in the
+  background for "Create the default(s) at once"'s own duplicate check
+  (built 2026-09-12/13); the single-item form's notice is a pure
+  template addition reading that same cached value — no new GET, no new
+  wiring, since the fetch and its invalidation already existed.
+- **Designation Management** — same idea, reading
+  `companyDesignation.existingDesignations` (already fetched alongside
+  its department dependency). **A real, confirmed bug found live while
+  adding this**: this field can legitimately be `null` at the exact
+  moment the single-item form renders — a save (single-item or bulk)
+  invalidates it and rerenders *immediately*, relying on the *next*
+  tab-open or bulk-mode entry to re-fetch it, not that render. The
+  template's own gate (`departments.length === 0`) stays satisfied the
+  whole time since only `existingDesignations` gets nulled, so an
+  unguarded `.length` read on it threw a real `TypeError`, caught by
+  the test suite itself (`R`, "no page errors through the whole
+  dependency flow"). Fixed by guarding the read
+  (`existingDesignations && existingDesignations.length > 0`) rather
+  than assuming the two caches are always in step.
+- **Custom Fields, Required Documents** — new checks, since neither had
+  one before: `loadCustomFieldExisting()` GETs `/company-settings/
+  employee-custom-fields/all`, `loadRequiredDocumentExisting()` GETs
+  `/required-documents` — both confirmed real and flat-array-shaped
+  against `Bulk Test 03`, neither in the sanitized Postman collection.
+- **Custom Addition/Deduction** — also new,
+  `loadCustomAdditionDeductionExisting()` GETs `/payroll/configuration/
+  custom-fields/list` (distinct URL from the real save endpoint, no
+  method branch needed). Its own response shape is genuinely different
+  from every array-based check above — `{customFields, total,
+  maxAllowed, remaining}` — so it goes through `fetchCompanyConfig()`
+  (returns the object as-is) rather than `fetchCompanyResource()`
+  (which would flatten it to just the array and throw away the real
+  cap). The notice names both: "already has 3 of 10... fields" rather
+  than a bare count, since the real 10-field ceiling is worth surfacing
+  directly.
+
+All eight follow the same invalidate-on-save discipline (single-item
+and, where one exists, the `runDefaultX()` runner) and
+`resetModuleState()` entry as every check before them. Confirmed by
+test (`BH`–`BK`) against real-shaped mocked responses for all eight;
+Required Documents' own test (`U`) already branched its mock on method
+correctly, so this batch just needed `toGrid()`'s own new defaults for
+the three brand-new endpoints, not a test-side fix.
+
 ### A live verification pass against the real staging API (2026-09-10)
 
 Every module up to this point had only ever been checked against the

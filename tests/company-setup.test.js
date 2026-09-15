@@ -158,6 +158,18 @@ async function toGrid(page, companyName = "Hogwarts") {
     if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
     else route.continue();
   });
+  /* Same defaults for Custom Fields, Required Documents and Custom
+     Addition/Deduction's own "N already exist" notices (2026-09-15). */
+  await page.route("**/api/v1/company-settings/employee-custom-fields/all", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
+  );
+  await page.route("**/api/v1/required-documents", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+    else route.continue();
+  });
+  await page.route("**/api/v1/payroll/configuration/custom-fields/list", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { customFields: [], total: 0, maxAllowed: 10, remaining: 10 } }) })
+  );
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");
@@ -2987,6 +2999,99 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(150);
     check("BG no notice when there are no locations yet", (await page.textContent("#setupBody")).includes("already has") === false);
     check("BG no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BH. Department/Designation get the same plain count as Locations (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/departments/active", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "dep-1", name: "HR" }, { id: "dep-2", name: "Engineering" }] }) })
+    );
+    await page.route("**/api/v1/designations/active**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "des-1", name: "Manager", department: { id: "dep-1" } }] }) })
+    );
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.click('.settings-tab[data-module="departments"]');
+    await page.waitForTimeout(150);
+    check("BH Department names the real count", (await page.textContent("#setupBody")).includes("already has 2 departments — more can still be added from here"));
+
+    await page.click('.settings-tab[data-module="designations"]');
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Or just this one"), { timeout: 5000 });
+    check("BH Designation names the real count across departments", (await page.textContent("#setupBody")).includes("already has 1 designation across its departments — more can still be added from here"));
+    check("BH no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BI. Leave Types gets the same plain count (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/leave-types", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "lt-1", name: "Annual Leave" }, { id: "lt-2", name: "Casual Leave" }, { id: "lt-3", name: "Sick Leave" }] }) });
+    });
+    await page.click(".settings-card:has-text('Leave')");
+    await page.waitForTimeout(150);
+    check("BI names the real count", (await page.textContent("#setupBody")).includes("already has 3 leave types — more can still be added from here"));
+    check("BI no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BJ. Salary Components/Bonus Types/Custom Addition-Deduction get the same treatment (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/payroll/configuration/salary-components?limit=100", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "sc-1", name: "Medical Allowance" }] }) })
+    );
+    await page.route("**/api/v1/bonus/configuration/types", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "bt-1", typeName: "Eid Bonus" }, { id: "bt-2", typeName: "Bangla New Year Bonus" }] }) });
+    });
+    await page.route("**/api/v1/payroll/configuration/custom-fields/list", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { customFields: [{ id: "cad-1" }, { id: "cad-2" }, { id: "cad-3" }], total: 3, maxAllowed: 10, remaining: 7 } }) })
+    );
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.click('.settings-tab[data-module="salary_components"]');
+    await page.waitForTimeout(150);
+    check("BJ Salary Components names the real count", (await page.textContent("#setupBody")).includes("already has 1 salary component — more can still be added from here"));
+
+    await page.click('.settings-tab[data-module="bonus_types"]');
+    await page.waitForTimeout(150);
+    check("BJ Bonus Types names the real count", (await page.textContent("#setupBody")).includes("already has 2 bonus types — more can still be added from here"));
+
+    await page.click('.settings-tab[data-module="custom_addition_deduction"]');
+    await page.waitForTimeout(150);
+    check("BJ Custom Addition/Deduction names the real count and cap", (await page.textContent("#setupBody")).includes("already has 3 of 10 custom addition/deduction fields — more can still be added from here"));
+    check("BJ no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BK. Custom Fields/Required Documents get the same treatment (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/company-settings/employee-custom-fields/all", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "cf-1", fieldName: "Blood Group" }] }) })
+    );
+    await page.route("**/api/v1/required-documents", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "rd-1", name: "NID" }, { id: "rd-2", name: "Passport" }] }) });
+    });
+    await page.click(".settings-card:has-text('Employee')");
+    await page.waitForTimeout(150);
+    check("BK Custom Fields names the real count", (await page.textContent("#setupBody")).includes("already has 1 custom field — more can still be added from here"));
+
+    await page.click('.settings-tab[data-module="required_documents"]');
+    await page.waitForTimeout(150);
+    check("BK Required Documents names the real count", (await page.textContent("#setupBody")).includes("already has 2 required documents — more can still be added from here"));
+    check("BK no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

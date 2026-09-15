@@ -4835,6 +4835,16 @@
     });
   }
 
+  /* Same plain, non-warning treatment as Locations (2026-09-15) — a
+     company can hold any number of departments, so this is a count, not
+     a caution. Reuses the existing-check already fetched for "Create all
+     6 defaults at once" (loadDepartmentExisting() above) rather than a
+     second GET. */
+  function departmentExistingNoticeHtml(existing) {
+    if (!existing || existing.length === 0) return "";
+    return `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${existing.length === 1 ? "1 department" : `${existing.length} departments`} — more can still be added from here.</p>`;
+  }
+
   function departmentModuleTemplate() {
     const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Department Management</h2></div>`;
     if (companyDepartment.bulk) return bulkListTemplate(head, companyDepartment.bulk, "deptBulk");
@@ -4844,6 +4854,7 @@
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own department-name pool. Regenerate re-rolls it; the name can still be edited by hand before saving.</p>
+        ${departmentExistingNoticeHtml(companyDepartment.existing)}
         <button type="button" class="bulk-shortcut-btn" id="deptBulkEnterLink">Create all 6 default departments at once →</button>
         <div class="field"><label for="deptModName">Or just this one — Department Name</label><input type="text" id="deptModName" value="${f.name}" /></div>
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
@@ -5324,6 +5335,18 @@
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own designation-name pool, attached to a real department from this company. Regenerate re-rolls the name; any field can still be edited by hand before saving.</p>
+        ${
+          /* existingDesignations can legitimately be null here, briefly —
+             a single-item Save (or the bulk run) invalidates it and
+             rerenders immediately, relying on the NEXT tab-open (or the
+             bulk-mode entry click) to re-fetch it, not this render. Found
+             live while adding this notice: a save-then-immediate-rerender
+             threw here before this guard, since departments itself (this
+             branch's own gate) stays populated the whole time. */
+          companyDesignation.existingDesignations && companyDesignation.existingDesignations.length > 0
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${companyDesignation.existingDesignations.length === 1 ? "1 designation" : `${companyDesignation.existingDesignations.length} designations`} across its departments — more can still be added from here.</p>`
+            : ""
+        }
         <button type="button" class="bulk-shortcut-btn" id="desigBulkEnterLink">Create 4 designations for each of this company's ${depts.length} department${depts.length === 1 ? "" : "s"} at once →</button>
         <div class="field-row">
           <div class="field"><label for="desigName">Or just this one — Designation Name</label><input type="text" id="desigName" value="${f.name}" /></div>
@@ -5474,7 +5497,19 @@
      applies to checkbox/enum in the real API, so it's forced false for
      every other type rather than randomised across the board; choices
      only exists at all for type "enum". */
-  const customField = { fields: null, error: "", ok: "", createdNames: [] };
+  const customField = { fields: null, error: "", ok: "", createdNames: [], existing: null };
+
+  /* Same plain, non-warning count as Locations/Department/etc. (2026-09-15)
+     — a company can hold several custom fields, so a new one never
+     overwrites an old one. GET /company-settings/employee-custom-fields/all,
+     confirmed real and flat-array-shaped against Bulk Test 03. */
+  async function loadCustomFieldExisting() {
+    try {
+      customField.existing = await fetchCompanyResource("/company-settings/employee-custom-fields/all");
+    } catch (e) {
+      customField.existing = [];
+    }
+  }
 
   function generateCustomFieldFields() {
     const preset = choice(CUSTOM_FIELD_PRESETS);
@@ -5502,6 +5537,11 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Custom Fields</h2></div>
         <p class="section-note">A random field name is generated as a starting point — type it over if you want a different one. Field Type is yours to pick; Regenerate re-rolls a fresh name/type pair.</p>
+        ${
+          customField.existing && customField.existing.length > 0
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${customField.existing.length === 1 ? "1 custom field" : `${customField.existing.length} custom fields`} — more can still be added from here.</p>`
+            : ""
+        }
         <div class="field-row">
           <div class="field"><label for="cfName">Field Name</label><input type="text" id="cfName" value="${f.fieldName}" /></div>
           <div class="field"><label for="cfType">Type</label><select id="cfType">${typeOptions}</select></div>
@@ -5591,6 +5631,14 @@
       const choicesEl = $("#cfChoices");
       if (choicesEl) customField.fields.choices = choicesEl.value.split(",").map((s) => s.trim()).filter(Boolean);
     };
+
+    if (customField.existing === null) {
+      loadCustomFieldExisting().then(() => {
+        if (customField.fields) snapshotInputs();
+        rerender();
+      });
+    }
+
     $all("#cfFilterSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotInputs(); customField.fields.enableFilter = btn.dataset.val === "yes"; rerender(); }));
     $all("#cfColumnSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotInputs(); customField.fields.shownAsColumn = btn.dataset.val === "yes"; rerender(); }));
     $all("#cfStatusSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotInputs(); customField.fields.status = btn.dataset.val; rerender(); }));
@@ -5628,6 +5676,7 @@
         if (body.options) customField.fields.choices = body.options.choices;
         customField.ok = "Saved.";
         customField.createdNames.push(body.fieldName);
+        customField.existing = null;
         setup.doneModules.add("custom_fields");
       } catch (e) {
         customField.error = e.message;
@@ -5642,7 +5691,18 @@
      ("active"/"inactive") — this endpoint's own convention, kept exactly
      as the Postman body sends it rather than normalised to match every
      other module's capitalised Active/Inactive. */
-  const requiredDocument = { fields: null, error: "", ok: "", createdNames: [] };
+  const requiredDocument = { fields: null, error: "", ok: "", createdNames: [], existing: null };
+
+  /* Same plain, non-warning count as Custom Fields above. GET
+     /required-documents, confirmed real and flat-array-shaped against
+     Bulk Test 03. */
+  async function loadRequiredDocumentExisting() {
+    try {
+      requiredDocument.existing = await fetchCompanyResource("/required-documents");
+    } catch (e) {
+      requiredDocument.existing = [];
+    }
+  }
 
   function generateRequiredDocumentFields() {
     return {
@@ -5660,6 +5720,11 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Required Documents</h2></div>
         <p class="section-note">Generated from the muggle-friendly magic scroll's own document-name pool. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        ${
+          requiredDocument.existing && requiredDocument.existing.length > 0
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${requiredDocument.existing.length === 1 ? "1 required document" : `${requiredDocument.existing.length} required documents`} — more can still be added from here.</p>`
+            : ""
+        }
         <div class="field-row">
           <div class="field"><label for="rdName">Document Name</label><input type="text" id="rdName" value="${f.name}" /></div>
           <div class="field">
@@ -5736,6 +5801,14 @@
        fields object — so a hand-typed name would be silently overwritten
        on the next toggle click without this snapshot first. */
     const snapshotName = () => { requiredDocument.fields.name = $("#rdName").value; };
+
+    if (requiredDocument.existing === null) {
+      loadRequiredDocumentExisting().then(() => {
+        if (requiredDocument.fields) snapshotName();
+        rerender();
+      });
+    }
+
     $all("#rdTypeSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotName(); requiredDocument.fields.type = btn.dataset.val; rerender(); }));
     $all("#rdStatusSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotName(); requiredDocument.fields.status = btn.dataset.val; rerender(); }));
     $all("#rdRequiredSeg button").forEach((btn) => btn.addEventListener("click", () => { snapshotName(); requiredDocument.fields.isRequired = btn.dataset.val === "yes"; rerender(); }));
@@ -5758,6 +5831,7 @@
         requiredDocument.fields.name = fields.name;
         requiredDocument.ok = "Saved.";
         requiredDocument.createdNames.push(fields.name);
+        requiredDocument.existing = null;
         setup.doneModules.add("required_documents");
       } catch (e) {
         requiredDocument.error = e.message;
@@ -5954,6 +6028,11 @@
       <div class="section">
         ${head}
         <p class="section-note">Generated from the muggle-friendly magic scroll's own leave-type rules. Regenerate re-rolls its details; name and the headline limits can still be edited by hand before saving.</p>
+        ${
+          leaveType.existing && leaveType.existing.length > 0
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${leaveType.existing.length === 1 ? "1 leave type" : `${leaveType.existing.length} leave types`} — more can still be added from here.</p>`
+            : ""
+        }
         <button type="button" class="bulk-shortcut-btn" id="ltBulkEnterLink">Create the default 3 leave types (Annual, Casual, Sick) at once →</button>
         <div class="field"><label for="ltName">Or just this one — Name</label><input type="text" id="ltName" value="${f.name}" /></div>
         ${detailsHtml}
@@ -6680,6 +6759,11 @@
       <div class="section">
         ${head}
         <p class="section-note">The muggle-friendly magic scroll's own 4 fixed components, one request each. Status defaults to Active; tax-countability and pro-rata start from its own weighted roll. All three stay editable below before you save.</p>
+        ${
+          salaryComponent.existing && salaryComponent.existing.length > 0
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${salaryComponent.existing.length === 1 ? "1 salary component" : `${salaryComponent.existing.length} salary components`} — more can still be added from here.</p>`
+            : ""
+        }
         <button type="button" class="bulk-shortcut-btn" id="scBulkEnterLink">Create the default 3 (Medical, House Rent, Internet) at once →</button>
         <div class="field-row">
           <div class="field">
@@ -7424,6 +7508,11 @@
       <div class="section">
         ${head}
         <p class="section-note">The muggle-friendly magic scroll's own 4 fixed bonus types, one request each — only the icon is randomised.</p>
+        ${
+          bonusType.existing && bonusType.existing.length > 0
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${bonusType.existing.length === 1 ? "1 bonus type" : `${bonusType.existing.length} bonus types`} — more can still be added from here.</p>`
+            : ""
+        }
         <button type="button" class="bulk-shortcut-btn" id="btBulkEnterLink">Create the default 2 (Eid Bonus, Bangla New Year Bonus) at once →</button>
         <div class="field-row">
           <div class="field"><label for="btPreset">Or just this one — Bonus Type</label><select id="btPreset">${options}</select></div>
@@ -8037,7 +8126,21 @@
   }
 
   /* ---------- Custom Addition/Deduction — POST /payroll/configuration/custom-fields ---------- */
-  const customAdditionDeduction = { type: "Addition", fields: null, error: "", ok: "", createdNames: [] };
+  const customAdditionDeduction = { type: "Addition", fields: null, error: "", ok: "", createdNames: [], existing: undefined }; // existing: undefined = not yet checked, same reasoning as companyProfile.existing above
+
+  /* GET /payroll/configuration/custom-fields/list — confirmed real
+     against Bulk Test 03. Unlike the flat-array endpoints above, this
+     one's own object carries a real cap (`maxAllowed`) worth naming
+     directly rather than just a bare count, so it goes through
+     fetchCompanyConfig() (returns the object as-is) rather than
+     fetchCompanyResource() (which would flatten it to just the array). */
+  async function loadCustomAdditionDeductionExisting() {
+    try {
+      customAdditionDeduction.existing = await fetchCompanyConfig("/payroll/configuration/custom-fields/list");
+    } catch (e) {
+      customAdditionDeduction.existing = null;
+    }
+  }
 
   function generateCustomAdditionDeductionFields(type) {
     const name = choice(type === "Addition" ? CUSTOM_ADDITION_NAMES : CUSTOM_DEDUCTION_NAMES);
@@ -8052,6 +8155,11 @@
       <div class="section">
         ${head}
         <p class="section-note">The muggle-friendly magic scroll's own fixed names, paired by type.</p>
+        ${
+          customAdditionDeduction.existing && customAdditionDeduction.existing.total > 0
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${customAdditionDeduction.existing.total} of ${customAdditionDeduction.existing.maxAllowed} custom addition/deduction fields — more can still be added from here.</p>`
+            : ""
+        }
         <div class="field-row">
           <div class="field"><label for="cadName">Name</label><input type="text" id="cadName" value="${f.name}" /></div>
           <div class="field">
@@ -8104,6 +8212,14 @@
   }
 
   function wireCustomAdditionDeductionEvents() {
+    if (customAdditionDeduction.existing === undefined) {
+      loadCustomAdditionDeductionExisting().then(() => {
+        if (customAdditionDeduction.fields) customAdditionDeduction.fields.name = $("#cadName").value;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
     $all("#cadTypeSeg button").forEach((btn) =>
       btn.addEventListener("click", () => {
         customAdditionDeduction.type = btn.dataset.val;
@@ -8141,6 +8257,7 @@
         customAdditionDeduction.fields = fields;
         customAdditionDeduction.ok = "Saved.";
         customAdditionDeduction.createdNames.push(`${fields.name} (${fields.type})`);
+        customAdditionDeduction.existing = undefined;
         setup.doneModules.add("custom_addition_deduction");
       } catch (e) {
         customAdditionDeduction.error = e.message;
@@ -8421,10 +8538,12 @@
     customField.error = "";
     customField.ok = "";
     customField.createdNames = [];
+    customField.existing = null;
     requiredDocument.fields = null;
     requiredDocument.error = "";
     requiredDocument.ok = "";
     requiredDocument.createdNames = [];
+    requiredDocument.existing = null;
     leaveType.fields = null;
     leaveType.error = "";
     leaveType.ok = "";
@@ -8495,6 +8614,7 @@
     customAdditionDeduction.error = "";
     customAdditionDeduction.ok = "";
     customAdditionDeduction.createdNames = [];
+    customAdditionDeduction.existing = undefined;
     payrollTax.error = "";
     payrollTax.ok = "";
     payrollTax.existing = undefined;
@@ -8634,6 +8754,7 @@
     customField.fields = f;
     customField.ok = "Saved.";
     customField.createdNames.push(body.fieldName);
+    customField.existing = null;
     setup.doneModules.add("custom_fields");
     return { status: "done" };
   }
@@ -8644,6 +8765,7 @@
     requiredDocument.fields = fields;
     requiredDocument.ok = "Saved.";
     requiredDocument.createdNames.push(fields.name);
+    requiredDocument.existing = null;
     setup.doneModules.add("required_documents");
     return { status: "done" };
   }
@@ -8855,6 +8977,7 @@
     customAdditionDeduction.fields = fields;
     customAdditionDeduction.ok = "Saved.";
     customAdditionDeduction.createdNames.push(`${fields.name} (${fields.type})`);
+    customAdditionDeduction.existing = undefined;
     setup.doneModules.add("custom_addition_deduction");
     return { status: "done" };
   }
