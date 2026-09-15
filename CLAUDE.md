@@ -2355,6 +2355,56 @@ entry — the exact same shape as Company Profile's, copied rather than
 generalised into a shared helper since there are only two of these so
 far and their field lists/labels are the only thing that differs.
 
+**Extended to the other four single-record modules the same day**
+("tumi jehetu pattern dhore felso so ebar agaite thako. ja ja pao kore
+felo" — since you've got the pattern down, go ahead and do whatever
+fits it): Payroll General, Configure Salary Components, Tax and
+Attendance Policy all already had a real "is this already configured"
+GET check built for "Run defaults"' own skip logic (above), so adding
+the same notice to each was reusing an endpoint already proven real,
+not discovering a new one.
+
+- **Payroll General** — `loadPayrollGeneralExisting()` GETs `/payroll/
+  configuration/payroll-cycle`; the notice names the real cycle
+  (`PAYROLL_CYCLE_DISPLAY_LABELS`, e.g. "Fixed Date") from
+  `existing.config.payrollCycle` — the one field confirmed to matter,
+  rather than every field the real response carries (it also includes
+  `activePeriod`/`preview` blocks this app has no use for).
+- **Configure Salary Components** — `loadSalaryStructureExisting()`
+  GETs `/payroll/configuration/non-paygrade-structure`, wired inside
+  `wireSalaryStructureEvents()` only once its own ≥2-Active-components
+  dependency has already resolved (this module blocks on that first,
+  same as before). Names only Basic % — **confirmed against the real
+  API that this GET has no per-component breakdown at all**, unlike its
+  own PUT response, so there's nothing further to name honestly.
+- **Tax** — `loadPayrollTaxExisting()` GETs `/payroll/configuration/
+  tax-rules/list` (`isEnabled`). **Deliberately not the same warning-
+  boxed treatment as the other three** — `payrollTaxExistingNoticeHtml()`
+  reuses the plain success-toned confirmation style (`iconCheck()`,
+  `var(--success)`) already used for "Saved." everywhere else, since
+  re-enabling something already enabled isn't destructive the way
+  re-saving a record with newly-generated values is; a warning box would
+  have overstated the risk.
+- **Attendance Policy** — `loadAttendancePolicyExisting()` reuses
+  `fetchCompanyResource("/attendance/policies")` directly (an array, not
+  `fetchCompanyConfig()` — this module can have more than one real
+  policy, unlike the other three's single-record shape), naming every
+  real policy's own `title` rather than just counting them.
+
+All four follow the exact same `existing: undefined` sentinel,
+invalidate-on-save (single-item and their `runDefaultX()` runner) and
+`resetModuleState()` entry as Company Profile/Bank Info. Confirmed by
+test against real-shaped mocked responses for all four together (`BC`),
+plus Configure Salary Components' own Basic-% wording specifically
+(`BD`) — found and fixed one real test-only race while adding these:
+several existing test blocks for Payroll General/Configure Salary
+Components (`Y`, `AA`, `AA2`) captured a save's request body via a
+route registered on the same URL these new background GETs now also
+hit, with no method branch — the exact "GET clobbers a captured POST
+body" gotcha Company Profile's own test J hit first (below); fixed the
+same way, by branching each test's own mock on method, not by changing
+the app.
+
 ### A live verification pass against the real staging API (2026-09-10)
 
 Every module up to this point had only ever been checked against the

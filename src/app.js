@@ -6438,7 +6438,28 @@
      =================================================================== */
 
   /* ---------- General — POST /payroll/configuration/payroll-cycle ---------- */
-  const payrollGeneral = { fields: null, error: "", ok: "" };
+  const payrollGeneral = { fields: null, error: "", ok: "", existing: undefined }; // existing: undefined = not yet checked, same reasoning as companyProfile.existing
+
+  async function loadPayrollGeneralExisting() {
+    try {
+      payrollGeneral.existing = await fetchCompanyConfig("/payroll/configuration/payroll-cycle");
+    } catch (e) {
+      payrollGeneral.existing = null;
+    }
+  }
+
+  const PAYROLL_CYCLE_DISPLAY_LABELS = { calendar_month: "Calendar Month", fixed_date: "Fixed Date", bi_weekly: "Bi-weekly" };
+
+  function payrollGeneralExistingNoticeHtml(existing) {
+    if (!existing || !existing.config) return "";
+    const cycleLabel = PAYROLL_CYCLE_DISPLAY_LABELS[existing.config.payrollCycle] || existing.config.payrollCycle;
+    return `
+      <div style="display:flex; gap:9px; align-items:flex-start; border-radius:6px; padding:12px 14px; margin-bottom:14px; font-size:13px; border:1px solid var(--warning); background:var(--warning-soft); color:var(--warning);">
+        ${iconWarn()}
+        <div>This company's payroll cycle is already configured as <strong>${cycleLabel}</strong>. Saving again will reconfigure it.</div>
+      </div>
+    `;
+  }
 
   function generatePayrollGeneralFields(payrollCycle) {
     /* No cycle passed in → a fresh weighted roll, which is what
@@ -6477,6 +6498,7 @@
       <div class="section">
         ${head}
         <p class="section-note">Payroll Cycle opens on Calendar Month rather than a random pick — click Fixed Date or Bi-weekly yourself if that's what you need to test. Regenerate re-rolls everything including which cycle is picked, weighted the same way the muggle-friendly magic scroll's own script weights it: calendar month most common, fixed date next, bi-weekly rare.</p>
+        ${payrollGeneralExistingNoticeHtml(payrollGeneral.existing)}
         <div class="field-row">
           <div class="field">
             <label>Payroll Cycle</label>
@@ -6522,6 +6544,13 @@
   }
 
   function wirePayrollGeneralEvents() {
+    if (payrollGeneral.existing === undefined) {
+      loadPayrollGeneralExisting().then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
     $all("#pgCycleSeg button").forEach((btn) =>
       btn.addEventListener("click", () => {
         payrollGeneral.fields = generatePayrollGeneralFields(btn.dataset.val);
@@ -6546,6 +6575,7 @@
       try {
         await savePayrollGeneral(payrollGeneral.fields);
         payrollGeneral.ok = "Saved.";
+        payrollGeneral.existing = undefined;
         setup.doneModules.add("payroll_general");
       } catch (e) {
         payrollGeneral.error = e.message;
@@ -6798,7 +6828,28 @@
   /* ---------- Configure Salary Components — PUT /payroll/configuration/non-paygrade-structure ----------
      The third real dependency: needs at least 2 Active salary components,
      same "throw without it" rule the collection enforces on itself. */
-  const companySalaryStructure = { components: null, loadError: "", fields: null, error: "", ok: "" };
+  const companySalaryStructure = { components: null, loadError: "", fields: null, error: "", ok: "", existing: undefined }; // existing: undefined = not yet checked, same reasoning as companyProfile.existing
+
+  async function loadSalaryStructureExisting() {
+    try {
+      companySalaryStructure.existing = await fetchCompanyConfig("/payroll/configuration/non-paygrade-structure");
+    } catch (e) {
+      companySalaryStructure.existing = null;
+    }
+  }
+
+  function salaryStructureExistingNoticeHtml(existing) {
+    /* The real GET only ever returns Basic % — not the per-component
+       split — confirmed against the real API (2026-09-15): unlike its
+       own PUT response, this endpoint's GET has no components array. */
+    if (!existing || !existing.id) return "";
+    return `
+      <div style="display:flex; gap:9px; align-items:flex-start; border-radius:6px; padding:12px 14px; margin-bottom:14px; font-size:13px; border:1px solid var(--warning); background:var(--warning-soft); color:var(--warning);">
+        ${iconWarn()}
+        <div>This company's salary structure is already configured — Basic <strong>${existing.basicSalaryPercentage}%</strong>. Saving again will reconfigure it.</div>
+      </div>
+    `;
+  }
 
   async function loadSalaryStructureDependency() {
     try {
@@ -6884,6 +6935,7 @@
             ? "This company has Medical, House Rent and Internet Allowance, so this uses exactly those three — Basic 60%, two of them 15% each, the third 10%. Regenerate re-rolls which two get 15%; every percentage below is still yours to change before saving."
             : "Generated from the muggle-friendly magic scroll's own split table — basic and the two components always sum to 100%. Regenerate re-rolls the split and which two components are used; every percentage below is still yours to change before saving."
         }</p>
+        ${salaryStructureExistingNoticeHtml(companySalaryStructure.existing)}
         <div class="field-row" style="flex-wrap:wrap">
           <div class="field" style="max-width:110px">
             <label for="ssBasicPct">Basic %</label>
@@ -6962,6 +7014,14 @@
     }
     if (!companySalaryStructure.components || companySalaryStructure.components.length < 2) return; // .dep-shortcut wired centrally
 
+    if (companySalaryStructure.existing === undefined) {
+      loadSalaryStructureExisting().then(() => {
+        if (companySalaryStructure.fields) companySalaryStructure.fields = readSalaryStructureForm();
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
     wireRegenerate("#ssRegenerateBtn", () => {
       companySalaryStructure.fields = generateSalaryStructureFields(companySalaryStructure.components);
       companySalaryStructure.error = "";
@@ -6980,6 +7040,7 @@
       try {
         await saveSalaryStructure(fields);
         companySalaryStructure.ok = "Saved.";
+        companySalaryStructure.existing = undefined;
         setup.doneModules.add("configure_salary_components");
       } catch (e) {
         companySalaryStructure.error = e.message;
@@ -8062,7 +8123,25 @@
      exactly what exists; the module says so rather than inventing a body
      for an endpoint that isn't in the collection. This is the "Payroll
      needs a new API" gap the user predicted before this group was built. */
-  const payrollTax = { error: "", ok: "" };
+  const payrollTax = { error: "", ok: "", existing: undefined }; // existing: undefined = not yet checked, same reasoning as companyProfile.existing
+
+  async function loadPayrollTaxExisting() {
+    try {
+      payrollTax.existing = await fetchCompanyConfig("/payroll/configuration/tax-rules/list");
+    } catch (e) {
+      payrollTax.existing = null;
+    }
+  }
+
+  function payrollTaxExistingNoticeHtml(existing) {
+    /* Lighter, success-toned confirmation rather than the warning-boxed
+       "saving again overwrites this" notice Company Profile/Bank Info/
+       Payroll General use — re-enabling something already enabled isn't
+       destructive the way re-saving a record with different generated
+       values is, so it doesn't read as a caution here. */
+    if (!existing || !existing.isEnabled) return "";
+    return `<div style="display:flex; gap:9px; align-items:center; margin-bottom:14px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}Tax is already enabled for this company.</div>`;
+  }
 
   function payrollTaxTemplate() {
     const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">11</span>Tax</h2></div>`;
@@ -8070,6 +8149,7 @@
       <div class="section">
         ${head}
         <p class="section-note"><strong>Scope note:</strong> the muggle-friendly magic scroll only has an enable/disable toggle for tax rules — there's no endpoint anywhere in it for actually creating a tax bracket or rule. This button calls exactly what exists; configuring real tax brackets needs an API this scroll doesn't have yet.</p>
+        ${payrollTaxExistingNoticeHtml(payrollTax.existing)}
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="generate-btn" id="ptSaveBtn">Enable Tax on ${ENVIRONMENTS[setup.env].label}</button>
@@ -8098,6 +8178,13 @@
   }
 
   function wirePayrollTaxEvents() {
+    if (payrollTax.existing === undefined) {
+      loadPayrollTaxExisting().then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
     const btn = $("#ptSaveBtn");
     btn.addEventListener("click", async () => {
       payrollTax.error = "";
@@ -8106,6 +8193,7 @@
       try {
         await savePayrollTax();
         payrollTax.ok = "Saved.";
+        payrollTax.existing = undefined;
         setup.doneModules.add("tax");
       } catch (e) {
         payrollTax.error = e.message;
@@ -8116,7 +8204,26 @@
   }
 
   /* ===== Attendance Policy — the Attendance group's only module ===== */
-  const attendancePolicy = { fields: null, error: "", ok: "" };
+  const attendancePolicy = { fields: null, error: "", ok: "", existing: undefined }; // existing: undefined = not yet checked, same reasoning as companyProfile.existing
+
+  async function loadAttendancePolicyExisting() {
+    try {
+      attendancePolicy.existing = await fetchCompanyResource("/attendance/policies");
+    } catch (e) {
+      attendancePolicy.existing = null;
+    }
+  }
+
+  function attendancePolicyExistingNoticeHtml(existing) {
+    if (!existing || existing.length === 0) return "";
+    const names = existing.map((p) => p.title).join(", ");
+    return `
+      <div style="display:flex; gap:9px; align-items:flex-start; border-radius:6px; padding:12px 14px; margin-bottom:14px; font-size:13px; border:1px solid var(--warning); background:var(--warning-soft); color:var(--warning);">
+        ${iconWarn()}
+        <div>This company already has ${existing.length === 1 ? "an attendance policy" : `${existing.length} attendance policies`}: <strong>${names}</strong>. Saving again will create another one.</div>
+      </div>
+    `;
+  }
 
   /* Overtime, Break and Deduct Break all default off, and both check-in/
      check-out limits default to 2 hours (2026-09-14, direct request) —
@@ -8161,6 +8268,7 @@
       <div class="section">
         ${head}
         <p class="section-note">Generated the same way QA's own test script rolls it — overtime, break and check-in/check-out limits are rolled per its logic. Only the title is exposed here for hand-editing; regenerate to re-roll everything else.</p>
+        ${attendancePolicyExistingNoticeHtml(attendancePolicy.existing)}
         <div class="field-row">
           <div class="field"><label for="apTitle">Title</label><input type="text" id="apTitle" value="${f.title}" /></div>
         </div>
@@ -8202,6 +8310,14 @@
   }
 
   function wireAttendancePolicyEvents() {
+    if (attendancePolicy.existing === undefined) {
+      loadAttendancePolicyExisting().then(() => {
+        if (attendancePolicy.fields) attendancePolicy.fields = readAttendancePolicyForm();
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
     wireRegenerate("#apRegenerateBtn", () => {
       attendancePolicy.fields = generateAttendancePolicyFields();
       attendancePolicy.error = "";
@@ -8220,6 +8336,7 @@
         await saveAttendancePolicy(fields);
         attendancePolicy.fields = fields;
         attendancePolicy.ok = "Saved.";
+        attendancePolicy.existing = undefined;
         setup.doneModules.add("attendance_policy");
         overtime.policies = null; // a policy may now exist (or now have overtime enabled) — invalidate Overtime's stale dependency cache
       } catch (e) {
@@ -8291,9 +8408,11 @@
     attendancePolicy.fields = null;
     attendancePolicy.error = "";
     attendancePolicy.ok = "";
+    attendancePolicy.existing = undefined;
     payrollGeneral.fields = null;
     payrollGeneral.error = "";
     payrollGeneral.ok = "";
+    payrollGeneral.existing = undefined;
     salaryComponent.presetIdx = 0;
     salaryComponent.fields = null;
     salaryComponent.error = "";
@@ -8306,6 +8425,7 @@
     companySalaryStructure.fields = null;
     companySalaryStructure.error = "";
     companySalaryStructure.ok = "";
+    companySalaryStructure.existing = undefined;
     lateArrival.leaveTypes = null;
     lateArrival.loadError = "";
     lateArrival.fields = null;
@@ -8343,6 +8463,7 @@
     customAdditionDeduction.createdNames = [];
     payrollTax.error = "";
     payrollTax.ok = "";
+    payrollTax.existing = undefined;
     setup.groupRun = null;
     setup.masterRun = null;
   }
@@ -8502,6 +8623,7 @@
     await saveAttendancePolicy(fields);
     attendancePolicy.fields = fields;
     attendancePolicy.ok = "Saved.";
+    attendancePolicy.existing = undefined;
     setup.doneModules.add("attendance_policy");
     overtime.policies = null;
     return { status: "done" };
@@ -8564,6 +8686,7 @@
     await savePayrollGeneral(fields);
     payrollGeneral.fields = fields;
     payrollGeneral.ok = "Saved.";
+    payrollGeneral.existing = undefined;
     setup.doneModules.add("payroll_general");
     return { status: "done" };
   }
@@ -8597,6 +8720,7 @@
     await saveSalaryStructure(fields);
     companySalaryStructure.fields = fields;
     companySalaryStructure.ok = "Saved.";
+    companySalaryStructure.existing = undefined;
     setup.doneModules.add("configure_salary_components");
     return { status: "done" };
   }
@@ -8708,6 +8832,7 @@
     }
     await savePayrollTax();
     payrollTax.ok = "Saved.";
+    payrollTax.existing = undefined;
     setup.doneModules.add("tax");
     return { status: "done" };
   }

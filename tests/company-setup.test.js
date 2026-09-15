@@ -133,6 +133,24 @@ async function toGrid(page, companyName = "Hogwarts") {
   await page.route("**/api/v1/company-bank-informations", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Company bank information retrieved successfully", data: null }) })
   );
+  /* Same defaults for Payroll General, Configure Salary Components, Tax
+     and Attendance Policy's own "already has values" notices
+     (2026-09-15) — each of these four also GETs its own real endpoint
+     in the background the moment its tab first opens. */
+  await page.route("**/api/v1/payroll/configuration/payroll-cycle", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: null }) });
+    else route.continue();
+  });
+  await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: {} }) });
+    else route.continue();
+  });
+  await page.route("**/api/v1/payroll/configuration/tax-rules/list", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { rules: [], isEnabled: false } }) })
+  );
+  await page.route("**/api/v1/attendance/policies", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
+  );
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");
@@ -1123,6 +1141,12 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sentDefault = null;
     await page.route("**/api/v1/payroll/configuration/payroll-cycle", (route) => {
+      /* GET and POST share this exact URL — Payroll General's own
+         "already has values" background check (2026-09-15) also GETs
+         this path, and would otherwise clobber sentDefault/sent right
+         after the real POST sets them, same gotcha as Company Profile's
+         test J and Bonus Types' GET/POST-sharing route before it. */
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: null }) });
       sentDefault = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Pay cycle updated. Current period recalculated." }) });
     });
@@ -1142,6 +1166,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sent = null;
     await page.route("**/api/v1/payroll/configuration/payroll-cycle", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: null }) });
       sent = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Pay cycle updated. Current period recalculated." }) });
     });
@@ -1241,6 +1266,11 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sent = null;
     await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => {
+      /* GET and PUT share this exact URL — Configure Salary Components'
+         own "already has values" background check (2026-09-15) also
+         GETs this path and would otherwise clobber `sent` right after
+         the real PUT sets it, same gotcha fixed elsewhere in this file. */
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: {} }) });
       sent = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Salary structure created successfully" }) });
     });
@@ -1289,6 +1319,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sent = null;
     await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: {} }) });
       sent = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Salary structure created successfully" }) });
     });
@@ -2838,6 +2869,64 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(150);
     check("BB no notice when nothing is configured yet", (await page.textContent("#setupBody")).includes("already has values") === false);
     check("BB no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BC. Payroll General / Configure Salary Components / Tax / Attendance Policy get the same treatment (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/payroll/configuration/payroll-cycle", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { config: { payrollCycle: "fixed_date" } } }) });
+    });
+    await page.route("**/api/v1/payroll/configuration/tax-rules/list", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { rules: [], isEnabled: true } }) })
+    );
+    await page.route("**/api/v1/attendance/policies", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "ap-1", title: "Office Standard Policy", overtimeEnabled: false }] }) })
+    );
+
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.waitForSelector("#pgCycleSeg", { timeout: 5000 });
+    check("BC Payroll General names the already-configured cycle", (await page.textContent("#setupBody")).includes("already configured as Fixed Date"));
+
+    await page.click('.settings-tab[data-module="tax"]');
+    await page.waitForTimeout(100);
+    check("BC Tax shows the lighter, success-toned already-enabled confirmation", (await page.textContent("#setupBody")).includes("Tax is already enabled for this company"));
+
+    await page.click("#setupBackToModules");
+    await page.click(".settings-card:has-text('Attendance')");
+    await page.waitForSelector("#apTitle", { timeout: 5000 });
+    await page.waitForTimeout(150); // the background existing-check is async; give it a tick to resolve and rerender
+    check("BC Attendance Policy names the already-existing real policy", (await page.textContent("#setupBody")).includes("already has an attendance policy: Office Standard Policy"));
+
+    check("BC no page errors — confirms none of the four background re-checks loop", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BD. ...and Configure Salary Components names the already-configured Basic % (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/payroll/configuration/salary-components?status=Active&limit=100", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "success", data: { components: [{ id: "sc-1", name: "Medical Allowance", status: "Active" }, { id: "sc-2", name: "House Rent Allowance", status: "Active" }], metadata: { total: 2 } } }),
+      })
+    );
+    await page.route("**/api/v1/payroll/configuration/non-paygrade-structure", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { id: "struct-1", basicSalaryPercentage: 65 } }) });
+    });
+    await page.click(".settings-card:has-text('Payroll')");
+    await page.click('.settings-tab[data-module="configure_salary_components"]');
+    await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Basic"), { timeout: 5000 });
+    check("BD names the already-configured Basic %", (await page.textContent("#setupBody")).includes("already configured — Basic 65%"));
+    check("BD no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
