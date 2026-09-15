@@ -2405,6 +2405,23 @@ body" gotcha Company Profile's own test J hit first (below); fixed the
 same way, by branching each test's own mock on method, not by changing
 the app.
 
+**Locations got a related but deliberately different notice the same
+day** — direct request: "je koyta thakbe just bolba je ei company te
+'N' ta location acha, ekhan theke aro add kora jabe" (just say how many
+locations already exist, more can still be added from here). Unlike
+the six single-record modules above, Locations can hold any number of
+real branches, so an existing one is never at risk of being overwritten
+— `branchExistingNoticeHtml()` is a plain `.section-note` line, not the
+warning-boxed treatment, and doesn't tell the visitor to be careful
+about anything. `loadBranchExisting()` reuses `fetchCompanyResource
+("/company/branches")` directly (confirmed real and flat-array-shaped
+against `Bulk Test 03`, `GET /company/branches` — in the collection all
+along, just never called by this app before), same `existing: undefined`
+sentinel and invalidate-on-save discipline as everywhere else. Two more
+of this file's tests (`P`, at both this section and its geolocation-on
+sibling) hit the identical GET/POST-sharing-a-URL race the four modules
+above did, fixed the same way.
+
 ### A live verification pass against the real staging API (2026-09-10)
 
 Every module up to this point had only ever been checked against the

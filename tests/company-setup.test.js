@@ -151,6 +151,13 @@ async function toGrid(page, companyName = "Hogwarts") {
   await page.route("**/api/v1/attendance/policies", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
   );
+  /* Same default for Locations' own "N already exist" notice
+     (2026-09-15) — distinct method (GET) from the real save (POST), so
+     branch rather than assume nothing else ever calls this. */
+  await page.route("**/api/v1/company/branches", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+    else route.continue();
+  });
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");
@@ -620,6 +627,11 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     let sentOff = null;
     await page.route("**/api/v1/company/branches", (route) => {
+      /* GET and POST share this exact URL — Locations' own "how many
+         already exist" background check (2026-09-15) also GETs this
+         path, and would otherwise clobber sentOff right after the real
+         POST sets it, same gotcha fixed elsewhere in this file. */
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
       sentOff = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Branch created successfully" }) });
     });
@@ -646,6 +658,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(60);
     let sentOn = null;
     await page.route("**/api/v1/company/branches", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
       sentOn = route.request().postDataJSON();
       route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success" }) });
     });
@@ -2927,6 +2940,53 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Basic"), { timeout: 5000 });
     check("BD names the already-configured Basic %", (await page.textContent("#setupBody")).includes("already configured — Basic 65%"));
     check("BD no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BE. Locations names the real count, plainly, not as a warning (2026-09-15) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/company/branches", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "br-1", name: "Head Office" }, { id: "br-2", name: "Chattogram Branch" }] }) });
+    });
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.click('.settings-tab[data-module="branches"]');
+    await page.waitForTimeout(150);
+    check("BE names the real count", (await page.textContent("#setupBody")).includes("already has 2 locations — more can still be added from here"));
+    check("BE no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BF. ...and singular wording for exactly 1 ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/company/branches", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "br-1", name: "Head Office" }] }) });
+    });
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.click('.settings-tab[data-module="branches"]');
+    await page.waitForTimeout(150);
+    check("BF singular wording for exactly 1", (await page.textContent("#setupBody")).includes("already has 1 location —"));
+    check("BF no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BG. ...and nothing when this company has no locations yet ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page); // its own default answers GET /company/branches with an empty array
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.click('.settings-tab[data-module="branches"]');
+    await page.waitForTimeout(150);
+    check("BG no notice when there are no locations yet", (await page.textContent("#setupBody")).includes("already has") === false);
+    check("BG no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

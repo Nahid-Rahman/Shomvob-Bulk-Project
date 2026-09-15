@@ -4597,7 +4597,30 @@
      radiusInMeters travel as null, not as zeroes or omitted keys, exactly
      as the Postman script sends them. Toggling it regenerates or clears
      the three geo fields; nothing else about the form changes. */
-  const companyBranch = { fields: null, error: "", ok: "", createdNames: [] };
+  const companyBranch = { fields: null, error: "", ok: "", createdNames: [], existing: undefined }; // existing: undefined = not yet checked, same reasoning as companyProfile.existing above
+
+  /* Locations can hold any number of real branches, unlike Company
+     Profile/Bank Info/etc.'s single-record shape — so this isn't a
+     "your data is about to be overwritten" warning the way those are;
+     it's a plain count, confirmed with the user directly: "just bolba
+     je ei company te N ta location acha, ekhan theke aro add kora
+     jabe" (just say this company has N locations already, more can
+     still be added from here). */
+  async function loadBranchExisting() {
+    try {
+      companyBranch.existing = await fetchCompanyResource("/company/branches");
+    } catch (e) {
+      companyBranch.existing = null;
+    }
+  }
+
+  function branchExistingNoticeHtml(existing) {
+    /* Plain, unadorned line rather than the warning-boxed treatment
+       Company Profile/Bank Info/etc. get — there's nothing here to be
+       cautious about, since a new location never overwrites an old one. */
+    if (!existing || existing.length === 0) return "";
+    return `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${existing.length === 1 ? "1 location" : `${existing.length} locations`} — more can still be added from here.</p>`;
+  }
 
   function randomBaridharaOffset() {
     return {
@@ -4638,6 +4661,7 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Locations</h2></div>
         <p class="section-note">Generated from the muggle-friendly magic scroll's own office-name and BD-location pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        ${branchExistingNoticeHtml(companyBranch.existing)}
         <div class="field-row">
           <div class="field"><label for="brOfficeName">Office Name</label><input type="text" id="brOfficeName" value="${f.officeName}" /></div>
           <div class="field"><label for="brDistrict">District</label><input type="text" id="brDistrict" value="${f.district}" /></div>
@@ -4710,6 +4734,14 @@
   }
 
   function wireBranchEvents() {
+    if (companyBranch.existing === undefined) {
+      loadBranchExisting().then(() => {
+        if (companyBranch.fields) companyBranch.fields = readBranchForm();
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
     $all("#brGeoSeg button").forEach((btn) => {
       btn.addEventListener("click", () => {
         const wantsGeo = btn.dataset.geo === "yes";
@@ -4739,6 +4771,7 @@
         companyBranch.fields = fields;
         companyBranch.ok = "Saved.";
         companyBranch.createdNames.push(fields.officeName);
+        companyBranch.existing = undefined;
         setup.doneModules.add("branches");
       } catch (e) {
         companyBranch.error = e.message;
@@ -8369,6 +8402,7 @@
     companyBranch.error = "";
     companyBranch.ok = "";
     companyBranch.createdNames = [];
+    companyBranch.existing = undefined;
     companyDepartment.fields = null;
     companyDepartment.error = "";
     companyDepartment.ok = "";
@@ -8555,6 +8589,7 @@
     companyBranch.fields = fields;
     companyBranch.ok = "Saved.";
     companyBranch.createdNames.push(fields.officeName);
+    companyBranch.existing = undefined;
     setup.doneModules.add("branches");
     return { status: "done" };
   }
