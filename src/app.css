@@ -1519,6 +1519,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 .modal-quote-text { font-size: 15px; font-style: italic; line-height: 1.5; color: var(--accent-strong); margin: 0 0 10px; }
 .modal-quote-attr { font-size: 11.5px; font-family: var(--font-mono); color: var(--text-faint); margin: 0; }
+/* A stacked variant of the same quote panel (2026-09-15) — same box
+   treatment (background, no border since it isn't splitting the card in
+   two), just placed under the body instead of beside it. */
+.modal-quote-box {
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-top: 16px;
+}
+.modal-quote-box .modal-quote-text { margin-bottom: 8px; }
 @media (max-width: 760px) {
   .modal-card-split { flex-direction: column; max-width: 460px; }
   .modal-quote-panel { border-left: none; border-top: 1px solid var(--border); }
@@ -1547,14 +1557,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   justify-content: flex-end;
   gap: 9px;
   margin-top: 20px;
-}
-/* Generate-complete modal (2026-09-15): the quote sits right above the
-   actions with nothing separating the two — a thin rule reads as a
-   deliberate section break rather than the button row just trailing off
-   the quote. */
-#generateCompleteModal .modal-actions {
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
 }
 .modal-keep { padding: 8px 14px; }
 .modal-danger {
