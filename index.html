@@ -1562,6 +1562,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   gap: 9px;
   margin-top: 20px;
 }
+/* Generate-complete modal (2026-09-15): the quote sits right above the
+   actions with nothing separating the two — a thin rule reads as a
+   deliberate section break rather than the button row just trailing off
+   the quote. */
+#generateCompleteModal .modal-actions {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
 .modal-keep { padding: 8px 14px; }
 .modal-danger {
   border: none;
