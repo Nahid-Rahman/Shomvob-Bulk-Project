@@ -2943,16 +2943,22 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     await page.click(".settings-card:has-text('Payroll')");
     await page.waitForSelector("#pgCycleSeg", { timeout: 5000 });
+    /* The existing-check is a separate background fetch from the form's
+       own render — #pgCycleSeg appears first, so waiting on it alone
+       races the notice under real system load (the exact class of
+       flakiness already found and fixed for Configure Salary
+       Components' own notice, above). Wait for the notice's own text. */
+    await page.waitForFunction(() => document.querySelector("#setupBody")?.textContent.includes("already configured"), { timeout: 5000 });
     check("BC Payroll General names the already-configured cycle", (await page.textContent("#setupBody")).includes("already configured as Fixed Date"));
 
     await page.click('.settings-tab[data-module="tax"]');
-    await page.waitForTimeout(100);
+    await page.waitForFunction(() => document.querySelector("#setupBody")?.textContent.includes("already enabled"), { timeout: 5000 });
     check("BC Tax shows the lighter, success-toned already-enabled confirmation", (await page.textContent("#setupBody")).includes("Tax is already enabled for this company"));
 
     await page.click("#setupBackToModules");
     await page.click(".settings-card:has-text('Attendance')");
     await page.waitForSelector("#apTitle", { timeout: 5000 });
-    await page.waitForTimeout(150); // the background existing-check is async; give it a tick to resolve and rerender
+    await page.waitForFunction(() => document.querySelector("#setupBody")?.textContent.includes("already has an attendance policy"), { timeout: 5000 });
     check("BC Attendance Policy names the already-existing real policy", (await page.textContent("#setupBody")).includes("already has an attendance policy: Office Standard Policy"));
 
     check("BC no page errors — confirms none of the four background re-checks loop", errs.length === 0, errs.join(" | "));

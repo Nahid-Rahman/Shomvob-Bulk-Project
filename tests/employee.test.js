@@ -230,6 +230,49 @@ const { check, state } = makeChecker();
     await page.inputValue("#countInput"));
   check("with nothing entered, reload is not guarded", !(await unloadArmed()));
 
+  /* ---------- Name source can mix more than one theme (2026-09-19) ----------
+     Direct request: a big batch drawn from just one small pool (e.g.
+     Money Heist's 15 names) starts cycling with a numeric suffix fairly
+     quickly; picking more than one theme spreads it across a bigger
+     combined pool instead. */
+  check("starts on Bangla alone", (await page.locator('.theme-card[aria-pressed="true"]').count()) === 1);
+  await page.click('.theme-card:has-text("Money Heist")');
+  await page.click('.theme-card:has-text("Squid Game")');
+  check("clicking more themes selects them without deselecting the others",
+    (await page.locator('.theme-card[aria-pressed="true"]').count()) === 3);
+  check("the summary line lists every selected theme",
+    (await page.textContent("#actionSummary")).includes("Default (Random Bangla Names) + Money Heist + Squid Game"),
+    await page.textContent("#actionSummary"));
+
+  await page.click('.theme-card:has-text("Default (Random Bangla Names)")');
+  await page.click('.theme-card:has-text("Money Heist")');
+  check("deselecting drops back to 1", (await page.locator('.theme-card[aria-pressed="true"]').count()) === 1);
+  check("the one still pressed is Squid Game",
+    (await page.locator('.theme-card[aria-pressed="true"] .theme-card-title').textContent()).trim() === "Squid Game");
+  await page.click('.theme-card:has-text("Squid Game")');
+  check("the last remaining theme can't be clicked off",
+    (await page.locator('.theme-card[aria-pressed="true"]').count()) === 1 &&
+      (await page.locator('.theme-card[aria-pressed="true"] .theme-card-title').textContent()).trim() === "Squid Game");
+
+  /* Money Heist (15 names) + Stranger Things (20 names) for a 300-row
+     batch — neither pool alone could cover this without cycling through
+     itself roughly 15-20 times; mixed, the combined 35-name pool cycles
+     under 9 times. */
+  await page.click('.theme-card:has-text("Money Heist")');
+  await page.click('.theme-card:has-text("Stranger Things")');
+  await page.fill("#countInput", "300");
+  await page.fill("#prefixInput", "MIXX");
+  await page.click("#deptSelectAll");
+  await page.waitForTimeout(150);
+  const M = await generate(page, XLSX, "employee-mixed");
+  check("mixed generate still produces the full row count", M.rows.length === 300, String(M.rows.length));
+  const lastNames = new Set(M.rows.map((r) => r[3]));
+  const moneyHeistHit = ["Marquina", "Oliveira", "Fonollosa", "Murillo"].some((n) => [...lastNames].some((l) => l.startsWith(n)));
+  const strangerThingsHit = ["Wheeler", "Byers", "Sinclair", "Hopper"].some((n) => [...lastNames].some((l) => l.startsWith(n)));
+  check("both selected themes' names actually appear in the same file", moneyHeistHit && strangerThingsHit);
+  check("mixing produced a wider spread of last names than either 15- or 20-name pool alone",
+    lastNames.size > 20, String(lastNames.size));
+
   check("no page errors", pageErrors.length === 0, pageErrors.join(" | "));
 
   await browser.close();

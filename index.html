@@ -2940,7 +2940,11 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   /* ---------- state ---------- */
   let currentOp = "welcome";
-  let nameTheme = "bangla";
+  /* A Set, not a single key, 2026-09-19 (direct request: for a big batch,
+     mixing more than one theme means less cycling within any one small
+     pool before a numeric suffix has to appear). At least one theme is
+     always selected — the last remaining one can't be clicked off. */
+  const nameThemes = new Set(["bangla"]);
   let customDeptCounter = 0;
 
   const departments = DEFAULT_DEPARTMENTS.map((d) => ({
@@ -3001,24 +3005,47 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   /* ---------- name generation ---------- */
-  function generateNames(themeKey, count) {
-    const entries = [];
-    if (themeKey === "bangla") {
-      const used = new Set();
-      let guard = 0;
-      while (entries.length < count && guard < count * 50) {
-        guard++;
-        const gender = Math.random() < 0.5 ? "M" : "F";
-        const first = choice(gender === "M" ? BANGLA_MALE_FIRST : BANGLA_FEMALE_FIRST);
-        const last = choice(BANGLA_LAST);
-        const key = first + "|" + last;
-        if (used.has(key)) continue;
-        used.add(key);
-        entries.push({ first, last, gender });
-      }
-      return entries;
+  /* Bangla's own combinatorial space, as raw [first,last,gender] triples
+     rather than {first,last,gender} objects — the shape every THEME_POOLS
+     entry already uses, so a Bangla "contribution" can sit in the same
+     merged array as any other theme's pool when more than one is picked
+     (below). Deduplicates within its own `count`-sized batch only, same
+     as it always has. */
+  function generateBanglaTriples(count) {
+    const triples = [];
+    const used = new Set();
+    let guard = 0;
+    while (triples.length < count && guard < count * 50) {
+      guard++;
+      const gender = Math.random() < 0.5 ? "M" : "F";
+      const first = choice(gender === "M" ? BANGLA_MALE_FIRST : BANGLA_FEMALE_FIRST);
+      const last = choice(BANGLA_LAST);
+      const key = first + "|" + last;
+      if (used.has(key)) continue;
+      used.add(key);
+      triples.push([first, last, gender]);
     }
-    const pool = THEME_POOLS[themeKey];
+    return triples;
+  }
+
+  /* Accepts either a single theme key (string) or several (an array/Set)
+     — mixing themes, 2026-09-19, direct request: a big batch drawing from
+     just one small pool (e.g. Money Heist's 15 names) cycles back through
+     it and starts appending "2"/"3" fairly quickly, and picking more than
+     one theme spreads the same batch across a bigger combined pool
+     instead. Bangla-only (the original default, and still the common
+     single-theme case) keeps its exact original behaviour — a fresh
+     unique combo per employee, no cycling suffix at all — untouched. */
+  function generateNames(themeKeys, count) {
+    const keys = Array.isArray(themeKeys) ? themeKeys : themeKeys instanceof Set ? Array.from(themeKeys) : [themeKeys];
+    if (keys.length === 1 && keys[0] === "bangla") {
+      return generateBanglaTriples(count).map(([first, last, gender]) => ({ first, last, gender }));
+    }
+    let pool = [];
+    keys.forEach((key) => {
+      pool = pool.concat(key === "bangla" ? generateBanglaTriples(count) : THEME_POOLS[key]);
+    });
+    const entries = [];
     const shuffled = shuffle(pool);
     let idx = 0,
       cycle = 1;
@@ -3037,6 +3064,17 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   function sampleNames(themeKey, n) {
     return generateNames(themeKey, n);
+  }
+
+  /* Summary-bar wording for however many themes are currently selected —
+     one label, "X + Y" for two or three, "N themes mixed" past that so
+     the bar doesn't run away with every one of the 15 names strung
+     together. */
+  function nameThemeSummaryLabel() {
+    const labels = Array.from(nameThemes).map((k) => NAME_THEME_LABELS[k]);
+    if (labels.length === 1) return labels[0];
+    if (labels.length <= 3) return labels.join(" + ");
+    return `${labels.length} themes mixed`;
   }
 
   /* ---------- row-level generation ---------- */
@@ -3485,7 +3523,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Name source</h2></div>
-        <p class="section-note">Random Bangla names, or a cast of characters?</p>
+        <p class="section-note">Random Bangla names, or a cast of characters? Pick more than one to mix — useful for a big batch, since it spreads the names across a bigger combined pool instead of cycling one small one.</p>
         <div class="theme-grid" id="themeGrid"></div>
         <div class="preview-row" id="namePreview"></div>
       </div>
@@ -3534,12 +3572,18 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       const card = document.createElement("button");
       card.type = "button";
       card.className = "theme-card";
-      card.setAttribute("aria-pressed", String(key === nameTheme));
+      card.setAttribute("aria-pressed", String(nameThemes.has(key)));
       card.innerHTML = `<div class="theme-card-title">${NAME_THEME_LABELS[key]}</div><div class="theme-card-sub">${key === "bangla" ? "Unique pool, no repeats" : "Real character names"}</div>`;
       card.addEventListener("click", () => {
-        nameTheme = key;
-        $all(".theme-card", themeGrid).forEach((c) => c.setAttribute("aria-pressed", "false"));
-        card.setAttribute("aria-pressed", "true");
+        /* At least one theme always stays selected — clicking the last
+           remaining one off would leave nothing to generate from. */
+        if (nameThemes.has(key)) {
+          if (nameThemes.size === 1) return;
+          nameThemes.delete(key);
+        } else {
+          nameThemes.add(key);
+        }
+        card.setAttribute("aria-pressed", String(nameThemes.has(key)));
         renderNamePreview();
         updateSummary();
       });
@@ -3628,7 +3672,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   function renderNamePreview() {
     const box = $("#namePreview");
     box.innerHTML = "";
-    const samples = sampleNames(nameTheme, 3);
+    const samples = sampleNames(nameThemes, 3);
     samples.forEach((s) => {
       const chip = document.createElement("span");
       chip.className = "chip";
@@ -3841,7 +3885,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
     const summary = $("#actionSummary");
     if (countOk && prefixOk) {
-      summary.innerHTML = `<strong>${count}</strong> employees · prefix <strong>${prefix}</strong> · ${NAME_THEME_LABELS[nameTheme]} · <strong>${finalDepts.length}</strong> department${finalDepts.length === 1 ? "" : "s"}`;
+      summary.innerHTML = `<strong>${count}</strong> employees · prefix <strong>${prefix}</strong> · ${nameThemeSummaryLabel()} · <strong>${finalDepts.length}</strong> department${finalDepts.length === 1 ? "" : "s"}`;
     } else {
       summary.textContent = "Fix the batch basics first";
     }
@@ -3876,7 +3920,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     const count = parseInt($("#countInput").value, 10);
     const prefix = $("#prefixInput").value;
     try {
-      const rows = generateWorkbookRows(count, prefix, nameTheme, finalDepts);
+      const rows = generateWorkbookRows(count, prefix, nameThemes, finalDepts);
       const { wb, filename } = downloadWorkbook(rows, prefix);
       openGenerateCompleteModal("Employee Add file is ready!", `${filename} — ${count} employees, and you typed none of them.`, wb, filename);
     } catch (err) {

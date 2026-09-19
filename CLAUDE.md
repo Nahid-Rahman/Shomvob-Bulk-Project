@@ -191,6 +191,36 @@ than anything else in this codebase.
   (`Amanda Waller`, `Rick Flag`, `Guy Gardner`, `Clark Kent`, `Bruce
   Wayne`, `Diana Prince`) — worth resolving with the user rather than
   shipping a near-duplicate pool or a guessed local one.
+
+  **Name source became multi-select the same day** — direct request:
+  for a big batch, drawing from just one small pool (Money Heist's 15
+  names, say) starts cycling back through it and appending a numeric
+  suffix fairly quickly; picking more than one theme spreads the same
+  batch across a bigger combined pool instead, so any one theme repeats
+  less. `nameTheme` (a single string) became `nameThemes` (a `Set`,
+  module-level state, same as before) — clicking a `.theme-card` now
+  toggles its membership instead of exclusively selecting it, and at
+  least one theme always stays selected (clicking the last remaining one
+  off is a no-op, the same "can't configure your way to nothing"
+  discipline Employee Add's own department/designation picker already
+  holds itself to). `generateNames()` takes either a single key or a
+  collection now: **Bangla-only keeps its exact original behaviour** — a
+  freshly generated, unique combo per employee, no cycling suffix at
+  all — since that's still the common single-theme case and nothing
+  about it needed to change; picking Bangla *alongside* other themes (or
+  two or more non-Bangla themes together) merges every selected theme's
+  pool into one array first (Bangla contributes a fresh batch of unique
+  combos sized to the requested count, generated via the same
+  once-nothing-more logic, just handed back as raw triples instead of
+  objects) and shuffle-cycles through the combined pool exactly the way
+  a single non-Bangla theme already did. The summary bar's own wording
+  (`nameThemeSummaryLabel()`) joins up to 3 selected labels with " + " and
+  falls back to "N themes mixed" past that, so picking most of the 15
+  doesn't run the whole label off the edge of the bar. Verified end-to-
+  end: 300 employees from Money Heist (15 names) + Stranger Things (20
+  names) mixed produced names from both pools in the same file, cycling
+  the combined 35-name pool under 9 times rather than either alone
+  needing 15-20 passes through itself.
 - Departments: 6 defaults (HR, Engineering/IT, Sales & Business,
   Marketing, Finance & Accounts, Operations) each with 4 default
   designations, toggleable per-department between "use these defaults"
@@ -2637,6 +2667,22 @@ delay is negligible against the rest of the test's own pacing; failed
 under real system load from seven other suites already running. Fixed
 by waiting for the notice's own text specifically, not a word it shares
 with the surrounding form.
+
+**The identical race resurfaced in "BC" itself, found 2026-09-19** —
+this fix only ever landed on "BD" (Configure Salary Components); "BC"'s
+own Payroll General/Tax/Attendance Policy checks still asserted on a
+notice's text right after a plain `waitForSelector`/fixed
+`waitForTimeout`, with no wait for the notice text itself. Failed twice
+under full-suite load (unrelated work in progress at the time — an
+Employee Add change nowhere near this file), passed reliably alone
+before that, same signature as "BD"'s own fix. Applied the identical
+fix to all three (`waitForFunction` on the notice's own text, not a
+selector or a fixed delay). **The same blind-`waitForTimeout`-before-an-
+"already"-check shape still exists in roughly a dozen more spots in this
+file**, everywhere else the 2026-09-15 "already has values" notice
+feature (above) added a test — none have actually failed yet, so they
+weren't touched speculatively, but the next one to flake under load will
+have this exact same cause.
 
 **Late Arrival, Absent Deduction, Overtime and Attendance Bonus are
 deliberately left out of this whole feature** — confirmed with the
