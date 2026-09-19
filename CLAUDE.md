@@ -975,6 +975,37 @@ off. If an audit log of who ran what against which environment is ever
 wanted, that would need a table and RLS — deliberately not built yet,
 since nothing past step one currently needs one.
 
+**Allowlist admin done directly via SQL against this Supabase project
+(2026-09-19), not just the dashboard.** Two real logins were
+troubleshot this way, both via `mcp__claude_ai_Supabase__execute_sql`
+against project `wtlaiidtiugxirqcxjzw`:
+
+- `tamjida@shomvob.com` — added via the dashboard's "Add user", but the
+  email came back unconfirmed and couldn't sign in until
+  `UPDATE auth.users SET email_confirmed_at = now(), confirmed_at =
+  now() WHERE email = '...'` was run directly. (Adding via the
+  dashboard with "Auto Confirm User" checked avoids this step going
+  forward.)
+- `tanvir@shomvob.com` — confirmed and structurally identical to two
+  known-working accounts (not banned, not deleted, `provider =
+  "email"`, valid hash present), yet still couldn't sign in. Since SQL
+  can't verify whether a password matches a bcrypt hash, the working
+  fix was to just reset it to match what the user was actually typing:
+  `UPDATE auth.users SET encrypted_password = extensions.crypt('<the
+  password>', extensions.gen_salt('bf')), updated_at = now() WHERE
+  email = '...'` — `pgcrypto` is enabled on this project
+  (`extensions` schema) and its `crypt()`/`gen_salt('bf')` is the same
+  bcrypt scheme Supabase Auth itself uses, so this is a safe, real fix,
+  not a workaround that half-works.
+
+**New users can be created the same way, in bulk, without touching the
+dashboard at all** — the user asked directly ("ami tomake user list
+dile add kore dite parba na?") and confirmed this is now the expected
+path going forward: hand over email+password pairs, they get inserted
+straight into `auth.users` via SQL with `email_confirmed_at` already
+set (so no separate confirm step is needed), rather than clicked
+through the dashboard's "Add user" form one at a time.
+
 ### CORS
 
 Supabase's Auth endpoint sends its own CORS headers for every project, so
