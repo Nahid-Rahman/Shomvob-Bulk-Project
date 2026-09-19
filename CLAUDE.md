@@ -168,9 +168,12 @@ than anything else in this codebase.
   aro name pool add er request korse" — this was the single most-liked
   feature, and the most-requested addition): Squid Game, Stranger
   Things, Money Heist, Breaking Bad, Anime Characters, Cricketers,
-  Footballers, WWE / UFC Athletes (picked via `THEME_POOLS` in
-  `src/app-data.js`, `.theme-grid`'s wrapping 3-column layout needed no
-  change to hold 14 cards instead of 6). Same `[First, Last, Gender]`
+  Footballers, WWE / UFC Athletes, and a 9th the same day once the user
+  noticed 14 left the grid's last row one short of full — **Friends**,
+  picked freely rather than requested, for exactly that reason (picked
+  via `THEME_POOLS` in `src/app-data.js`, `.theme-grid`'s wrapping
+  3-column layout needed no change to hold 15 cards instead of 6, and
+  now fills the grid evenly at 5 full rows). Same `[First, Last, Gender]`
   shape as every existing pool, including the same "invent a plausible
   two-token split for a single-name character" trick the `games` pool
   already used (`Master`/`Chief`, `Solid`/`Snake`) where a real one
