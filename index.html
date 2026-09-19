@@ -3763,8 +3763,16 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
   }
 
+  /* Made defensive against non-string input, 2026-09-19, while extending
+     this from Phase 1 (where every caller was already a known string) to
+     Company Setup — several of that section's own fields are genuine JS
+     numbers (latitude, a salary percentage) rather than strings, and the
+     original `(s || "").replace(...)` throws on anything without its own
+     `.replace()` method. `String(...)` first makes every call site safe
+     regardless of the value's actual type, so callers don't each need to
+     remember to coerce it themselves. */
   function escapeHtml(s) {
-    return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
   function deptBody(d) {
@@ -6733,7 +6741,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="setup-statusbar">
           <span class="env-badge env-${env.id}">${env.label}</span>
           <span class="setup-statusbar-spacer"></span>
-          <span class="setup-email">${setup.toolEmail}</span>
+          <span class="setup-email">${escapeHtml(setup.toolEmail)}</span>
           <button type="button" class="tiny-btn" id="setupSignOutBtn">Sign out</button>
         </div>
       `;
@@ -6742,7 +6750,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       <div class="setup-connected-banner">
         <div class="section-head"><h2 class="section-title">${iconCheck()}Connected</h2></div>
         <div class="rules-body" style="border-top:none; padding:0; margin-top:10px;">
-          <div class="rule-row"><span class="rule-col">Company</span><span class="rule-val">${setup.companyName}</span></div>
+          <div class="rule-row"><span class="rule-col">Company</span><span class="rule-val">${escapeHtml(setup.companyName)}</span></div>
           <div class="rule-row"><span class="rule-col">Environment</span><span class="rule-val">${env.label}</span></div>
           <div class="rule-row"><span class="rule-col">Role</span><span class="rule-val">${formatRoleLabel(setup.companyUserType)}</span></div>
         </div>
@@ -6823,7 +6831,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return `
       <div class="validation-banner" style="margin-top:0; margin-bottom:16px;">
         ${iconWarn()}
-        <div>You were connected to <strong>${last.companyName}</strong> on ${ENVIRONMENTS[last.env] ? ENVIRONMENTS[last.env].label : last.env} before — sign in with the same company account to pick up where you left off.</div>
+        <div>You were connected to <strong>${escapeHtml(last.companyName)}</strong> on ${ENVIRONMENTS[last.env] ? ENVIRONMENTS[last.env].label : last.env} before — sign in with the same company account to pick up where you left off.</div>
       </div>
     `;
   }
@@ -7297,30 +7305,30 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Company Profile</h2></div>
-        <p class="section-note">Generated from ${setup.companyName}'s own name plus the muggle-friendly magic scroll's own pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        <p class="section-note">Generated from ${escapeHtml(setup.companyName)}'s own name plus the muggle-friendly magic scroll's own pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
         ${companyProfileExistingNoticeHtml(companyProfile.existing)}
         <div class="field-row">
-          <div class="field"><label for="cpLegalName">Legal Name</label><input type="text" id="cpLegalName" value="${f.legalName}" /></div>
-          <div class="field"><label for="cpTegNo">TEG NO</label><input type="text" id="cpTegNo" value="${f.tegNo}" /></div>
+          <div class="field"><label for="cpLegalName">Legal Name</label><input type="text" id="cpLegalName" value="${escapeHtml(f.legalName)}" /></div>
+          <div class="field"><label for="cpTegNo">TEG NO</label><input type="text" id="cpTegNo" value="${escapeHtml(f.tegNo)}" /></div>
         </div>
         <div class="field-row" style="margin-top:14px">
-          <div class="field"><label for="cpTaxId">Tax ID</label><input type="text" id="cpTaxId" value="${f.taxId}" /></div>
-          <div class="field"><label for="cpIndustry">Industry</label><input type="text" id="cpIndustry" value="${f.industry}" /></div>
+          <div class="field"><label for="cpTaxId">Tax ID</label><input type="text" id="cpTaxId" value="${escapeHtml(f.taxId)}" /></div>
+          <div class="field"><label for="cpIndustry">Industry</label><input type="text" id="cpIndustry" value="${escapeHtml(f.industry)}" /></div>
         </div>
         <div class="field-row" style="margin-top:14px">
-          <div class="field"><label for="cpBusinessType">Business Type</label><input type="text" id="cpBusinessType" value="${f.businessType}" /></div>
-          <div class="field"><label for="cpWebsite">Website</label><input type="text" id="cpWebsite" value="${f.website}" /></div>
+          <div class="field"><label for="cpBusinessType">Business Type</label><input type="text" id="cpBusinessType" value="${escapeHtml(f.businessType)}" /></div>
+          <div class="field"><label for="cpWebsite">Website</label><input type="text" id="cpWebsite" value="${escapeHtml(f.website)}" /></div>
         </div>
-        <div class="field" style="margin-top:14px"><label for="cpDescription">Description</label><textarea id="cpDescription">${f.description}</textarea></div>
-        <div class="field" style="margin-top:14px"><label for="cpMission">Mission Statement</label><textarea id="cpMission">${f.missionStatement}</textarea></div>
-        <div class="field" style="margin-top:14px"><label for="cpVision">Vision Statement</label><textarea id="cpVision">${f.visionStatement}</textarea></div>
+        <div class="field" style="margin-top:14px"><label for="cpDescription">Description</label><textarea id="cpDescription">${escapeHtml(f.description)}</textarea></div>
+        <div class="field" style="margin-top:14px"><label for="cpMission">Mission Statement</label><textarea id="cpMission">${escapeHtml(f.missionStatement)}</textarea></div>
+        <div class="field" style="margin-top:14px"><label for="cpVision">Vision Statement</label><textarea id="cpVision">${escapeHtml(f.visionStatement)}</textarea></div>
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="tiny-btn" id="cpRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="cpSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="cpError">${companyProfile.error}</span>
-        ${companyProfile.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyProfile.ok}</div>` : ""}
+        <span class="error-text" id="cpError">${escapeHtml(companyProfile.error)}</span>
+        ${companyProfile.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(companyProfile.ok)}</div>` : ""}
       </div>
     `;
   }
@@ -7474,21 +7482,21 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">Generated from the muggle-friendly magic scroll's own bank list and short-code map. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
         ${bankInfoExistingNoticeHtml(bankInfo.existing)}
         <div class="field-row">
-          <div class="field"><label for="biBankName">Bank Name</label><input type="text" id="biBankName" value="${f.bankName}" /></div>
-          <div class="field"><label for="biAccountNumber">Account Number</label><input type="text" id="biAccountNumber" value="${f.accountNumber}" /></div>
+          <div class="field"><label for="biBankName">Bank Name</label><input type="text" id="biBankName" value="${escapeHtml(f.bankName)}" /></div>
+          <div class="field"><label for="biAccountNumber">Account Number</label><input type="text" id="biAccountNumber" value="${escapeHtml(f.accountNumber)}" /></div>
         </div>
         <div class="field-row" style="margin-top:14px">
-          <div class="field"><label for="biNpsb">NPSB Code</label><input type="text" id="biNpsb" value="${f.npsbCode}" /></div>
-          <div class="field"><label for="biBeftn">BEFTN Code</label><input type="text" id="biBeftn" value="${f.beftnCode}" /></div>
+          <div class="field"><label for="biNpsb">NPSB Code</label><input type="text" id="biNpsb" value="${escapeHtml(f.npsbCode)}" /></div>
+          <div class="field"><label for="biBeftn">BEFTN Code</label><input type="text" id="biBeftn" value="${escapeHtml(f.beftnCode)}" /></div>
         </div>
-        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)"><label for="biMfs">MFS Code</label><input type="text" id="biMfs" value="${f.mfsCode}" /></div>
+        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)"><label for="biMfs">MFS Code</label><input type="text" id="biMfs" value="${escapeHtml(f.mfsCode)}" /></div>
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="tiny-btn" id="biRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="biSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="biError">${bankInfo.error}</span>
-        ${bankInfo.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${bankInfo.ok}</div>` : ""}
+        <span class="error-text" id="biError">${escapeHtml(bankInfo.error)}</span>
+        ${bankInfo.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(bankInfo.ok)}</div>` : ""}
       </div>
     `;
   }
@@ -7626,10 +7634,10 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     const geoFieldsHtml = f.isGeolocation
       ? `
         <div class="field-row" style="margin-top:14px">
-          <div class="field"><label for="brLat">Latitude</label><input type="text" id="brLat" value="${f.latitude}" /></div>
-          <div class="field"><label for="brLng">Longitude</label><input type="text" id="brLng" value="${f.longitude}" /></div>
+          <div class="field"><label for="brLat">Latitude</label><input type="text" id="brLat" value="${escapeHtml(f.latitude)}" /></div>
+          <div class="field"><label for="brLng">Longitude</label><input type="text" id="brLng" value="${escapeHtml(f.longitude)}" /></div>
         </div>
-        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)"><label for="brRadius">Radius (meters)</label><input type="text" id="brRadius" value="${f.radiusInMeters}" /></div>
+        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)"><label for="brRadius">Radius (meters)</label><input type="text" id="brRadius" value="${escapeHtml(f.radiusInMeters)}" /></div>
       `
       : "";
     return `
@@ -7638,14 +7646,14 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">Generated from the muggle-friendly magic scroll's own office-name and BD-location pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
         ${branchExistingNoticeHtml(companyBranch.existing)}
         <div class="field-row">
-          <div class="field"><label for="brOfficeName">Office Name</label><input type="text" id="brOfficeName" value="${f.officeName}" /></div>
-          <div class="field"><label for="brDistrict">District</label><input type="text" id="brDistrict" value="${f.district}" /></div>
+          <div class="field"><label for="brOfficeName">Office Name</label><input type="text" id="brOfficeName" value="${escapeHtml(f.officeName)}" /></div>
+          <div class="field"><label for="brDistrict">District</label><input type="text" id="brDistrict" value="${escapeHtml(f.district)}" /></div>
         </div>
         <div class="field-row" style="margin-top:14px">
-          <div class="field"><label for="brCity">City</label><input type="text" id="brCity" value="${f.city}" /></div>
-          <div class="field"><label for="brZip">Zip Code</label><input type="text" id="brZip" value="${f.zipCode}" /></div>
+          <div class="field"><label for="brCity">City</label><input type="text" id="brCity" value="${escapeHtml(f.city)}" /></div>
+          <div class="field"><label for="brZip">Zip Code</label><input type="text" id="brZip" value="${escapeHtml(f.zipCode)}" /></div>
         </div>
-        <div class="field" style="margin-top:14px"><label for="brAddress">Address</label><input type="text" id="brAddress" value="${f.address}" /></div>
+        <div class="field" style="margin-top:14px"><label for="brAddress">Address</label><input type="text" id="brAddress" value="${escapeHtml(f.address)}" /></div>
         <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)">
           <label>Has Geolocation</label>
           <div class="seg seg-fill" id="brGeoSeg" role="group" aria-label="Has geolocation">
@@ -7659,8 +7667,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="brRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="brSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="brError">${companyBranch.error}</span>
-        ${companyBranch.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyBranch.ok}</div>` : ""}
+        <span class="error-text" id="brError">${escapeHtml(companyBranch.error)}</span>
+        ${companyBranch.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(companyBranch.ok)}</div>` : ""}
         ${createdListHtml(companyBranch.createdNames)}
       </div>
     `;
@@ -7831,13 +7839,13 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">Generated from the muggle-friendly magic scroll's own department-name pool. Regenerate re-rolls it; the name can still be edited by hand before saving.</p>
         ${departmentExistingNoticeHtml(companyDepartment.existing)}
         <button type="button" class="bulk-shortcut-btn" id="deptBulkEnterLink">Create all 6 default departments at once →</button>
-        <div class="field"><label for="deptModName">Or just this one — Department Name</label><input type="text" id="deptModName" value="${f.name}" /></div>
+        <div class="field"><label for="deptModName">Or just this one — Department Name</label><input type="text" id="deptModName" value="${escapeHtml(f.name)}" /></div>
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="tiny-btn" id="deptModRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="deptModSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="deptModError">${companyDepartment.error}</span>
-        ${companyDepartment.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDepartment.ok}</div>` : ""}
+        <span class="error-text" id="deptModError">${escapeHtml(companyDepartment.error)}</span>
+        ${companyDepartment.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(companyDepartment.ok)}</div>` : ""}
         ${createdListHtml(companyDepartment.createdNames)}
       </div>
     `;
@@ -7923,8 +7931,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   function bulkStatusHtml(item) {
     if (item.status === "creating") return `<span style="color:var(--text-faint)">${iconSpinner()} creating…</span>`;
     if (item.status === "done") return `<span style="color:var(--success); font-weight:600;">${iconCheck()} done</span>`;
-    if (item.status === "failed") return `<span class="error-text" style="margin:0" title="${item.message}">failed — ${item.message}</span>`;
-    if (item.status === "skipped") return `<span style="color:var(--text-faint)" title="${item.message}">skipped</span>`;
+    if (item.status === "failed") return `<span class="error-text" style="margin:0" title="${escapeHtml(item.message)}">failed — ${escapeHtml(item.message)}</span>`;
+    if (item.status === "skipped") return `<span style="color:var(--text-faint)" title="${escapeHtml(item.message)}">skipped</span>`;
     return `<span style="color:var(--text-faint)">not started</span>`;
   }
 
@@ -7941,7 +7949,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return `
       <div style="margin-top:14px;">
         <label style="font-size:11.5px; font-weight:600; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:6px;">Created this session (${createdNames.length})</label>
-        <div style="display:flex; flex-wrap:wrap; gap:6px;">${createdNames.map((n) => `<span class="tally">${n}</span>`).join("")}</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">${createdNames.map((n) => `<span class="tally">${escapeHtml(n)}</span>`).join("")}</div>
       </div>
     `;
   }
@@ -7976,12 +7984,12 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     const rows = bulk.items
       .map((it, i) => {
         const groupLabel = groupLabelFor ? groupLabelFor(it) : null;
-        const groupHeading = groupLabel !== null && groupLabel !== lastGroup ? ((lastGroup = groupLabel), `<div class="bulk-group-label">${groupLabel}</div>`) : "";
+        const groupHeading = groupLabel !== null && groupLabel !== lastGroup ? ((lastGroup = groupLabel), `<div class="bulk-group-label">${escapeHtml(groupLabel)}</div>`) : "";
         return `
           ${groupHeading}
           <label class="bulk-row">
             <input type="checkbox" data-idx="${i}" ${it.selected ? "checked" : ""} ${it.status === "skipped" || it.status === "done" || bulk.running ? "disabled" : ""} />
-            <span class="bulk-row-name">${it.name}</span>
+            <span class="bulk-row-name">${escapeHtml(it.name)}</span>
             ${bulkStatusHtml(it)}
           </label>
         `;
@@ -8305,7 +8313,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       companyDesignation.fields = generateDesignationFields(depts);
     }
     const f = companyDesignation.fields;
-    const options = depts.map((d) => `<option value="${d.id}" ${d.id === f.departmentId ? "selected" : ""}>${d.name}</option>`).join("");
+    const options = depts.map((d) => `<option value="${d.id}" ${d.id === f.departmentId ? "selected" : ""}>${escapeHtml(d.name)}</option>`).join("");
     return `
       <div class="section">
         ${head}
@@ -8324,15 +8332,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         }
         <button type="button" class="bulk-shortcut-btn" id="desigBulkEnterLink">Create 4 designations for each of this company's ${depts.length} department${depts.length === 1 ? "" : "s"} at once →</button>
         <div class="field-row">
-          <div class="field"><label for="desigName">Or just this one — Designation Name</label><input type="text" id="desigName" value="${f.name}" /></div>
+          <div class="field"><label for="desigName">Or just this one — Designation Name</label><input type="text" id="desigName" value="${escapeHtml(f.name)}" /></div>
           <div class="field"><label for="desigDept">Department</label><select id="desigDept">${options}</select></div>
         </div>
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="tiny-btn" id="desigRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="desigSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="desigError">${companyDesignation.error}</span>
-        ${companyDesignation.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companyDesignation.ok}</div>` : ""}
+        <span class="error-text" id="desigError">${escapeHtml(companyDesignation.error)}</span>
+        ${companyDesignation.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(companyDesignation.ok)}</div>` : ""}
         ${createdListHtml(companyDesignation.createdNames)}
       </div>
     `;
@@ -8518,7 +8526,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
             : ""
         }
         <div class="field-row">
-          <div class="field"><label for="cfName">Field Name</label><input type="text" id="cfName" value="${f.fieldName}" /></div>
+          <div class="field"><label for="cfName">Field Name</label><input type="text" id="cfName" value="${escapeHtml(f.fieldName)}" /></div>
           <div class="field"><label for="cfType">Type</label><select id="cfType">${typeOptions}</select></div>
         </div>
         ${choicesHtml}
@@ -8550,8 +8558,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="cfRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="cfSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="cfError">${customField.error}</span>
-        ${customField.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${customField.ok}</div>` : ""}
+        <span class="error-text" id="cfError">${escapeHtml(customField.error)}</span>
+        ${customField.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(customField.ok)}</div>` : ""}
         ${createdListHtml(customField.createdNames)}
       </div>
     `;
@@ -8701,7 +8709,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
             : ""
         }
         <div class="field-row">
-          <div class="field"><label for="rdName">Document Name</label><input type="text" id="rdName" value="${f.name}" /></div>
+          <div class="field"><label for="rdName">Document Name</label><input type="text" id="rdName" value="${escapeHtml(f.name)}" /></div>
           <div class="field">
             <label>Type</label>
             <div class="seg seg-fill" id="rdTypeSeg" role="group" aria-label="Type">
@@ -8731,8 +8739,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="rdRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="rdSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="rdError">${requiredDocument.error}</span>
-        ${requiredDocument.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${requiredDocument.ok}</div>` : ""}
+        <span class="error-text" id="rdError">${escapeHtml(requiredDocument.error)}</span>
+        ${requiredDocument.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(requiredDocument.ok)}</div>` : ""}
         ${createdListHtml(requiredDocument.createdNames)}
       </div>
     `;
@@ -9009,15 +9017,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
             : ""
         }
         <button type="button" class="bulk-shortcut-btn" id="ltBulkEnterLink">Create the default 3 leave types (Annual, Casual, Sick) at once →</button>
-        <div class="field"><label for="ltName">Or just this one — Name</label><input type="text" id="ltName" value="${f.name}" /></div>
+        <div class="field"><label for="ltName">Or just this one — Name</label><input type="text" id="ltName" value="${escapeHtml(f.name)}" /></div>
         ${detailsHtml}
 
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="tiny-btn" id="ltRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="ltSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="ltError">${leaveType.error}</span>
-        ${leaveType.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${leaveType.ok}</div>` : ""}
+        <span class="error-text" id="ltError">${escapeHtml(leaveType.error)}</span>
+        ${leaveType.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(leaveType.ok)}</div>` : ""}
         ${createdListHtml(leaveType.createdNames)}
       </div>
     `;
@@ -9308,7 +9316,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         return `
           <label class="lp-leave-row">
             <input type="checkbox" data-idx="${i}" ${entry.included ? "checked" : ""} />
-            <span class="lp-leave-name">${src ? src.name : entry.leaveTypeId}</span>
+            <span class="lp-leave-name">${escapeHtml(src ? src.name : entry.leaveTypeId)}</span>
             <span class="lp-leave-days">
               <input type="number" min="0" data-idx="${i}" value="${entry.days}" />
               <span class="lp-leave-days-label">days</span>
@@ -9323,12 +9331,12 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">Every leave type this company actually has, pulled live. Check off which ones this policy should include — all start checked — and set how many days each gets; name and status can still be edited by hand before saving.</p>
         ${
           leavePolicy.existing && leavePolicy.existing.length > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${leavePolicy.existing.length === 1 ? "a leave policy" : `${leavePolicy.existing.length} leave policies`}: <strong>${leavePolicy.existing.map((p) => p.name).join(", ")}</strong>. A new one can still be created.</p>`
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${leavePolicy.existing.length === 1 ? "a leave policy" : `${leavePolicy.existing.length} leave policies`}: <strong>${leavePolicy.existing.map((p) => escapeHtml(p.name)).join(", ")}</strong>. A new one can still be created.</p>`
             : ""
         }
         ${leavePolicyDefaultAvailable(leavePolicy.leaveTypes) ? `<button type="button" class="bulk-shortcut-btn" id="lpDefaultBtn">Create the default policy (Annual/Casual/Sick @ 12 days each) →</button>` : ""}
         <div class="field-row">
-          <div class="field"><label for="lpName">Name</label><input type="text" id="lpName" value="${f.name}" /></div>
+          <div class="field"><label for="lpName">Name</label><input type="text" id="lpName" value="${escapeHtml(f.name)}" /></div>
           <div class="field">
             <label>Status</label>
             <div class="seg seg-fill" id="lpStatusSeg" role="group" aria-label="Status">
@@ -9345,8 +9353,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="generate-btn" id="lpSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="lpError">${leavePolicy.error}</span>
-        ${leavePolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${leavePolicy.ok}</div>` : ""}
+        <span class="error-text" id="lpError">${escapeHtml(leavePolicy.error)}</span>
+        ${leavePolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(leavePolicy.ok)}</div>` : ""}
         ${createdListHtml(leavePolicy.createdNames)}
       </div>
     `;
@@ -9502,8 +9510,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="generate-btn" id="hcSyncBtn">Sync Holidays</button>
         </div>
-        <span class="error-text" id="hcError">${holidaySync.error}</span>
-        ${holidaySync.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${holidaySync.ok}</div>` : ""}
+        <span class="error-text" id="hcError">${escapeHtml(holidaySync.error)}</span>
+        ${holidaySync.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(holidaySync.ok)}</div>` : ""}
       </div>
     `;
   }
@@ -9569,7 +9577,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   function payrollGeneralExistingNoticeHtml(existing) {
     if (!existing || !existing.config) return "";
-    const cycleLabel = PAYROLL_CYCLE_DISPLAY_LABELS[existing.config.payrollCycle] || existing.config.payrollCycle;
+    const cycleLabel = PAYROLL_CYCLE_DISPLAY_LABELS[existing.config.payrollCycle] || escapeHtml(existing.config.payrollCycle);
     return `
       <div style="display:flex; gap:9px; align-items:flex-start; border-radius:6px; padding:12px 14px; margin-bottom:14px; font-size:13px; border:1px solid var(--warning); background:var(--warning-soft); color:var(--warning);">
         ${iconWarn()}
@@ -9636,8 +9644,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="pgRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="pgSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="pgError">${payrollGeneral.error}</span>
-        ${payrollGeneral.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${payrollGeneral.ok}</div>` : ""}
+        <span class="error-text" id="pgError">${escapeHtml(payrollGeneral.error)}</span>
+        ${payrollGeneral.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(payrollGeneral.ok)}</div>` : ""}
       </div>
     `;
   }
@@ -9805,8 +9813,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="scRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="scSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="scError">${salaryComponent.error}</span>
-        ${salaryComponent.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${salaryComponent.ok}</div>` : ""}
+        <span class="error-text" id="scError">${escapeHtml(salaryComponent.error)}</span>
+        ${salaryComponent.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(salaryComponent.ok)}</div>` : ""}
         ${createdListHtml(salaryComponent.createdNames)}
       </div>
     `;
@@ -10061,7 +10069,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="field-row" style="flex-wrap:wrap">
           <div class="field" style="max-width:110px">
             <label for="ssBasicPct">Basic %</label>
-            <input type="number" id="ssBasicPct" value="${f.basicSalaryPercentage}" min="0" max="100" />
+            <input type="number" id="ssBasicPct" value="${escapeHtml(f.basicSalaryPercentage)}" min="0" max="100" />
           </div>
           ${f.components
             .map(
@@ -10078,8 +10086,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="ssRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="ssSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="ssError">${companySalaryStructure.error}</span>
-        ${companySalaryStructure.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${companySalaryStructure.ok}</div>` : ""}
+        <span class="error-text" id="ssError">${escapeHtml(companySalaryStructure.error)}</span>
+        ${companySalaryStructure.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(companySalaryStructure.ok)}</div>` : ""}
       </div>
     `;
   }
@@ -10241,8 +10249,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="laRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="laSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="laError">${lateArrival.error}</span>
-        ${lateArrival.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${lateArrival.ok}</div>` : ""}
+        <span class="error-text" id="laError">${escapeHtml(lateArrival.error)}</span>
+        ${lateArrival.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(lateArrival.ok)}</div>` : ""}
       </div>
     `;
   }
@@ -10389,8 +10397,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="adRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="adSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="adError">${absentDeduction.error}</span>
-        ${absentDeduction.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${absentDeduction.ok}</div>` : ""}
+        <span class="error-text" id="adError">${escapeHtml(absentDeduction.error)}</span>
+        ${absentDeduction.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(absentDeduction.ok)}</div>` : ""}
       </div>
     `;
   }
@@ -10532,8 +10540,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="btRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="btSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="btError">${bonusType.error}</span>
-        ${bonusType.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${bonusType.ok}</div>` : ""}
+        <span class="error-text" id="btError">${escapeHtml(bonusType.error)}</span>
+        ${bonusType.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(bonusType.ok)}</div>` : ""}
         ${createdListHtml(bonusType.createdNames)}
       </div>
     `;
@@ -10740,13 +10748,13 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">Generated from the muggle-friendly magic scroll's own policy rule, drawing on this company's real bonus types. Name and bonus percentage can still be edited by hand before saving.</p>
         ${
           bonusPolicy.existing && bonusPolicy.existing.length > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${bonusPolicy.existing.length === 1 ? "a bonus policy" : `${bonusPolicy.existing.length} bonus policies`}: <strong>${bonusPolicy.existing.map((p) => p.name).join(", ")}</strong>. A new one can still be created.</p>`
+            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${bonusPolicy.existing.length === 1 ? "a bonus policy" : `${bonusPolicy.existing.length} bonus policies`}: <strong>${bonusPolicy.existing.map((p) => escapeHtml(p.name)).join(", ")}</strong>. A new one can still be created.</p>`
             : ""
         }
         <button type="button" class="bulk-shortcut-btn" id="bpBulkEnterLink">Create the default 3 (Eid Ul Fitr 40%, Eid Ul Adha 40%, Bangla New Year 20%) at once →</button>
         <div class="field-row">
-          <div class="field"><label for="bpName">Or just this one — Name</label><input type="text" id="bpName" value="${f.name}" /></div>
-          <div class="field"><label for="bpPercentage">Bonus %</label><input type="number" id="bpPercentage" value="${f.bonusPercentage}" min="1" max="200" /></div>
+          <div class="field"><label for="bpName">Or just this one — Name</label><input type="text" id="bpName" value="${escapeHtml(f.name)}" /></div>
+          <div class="field"><label for="bpPercentage">Bonus %</label><input type="number" id="bpPercentage" value="${escapeHtml(f.bonusPercentage)}" min="1" max="200" /></div>
         </div>
         <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
           <span class="tally">Bonus type <strong>${f._bonusTypeName}</strong></span>
@@ -10759,8 +10767,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="bpRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="bpSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="bpError">${bonusPolicy.error}</span>
-        ${bonusPolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${bonusPolicy.ok}</div>` : ""}
+        <span class="error-text" id="bpError">${escapeHtml(bonusPolicy.error)}</span>
+        ${bonusPolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(bonusPolicy.ok)}</div>` : ""}
         ${createdListHtml(bonusPolicy.createdNames)}
       </div>
     `;
@@ -11007,8 +11015,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="otRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="otSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="otError">${overtime.error}</span>
-        ${overtime.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${overtime.ok}</div>` : ""}
+        <span class="error-text" id="otError">${escapeHtml(overtime.error)}</span>
+        ${overtime.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(overtime.ok)}</div>` : ""}
       </div>
     `;
   }
@@ -11114,8 +11122,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="abRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="abSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="abError">${attendanceBonusCfg.error}</span>
-        ${attendanceBonusCfg.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${attendanceBonusCfg.ok}</div>` : ""}
+        <span class="error-text" id="abError">${escapeHtml(attendanceBonusCfg.error)}</span>
+        ${attendanceBonusCfg.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(attendanceBonusCfg.ok)}</div>` : ""}
       </div>
     `;
   }
@@ -11200,7 +11208,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
             : ""
         }
         <div class="field-row">
-          <div class="field"><label for="cadName">Name</label><input type="text" id="cadName" value="${f.name}" /></div>
+          <div class="field"><label for="cadName">Name</label><input type="text" id="cadName" value="${escapeHtml(f.name)}" /></div>
           <div class="field">
             <label>Type</label>
             <div class="seg seg-fill" id="cadTypeSeg" role="group" aria-label="Type">
@@ -11221,8 +11229,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="cadRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="cadSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="cadError">${customAdditionDeduction.error}</span>
-        ${customAdditionDeduction.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${customAdditionDeduction.ok}</div>` : ""}
+        <span class="error-text" id="cadError">${escapeHtml(customAdditionDeduction.error)}</span>
+        ${customAdditionDeduction.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(customAdditionDeduction.ok)}</div>` : ""}
         ${createdListHtml(customAdditionDeduction.createdNames)}
       </div>
     `;
@@ -11343,8 +11351,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
           <button type="button" class="generate-btn" id="ptSaveBtn">Enable Tax on ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="ptError">${payrollTax.error}</span>
-        ${payrollTax.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${payrollTax.ok}</div>` : ""}
+        <span class="error-text" id="ptError">${escapeHtml(payrollTax.error)}</span>
+        ${payrollTax.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(payrollTax.ok)}</div>` : ""}
       </div>
     `;
   }
@@ -11405,7 +11413,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   function attendancePolicyExistingNoticeHtml(existing) {
     if (!existing || existing.length === 0) return "";
-    const names = existing.map((p) => p.title).join(", ");
+    const names = existing.map((p) => escapeHtml(p.title)).join(", ");
     return `
       <div style="display:flex; gap:9px; align-items:flex-start; border-radius:6px; padding:12px 14px; margin-bottom:14px; font-size:13px; border:1px solid var(--warning); background:var(--warning-soft); color:var(--warning);">
         ${iconWarn()}
@@ -11459,7 +11467,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">Generated the same way QA's own test script rolls it — overtime, break and check-in/check-out limits are rolled per its logic. Only the title is exposed here for hand-editing; regenerate to re-roll everything else.</p>
         ${attendancePolicyExistingNoticeHtml(attendancePolicy.existing)}
         <div class="field-row">
-          <div class="field"><label for="apTitle">Title</label><input type="text" id="apTitle" value="${f.title}" /></div>
+          <div class="field"><label for="apTitle">Title</label><input type="text" id="apTitle" value="${escapeHtml(f.title)}" /></div>
         </div>
         <div style="margin-top:14px">
           <label style="font-size:12.5px; font-weight:600; color:var(--text); display:block; margin-bottom:8px;">Generated settings</label>
@@ -11470,8 +11478,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <button type="button" class="tiny-btn" id="apRegenerateBtn">↻ Regenerate</button>
           <button type="button" class="generate-btn" id="apSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="apError">${attendancePolicy.error}</span>
-        ${attendancePolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${attendancePolicy.ok}</div>` : ""}
+        <span class="error-text" id="apError">${escapeHtml(attendancePolicy.error)}</span>
+        ${attendancePolicy.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(attendancePolicy.ok)}</div>` : ""}
       </div>
     `;
   }

@@ -1157,6 +1157,80 @@ generic "Next." Wired once in `wireSetupGroupPage()`, same
 mid-bulk-run, a click on it is ignored exactly like a tab click would
 be, rather than needing its own separate mid-run guard.
 
+### Company Setup escapes every rendered string now — a real stored-XSS fix (2026-09-19)
+
+Found during a full security review requested directly by the user,
+covering the complete codebase rather than a diff: Phase 1 (the five
+original generators) has always run every user/file-supplied string
+through `escapeHtml()` (app.js, defined once, used 26 times there)
+before it goes into `innerHTML`. **Company Setup — roughly 5,800 lines,
+built entirely after Phase 1 — never called it once.** Every Name/Title/
+Legal Name/Bank Name/Address/… input's `value="..."`, every module's
+`.error`/`.ok` line, `setup.companyName`, `createdListHtml()`'s tags,
+every bulk list's row name and department-group heading, the Leave
+Policy checkable list's leave-type names, and every "already has
+values"/"already exists" notice that names a real fetched field or
+record — all interpolated raw.
+
+**Why this was a real vulnerability, not a theoretical one:** a
+department, leave type, designation, or custom field name is not just
+displayed once where it's typed — it's saved to the real company via
+`POST`, then **read back** by this app's own existing-checks, "already
+has values" notices, dependency dropdowns, and the Leave Policy list,
+every time anyone reopens that module for that company. So a payload
+doesn't need to be planted through Bulk Forge at all: anyone with
+ordinary access to the *real* Shomvob product can name a department or
+leave type with a script-bearing payload, and it executes the next time
+any Bulk Forge operator — potentially someone with company-admin access —
+opens that module for that company, in the same page holding that
+operator's live, authenticated bearer token. The tool-level session
+(`TOOL_SESSION_KEY`) sits in plain `sessionStorage`, directly readable by
+an injected script; the company bearer token itself is a closed-over
+variable, but every API call in this file uses the bare global `fetch`
+(no captured reference), so an injected script overriding `window.fetch`
+can intercept it the next time any Save runs. This is a genuine
+privilege-escalation chain, not a defacement bug — confirmed against
+the real code, not asserted from theory.
+
+**What this fix does *not* touch:** the app's own environment
+allowlist — `ENVIRONMENTS` (`app-data.js`) still hardcodes only `dev`
+and `staging`, no production URL exists anywhere in this codebase, and
+that (not this fix) is what keeps a full compromise of this tool from
+ever being able to reach real Shomvob production. This fix closes the
+path to compromising a live session against whichever dev/staging
+company is connected.
+
+**Mechanism:** `escapeHtml()` was made defensive first
+(`String(s == null ? "" : s).replace(...)` instead of `(s || "")
+.replace(...)`) — several Company Setup fields are genuine JS numbers
+(latitude, a salary percentage), not strings, and the original version
+throws on anything without its own `.replace()` method. With that in
+place, every render site was wrapped: field `value=`/`<textarea>`
+content, every `.error`/`.ok` line, `createdListHtml()`, `bulkStatusHtml()`
+and `bulkListTemplate()`'s row name/group heading, every "already has
+values" existing-check notice (including one real fallback path in
+Payroll General's cycle label that rendered the raw API value verbatim
+whenever it didn't match one of the 3 known cycle names), and the
+handful of `setup.companyName`/`setup.toolEmail` renders in the
+persistent strip and last-session notice. Deliberately **not** applied
+at the point a field's value is *constructed* (e.g. `legalName =
+\`${setup.companyName} ${suffix}\``) — only at the point it's
+*rendered* — escaping earlier would corrupt the actual value sent to
+the real API, which is a functional bug in its own right, not a fix.
+
+**Verified directly, not just reasoned about:** a real Playwright run
+saved a department named `Evil"><img src=x onerror="…">` through the
+single-item form, then separately fed the identical string back through
+a mocked `GET /departments/active` (standing in for someone else having
+planted it via the real product) into the Designation dependency
+dropdown. In both cases the payload rendered as inert literal text —
+`escapeHtml`'s output confirmed character-for-character in the DOM,
+zero `<img>` elements created, the `onerror` handler never fired. Full
+8-suite regression (566+ checks) still green — nothing changed about
+what any module actually sends to the real API, since numbers and
+already-legitimate short names contain none of the 5 characters
+`escapeHtml` touches.
+
 ### A clear (×) button on every text/number field (2026-09-11)
 
 Requested directly, once real-API testing started turning up fields the
