@@ -636,6 +636,36 @@ test-account data, and a `*.vercel.app` URL is guessable and indexable.
 `src/` is deliberately *not* excluded — `index.html` inlines all of it
 anyway, so hiding it would achieve nothing.
 
+**`vercel.json` added 2026-09-19, headers only** — a follow-up to the
+stored-XSS fix above, from the same security review, asked for directly
+("ar ki ki korte paro etar security bulletproof korte"). Sets a
+`Content-Security-Policy` plus `X-Frame-Options: DENY`,
+`X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-
+cross-origin`, and a `Permissions-Policy` disabling camera/mic/geolocation
+— none of which this app uses. **Honest about what this CSP does and
+doesn't buy**: `script-src` has to allow `'unsafe-inline'`, since the
+entire app is one inlined `<script>` in `index.html` with no build step
+to generate per-request nonces (a static nonce baked into a file built
+once and served to everyone would be visible in "view source" and
+protect nothing) — so this CSP does **not** block a *new* injected
+`<script>` or `onerror=` handler from executing, the way the escaping
+fix above does. What it *does* do, and does for real: **`connect-src`
+is locked to exactly the real hosts this app ever legitimately talks
+to** — `dev.api-hr.shomvob.com`, `staging.api-hr.shomvob.com`, and this
+project's own Supabase project — so even if some *future* bug
+reintroduced an injection point, a browser enforcing this header would
+refuse any `fetch`/`XHR`/`sendBeacon`/image-ping an injected script
+tried to make to an attacker's own domain, cutting off the exfiltration
+step even if the injection itself succeeded. `frame-ancestors 'none'`
+also closes the clickjacking gap noted in the same review — a
+meta-tag CSP can't set this directive at all, which is the reason this
+needed a real `vercel.json` header rather than another `<meta>` tag in
+`part1.html`. This file only adds response headers — no `builds`,
+`framework`, or `buildCommand` key — so it does not change how Vercel
+serves this as a plain static site, and doesn't reintroduce the
+"there must never be a `package.json` at the repo root" problem above,
+since it isn't one.
+
 ## Tests
 
 `tests/` holds browser tests that drive the built `index.html` in Chromium,
@@ -1230,6 +1260,22 @@ zero `<img>` elements created, the `onerror` handler never fired. Full
 what any module actually sends to the real API, since numbers and
 already-legitimate short names contain none of the 5 characters
 `escapeHtml` touches.
+
+**A second, exhaustive pass the same day found one more spot**: the
+persistent strip's Role row ran the real login response's `data.user
+.type` through `formatRoleLabel()` (a plain title-case transform) but
+never through `escapeHtml()` afterward — same category as everything
+above, just missed in the first pass since it's a *derived* string
+(passed through a formatting function first) rather than a raw field.
+Fixed the same way (`escapeHtml(formatRoleLabel(setup.companyUserType))`).
+Confirmed nothing legitimate breaks from any of this: a company/
+department name containing an apostrophe, an ampersand, and a double
+quote (`O'Brien & Sons "HR" Dept`) round-trips through both the
+persistent strip's display and every Name input's `value=` exactly
+byte-for-byte — `escapeHtml`'s HTML-entity encoding is decoded back to
+the original characters by the browser the moment it renders, so this
+is purely an output-safety measure with no visible effect on correctly-
+typed real data.
 
 ### A clear (×) button on every text/number field (2026-09-11)
 

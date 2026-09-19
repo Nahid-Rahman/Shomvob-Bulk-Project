@@ -3816,7 +3816,7 @@
         <div class="rules-body" style="border-top:none; padding:0; margin-top:10px;">
           <div class="rule-row"><span class="rule-col">Company</span><span class="rule-val">${escapeHtml(setup.companyName)}</span></div>
           <div class="rule-row"><span class="rule-col">Environment</span><span class="rule-val">${env.label}</span></div>
-          <div class="rule-row"><span class="rule-col">Role</span><span class="rule-val">${formatRoleLabel(setup.companyUserType)}</span></div>
+          <div class="rule-row"><span class="rule-col">Role</span><span class="rule-val">${escapeHtml(formatRoleLabel(setup.companyUserType))}</span></div>
         </div>
         <div class="setup-connected-actions">
           <button type="button" class="disconnect-btn" id="setupDisconnectBtn">Disconnect this company</button>
