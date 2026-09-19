@@ -515,6 +515,42 @@ Fixed in the one shared place all five suites call through, so no
 per-suite test changes were needed — confirmed by the full run staying
 at the exact same check counts (46/39/51/21/34) as before this change.
 
+**The sidebar's own Generate button, and the modal's quote box, both
+iterated further two days later (2026-09-17):**
+
+- **`#generateBtn`'s icon** (`part1.html`, static markup — this button
+  isn't templated in JS) **was still a download arrow**, which now reads
+  wrong: clicking it opens the "file ready" modal above, it doesn't
+  download anything itself any more. Swapped for a plain document/file
+  icon (a page outline with a folded corner and two content lines) —
+  `#gcDownloadBtn` inside the modal keeps its own `↓` character, since
+  *that* button genuinely does download.
+- **A quote was added to `#generateCompleteModal` itself**, on the same
+  idea "Run defaults"' own modal quote panel was built on (above) — and
+  went through three back-and-forth layout passes the same day before
+  landing:
+  1. First pass: matched "Run defaults" exactly — `.modal-card-split` +
+     a `.modal-quote-panel` side column, quote text and attribution
+     added ("Learn from the ones that came before, and lay the trail,
+     for the ones who come after." — Clair Obscure: Expedition 33, no
+     attribution originally, added this same pass).
+  2. Feedback ("quote ta pashe na, nicha thakle valo hoy" — below, not
+     beside) was read as "drop the boxed treatment entirely" — walked
+     back to a plain divider line under the body with the quote text
+     under that, no background or border at all.
+  3. **That reading was wrong, corrected the same day**: the actual ask
+     was to keep the same bordered/tinted box `.modal-quote-panel`
+     already used, just stacked under the body instead of beside it —
+     not to remove the box. Landed on `.modal-quote-box` (`app.css`) —
+     the same `var(--accent-soft)` background and rounded corners as the
+     side panel, `margin-top: 16px` instead of a `border-left`, no
+     separate divider line needed once the box itself supplies the
+     visual break. This is the version still live — `generateCompleteModal`
+     in `part1.html` keeps this quote as static markup (like "Run
+     defaults"' own panel, no state, never templated in JS), while
+     `#generateBtn`'s icon and `.modal-quote-box`'s CSS are the two
+     pieces that actually persisted through all three passes.
+
 ## Deployment
 
 **Live at https://shomvob-bulk-project.vercel.app** — Vercel project
