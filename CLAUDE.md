@@ -162,9 +162,32 @@ than anything else in this codebase.
 **User inputs:**
 - Number of employees: integer, min 10, max 300
 - Employee ID prefix: exactly 4 letters, auto-uppercased on input
-- Name source: Default (random Bangla names) or a character theme — Game
-  of Thrones / Harry Potter / Marvel / DC / Games Character (picked via
-  `THEME_POOLS` in `src/app-data.js`)
+- Name source: Default (random Bangla names) or a character theme —
+  Game of Thrones / Harry Potter / Marvel / DC / Games Character, plus 8
+  more added 2026-09-19 on direct request ("sobai like korse and sobai
+  aro name pool add er request korse" — this was the single most-liked
+  feature, and the most-requested addition): Squid Game, Stranger
+  Things, Money Heist, Breaking Bad, Anime Characters, Cricketers,
+  Footballers, WWE / UFC Athletes (picked via `THEME_POOLS` in
+  `src/app-data.js`, `.theme-grid`'s wrapping 3-column layout needed no
+  change to hold 14 cards instead of 6). Same `[First, Last, Gender]`
+  shape as every existing pool, including the same "invent a plausible
+  two-token split for a single-name character" trick the `games` pool
+  already used (`Master`/`Chief`, `Solid`/`Snake`) where a real one
+  wasn't confidently known — Money Heist's codenamed characters use
+  their real in-show identities instead (`Sergio`/`Marquina` for The
+  Professor, `Silene`/`Oliveira` for Tokyo, etc.), since a heist show
+  revealing real names *is* the character-name knowledge this feature
+  trades on, the same way GoT/HP pools do. **A "Bangla movie/natok
+  characters" pool and a "DCU universe" pool were asked for too but
+  deliberately not added yet** — flagged back to the user rather than
+  guessed: locally-specific Bangla drama/film character names carry a
+  real risk of being wrong in a way this app's international pools
+  don't, and a nine-Gunn-verse-plus-classics reading of "DCU" would have
+  overlapped several entries already in the existing `dc` pool verbatim
+  (`Amanda Waller`, `Rick Flag`, `Guy Gardner`, `Clark Kent`, `Bruce
+  Wayne`, `Diana Prince`) — worth resolving with the user rather than
+  shipping a near-duplicate pool or a guessed local one.
 - Departments: 6 defaults (HR, Engineering/IT, Sales & Business,
   Marketing, Finance & Accounts, Operations) each with 4 default
   designations, toggleable per-department between "use these defaults"
