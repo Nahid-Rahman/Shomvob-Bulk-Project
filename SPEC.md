@@ -226,6 +226,11 @@ Quirks found, and what they mean for us:
     to, asked as separate inputs:
     - what % of employees come in **late**, daily
     - what % are **absent**
+    - what % leave **early**, daily — default 5% (added 2026-09-21,
+      direct request: the real observed early-checkout frequency read
+      too high — before this there was no early-checkout scenario in
+      the generator at all, so this is a new, dedicated control rather
+      than a fix to an existing one)
     - what % do **overtime**, asked separately for **weekday**, **weekend**
       and **holiday** — and only asked at all when the company has
       overtime enabled
@@ -241,18 +246,25 @@ Quirks found, and what they mean for us:
     - **Late** — In Time falls after grace ends, a random 1–60 minutes
       past it (09:16–10:15 in the example above). The user said the exact
       lateness does not matter, so this range is our choice.
+    - **Early check-out** — Out Time falls before shift end, a random
+      15–60 minutes early. Checked before the ordinary on-time case but
+      after overtime, so an employee is never both on overtime and
+      leaving early the same day.
     - **Overtime on a weekday** — In Time as normal, Out Time pushed past
       shift end by up to the weekday maximum.
     - **Overtime on a weekend or holiday** — there is no regular shift
       that day, so the entire attendance is overtime: In Time = shift
       start, Out Time = shift start + the overtime hours (capped by that
       day type's maximum). A weekend row is therefore short, not a full
-      shift plus overtime — but **never under 15 minutes**: the real
-      importer rejects a shorter attendance outright ("Duration must be
-      at least 15 minutes"), found live 2026-09-21 on a real bulk upload,
-      20 rows rejected. A weekday's overtime never had this problem,
-      since it's added on top of an already-hours-long shift; only the
-      weekend/holiday case has nothing else backing the duration up.
+      shift plus overtime — but **never under 2 hours**: the real
+      importer outright rejects anything under 15 minutes ("Duration
+      must be at least 15 minutes"), found live 2026-09-21 on a real bulk
+      upload, 20 rows rejected; the floor was set to 2 hours rather than
+      just clearing that cliff, so the row still reads as an actual
+      worked shift and not a token punch. A weekday's overtime never had
+      this problem, since it's added on top of an already-hours-long
+      shift; only the weekend/holiday case has nothing else backing the
+      duration up.
 
 12. **Shifts that cross midnight** — a shift may end before it starts
     (10:00 PM – 06:00 AM). One shift is always one row, dated by the day
@@ -260,15 +272,18 @@ Quirks found, and what they mean for us:
     split across two dates, and Out Time reading earlier than In Time is
     expected and correct for such shifts.
 
-13. **An ordinary day** (present, not late, no overtime) carries real
-    jitter — people drift in early and leave a little after. Exact
-    shift-start / shift-end times would look fake, so:
+13. **An ordinary day** (present, not late, no overtime, no early
+    check-out) carries real jitter — people drift in early and leave a
+    little after. Exact shift-start / shift-end times would look fake,
+    so:
     - **In Time** — random between 10 minutes *before* shift start and
       the end of the grace period.
     - **Out Time** — random between shift end and 10 minutes after it.
 
     Overtime is a separate, much larger push past shift end, so a ten
-    minute overrun never reads as overtime.
+    minute overrun never reads as overtime — and early check-out's own
+    15-minute floor keeps it from reading as this same ordinary jitter
+    either.
 
 ### Form order
 
@@ -283,7 +298,8 @@ order is part of the spec — each answer reveals the next control:
 6. Holidays: BD govt / BD govt + custom / custom only / none
 7. Is there overtime? → if yes, max hours for weekday / weekend / holiday
 8. Grace period in minutes (default 15)
-9. Percentages: late, absent, and (if overtime) overtime per day type
+9. Percentages: late, absent, early check-out, and (if overtime)
+   overtime per day type
 10. Output time format
 
 ### Row generation, end to end
@@ -299,7 +315,9 @@ for each assigned employee:
   through the end of grace), or 1–60 minutes past the end of grace if they
   fall in the late percentage; Out is jittered just past shift end (0–10
   minutes), pushed further by up to the weekday overtime maximum if they
-  fall in the weekday overtime percentage.
+  fall in the weekday overtime percentage, or pulled 15–60 minutes earlier
+  than shift end if they fall in the early check-out percentage instead
+  (overtime is checked first, so the two never both apply the same day).
 
 The row's date is always the date the shift **started**.
 

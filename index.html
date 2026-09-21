@@ -3969,6 +3969,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
     latePct: 15,
     absentPct: 5,
+    earlyPct: 5,
 
     timeFormat: "h12",
   };
@@ -4206,7 +4207,9 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
             outMin =
               att.otEnabled && att.otMax.weekday > 0 && pctHit(att.otPct.weekday)
                 ? end + randInt(1, att.otMax.weekday * 60)
-                : end + randInt(0, 10);
+                : pctHit(att.earlyPct)
+                  ? end - randInt(15, 60) /* leaves 15–60 minutes before shift end */
+                  : end + randInt(0, 10);
           } else {
             /* weekend and holiday produce nothing unless this employee is
                one of the overtime cases — and then the whole attendance is
@@ -4218,8 +4221,12 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
             /* the real importer rejects an attendance under 15 minutes —
                unlike a weekday's overtime, which is added on top of an
                already-hours-long shift, this row's whole duration IS the
-               random draw, so it needs its own floor */
-            outMin = start + randInt(Math.min(15, max * 60), max * 60);
+               random draw, so it needs its own floor. Kept well clear of
+               that 15-minute cliff rather than hugging it: a real floor
+               of 2 hours reads as an actual worked shift, not a token
+               overtime punch — falls back to whatever max allows when the
+               configured max is under 2 hours. */
+            outMin = start + randInt(Math.min(120, max * 60), max * 60);
           }
 
           rows.push([id, ds, formatTime(inMin, fmt), formatTime(outMin, fmt)]);
@@ -4260,6 +4267,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <div class="rules-body">
             <div class="rule-row"><span class="rule-col">An ordinary day</span><span class="rule-val">In: 10 min before the shift → end of grace · Out: shift end → +10 min</span></div>
             <div class="rule-row"><span class="rule-col">Late</span><span class="rule-val">1–60 minutes past the end of grace</span></div>
+            <div class="rule-row"><span class="rule-col">Early check-out</span><span class="rule-val">15–60 minutes before shift end</span></div>
             <div class="rule-row"><span class="rule-col">Absent</span><span class="rule-val">no row at all that day</span></div>
             <div class="rule-row"><span class="rule-col">Weekend / holiday</span><span class="rule-val">nothing, unless it's overtime — then In = shift start, Out = start + OT</span></div>
             <div class="rule-row"><span class="rule-col">Overtime</span><span class="rule-val">not a column — it just pushes Out Time past the shift's end</span></div>
@@ -4344,8 +4352,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">8</span>Percentages</h2></div>
-        <p class="section-note">What share of people turn up late, don't turn up, and stay on.</p>
-        <div class="field-grid-2">
+        <p class="section-note">What share of people turn up late, don't turn up, leave early, and stay on.</p>
+        <div class="field-grid-3">
           <div class="field">
             <label for="latePct">Late (%)</label>
             <input type="number" id="latePct" min="0" max="100" value="${att.latePct}" />
@@ -4353,6 +4361,10 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
           <div class="field">
             <label for="absentPct">Absent (%)</label>
             <input type="number" id="absentPct" min="0" max="100" value="${att.absentPct}" />
+          </div>
+          <div class="field">
+            <label for="earlyPct">Early check-out (%)</label>
+            <input type="number" id="earlyPct" min="0" max="100" value="${att.earlyPct}" />
           </div>
         </div>
         <div id="otPctWrap"></div>
@@ -5042,6 +5054,10 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     });
     $("#absentPct").addEventListener("input", (e) => {
       att.absentPct = clampPct(e.target.value);
+      updateSummary();
+    });
+    $("#earlyPct").addEventListener("input", (e) => {
+      att.earlyPct = clampPct(e.target.value);
       updateSummary();
     });
 

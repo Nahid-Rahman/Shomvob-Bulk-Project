@@ -288,6 +288,20 @@ the parts that are easy to get wrong:
   overtime is what pushes Out Time past the shift's end.
 - **Absence and weekends are expressed as no row**, never a blank one —
   which also keeps all four required columns filled on every row written.
+- **Early check-out is its own %, default 5 — added 2026-09-21, direct
+  request** ("amader early check out er frequency ektu beshi lagtese" —
+  the real observed rate read too high). Before this there was no early-
+  checkout scenario at all: an ordinary weekday's Out Time was always
+  `end + randInt(0, 10)`, never earlier than shift end. `att.earlyPct`
+  (a plain percentage, same shape as `latePct`/`absentPct`) now sits
+  between the overtime check and the ordinary case in the weekday Out
+  Time branch: `pctHit(att.earlyPct) ? end - randInt(15, 60) : end +
+  randInt(0, 10)` — mirrors Late's own 1–60-minute spread in the
+  opposite direction, just floored at 15 rather than 1 so an early row
+  reads as a real early departure, not noise. Mutually exclusive with
+  overtime (checked first in the ternary) — an employee can't both work
+  overtime and leave early the same day, which the branch order already
+  guarantees.
 - **Weekends and holidays produce nothing** unless overtime is on and the
   employee falls in that day type's overtime percentage; then the whole
   attendance is overtime, In at shift start and Out at start + overtime.
@@ -320,10 +334,15 @@ the parts that are easy to get wrong:
   60)` — unlike a weekday's overtime, which is added on top of an
   already-hours-long shift and so is never at risk, this is the row's
   *entire* In-to-Out span, and could roll as low as 1 minute. Fixed with
-  a floor: `randInt(Math.min(15, max * 60), max * 60)` — the `Math.min`
-  is defensive only, since `max` is always ≥1 whole hour by the time this
-  branch runs (the UI's own `otMax` input is integer hours, and the
-  branch already requires `max > 0`), so the real minimum was always 60.
+  a floor of **2 hours**, not just clearing the 15-minute cliff — direct
+  follow-up request the same day ("min 2-3 hrs jeno shift time thake") —
+  a bare 15-minute floor technically passes the real importer but still
+  reads as an unrealistic token punch, not an actual worked shift:
+  `randInt(Math.min(120, max * 60), max * 60)`. The `Math.min` falls back
+  to whatever the configured max allows when it's under 2 hours (the
+  weekend/holiday max defaults to 4h, so the common case is a 2-4h range)
+  rather than erroring — `att.otMax[type]` is a plain UI-entered integer
+  hour count, nothing stops a user setting it to 1.
 
 ### Assets Add — built, tested, do not change without asking
 

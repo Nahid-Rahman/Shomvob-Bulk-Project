@@ -31,6 +31,7 @@ async function fillCommon(page, opts) {
   await page.click(`#otSeg button[data-ot="${opts.ot ? "yes" : "no"}"]`);
   await page.fill("#latePct", String(opts.latePct == null ? 0 : opts.latePct));
   await page.fill("#absentPct", String(opts.absentPct == null ? 0 : opts.absentPct));
+  await page.fill("#earlyPct", String(opts.earlyPct == null ? 0 : opts.earlyPct));
   await page.click(`#fmtGrid button[data-fmt="${opts.fmt || "h24"}"]`);
 }
 
@@ -87,14 +88,15 @@ async function fillCommon(page, opts) {
   check("B weekend rows appear", wRows.length === ids.length * weekendDays,
     `${wRows.length} vs ${ids.length * weekendDays}`);
   check("B weekend In = shift start", wRows.every((r) => toMin(r[2]) === 540));
-  check("B weekend Out inside start+15min .. start+4h",
-    wRows.every((r) => toMin(r[3]) >= 555 && toMin(r[3]) <= 780),
+  check("B weekend Out inside start+2h .. start+4h",
+    wRows.every((r) => toMin(r[3]) >= 660 && toMin(r[3]) <= 780),
     "min=" + Math.min(...wRows.map((r) => toMin(r[3]))) + " max=" + Math.max(...wRows.map((r) => toMin(r[3]))));
   /* the real importer rejects an attendance under 15 minutes — a weekend/
      holiday overtime row's whole duration is this random draw, unlike a
-     weekday's, which is added on top of an already-hours-long shift */
-  check("B weekend duration is never under 15 minutes",
-    wRows.every((r) => toMin(r[3]) - toMin(r[2]) >= 15),
+     weekday's, which is added on top of an already-hours-long shift.
+     Floored at 2 hours rather than hugging that 15-minute cliff. */
+  check("B weekend duration is never under 2 hours",
+    wRows.every((r) => toMin(r[3]) - toMin(r[2]) >= 120),
     "min duration=" + Math.min(...wRows.map((r) => toMin(r[3]) - toMin(r[2]))));
 
   /* ---------- C. two shifts, assigned explicitly, no employee in both ---------- */
@@ -217,6 +219,18 @@ async function fillCommon(page, opts) {
   check("H everyone late: in-time inside (09:15, 10:15]",
     H.rows.every((r) => toMin(r[2]) > 555 && toMin(r[2]) <= 615),
     "min=" + Math.min(...H.rows.map((r) => toMin(r[2]))) + " max=" + Math.max(...H.rows.map((r) => toMin(r[2]))));
+
+  /* ---------- I. early check-out (2026-09-21, direct request: the real
+     frequency was reading too high, so this is now a dedicated % input,
+     default 5, same as Late/Absent) ---------- */
+  await gotoAttendance(page);
+  await fillCommon(page, { ids, from: "2026-09-01", to: "2026-09-30", earlyPct: 100 });
+  const I = await generate(page, XLSX, "I-all-early");
+  check("I everyone leaves early: out-time inside [16:00, 16:45]",
+    I.rows.every((r) => toMin(r[3]) >= 960 && toMin(r[3]) <= 1005),
+    "min=" + Math.min(...I.rows.map((r) => toMin(r[3]))) + " max=" + Math.max(...I.rows.map((r) => toMin(r[3]))));
+  check("I still never overlaps overtime — earlyPct only applies when overtime doesn't fire",
+    I.rows.every((r) => toMin(r[3]) < 1020));
 
   await browser.close();
   report("Employee Attendance Add", state, pageErrors);
