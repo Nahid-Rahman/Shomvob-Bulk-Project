@@ -232,6 +232,25 @@ async function fillCommon(page, opts) {
   check("I still never overlaps overtime — earlyPct only applies when overtime doesn't fire",
     I.rows.every((r) => toMin(r[3]) < 1020));
 
+  /* ---------- J. weekday overtime is never a 1-minute token (2026-09-21,
+     direct request: "OT hishabe jader nichi, ora jeno min 45 min kore") ---------- */
+  await gotoAttendance(page);
+  await fillCommon(page, { ids, from: "2026-09-01", to: "2026-09-30", ot: true });
+  await page.fill("#otWeekday", "2");
+  await page.fill("#otWeekend", "0");
+  await page.fill("#otHoliday", "0");
+  await page.fill("#otPctWeekday", "100");
+  await page.fill("#otPctWeekend", "0");
+  await page.fill("#otPctHoliday", "0");
+  const J = await generate(page, XLSX, "J-all-weekday-ot");
+  const jWeekdayRows = J.rows.filter((r) => !isWeekend(ymd(r[1])));
+  check("J everyone on weekday overtime: out-time inside [17:45, 19:00]",
+    jWeekdayRows.every((r) => toMin(r[3]) >= 1065 && toMin(r[3]) <= 1140),
+    "min=" + Math.min(...jWeekdayRows.map((r) => toMin(r[3]))) + " max=" + Math.max(...jWeekdayRows.map((r) => toMin(r[3]))));
+  check("J weekday overtime is never under 45 minutes",
+    jWeekdayRows.every((r) => toMin(r[3]) - 1020 >= 45),
+    "min OT=" + Math.min(...jWeekdayRows.map((r) => toMin(r[3]) - 1020)));
+
   await browser.close();
   report("Employee Attendance Add", state, pageErrors);
 })();

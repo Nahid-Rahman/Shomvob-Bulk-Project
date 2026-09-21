@@ -251,7 +251,10 @@ Quirks found, and what they mean for us:
       after overtime, so an employee is never both on overtime and
       leaving early the same day.
     - **Overtime on a weekday** — In Time as normal, Out Time pushed past
-      shift end by up to the weekday maximum.
+      shift end by up to the weekday maximum, **never by less than 45
+      minutes** (direct request 2026-09-21: "OT hishabe jader nichi, ora
+      jeno min 45 min kore" — whoever counts as on overtime should do a
+      real stretch of it, not a 1-minute token).
     - **Overtime on a weekend or holiday** — there is no regular shift
       that day, so the entire attendance is overtime: In Time = shift
       start, Out Time = shift start + the overtime hours (capped by that

@@ -1270,7 +1270,7 @@
               : start + randInt(-10, att.grace);
             outMin =
               att.otEnabled && att.otMax.weekday > 0 && pctHit(att.otPct.weekday)
-                ? end + randInt(1, att.otMax.weekday * 60)
+                ? end + randInt(Math.min(45, att.otMax.weekday * 60), att.otMax.weekday * 60) /* real overtime, not a 1-minute token */
                 : pctHit(att.earlyPct)
                   ? end - randInt(15, 60) /* leaves 15–60 minutes before shift end */
                   : end + randInt(0, 10);

@@ -302,6 +302,15 @@ the parts that are easy to get wrong:
   overtime (checked first in the ternary) — an employee can't both work
   overtime and leave early the same day, which the branch order already
   guarantees.
+- **Weekday overtime also got a floor, same day, same conversation**
+  ("OT hishabe jader nichi, ora jeno min 45 min kore" — whoever's
+  counted as on overtime should do at least 45 minutes of it): the
+  weekday branch's own `randInt(1, otMax.weekday * 60)` had the identical
+  shape as the weekend/holiday bug above — down to a 1-minute token —
+  just never surfaced by the real importer's rejection, since it's added
+  on top of an already-hours-long shift and so never dropped the row's
+  *total* duration under 15 minutes. Floored the same way:
+  `randInt(Math.min(45, otMax.weekday * 60), otMax.weekday * 60)`.
 - **Weekends and holidays produce nothing** unless overtime is on and the
   employee falls in that day type's overtime percentage; then the whole
   attendance is overtime, In at shift start and Out at start + overtime.
