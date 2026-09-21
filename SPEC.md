@@ -247,7 +247,12 @@ Quirks found, and what they mean for us:
       that day, so the entire attendance is overtime: In Time = shift
       start, Out Time = shift start + the overtime hours (capped by that
       day type's maximum). A weekend row is therefore short, not a full
-      shift plus overtime.
+      shift plus overtime — but **never under 15 minutes**: the real
+      importer rejects a shorter attendance outright ("Duration must be
+      at least 15 minutes"), found live 2026-09-21 on a real bulk upload,
+      20 rows rejected. A weekday's overtime never had this problem,
+      since it's added on top of an already-hours-long shift; only the
+      weekend/holiday case has nothing else backing the duration up.
 
 12. **Shifts that cross midnight** — a shift may end before it starts
     (10:00 PM – 06:00 AM). One shift is always one row, dated by the day

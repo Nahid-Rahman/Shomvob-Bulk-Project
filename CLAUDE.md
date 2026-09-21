@@ -312,6 +312,18 @@ the parts that are easy to get wrong:
   Muharram, Chaitra Sankranti and Student-People Uprising Day outright.
   Adding a year is one more key; a range in a year with no key gets no
   holidays and the UI says so.
+- **A weekend/holiday overtime row's duration must be at least 15
+  minutes — a real bug, found live 2026-09-21** on a real bulk upload
+  ("Duration must be at least 15 minutes! (found 20 times)", the real
+  importer's own rejection). `generateAttendanceRows()`'s weekend/holiday
+  branch built the whole row's duration from a single `randInt(1, max *
+  60)` — unlike a weekday's overtime, which is added on top of an
+  already-hours-long shift and so is never at risk, this is the row's
+  *entire* In-to-Out span, and could roll as low as 1 minute. Fixed with
+  a floor: `randInt(Math.min(15, max * 60), max * 60)` — the `Math.min`
+  is defensive only, since `max` is always ≥1 whole hour by the time this
+  branch runs (the UI's own `otMax` input is integer hours, and the
+  branch already requires `max > 0`), so the real minimum was always 60.
 
 ### Assets Add — built, tested, do not change without asking
 

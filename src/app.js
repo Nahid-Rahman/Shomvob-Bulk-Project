@@ -1279,7 +1279,11 @@
             const max = att.otMax[type];
             if (!(max > 0) || !pctHit(att.otPct[type])) return;
             inMin = start;
-            outMin = start + randInt(1, max * 60);
+            /* the real importer rejects an attendance under 15 minutes —
+               unlike a weekday's overtime, which is added on top of an
+               already-hours-long shift, this row's whole duration IS the
+               random draw, so it needs its own floor */
+            outMin = start + randInt(Math.min(15, max * 60), max * 60);
           }
 
           rows.push([id, ds, formatTime(inMin, fmt), formatTime(outMin, fmt)]);

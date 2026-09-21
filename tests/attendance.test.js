@@ -87,9 +87,15 @@ async function fillCommon(page, opts) {
   check("B weekend rows appear", wRows.length === ids.length * weekendDays,
     `${wRows.length} vs ${ids.length * weekendDays}`);
   check("B weekend In = shift start", wRows.every((r) => toMin(r[2]) === 540));
-  check("B weekend Out inside start+1min .. start+4h",
-    wRows.every((r) => toMin(r[3]) > 540 && toMin(r[3]) <= 780),
-    "max=" + Math.max(...wRows.map((r) => toMin(r[3]))));
+  check("B weekend Out inside start+15min .. start+4h",
+    wRows.every((r) => toMin(r[3]) >= 555 && toMin(r[3]) <= 780),
+    "min=" + Math.min(...wRows.map((r) => toMin(r[3]))) + " max=" + Math.max(...wRows.map((r) => toMin(r[3]))));
+  /* the real importer rejects an attendance under 15 minutes — a weekend/
+     holiday overtime row's whole duration is this random draw, unlike a
+     weekday's, which is added on top of an already-hours-long shift */
+  check("B weekend duration is never under 15 minutes",
+    wRows.every((r) => toMin(r[3]) - toMin(r[2]) >= 15),
+    "min duration=" + Math.min(...wRows.map((r) => toMin(r[3]) - toMin(r[2]))));
 
   /* ---------- C. two shifts, assigned explicitly, no employee in both ---------- */
   await gotoAttendance(page);
