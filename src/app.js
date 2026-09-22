@@ -5660,10 +5660,23 @@
        limit/status query params) wraps the array one level deeper as
        data.data.components alongside its own metadata — so this always
        silently returned [] for it, regardless of how many real records
-       existed, permanently blocking Configure Salary Components. */
+       existed, permanently blocking Configure Salary Components.
+
+       Same bug, same shape, found again 2026-09-22 for both workforce
+       endpoints — confirmed live against a real staging company (Nexa
+       Technologies) that visibly had a real pattern in the actual HRIS
+       admin screen while Bulk Forge insisted it had zero time slots:
+       `GET .../workforce/time-slots` wraps its array as
+       data.data.timeSlots, and `GET .../workforce/patterns` wraps its
+       as data.data.patterns — neither is a paginated endpoint, so this
+       wasn't "only the paginated ones wrap," it's just an inconsistency
+       across the real API's own endpoints that has to be checked for
+       every time, not assumed fixed once. */
     if (Array.isArray(data.data)) return data.data;
     if (data.data && Array.isArray(data.data.components)) return data.data.components;
     if (data.data && Array.isArray(data.data.policies)) return data.data.policies;
+    if (data.data && Array.isArray(data.data.timeSlots)) return data.data.timeSlots;
+    if (data.data && Array.isArray(data.data.patterns)) return data.data.patterns;
     return [];
   }
 

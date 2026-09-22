@@ -186,15 +186,21 @@ async function toGrid(page, companyName = "Hogwarts") {
      (2026-09-22) — GET and the real save (POST) share this exact URL,
      unlike most of the others above, so branch on method the same way
      Locations'/Leave Policy's/Bonus Policy's own defaults do. */
+  /* Wrapped as data.data.timeSlots/data.data.patterns for real, not a
+     flat data array — confirmed live 2026-09-22 against a real staging
+     company that visibly had a pattern while Bulk Forge insisted it had
+     no time slots (see fetchCompanyResource()'s own comment in app.js).
+     Mocked in this real shape on purpose, not the flatter shape that
+     let the original bug slip past every test. */
   await page.route("**/api/v1/workforce/time-slots", (route) => {
-    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { timeSlots: [] } }) });
     else route.continue();
   });
   /* Same default for Create Roster Pattern's own dependency check
      (2026-09-23) — blocked (or not) on whether any real time slot
      exists, checked the moment this tab first opens. */
   await page.route("**/api/v1/workforce/patterns", (route) => {
-    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { patterns: [] } }) });
     else route.continue();
   });
   await gotoSetup(page);
@@ -3214,7 +3220,7 @@ async function toGrid(page, companyName = "Hogwarts") {
        CORS-blocked-request gotcha this file has hit before. */
     await page.route("**/api/v1/workforce/time-slots", (route) => {
       if (route.request().method() !== "POST") {
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { timeSlots: [] } }) });
       }
       sentBody = route.request().postDataJSON();
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
@@ -3258,7 +3264,7 @@ async function toGrid(page, companyName = "Hogwarts") {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ status: "success", data: [{ id: "ts-1", name: "Default" }, { id: "ts-2", name: "Evening Shift" }] }),
+          body: JSON.stringify({ status: "success", data: { timeSlots: [{ id: "ts-1", name: "Default" }, { id: "ts-2", name: "Evening Shift" }] } }),
         });
       }
       sentBody = route.request().postDataJSON();
@@ -3309,12 +3315,12 @@ async function toGrid(page, companyName = "Hogwarts") {
       route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ status: "success", data: [{ id: "ts-other", name: "Evening Shift" }, { id: "ts-default", name: "Default" }] }),
+        body: JSON.stringify({ status: "success", data: { timeSlots: [{ id: "ts-other", name: "Evening Shift" }, { id: "ts-default", name: "Default" }] } }),
       });
     });
     await page.route("**/api/v1/workforce/patterns", (route) => {
       if (route.request().method() === "GET") {
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "p-1", name: "Evening Pattern" }] }) });
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { patterns: [{ id: "p-1", name: "Evening Pattern" }] } }) });
       }
       sentBody = route.request().postDataJSON();
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
@@ -3347,10 +3353,10 @@ async function toGrid(page, companyName = "Hogwarts") {
     await toGrid(page);
     await page.route("**/api/v1/workforce/time-slots", (route) => {
       if (route.request().method() !== "GET") return route.continue();
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "ts-morning", name: "Morning Shift" }] }) });
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { timeSlots: [{ id: "ts-morning", name: "Morning Shift" }] } }) });
     });
     await page.route("**/api/v1/workforce/patterns", (route) => {
-      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { patterns: [] } }) });
       sentBody = route.request().postDataJSON();
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
     });

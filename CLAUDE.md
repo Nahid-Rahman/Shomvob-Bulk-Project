@@ -3265,6 +3265,54 @@ since a company can hold any number of real patterns) and the same
 as every other default-shortcut — matched by the literal name "Standard
 Pattern" before offering to create a second one.
 
+### `fetchCompanyResource()` was silently broken for both workforce endpoints (2026-09-22)
+
+Found live, the same day Create Roster Pattern shipped: a real staging
+company ("Nexa Technologies") visibly had a real pattern in the actual
+HRIS admin screen — its "Working Hours → Patterns" tab showed "Standard
+work," and a pattern can't exist without at least one real time slot
+backing it — while Bulk Forge's own Create Roster Pattern tab insisted
+"This company doesn't have a Time Slot yet" and blocked. The user
+flagged the mismatch directly with two screenshots side by side rather
+than accepting it, then supplied real (temporary, used only in-memory
+for this one verification, not written to any file afterward — the
+scratch files used to hold the token during the check were deleted the
+same session) staging credentials for that exact company to check
+against, the same discipline as every other live-API verification pass
+in this project.
+
+**The exact same bug class as Configure Salary Components' 2026-09-11
+fix, just on two more endpoints.** `fetchCompanyResource()` assumed
+every list endpoint answers with a flat array at `data.data` unless it
+was a known paginated one — confirmed via real `curl` calls (login as
+the real company, then hit both endpoints with the resulting bearer
+token) that this was never true for either workforce endpoint, paginated
+or not: `GET .../workforce/time-slots` wraps its array as
+`data.data.timeSlots`, `GET .../workforce/patterns` wraps its as
+`data.data.patterns` — neither takes `limit`/`status` query params, so
+"only the paginated ones wrap" (the assumption baked into the function's
+own 2026-09-11 comment) turned out not to hold. Both silently returned
+`[]` no matter how much real data existed — Create Roster's own
+existing-count notice was equally broken by the same bug, just never
+reported, since an empty notice reads as "nothing yet" rather than
+visibly wrong the way a hard block does.
+
+Fixed by widening `fetchCompanyResource()`'s existing fallback chain
+with two more wrapper keys (`timeSlots`, `patterns`), same shape as the
+`components`/`policies` fallbacks already there — not by adding
+per-caller special cases. **The test mocks for both endpoints were
+rewritten to use the real wrapped shape** (`{data: {timeSlots: [...]}}`
+/ `{data: {patterns: [...]}}`) rather than the flatter shape that let
+the original bug through every check — the exact gotcha already
+documented for Configure Salary Components' own fix ("the existing
+test's own mock for this endpoint used a flat array too, which is
+exactly why it never caught this"), just repeated because the same
+"assume flat unless proven otherwise" default doesn't hold in general.
+**The lesson, worth remembering for any future workforce/schedule
+endpoint**: verify this app's own wrapping-key assumption against the
+real response every time, don't extend the paginated-endpoints-only
+theory to a new endpoint just because it's from the same product area.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both
