@@ -3205,16 +3205,75 @@ nor `roster_pattern` are in `MASTER_RUN_MODULE_IDS` — the whole-company
 "Run every default" stays the same curated 15 it always was; a
 per-group Schedule Management run still covers both.
 
+### Create Roster Pattern — Schedule Management's second module (2026-09-23)
+
+`POST /workforce/patterns`. The user handed this over the same way as
+Create Roster — no Postman collection entry, a real endpoint and payload
+supplied directly, and this time a deliberate serial walkthrough ("ja ja
+boli carefully shuno serially execute korba") rather than everything at
+once: fetch the real time slot first, then check for existing patterns,
+then create. Each step confirmed before the next was given.
+
+**A real cross-module dependency, the first one this app has had on
+Create Roster.** Every entry in a pattern references a real Time Slot by
+its id, so this module needs at least one to exist first —
+`fetchCompanyResource("/workforce/time-slots")`, the exact same URL
+Create Roster's own existing-check already calls, fetched independently
+here rather than sharing that module's cache (same "own independent
+fetch even though it's the same endpoint" shape Late Arrival/Absent
+Deduction already use for their shared Leave Type dependency). Zero real
+time slots → blocked with `dependencyNoticeHtml("Time Slot", "schedule",
+"roster")`, a shortcut straight to Create Roster, same shape as every
+other real dependency in this app (Designation→Department, Leave
+Policy→Leave Type, Configure Salary Components→2 Active components).
+
+**`dayIndex` 0-4 maps to Sunday through Thursday — confirmed directly
+with the user before writing any code, not guessed.** Asked explicitly
+because getting this wrong would silently mis-schedule every pattern:
+does happen to match both BD's real work week and JS's own
+`Date.getDay()` convention (0 = Sunday), but that alignment was
+confirmed, not assumed from it looking plausible.
+
+**Deliberately one action, not a full generate/edit form — direct user
+instruction** ("eta editable kora possible but onek pera... eta phase
+two er jonno rakho," roughly: making it editable is a lot of hassle,
+keep that for phase two): assigning a different time slot to each of
+the 5 days only makes sense once a company has more than one real time
+slot to actually choose between, which isn't guaranteed yet. Only
+**Name** (default `"Standard Pattern"`) is a real input; `isCustomCycle`
+is always `false` and every entry's `dayIndex`/`timeSlotId`/`isWfh` are
+always the fixed shape from the user's own real payload — no random
+pools, no Regenerate, matching Holiday Calendar's "one action" simplicity
+but with the one field the user asked to keep editable. **Per-day/
+per-slot assignment is a named phase-two item**, not forgotten scope —
+flagged in the module's own code comment, not just here.
+
+**The real time slot to use is picked by matching the name "Default"
+first** (`pickDefaultTimeSlot()`) — same "match the known default by
+name" instinct as Configure Salary Components' filler and Leave Policy's
+own default policy — **falling back to whichever real time slot exists
+first** if a company's slots were all made or renamed by hand instead,
+so this still works rather than blocking on a name match that doesn't
+happen to exist. Verified by test (`BQ`): a company with only a
+"Morning Shift" slot (no "Default") still creates a pattern, correctly
+using that slot's real id.
+
+Same existing-count notice shape as Locations/Department/etc. ("already
+has N patterns — more can still be added from here," not a warning box,
+since a company can hold any number of real patterns) and the same
+`runDefaultRosterPattern()` "check what already exists first" discipline
+as every other default-shortcut — matched by the literal name "Standard
+Pattern" before offering to create a second one.
+
 ### What's not built yet
 
-"Create Roster Pattern" (Schedule Management's second module, above) —
-waiting on the user to supply its real shape, same as every other module
-in this app was built only once its shape was confirmed rather than
-guessed. Nothing else — every other module in every `SETTINGS_GROUPS`
-group has a real handler; `settingsComingSoonHtml()`'s fallback has no
-other reachable gap left under normal navigation and stays in the code
-the same way `renderMain()`'s own "Coming soon" branch did after phase
-1's five operations were built.
+Nothing — every module in every `SETTINGS_GROUPS` group (including both
+of Schedule Management's) now has a real handler; per-day/per-slot
+assignment for Roster Pattern (above) is a deliberately deferred phase
+two, not a gap. `settingsComingSoonHtml()`'s fallback has no reachable
+gap left under normal navigation and stays in the code the same way
+`renderMain()`'s own "Coming soon" branch did after phase 1's five
+operations were built.
 
 Two to three of the ~20 modules were expected to need a rework pass once
 tried against a real environment — the user's own estimate, given before

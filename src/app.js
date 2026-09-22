@@ -544,6 +544,7 @@
     tax: '<circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/><path d="M18 6 6 18"/>',
     attendance_policy: '<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18"/><path d="M8 3v3M16 3v3"/><circle cx="15.5" cy="15" r="3.2"/><path d="M15.5 13.3V15l1.3.9"/>',
     roster: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M7 13h4M7 16h7"/><path d="M8 2v4M16 2v4"/>',
+    roster_pattern: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M7 13h2M11 13h2M15 13h2M7 16h2M11 16h2"/><path d="M8 2v4M16 2v4"/>',
   };
   function settingsModuleIconHtml(moduleId) {
     const paths = SETTINGS_MODULE_ICONS[moduleId];
@@ -4156,6 +4157,7 @@
     tax: { template: payrollTaxTemplate, wire: wirePayrollTaxEvents },
     attendance_policy: { template: attendancePolicyTemplate, wire: wireAttendancePolicyEvents },
     roster: { template: rosterTemplate, wire: wireRosterEvents },
+    roster_pattern: { template: rosterPatternTemplate, wire: wireRosterPatternEvents },
   };
 
   function setupGroupPageTemplate() {
@@ -5071,12 +5073,206 @@
     return { status: "done" };
   }
 
-  /* "Create Roster Pattern" has no real shape yet — the user hasn't
-     supplied it. This stub only exists so "Run defaults for Schedule
-     Management" (which walks every module in the group) doesn't throw
-     calling an undefined runner; it never claims to have done anything. */
+  /* ---------- Create Roster Pattern — Schedule Management's second
+     module (2026-09-23) ----------
+
+     POST /workforce/patterns. A real cross-module dependency on Create
+     Roster — every entry references a real Time Slot by id, so this
+     module needs at least one to already exist (`GET
+     /workforce/time-slots`, the exact same endpoint Create Roster's own
+     existing-check already calls, fetched independently here rather
+     than sharing that module's cache — same "own independent fetch even
+     though it's the same endpoint" shape Late Arrival/Absent Deduction
+     already use for their shared Leave Type dependency). `dayIndex`
+     0-4 mapping to Sunday through Thursday — confirmed directly with
+     the user, not guessed: matches BD's real work week and happens to
+     line up with JS's own Date.getDay() convention (0 = Sunday) too.
+
+     Deliberately a single action, not a full generate/edit form —
+     direct user instruction ("eta editable kora possible but onek
+     pera... eta phase two er jonno rakho"): assigning a different time
+     slot per day only makes sense once a company has more than one real
+     time slot to actually choose between, which isn't guaranteed yet.
+     Only Name is a real input; `isCustomCycle` and every entry's
+     `dayIndex`/`timeSlotId`/`isWfh` are always the fixed shape from the
+     user's own real payload — noted here, not forgotten, as a named
+     phase-two item once per-day assignment is wanted. */
+  const rosterPattern = { fields: null, error: "", ok: "", createdNames: [], existing: undefined, timeSlots: null, loadError: "" };
+
+  async function loadRosterPatternTimeSlots() {
+    try {
+      rosterPattern.timeSlots = await fetchCompanyResource("/workforce/time-slots");
+      rosterPattern.loadError = "";
+    } catch (e) {
+      rosterPattern.timeSlots = null;
+      rosterPattern.loadError = e.message;
+    }
+  }
+
+  async function loadRosterPatternExisting() {
+    try {
+      rosterPattern.existing = await fetchCompanyResource("/workforce/patterns");
+    } catch (e) {
+      rosterPattern.existing = null;
+    }
+  }
+
+  function rosterPatternExistingNoticeHtml(existing) {
+    if (!existing || existing.length === 0) return "";
+    return `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${existing.length === 1 ? "1 pattern" : `${existing.length} patterns`} — more can still be added from here.</p>`;
+  }
+
+  /* Prefers the real "Default" time slot Create Roster's own default
+     produces, matched by name — same "match the known default by name"
+     instinct as Configure Salary Components' filler and Leave Policy's
+     own default policy. Falls back to whichever real time slot exists
+     first if a company's slots were all made or renamed by hand
+     instead, so this still works rather than having nothing to offer. */
+  function pickDefaultTimeSlot(timeSlots) {
+    return timeSlots.find((s) => s.name === "Default") || timeSlots[0];
+  }
+
+  function rosterPatternTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Create Roster Pattern</h2></div>`;
+    if (rosterPattern.loadError) {
+      return `
+        <div class="section">
+          ${head}
+          <span class="error-text">${escapeHtml(rosterPattern.loadError)}</span>
+          <div class="setup-actions" style="margin-top:10px"><button type="button" class="tiny-btn" id="rpRetryBtn">Try again</button></div>
+        </div>
+      `;
+    }
+    if (rosterPattern.timeSlots === null) {
+      return `<div class="section">${head}<p class="section-note">Checking this company's time slots…</p></div>`;
+    }
+    if (rosterPattern.timeSlots.length === 0) {
+      return `
+        <div class="section">
+          ${head}
+          <p class="section-note">Every day in a pattern points at a real time slot — this company doesn't have one yet.</p>
+          ${dependencyNoticeHtml("Time Slot", "schedule", "roster")}
+        </div>
+      `;
+    }
+    if (!rosterPattern.fields) rosterPattern.fields = { name: "Standard Pattern" };
+    const f = rosterPattern.fields;
+    const slot = pickDefaultTimeSlot(rosterPattern.timeSlots);
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">One action for now, not a full form — Sunday through Thursday, all five days on this company's own "${escapeHtml(slot.name)}" time slot. Assigning a different slot per day needs more than one real time slot to choose between, so that's a later phase, not built yet.</p>
+        ${rosterPatternExistingNoticeHtml(rosterPattern.existing)}
+        <div class="field" style="max-width:calc(50% - 8px)"><label for="rpName">Name</label><input type="text" id="rpName" value="${escapeHtml(f.name)}" /></div>
+        <div class="setup-actions" style="flex-direction:row; align-items:center; margin-top:14px;">
+          <button type="button" class="generate-btn" id="rpSaveBtn">Create the default pattern (Sun–Thu, "${escapeHtml(slot.name)}") →</button>
+        </div>
+        <span class="error-text" id="rpError">${escapeHtml(rosterPattern.error)}</span>
+        ${rosterPattern.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(rosterPattern.ok)}</div>` : ""}
+        ${createdListHtml(rosterPattern.createdNames)}
+      </div>
+    `;
+  }
+
+  function readRosterPatternForm() {
+    return { name: $("#rpName").value };
+  }
+
+  /* dayIndex 0-4 = Sunday through Thursday; isCustomCycle/isWfh are
+     always the fixed values from the real payload the user supplied —
+     nothing here rolls or varies them. */
+  async function saveRosterPattern(fields, timeSlotId) {
+    const env = ENVIRONMENTS[setup.env];
+    const payload = {
+      name: fields.name,
+      isCustomCycle: false,
+      entries: [0, 1, 2, 3, 4].map((dayIndex) => ({ dayIndex, timeSlotId, isWfh: false })),
+    };
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/workforce/patterns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
+    if (!res.ok) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireRosterPatternEvents() {
+    if (rosterPattern.timeSlots === null && !rosterPattern.loadError) {
+      loadRosterPatternTimeSlots().then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    const retryBtn = $("#rpRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        rosterPattern.loadError = "";
+        rosterPattern.timeSlots = null;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    if (!rosterPattern.timeSlots || rosterPattern.timeSlots.length === 0) return; // .dep-shortcut is wired centrally
+
+    if (rosterPattern.existing === undefined) {
+      loadRosterPatternExisting().then(() => {
+        if (rosterPattern.fields) rosterPattern.fields = readRosterPatternForm();
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
+    const btn = $("#rpSaveBtn");
+    btn.addEventListener("click", async () => {
+      rosterPattern.error = "";
+      rosterPattern.ok = "";
+      const fields = readRosterPatternForm();
+      const slot = pickDefaultTimeSlot(rosterPattern.timeSlots);
+      setBtnBusy(btn);
+      try {
+        await saveRosterPattern(fields, slot.id);
+        rosterPattern.fields = fields;
+        rosterPattern.ok = "Saved.";
+        rosterPattern.createdNames.push(fields.name);
+        rosterPattern.existing = undefined;
+        setup.doneModules.add("roster_pattern");
+      } catch (e) {
+        rosterPattern.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
   async function runDefaultRosterPattern() {
-    return { status: "skipped", message: "Not built yet" };
+    if (rosterPattern.timeSlots === null) await loadRosterPatternTimeSlots();
+    if (!rosterPattern.timeSlots || rosterPattern.timeSlots.length === 0) {
+      return { status: "skipped", message: "No time slots yet — run Create Roster first" };
+    }
+    if (rosterPattern.existing === undefined) await loadRosterPatternExisting();
+    if (rosterPattern.existing && rosterPattern.existing.some((p) => p.name === "Standard Pattern")) {
+      setup.doneModules.add("roster_pattern");
+      return { status: "skipped", message: '"Standard Pattern" already exists' };
+    }
+    const slot = pickDefaultTimeSlot(rosterPattern.timeSlots);
+    const fields = { name: "Standard Pattern" };
+    await saveRosterPattern(fields, slot.id);
+    rosterPattern.fields = fields;
+    rosterPattern.ok = "Saved.";
+    rosterPattern.createdNames.push(fields.name);
+    rosterPattern.existing = undefined;
+    setup.doneModules.add("roster_pattern");
+    return { status: "done" };
   }
 
   /* ---------- Department Management — fourth module ----------
@@ -8887,6 +9083,13 @@
     roster.ok = "";
     roster.createdNames = [];
     roster.existing = undefined;
+    rosterPattern.fields = null;
+    rosterPattern.error = "";
+    rosterPattern.ok = "";
+    rosterPattern.createdNames = [];
+    rosterPattern.existing = undefined;
+    rosterPattern.timeSlots = null;
+    rosterPattern.loadError = "";
     companyDepartment.fields = null;
     companyDepartment.error = "";
     companyDepartment.ok = "";

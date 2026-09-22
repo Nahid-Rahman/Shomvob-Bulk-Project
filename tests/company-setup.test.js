@@ -190,6 +190,13 @@ async function toGrid(page, companyName = "Hogwarts") {
     if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
     else route.continue();
   });
+  /* Same default for Create Roster Pattern's own dependency check
+     (2026-09-23) — blocked (or not) on whether any real time slot
+     exists, checked the moment this tab first opens. */
+  await page.route("**/api/v1/workforce/patterns", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+    else route.continue();
+  });
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");
@@ -3270,6 +3277,95 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("BN2 totalWorkingHours recomputed from hand-edited Start/End (8.5), not left at whatever was last generated", sentBody[0].totalWorkingHours === 8.5);
     check("BN2 halfDayHours always the fixed 4 regardless of totalWorkingHours", sentBody[0].halfDayHours === 4);
     check("BN2 no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  {
+    // BO — Create Roster Pattern blocked with zero real time slots, 2026-09-23
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.click(".settings-card:has-text('Schedule Management')");
+    await page.click('.settings-tab[data-module="roster_pattern"]');
+    await page.waitForFunction(() => document.querySelector("#setupBody")?.textContent.includes("doesn't have a Time Slot yet"), { timeout: 5000 });
+    const text = await page.textContent("#setupBody");
+    check("BO blocked with a named dependency notice", text.includes("doesn't have a Time Slot yet"));
+    check("BO shortcut points at Create Roster", (await page.locator(".dep-shortcut").count()) === 1);
+    await page.click(".dep-shortcut");
+    await page.waitForSelector("#rstName");
+    check("BO shortcut actually lands on Create Roster", (await page.locator("#rstName").count()) === 1);
+    check("BO no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  {
+    // BP — Create Roster Pattern, real time slot available: default fill-in, save body, existing count
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    let sentBody = null;
+    await toGrid(page);
+    await page.route("**/api/v1/workforce/time-slots", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "success", data: [{ id: "ts-other", name: "Evening Shift" }, { id: "ts-default", name: "Default" }] }),
+      });
+    });
+    await page.route("**/api/v1/workforce/patterns", (route) => {
+      if (route.request().method() === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "p-1", name: "Evening Pattern" }] }) });
+      }
+      sentBody = route.request().postDataJSON();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+
+    await page.click(".settings-card:has-text('Schedule Management')");
+    await page.click('.settings-tab[data-module="roster_pattern"]');
+    await page.waitForSelector("#rpName");
+
+    check("BP names the real count", (await page.textContent("#setupBody")).includes("already has 1 pattern — more can still be added from here"));
+    check("BP prefers the real \"Default\" slot over the first one in the list", (await page.textContent("#rpSaveBtn")).includes('"Default"'));
+    check("BP Name defaults to Standard Pattern", (await page.inputValue("#rpName")) === "Standard Pattern");
+
+    await page.click("#rpSaveBtn");
+    await page.waitForTimeout(150);
+    check("BP sends the fixed shape: name/isCustomCycle", sentBody.name === "Standard Pattern" && sentBody.isCustomCycle === false);
+    check("BP sends exactly 5 entries, dayIndex 0-4 (Sun-Thu)", Array.isArray(sentBody.entries) && sentBody.entries.length === 5 && sentBody.entries.map((e) => e.dayIndex).join(",") === "0,1,2,3,4");
+    check("BP every entry uses the real Default slot's id, not the first one", sentBody.entries.every((e) => e.timeSlotId === "ts-default"));
+    check("BP every entry has isWfh: false", sentBody.entries.every((e) => e.isWfh === false));
+    check("BP Save shows a success confirmation", (await page.textContent("#setupBody")).includes("Saved."));
+    check("BP no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  {
+    // BQ — falls back to the first real time slot when none is named "Default"
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    let sentBody = null;
+    await toGrid(page);
+    await page.route("**/api/v1/workforce/time-slots", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "ts-morning", name: "Morning Shift" }] }) });
+    });
+    await page.route("**/api/v1/workforce/patterns", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+      sentBody = route.request().postDataJSON();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+
+    await page.click(".settings-card:has-text('Schedule Management')");
+    await page.click('.settings-tab[data-module="roster_pattern"]');
+    await page.waitForSelector("#rpName");
+    check("BQ falls back to the only real slot when none is named Default", (await page.textContent("#rpSaveBtn")).includes('"Morning Shift"'));
+
+    await page.fill("#rpName", "Weekday Pattern");
+    await page.click("#rpSaveBtn");
+    await page.waitForTimeout(150);
+    check("BQ hand-typed Name is what actually gets sent", sentBody.name === "Weekday Pattern");
+    check("BQ entries use the fallback slot's real id", sentBody.entries.every((e) => e.timeSlotId === "ts-morning"));
+    check("BQ no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
