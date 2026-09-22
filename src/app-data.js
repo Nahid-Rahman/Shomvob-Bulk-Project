@@ -541,6 +541,14 @@ const SETTINGS_GROUPS = [
     modules: [{ id: "attendance_policy", label: "Attendance Policy" }],
   },
   {
+    id: "schedule",
+    label: "Schedule Management",
+    modules: [
+      { id: "roster", label: "Create Roster" },
+      { id: "roster_pattern", label: "Create Roster Pattern" },
+    ],
+  },
+  {
     id: "leave",
     label: "Leave Settings",
     modules: [
@@ -886,6 +894,50 @@ const LEAVE_POLICY_EMPLOYEE_TYPES = ["Permanent", "Part-time", "Intern", "Contra
    Overtime/Break/Deduct Break all default off and both check-in/check-
    out limits default to 120 minutes (2026-09-14, direct request) — no
    longer random pools, see generateAttendancePolicyFields() in app.js. */
+
+/* ===== Schedule Management — new group, "Create Roster" (2026-09-22) =====
+
+   Not from the Postman collection at all — a lead feedback item ("roster
+   ar default pattern create") the user supplied the real endpoint and a
+   known-good real payload for directly: `POST /workforce/time-slots`,
+   array-wrapped even though this app only ever sends one item per call
+   (confirmed with the user — no batch mode needed). "Create Roster Pattern"
+   is a second module in this same group the user hasn't specified yet;
+   it stays an honest "not built yet" tab until it does.
+
+   `totalWorkingHours` and `halfDayHours` are NOT their own editable
+   fields — confirmed directly ("total ta to auto calculate hobe
+   bujhtesoi", "half 4 o auto dhoiro"): total is always computed from
+   whatever Start/End the visitor currently has (`rosterTotalHours()` in
+   app.js), half-day is always the fixed `4` from the real default
+   payload, never derived. Only Name/Start/End/Grace are real inputs —
+   same "headline fields only" scoping as Leave Types/Attendance Policy. */
+const ROSTER_NAMES = [
+  "Morning Shift", "Day Shift", "General Shift", "Regular Shift", "Standard Shift",
+  "Office Shift", "Primary Shift", "Core Hours Shift",
+];
+
+/* "normally bd te 9-11 ta start time hoy 30 min gap e" — direct user
+   instruction, not a guess: real BD office start times cluster in this
+   window, 30 minutes apart. End time is always start + 9 hours
+   (generateRosterFields() in app.js), matching the real default's own
+   09:00-18:00 span. */
+const ROSTER_START_TIMES = ["09:00", "09:30", "10:00", "10:30", "11:00"];
+
+const ROSTER_GRACE_OPTIONS = [0, 5, 10, 15];
+
+/* The real default's own green plus a small palette of other plausible
+   Tailwind-ish colours — purely cosmetic, "color random diyo" was the
+   whole spec. */
+const ROSTER_COLORS = ["#22C55E", "#3B82F6", "#A855F7", "#F97316", "#EF4444", "#06B6D4"];
+
+/* The exact real payload the user supplied for "Create the Default" —
+   `[{"name":"Default","workStartTime":"09:00","workEndTime":"18:00",
+   "totalWorkingHours":9,"halfDayHours":4,"gracePeriodMinutes":15,
+   "color":"#22C55E"}]`. total/half are dropped here since they're never
+   stored on state (see comment above) — saveRoster() in app.js always
+   recomputes totalWorkingHours as 9 from this exact start/end anyway. */
+const ROSTER_DEFAULT = { name: "Default", workStartTime: "09:00", workEndTime: "18:00", gracePeriodMinutes: 15, color: "#22C55E" };
 
 /* ===== Payroll — 11 modules, all ported from the Postman collection's own
    "Payroll Settings" folder (2026-09-10). The user's own call ahead of

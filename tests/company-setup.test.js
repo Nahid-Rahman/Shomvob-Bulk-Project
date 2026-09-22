@@ -182,6 +182,14 @@ async function toGrid(page, companyName = "Hogwarts") {
     if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { policies: [], total: 0 } }) });
     else route.continue();
   });
+  /* Same default for Create Roster's own "N already exist" notice
+     (2026-09-22) — GET and the real save (POST) share this exact URL,
+     unlike most of the others above, so branch on method the same way
+     Locations'/Leave Policy's/Bonus Policy's own defaults do. */
+  await page.route("**/api/v1/workforce/time-slots", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+    else route.continue();
+  });
   await gotoSetup(page);
   await page.fill("#setupEmail", "mahmudur@shomvob.com");
   await page.fill("#setupPass", "whatever");
@@ -387,10 +395,10 @@ async function toGrid(page, companyName = "Hogwarts") {
     const page = await browser.newContext({ viewport: { width: 1440, height: 900 } }).then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await toGrid(page);
-    check("H one card per settings group", (await page.locator(".settings-card").count()) === 5);
+    check("H one card per settings group", (await page.locator(".settings-card").count()) === 6);
     check("H group labels match SETTINGS_GROUPS",
       JSON.stringify(await page.locator(".settings-card-name").allTextContents()) ===
-        JSON.stringify(["Company Settings", "Employee Settings", "Attendance Settings", "Leave Settings", "Payroll Settings"]));
+        JSON.stringify(["Company Settings", "Employee Settings", "Attendance Settings", "Schedule Management", "Leave Settings", "Payroll Settings"]));
     check("H every card starts at 0 done",
       (await page.locator(".tally").allTextContents()).every((t) => /^0\//.test(t.trim())));
     check("H Payroll's count reflects its real 11 modules",
@@ -425,7 +433,7 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     await page.click("#setupBackToModules");
     await page.waitForTimeout(80);
-    check("I back link returns to the 5-card grid, not signed out", (await page.locator(".settings-card").count()) === 5);
+    check("I back link returns to the 6-card grid, not signed out", (await page.locator(".settings-card").count()) === 6);
 
     /* Every module in every group is now built (Payroll was the last),
        so settingsComingSoonHtml()'s fallback has no reachable gap left
@@ -2674,10 +2682,10 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AW master run button is on the group grid", (await page.locator("#masterRunEnterBtn").count()) === 1);
     await page.click("#masterRunEnterBtn");
     await page.waitForSelector("#runDefaultsStartBtn", { timeout: 5000 });
-    check("AW opens as a modal, not a page swap — the grid is still there behind it", (await page.locator(".settings-card").count()) === 5);
+    check("AW opens as a modal, not a page swap — the grid is still there behind it", (await page.locator(".settings-card").count()) === 6);
     check("AW modal title names what it's doing", (await page.locator("#runDefaultsTitle").textContent()).includes("standard setup"));
     check("AW master run gets its own quote", (await page.locator("#runDefaultsQuoteText").textContent()).includes("uselessness of today"));
-    check("AW lists exactly the curated 15 modules, not all 22", (await page.locator("#runDefaultsList .bulk-row").count()) === 15);
+    check("AW lists exactly the curated 15 modules, not every module in every group", (await page.locator("#runDefaultsList .bulk-row").count()) === 15);
     check("AW Employee Settings' modules are not in the list", (await page.locator('#runDefaultsList .bulk-row:has-text("Custom Fields"), #runDefaultsList .bulk-row:has-text("Required Documents")').count()) === 0);
     check("AW excluded Payroll modules are not in the list",
       (await page.locator('#runDefaultsList .bulk-row:has-text("Late Arrival"), #runDefaultsList .bulk-row:has-text("Absent Deduction"), #runDefaultsList .bulk-row:has-text("Overtime"), #runDefaultsList .bulk-row:has-text("Attendance Bonus"), #runDefaultsList .bulk-row:has-text("Custom Addition")').count()) === 0);
@@ -3183,6 +3191,82 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("BM says a new one can still be created", text.includes("A new one can still be created"));
     check("BM Save button is still there — nothing is blocked", (await page.locator("#bpSaveBtn").count()) === 1);
     check("BM no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  {
+    // BN — Create Roster (Schedule Management), 2026-09-22
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    let sentBody = null;
+    await toGrid(page);
+    /* Fulfills GET directly too, rather than route.continue()-ing to
+       toGrid()'s own earlier default — route.continue() sends straight to
+       the real network (Playwright routes are LIFO; it does not fall
+       through to an earlier-registered handler), which is exactly the
+       CORS-blocked-request gotcha this file has hit before. */
+    await page.route("**/api/v1/workforce/time-slots", (route) => {
+      if (route.request().method() !== "POST") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+      }
+      sentBody = route.request().postDataJSON();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+
+    await page.click(".settings-card:has-text('Schedule Management')");
+    await page.click('.settings-tab[data-module="roster"]');
+    await page.waitForSelector("#rstName");
+
+    check("BN Name/Start/End/Grace fields all render", (await page.locator("#rstName, #rstStart, #rstEnd, #rstGrace").count()) === 4);
+    check("BN Start At time is a plausible BD 09:00-11:00, 30-min-step value", ["09:00", "09:30", "10:00", "10:30", "11:00"].includes(await page.inputValue("#rstStart")));
+
+    // "Create the Default" loads the exact real default shape
+    await page.click("#rstDefaultBtn");
+    check("BN default button loads Name=Default", (await page.inputValue("#rstName")) === "Default");
+    check("BN default button loads Start=09:00", (await page.inputValue("#rstStart")) === "09:00");
+    check("BN default button loads End=18:00", (await page.inputValue("#rstEnd")) === "18:00");
+    check("BN default button loads Grace=15", (await page.inputValue("#rstGrace")) === "15");
+
+    await page.click("#rstSaveBtn");
+    await page.waitForTimeout(150);
+    check("BN Saved sends an array with exactly one item", Array.isArray(sentBody) && sentBody.length === 1);
+    const sent = sentBody[0];
+    check("BN Saved body matches the real default payload exactly", sent.name === "Default" && sent.workStartTime === "09:00" && sent.workEndTime === "18:00" && sent.totalWorkingHours === 9 && sent.halfDayHours === 4 && sent.gracePeriodMinutes === 15 && sent.color === "#22C55E");
+    check("BN Save shows a success confirmation", (await page.textContent("#setupBody")).includes("Saved."));
+    check("BN no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  {
+    // BN2 — hand-edited Start/End recomputes totalWorkingHours, and the existing-count notice
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    let sentBody = null;
+    await toGrid(page);
+    await page.route("**/api/v1/workforce/time-slots", (route) => {
+      if (route.request().method() === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ status: "success", data: [{ id: "ts-1", name: "Default" }, { id: "ts-2", name: "Evening Shift" }] }),
+        });
+      }
+      sentBody = route.request().postDataJSON();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+
+    await page.click(".settings-card:has-text('Schedule Management')");
+    await page.click('.settings-tab[data-module="roster"]');
+    await page.waitForFunction(() => document.querySelector("#setupBody")?.textContent.includes("already has"), { timeout: 5000 });
+    check("BN2 names the real count", (await page.textContent("#setupBody")).includes("already has 2 time slots — more can still be added from here"));
+
+    await page.fill("#rstStart", "08:00");
+    await page.fill("#rstEnd", "16:30");
+    await page.click("#rstSaveBtn");
+    await page.waitForTimeout(150);
+    check("BN2 totalWorkingHours recomputed from hand-edited Start/End (8.5), not left at whatever was last generated", sentBody[0].totalWorkingHours === 8.5);
+    check("BN2 halfDayHours always the fixed 4 regardless of totalWorkingHours", sentBody[0].halfDayHours === 4);
+    check("BN2 no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

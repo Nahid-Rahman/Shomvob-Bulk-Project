@@ -492,6 +492,7 @@
     leave: OP_ICONS.leave_balance_add,
     payroll: OP_ICONS.payroll_field_add,
     attendance: OP_ICONS.attendance_add,
+    schedule: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M7 13h4M7 16h7"/><path d="M8 2v4M16 2v4"/>',
   };
   function settingsGroupIcon(id) {
     const paths = SETTINGS_GROUP_ICONS[id];
@@ -542,6 +543,7 @@
     custom_addition_deduction: '<circle cx="8" cy="8" r="5"/><path d="M8 5.5v5M5.5 8h5"/><circle cx="16" cy="16" r="5"/><path d="M13.5 16h5"/>',
     tax: '<circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/><path d="M18 6 6 18"/>',
     attendance_policy: '<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18"/><path d="M8 3v3M16 3v3"/><circle cx="15.5" cy="15" r="3.2"/><path d="M15.5 13.3V15l1.3.9"/>',
+    roster: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M7 13h4M7 16h7"/><path d="M8 2v4M16 2v4"/>',
   };
   function settingsModuleIconHtml(moduleId) {
     const paths = SETTINGS_MODULE_ICONS[moduleId];
@@ -4153,6 +4155,7 @@
     custom_addition_deduction: { template: customAdditionDeductionTemplate, wire: wireCustomAdditionDeductionEvents },
     tax: { template: payrollTaxTemplate, wire: wirePayrollTaxEvents },
     attendance_policy: { template: attendancePolicyTemplate, wire: wireAttendancePolicyEvents },
+    roster: { template: rosterTemplate, wire: wireRosterEvents },
   };
 
   function setupGroupPageTemplate() {
@@ -4855,6 +4858,215 @@
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
     });
+  }
+
+  /* ---------- Create Roster — Schedule Management group (2026-09-22) ----------
+
+     POST /workforce/time-slots, array-wrapped but always exactly one item
+     per call — confirmed directly with the user, no batch mode needed.
+     Not from the Postman collection; the real payload and endpoint came
+     straight from the user, same discipline as Attendance Policy's own
+     real (non-collection) shape. Like Locations, a company can hold any
+     number of real time slots, so the existing-check is a plain count,
+     not a warning. */
+  const roster = { fields: null, error: "", ok: "", createdNames: [], existing: undefined };
+
+  function timeToMinutes(t) {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  }
+
+  /* Rounded to the nearest half hour — the real default itself (09:00 to
+     18:00) is a clean 9, and a hand-edited Start/End should read just as
+     cleanly rather than carrying odd fractional minutes. */
+  function rosterTotalHours(start, end) {
+    const diffMinutes = (timeToMinutes(end) - timeToMinutes(start) + 1440) % 1440;
+    return Math.round((diffMinutes / 60) * 2) / 2;
+  }
+
+  function addHoursToTime(hhmm, hours) {
+    const total = (timeToMinutes(hhmm) + hours * 60) % 1440;
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  async function loadRosterExisting() {
+    try {
+      roster.existing = await fetchCompanyResource("/workforce/time-slots");
+    } catch (e) {
+      roster.existing = null;
+    }
+  }
+
+  function rosterExistingNoticeHtml(existing) {
+    if (!existing || existing.length === 0) return "";
+    return `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${existing.length === 1 ? "1 time slot" : `${existing.length} time slots`} — more can still be added from here.</p>`;
+  }
+
+  /* totalWorkingHours/halfDayHours are deliberately NOT part of this
+     object — confirmed directly with the user, see app-data.js's own
+     comment on ROSTER_DEFAULT. Always 9 hours end-to-end on a freshly
+     generated slot; a hand-edited Start/End recomputes the real total at
+     save time instead (readRosterForm() doesn't touch this at all — it's
+     saveRoster() that calls rosterTotalHours() right before building the
+     request body). */
+  function generateRosterFields() {
+    const start = choice(ROSTER_START_TIMES);
+    return {
+      name: choice(ROSTER_NAMES),
+      workStartTime: start,
+      workEndTime: addHoursToTime(start, 9),
+      gracePeriodMinutes: choice(ROSTER_GRACE_OPTIONS),
+      color: choice(ROSTER_COLORS),
+    };
+  }
+
+  function rosterTemplate() {
+    if (!roster.fields) roster.fields = generateRosterFields();
+    const f = roster.fields;
+    const graceOptionsHtml = ROSTER_GRACE_OPTIONS.map((g) => `<option value="${g}" ${f.gracePeriodMinutes === g ? "selected" : ""}>${g} minutes</option>`).join("");
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Create Roster</h2></div>
+        <p class="section-note">A named time slot (start, end, grace period) real rosters get built from. Regenerate re-rolls a plausible shift; "Create the Default" loads the company's own real default shape instead. Either way, every field can still be edited by hand before saving.</p>
+        ${rosterExistingNoticeHtml(roster.existing)}
+        <button type="button" class="bulk-shortcut-btn" id="rstDefaultBtn">Create the default ("${ROSTER_DEFAULT.name}", ${ROSTER_DEFAULT.workStartTime}–${ROSTER_DEFAULT.workEndTime}, ${ROSTER_DEFAULT.gracePeriodMinutes} min grace) →</button>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="rstName">Name</label><input type="text" id="rstName" value="${escapeHtml(f.name)}" /></div>
+          <div class="field"><label for="rstGrace">Grace</label><select id="rstGrace">${graceOptionsHtml}</select></div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="rstStart">Start At</label><input type="time" id="rstStart" value="${escapeHtml(f.workStartTime)}" /></div>
+          <div class="field"><label for="rstEnd">End At</label><input type="time" id="rstEnd" value="${escapeHtml(f.workEndTime)}" /></div>
+        </div>
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="rstRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="rstSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="rstError">${escapeHtml(roster.error)}</span>
+        ${roster.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(roster.ok)}</div>` : ""}
+        ${createdListHtml(roster.createdNames)}
+      </div>
+    `;
+  }
+
+  /* Spreads the cached fields first so `color` (not its own editable
+     input) survives every read — same shape as Branch's isGeolocation
+     carrying forward through readBranchForm(). */
+  function readRosterForm() {
+    return {
+      ...roster.fields,
+      name: $("#rstName").value,
+      workStartTime: $("#rstStart").value,
+      workEndTime: $("#rstEnd").value,
+      gracePeriodMinutes: Number($("#rstGrace").value),
+    };
+  }
+
+  async function saveRoster(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    const payload = [
+      {
+        name: fields.name,
+        workStartTime: fields.workStartTime,
+        workEndTime: fields.workEndTime,
+        totalWorkingHours: rosterTotalHours(fields.workStartTime, fields.workEndTime),
+        halfDayHours: 4,
+        gracePeriodMinutes: fields.gracePeriodMinutes,
+        color: fields.color,
+      },
+    ];
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/workforce/time-slots`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
+    /* Success status not yet confirmed live (unlike Bank Info's real 201)
+       — generic !res.ok, same as Company Profile, until verified. */
+    if (!res.ok) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireRosterEvents() {
+    if (roster.existing === undefined) {
+      loadRosterExisting().then(() => {
+        if (roster.fields) roster.fields = readRosterForm();
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
+    const defaultBtn = $("#rstDefaultBtn");
+    if (defaultBtn) {
+      defaultBtn.addEventListener("click", () => {
+        roster.fields = { ...ROSTER_DEFAULT };
+        roster.error = "";
+        roster.ok = "";
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
+    wireRegenerate("#rstRegenerateBtn", () => {
+      roster.fields = generateRosterFields();
+      roster.error = "";
+      roster.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#rstSaveBtn");
+    btn.addEventListener("click", async () => {
+      roster.error = "";
+      roster.ok = "";
+      const fields = readRosterForm();
+      setBtnBusy(btn);
+      try {
+        await saveRoster(fields);
+        roster.fields = fields;
+        roster.ok = "Saved.";
+        roster.createdNames.push(fields.name);
+        roster.existing = undefined;
+        setup.doneModules.add("roster");
+      } catch (e) {
+        roster.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  async function runDefaultRoster() {
+    if (roster.existing === undefined) await loadRosterExisting();
+    if (roster.existing && roster.existing.some((s) => s.name === ROSTER_DEFAULT.name)) {
+      setup.doneModules.add("roster");
+      return { status: "skipped", message: `"${ROSTER_DEFAULT.name}" time slot already exists` };
+    }
+    const fields = { ...ROSTER_DEFAULT };
+    await saveRoster(fields);
+    roster.fields = fields;
+    roster.ok = "Saved.";
+    roster.createdNames.push(fields.name);
+    roster.existing = undefined;
+    setup.doneModules.add("roster");
+    return { status: "done" };
+  }
+
+  /* "Create Roster Pattern" has no real shape yet — the user hasn't
+     supplied it. This stub only exists so "Run defaults for Schedule
+     Management" (which walks every module in the group) doesn't throw
+     calling an undefined runner; it never claims to have done anything. */
+  async function runDefaultRosterPattern() {
+    return { status: "skipped", message: "Not built yet" };
   }
 
   /* ---------- Department Management — fourth module ----------
@@ -8660,6 +8872,11 @@
     companyBranch.ok = "";
     companyBranch.createdNames = [];
     companyBranch.existing = undefined;
+    roster.fields = null;
+    roster.error = "";
+    roster.ok = "";
+    roster.createdNames = [];
+    roster.existing = undefined;
     companyDepartment.fields = null;
     companyDepartment.error = "";
     companyDepartment.ok = "";
@@ -9148,6 +9365,8 @@
     custom_fields: runDefaultCustomFields,
     required_documents: runDefaultRequiredDocuments,
     attendance_policy: runDefaultAttendancePolicy,
+    roster: runDefaultRoster,
+    roster_pattern: runDefaultRosterPattern,
     leave_types: runDefaultLeaveTypes,
     leave_policy: runDefaultLeavePolicy,
     holiday_calendar: runDefaultHolidayCalendar,

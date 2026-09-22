@@ -3104,12 +3104,103 @@ matches the wrapping shape `fetchCompanyResource()` already expects
 without needing another wrapper-key fallback like Salary Components
 needed.
 
+### Schedule Management — a new group, "Create Roster" (2026-09-22)
+
+Came out of a round of lead feedback the user relayed directly, alongside
+several bigger, still-unscoped asks (audit logging, an admin panel, 3-tier
+access, a usage report) that are being tackled separately, in phases, not
+folded into this section. This one item — "roster ar default pattern
+create" — was scoped and built the same day it was handed over.
+
+**Not from the Postman collection at all.** Unlike almost everything else
+in Company Setup, the user supplied the real endpoint and a known-good
+real payload directly, the same way Attendance Policy's real shape was
+supplied when no collection entry existed for it either:
+`POST /workforce/time-slots`. A brand-new group,
+**Schedule Management**, sits between Attendance Settings and Leave
+Settings in `SETTINGS_GROUPS` (`app-data.js`) — direct placement
+instruction ("Attendance er pashe... khule otay rakho"). It holds two
+modules: **Create Roster** (built below) and **Create Roster Pattern**
+(the user's own next thing to hand over — currently just an honest
+"not built yet" tab via the existing `settingsComingSoonHtml()`
+fallback, same as any other unbuilt module always has been).
+
+**The request body is an array, but always exactly one item** —
+confirmed directly rather than assumed ("amra ektai korbo ashole")
+before building anything: `[{name, workStartTime, workEndTime,
+totalWorkingHours, halfDayHours, gracePeriodMinutes, color}]`. Like
+Locations, a company can hold any number of real time slots, so the
+existing-check (`loadRosterExisting()`/`rosterExistingNoticeHtml()`,
+`GET /workforce/time-slots` — the same URL as the save, confirmed by the
+user) is the same plain, non-warning "already has N time slots — more
+can still be added from here" count Locations/Department/etc. already
+use, not a "you're about to overwrite something" box.
+
+**`totalWorkingHours` and `halfDayHours` are deliberately not their own
+form fields** — confirmed directly ("total ta to auto calculate hobe
+bujhtesoi", "half 4 o auto dhoiro"): the UI only ever shows **Name,
+Start At, End At, Grace** (exactly the 4 the user listed, nothing more).
+`halfDayHours` is always the fixed `4` from the real default payload,
+full stop, never derived from anything. `totalWorkingHours` is *not*
+cached on state at all — `saveRoster()` computes it fresh from whatever
+Start/End the form currently holds, right before building the request
+body (`rosterTotalHours()`, rounded to the nearest half hour), so a
+hand-edited Start/End always sends a total that's actually consistent
+with what was typed rather than a stale generated number. Verified by
+test (`BN2`): editing Start to 08:00 and End to 16:30 sends
+`totalWorkingHours: 8.5`, not whatever a prior Regenerate had rolled.
+
+**Random generation follows the user's own explicit rules, not a
+guess:** Start At is drawn from `ROSTER_START_TIMES` — `["09:00",
+"09:30", "10:00", "10:30", "11:00"]`, direct instruction ("normally bd
+te 9-11 ta start time hoy 30 min gap e") — with End At always computed
+as Start + 9 hours (`addHoursToTime()`), matching the real default's own
+09:00–18:00 span; Grace is a real `<select>` over the user's own fixed
+set `[0, 5, 10, 15]` minutes rather than a free number input, since it's
+an enum, not a range; Name comes from a small pool of plausible shift
+names (`ROSTER_NAMES`); color is picked from a small palette including
+the real default's own `#22C55E` (purely cosmetic — "color random
+diyo" was the entire spec, nothing to confirm further).
+
+**"Create the Default" is a `.bulk-shortcut-btn` that loads the exact
+real payload the user supplied** (`ROSTER_DEFAULT` in `app-data.js`:
+`{name:"Default", workStartTime:"09:00", workEndTime:"18:00",
+gracePeriodMinutes:15, color:"#22C55E"}`) straight into the single-item
+form — same shape as Leave Policy's `#lpDefaultBtn`, not a second bulk-
+list UI, since there's only ever one item to create per call anyway.
+Verified by test (`BN`) that clicking it and saving sends the literal
+real payload byte-for-byte, including the recomputed `totalWorkingHours:
+9`/`halfDayHours: 4`.
+
+**Success status not yet confirmed against the real staging API** —
+unlike Bank Info's confirmed real `201`, this endpoint's actual success
+code hasn't been verified live, so `saveRoster()` uses the generic
+`!res.ok` check (same as Company Profile) rather than asserting a
+specific status. Worth a real verification pass once staging access is
+available for this endpoint, same as every other module eventually got.
+
+`runDefaultRoster()` (in `MODULE_DEFAULT_RUNNERS`) matches the same
+"check what already exists first" discipline as Department/Leave
+Types/Salary Components — it checks the real existing list by name
+before creating a second "Default" — and `runDefaultRosterPattern()` is
+a deliberate stub returning `{status: "skipped", message: "Not built
+yet"}`, so "Run defaults for Schedule Management" (which walks every
+module in whichever group it's clicked from) doesn't throw calling an
+undefined runner for the still-unbuilt second module. Neither `roster`
+nor `roster_pattern` are in `MASTER_RUN_MODULE_IDS` — the whole-company
+"Run every default" stays the same curated 15 it always was; a
+per-group Schedule Management run still covers both.
+
 ### What's not built yet
 
-Nothing — every module in every `SETTINGS_GROUPS` group now has a real
-handler; `settingsComingSoonHtml()`'s fallback has no reachable gap left
-under normal navigation and stays in the code the same way `renderMain()`'s
-own "Coming soon" branch did after phase 1's five operations were built.
+"Create Roster Pattern" (Schedule Management's second module, above) —
+waiting on the user to supply its real shape, same as every other module
+in this app was built only once its shape was confirmed rather than
+guessed. Nothing else — every other module in every `SETTINGS_GROUPS`
+group has a real handler; `settingsComingSoonHtml()`'s fallback has no
+other reachable gap left under normal navigation and stays in the code
+the same way `renderMain()`'s own "Coming soon" branch did after phase
+1's five operations were built.
 
 Two to three of the ~20 modules were expected to need a rework pass once
 tried against a real environment — the user's own estimate, given before
