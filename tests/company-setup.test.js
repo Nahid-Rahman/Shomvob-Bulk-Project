@@ -3220,8 +3220,11 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("BN Name/Start/End/Grace fields all render", (await page.locator("#rstName, #rstStart, #rstEnd, #rstGrace").count()) === 4);
     check("BN Start At time is a plausible BD 09:00-11:00, 30-min-step value", ["09:00", "09:30", "10:00", "10:30", "11:00"].includes(await page.inputValue("#rstStart")));
 
-    // "Create the Default" loads the exact real default shape
+    // "Create the Default" loads the exact real default shape (now routed
+    // through wireRegenerate()'s spinner delay, 2026-09-23 fix — a real
+    // change with no visible feedback read as broken)
     await page.click("#rstDefaultBtn");
+    await page.waitForTimeout(1200);
     check("BN default button loads Name=Default", (await page.inputValue("#rstName")) === "Default");
     check("BN default button loads Start=09:00", (await page.inputValue("#rstStart")) === "09:00");
     check("BN default button loads End=18:00", (await page.inputValue("#rstEnd")) === "18:00");

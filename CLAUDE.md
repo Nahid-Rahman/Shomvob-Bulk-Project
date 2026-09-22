@@ -3179,6 +3179,20 @@ code hasn't been verified live, so `saveRoster()` uses the generic
 specific status. Worth a real verification pass once staging access is
 available for this endpoint, same as every other module eventually got.
 
+**"Create the Default" had the exact same silent-feedback bug Regenerate
+had, found live 2026-09-23** ("etay click korle kisu hoy na keno" — a
+screenshot showing the button clicked, Network tab empty, no visible
+reaction). It had worked — Name read "Default", which the random pool
+never produces — but a real change with zero visible feedback reads as
+broken, the identical class of bug `wireRegenerate()`'s own 2026-09-13
+fix (`CLAUDE.md` → Company Setup's "Every button in this section...")
+was built for. `wireRegenerate(id, regenerate, label)` picked up an
+optional third parameter (default `"Regenerating…"`, so every existing
+caller is untouched) and `#rstDefaultBtn` now routes through it with its
+own `"Loading the default…"` label instead of a bare click handler —
+same 1-second minimum spinner delay, same reasoning, just worded for
+what this button actually does.
+
 `runDefaultRoster()` (in `MODULE_DEFAULT_RUNNERS`) matches the same
 "check what already exists first" discipline as Department/Leave
 Types/Salary Components — it checks the real existing list by name

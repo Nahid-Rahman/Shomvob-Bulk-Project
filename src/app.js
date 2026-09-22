@@ -3676,12 +3676,12 @@
      rather than a silent no-op. The button itself is destroyed by the
      re-render that follows, so there's nothing to restore afterward. */
   const REGENERATE_MIN_MS = 1000;
-  function wireRegenerate(id, regenerate) {
+  function wireRegenerate(id, regenerate, label = "Regenerating…") {
     const btn = $(id);
     btn.addEventListener("click", () => {
       if (btn.disabled) return;
       btn.disabled = true;
-      btn.innerHTML = `${iconSpinner()}<span>Regenerating…</span>`;
+      btn.innerHTML = `${iconSpinner()}<span>${label}</span>`;
       setTimeout(regenerate, REGENERATE_MIN_MS);
     });
   }
@@ -5005,15 +5005,25 @@
       });
     }
 
-    const defaultBtn = $("#rstDefaultBtn");
-    if (defaultBtn) {
-      defaultBtn.addEventListener("click", () => {
-        roster.fields = { ...ROSTER_DEFAULT };
-        roster.error = "";
-        roster.ok = "";
-        $("#setupBody").innerHTML = setupGroupPageTemplate();
-        wireSetupGroupPage();
-      });
+    if ($("#rstDefaultBtn")) {
+      /* This button only fills the form locally — no network call, so it
+         had the exact same "silent no-op" problem Regenerate did before
+         2026-09-13's fix: a real change (Name becomes "Default", not a
+         possible random value — "Default" isn't in ROSTER_NAMES) with
+         zero visible feedback reads as broken. Found live 2026-09-23,
+         same signature, same fix: route through wireRegenerate() with
+         its own label rather than "Regenerating…". */
+      wireRegenerate(
+        "#rstDefaultBtn",
+        () => {
+          roster.fields = { ...ROSTER_DEFAULT };
+          roster.error = "";
+          roster.ok = "";
+          $("#setupBody").innerHTML = setupGroupPageTemplate();
+          wireSetupGroupPage();
+        },
+        "Loading the default…"
+      );
     }
 
     wireRegenerate("#rstRegenerateBtn", () => {
