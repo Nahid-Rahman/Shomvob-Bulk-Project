@@ -3313,6 +3313,32 @@ endpoint**: verify this app's own wrapping-key assumption against the
 real response every time, don't extend the paginated-endpoints-only
 theory to a new endpoint just because it's from the same product area.
 
+### A full systematic check for this same bug class, same day (2026-09-22)
+
+Direct request after the fix above ("tumi dekho amader onno kothao emon
+bug ase kina" — check whether this same bug exists anywhere else): every
+one of the 18 real GET endpoints this app calls (11 through
+`fetchCompanyResource()`, 6 through `fetchCompanyConfig()`) was hit
+directly against this exact real company (Nexa Technologies, already
+fully configured — the same company the original bug was found on),
+using a freshly-logged-in bearer token, and its actual response shape
+compared against what the code assumes.
+
+**Nothing else was broken.** The two workforce endpoints above were the
+only ones wrapped in a way the code didn't already account for — every
+other `fetchCompanyResource()` caller either genuinely returns a flat
+array (branches, departments, designations, custom fields, required
+documents, leave types, leave policies, bonus types, attendance
+policies — 9 of them) or one of the two already-known wrapper keys
+(salary components → `.components`, bonus policies → `.policies`), and
+every `fetchCompanyConfig()` caller's own specific nested-field read
+(`.config.payrollCycle`, `.basicSalaryPercentage`,
+`.customFields`/`.total`/`.maxAllowed`, `.isEnabled`) matched the real
+response exactly. The credentials and every fetched response were used
+only in-memory for this one pass and deleted from the scratchpad
+afterward, same discipline as every other live-API verification in this
+project.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both
