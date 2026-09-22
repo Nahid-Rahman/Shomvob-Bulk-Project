@@ -55,6 +55,14 @@
   function pad4(n) {
     return String(n).padStart(4, "0");
   }
+  /* a short base36 tag, unique enough per Generate click that two separate
+     runs (this app keeps no memory between them, by design) essentially
+     never land on the same email — see makeEmail() below */
+  function randomTag(len) {
+    let s = "";
+    while (s.length < len) s += Math.random().toString(36).slice(2);
+    return s.slice(0, len);
+  }
   function daysInMonth(y, m) {
     return new Date(y, m, 0).getDate();
   }
@@ -185,12 +193,12 @@
     return 20000 + randInt(0, steps) * 500;
   }
 
-  function makeEmail(first, last, used) {
+  function makeEmail(first, last, used, runTag) {
     const base = `${slug(first)}.${slug(last)}`;
-    let email = `${base}@yopmail.com`;
+    let email = `${base}.${runTag}@yopmail.com`;
     let n = 2;
     while (used.has(email)) {
-      email = `${base}${n}@yopmail.com`;
+      email = `${base}${n}.${runTag}@yopmail.com`;
       n++;
     }
     used.add(email);
@@ -258,6 +266,7 @@
     const names = generateNames(theme, count);
     const usedEmails = new Set();
     const usedPhones = new Set();
+    const runTag = randomTag(5);
     const rows = [HEADER];
     for (let i = 0; i < count; i++) {
       const seq = pad4(i + 1);
@@ -269,7 +278,7 @@
       const joiningDate = randomJoiningDate();
       const dob = randomDOB(joiningDate);
       const gross = grossSalary();
-      const email = makeEmail(name.first, name.last, usedEmails);
+      const email = makeEmail(name.first, name.last, usedEmails, runTag);
       const phone = makePhone(usedPhones);
       const dept = choice(finalDepartments);
       const designation = choice(dept.designations);
@@ -558,7 +567,7 @@
             <div class="rule-row"><span class="rule-col">Joining Date</span><span class="rule-val">~60% ${curYear - 1} · ~25% ${curYear} · ~15% ${curYear - 2}</span></div>
             <div class="rule-row"><span class="rule-col">Date of Birth</span><span class="rule-val">18–45 years old, always before Joining Date</span></div>
             <div class="rule-row"><span class="rule-col">Gross Salary</span><span class="rule-val">৳20,000–150,000, step 500</span></div>
-            <div class="rule-row"><span class="rule-col">Email</span><span class="rule-val">firstname.lastname@yopmail.com</span></div>
+            <div class="rule-row"><span class="rule-col">Email</span><span class="rule-val">firstname.lastname.xxxxx@yopmail.com — xxxxx is a per-run tag so two different generates never collide</span></div>
             <div class="rule-row"><span class="rule-col">Phone</span><span class="rule-val">880 + BD mobile format, 13 digits, unique</span></div>
             <div class="rule-row"><span class="rule-col">Gender</span><span class="rule-val">matches the generated name</span></div>
           </div>

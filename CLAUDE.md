@@ -239,7 +239,7 @@ than anything else in this codebase.
 | 6 | Probation Period (Months)* | Permanent → 0; others → random 3–6 |
 | 7 | Joining Date* | weighted by year: ~60% previous year, ~25% current year (never future), ~15% two years ago |
 | 8 | Gross Salary* | random ৳20,000–150,000, step 500 |
-| 9 | Email | `firstname.lastname@yopmail.com`, lowercase, numeric-suffix deduped |
+| 9 | Email | `firstname.lastname.xxxxx@yopmail.com`, lowercase, numeric-suffix deduped within a run, `xxxxx` a per-run random tag (see below) |
 | 10 | Phone* | `880` + `1` + operator digit (3–9) + 8 digits = 13 digits, deduped |
 | 11 | Gender* | matches the picked name's tagged gender (no "Prefer not to say") |
 | 12 | Date of Birth* | age 18–45 relative to joining year, always before Joining Date |
@@ -253,6 +253,32 @@ instruction/placeholder row — this is a ready-to-upload file). Filename:
 Already validated (Playwright, 25-row and 300-row batches): ID/email/
 phone uniqueness, employment-type↔probation linkage, joining-date↔DOB
 ordering, salary rounding, department↔designation consistency.
+
+**Emails carry a per-run random tag, added 2026-09-22 — a real,
+foreseen bug, caught before it happened rather than reported live**
+("sooner or later employee email duplicate khabe" — direct observation
+that the name pools are finite, so this was only a matter of time).
+`makeEmail()`'s dedup `Set` (`usedEmails`
+in `generateWorkbookRows()`) only ever existed for the lifetime of one
+`Generate` click — real, but only a within-file guarantee, since this
+app keeps no memory between runs by design (see "Architecture decisions"
+above). The name pools are finite — the theme pools especially so, some
+under 20 entries — so the exact same `firstname.lastname@yopmail.com`
+was always going to recur across two unrelated files sooner or later,
+and the real HRIS likely enforces email uniqueness on import. Two
+options were weighed: persisting a "used emails" list (in localStorage
+or otherwise) would only protect one browser/machine, and quietly breaks
+the explicit "nothing persists across sessions" architecture rule — not
+worth it for a partial fix. Went with `randomTag(5)` instead: a 5-character
+base36 string rolled once per `Generate` click (`runTag`), appended to
+every email that run — `firstname.lastname.xxxxx@yopmail.com`, the
+existing numeric-suffix dedup still applying *within* a run exactly as
+before, just ahead of the tag (`firstname.lastname2.xxxxx@...`). No
+persisted state, no cross-run memory needed — the tag alone makes two
+separate runs landing on the same email effectively impossible.
+Verified by test (`employee.test.js`, block E2): two back-to-back
+Generate clicks with identical inputs (same count, prefix, department,
+theme) share zero emails.
 
 **Nothing the user configured may be quietly skipped.** This is the rule
 the whole app is now held to, not just one screen: if a choice cannot be

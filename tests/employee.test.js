@@ -86,6 +86,19 @@ const { check, state } = makeChecker();
     E.rows.every((r) => r[12] === "Engineering/IT" && r[13] === "QA Engineer"));
   check("filename", /^QATE_employee_bulk_upload_\d{8}\.xlsx$/.test(E.suggested), E.suggested);
 
+  /* ---------- E2. emails carry a per-run tag, so two separate Generate
+     clicks (2026-09-22, direct request — the name pools are finite, so
+     the same combo eventually recurs across unrelated files) never
+     collide even with the exact same inputs ---------- */
+  check("E email format carries a per-run tag",
+    E.rows.every((r) => /^[a-z]+\.[a-z]+\.[a-z0-9]{5}@yopmail\.com$/.test(r[8])),
+    E.rows[0][8]);
+  const E2 = await generate(page, XLSX, "employee-2");
+  const emailsE = new Set(E.rows.map((r) => r[8]));
+  const overlap = E2.rows.filter((r) => emailsE.has(r[8]));
+  check("E2 a second run with identical inputs shares no email with the first",
+    overlap.length === 0, `${overlap.length} shared`);
+
   /* A department ticked with no designation used to be dropped silently —
      you could tick three, get one in the file, and never learn why. */
   const deptWarn = async () =>

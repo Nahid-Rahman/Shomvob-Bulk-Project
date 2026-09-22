@@ -35,8 +35,13 @@ template exactly):**
 7. Joining Date* — weighted by year: ~60% previous year, ~25% current year
    (never future), ~15% two years ago
 8. Gross Salary* — random ৳20,000–150,000, step 500
-9. Email — `firstname.lastname@yopmail.com`, lowercase, deduped with
-   numeric suffix if collision
+9. Email — `firstname.lastname.xxxxx@yopmail.com`, lowercase, deduped
+   with numeric suffix if collision within the same run. `xxxxx` is a
+   5-character random tag generated once per Generate click (added
+   2026-09-22, direct request) — the name pools are finite, so without
+   it the exact same email could recur across two unrelated files, since
+   this app keeps no memory between runs by design; the tag makes that
+   effectively impossible without needing any persisted state
 10. Phone* — `880` + `1` + operator digit (3–9) + 8 digits = 13 digits
     total, deduped
 11. Gender* — matches the picked name's tagged gender (no "Prefer not to
