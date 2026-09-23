@@ -4931,9 +4931,8 @@
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Create Roster</h2></div>
-        <p class="section-note">A named time slot (start, end, grace period) real rosters get built from. Regenerate re-rolls a plausible shift; "Create the Default" loads the company's own real default shape instead. Either way, every field can still be edited by hand before saving.</p>
+        <p class="section-note">A named time slot (start, end, grace period) real rosters get built from. Regenerate re-rolls a plausible shift; every field can still be edited by hand before saving. To create the company's own real default shape instead, use "Run defaults for Schedule Management" above.</p>
         ${rosterExistingNoticeHtml(roster.existing)}
-        <button type="button" class="bulk-shortcut-btn" id="rstDefaultBtn">Create the default ("${ROSTER_DEFAULT.name}", ${ROSTER_DEFAULT.workStartTime}–${ROSTER_DEFAULT.workEndTime}, ${ROSTER_DEFAULT.gracePeriodMinutes} min grace) →</button>
         <div class="field-row" style="margin-top:14px">
           <div class="field"><label for="rstName">Name</label><input type="text" id="rstName" value="${escapeHtml(f.name)}" /></div>
           <div class="field"><label for="rstGrace">Grace</label><select id="rstGrace">${graceOptionsHtml}</select></div>
@@ -5005,27 +5004,6 @@
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       });
-    }
-
-    if ($("#rstDefaultBtn")) {
-      /* This button only fills the form locally — no network call, so it
-         had the exact same "silent no-op" problem Regenerate did before
-         2026-09-13's fix: a real change (Name becomes "Default", not a
-         possible random value — "Default" isn't in ROSTER_NAMES) with
-         zero visible feedback reads as broken. Found live 2026-09-23,
-         same signature, same fix: route through wireRegenerate() with
-         its own label rather than "Regenerating…". */
-      wireRegenerate(
-        "#rstDefaultBtn",
-        () => {
-          roster.fields = { ...ROSTER_DEFAULT };
-          roster.error = "";
-          roster.ok = "";
-          $("#setupBody").innerHTML = setupGroupPageTemplate();
-          wireSetupGroupPage();
-        },
-        "Loading the default…"
-      );
     }
 
     wireRegenerate("#rstRegenerateBtn", () => {

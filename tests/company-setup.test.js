@@ -25,6 +25,7 @@ const { BANK_NAMES, BANK_SHORT_CODE_MAP } = loadAppData(["BANK_NAMES", "BANK_SHO
 const { OFFICE_NAMES, DEPARTMENT_NAMES, DESIGNATION_NAMES } = loadAppData(["OFFICE_NAMES", "DEPARTMENT_NAMES", "DESIGNATION_NAMES"]);
 const { CUSTOM_FIELD_PRESETS, REQUIRED_DOCUMENT_NAMES } = loadAppData(["CUSTOM_FIELD_PRESETS", "REQUIRED_DOCUMENT_NAMES"]);
 const { DEFAULT_DEPARTMENTS } = loadAppData(["DEFAULT_DEPARTMENTS"]);
+const { ROSTER_COLORS } = loadAppData(["ROSTER_COLORS"]);
 
 async function gotoSetup(page) {
   await page.goto(PAGE);
@@ -3232,22 +3233,22 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     check("BN Name/Start/End/Grace fields all render", (await page.locator("#rstName, #rstStart, #rstEnd, #rstGrace").count()) === 4);
     check("BN Start At time is a plausible BD 09:00-11:00, 30-min-step value", ["09:00", "09:30", "10:00", "10:30", "11:00"].includes(await page.inputValue("#rstStart")));
+    check("BN no per-module 'Create the default' shortcut — 'Run defaults for Schedule Management' above covers it, 2026-09-24 direct request",
+      (await page.locator("#rstDefaultBtn").count()) === 0);
 
-    // "Create the Default" loads the exact real default shape (now routed
-    // through wireRegenerate()'s spinner delay, 2026-09-23 fix — a real
-    // change with no visible feedback read as broken)
-    await page.click("#rstDefaultBtn");
-    await page.waitForTimeout(1200);
-    check("BN default button loads Name=Default", (await page.inputValue("#rstName")) === "Default");
-    check("BN default button loads Start=09:00", (await page.inputValue("#rstStart")) === "09:00");
-    check("BN default button loads End=18:00", (await page.inputValue("#rstEnd")) === "18:00");
-    check("BN default button loads Grace=15", (await page.inputValue("#rstGrace")) === "15");
+    // hand-editing every field to the real default's own shape still saves
+    // correctly — the one-click shortcut is gone, editing by hand is not
+    await page.fill("#rstName", "Default");
+    await page.fill("#rstStart", "09:00");
+    await page.fill("#rstEnd", "18:00");
+    await page.selectOption("#rstGrace", "15");
 
     await page.click("#rstSaveBtn");
     await page.waitForTimeout(150);
     check("BN Saved sends an array with exactly one item", Array.isArray(sentBody) && sentBody.length === 1);
     const sent = sentBody[0];
-    check("BN Saved body matches the real default payload exactly", sent.name === "Default" && sent.workStartTime === "09:00" && sent.workEndTime === "18:00" && sent.totalWorkingHours === 9 && sent.halfDayHours === 4 && sent.gracePeriodMinutes === 15 && sent.color === "#22C55E");
+    check("BN Saved body matches the hand-typed default shape — color isn't an editable field, so it's whatever Regenerate last rolled",
+      sent.name === "Default" && sent.workStartTime === "09:00" && sent.workEndTime === "18:00" && sent.totalWorkingHours === 9 && sent.halfDayHours === 4 && sent.gracePeriodMinutes === 15 && ROSTER_COLORS.includes(sent.color));
     check("BN Save shows a success confirmation", (await page.textContent("#setupBody")).includes("Saved."));
     check("BN no page errors", errs.length === 0, errs.join(" | "));
     await page.close();

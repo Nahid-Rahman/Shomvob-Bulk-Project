@@ -3193,6 +3193,28 @@ own `"Loading the default…"` label instead of a bare click handler —
 same 1-second minimum spinner delay, same reasoning, just worded for
 what this button actually does.
 
+**The per-module "Create the Default" button was removed entirely,
+2026-09-24 — direct request** ("eta i think ekhane dorkar nai... amra
+upore run default diye pura schedule er ta run korte pari" — this isn't
+needed here, "Run defaults for Schedule Management" above already
+covers it): with "Run defaults for Schedule Management" sitting right
+above the tab strip on every page in this group, a second one-click
+shortcut for the exact same single record read as redundant in a way it
+doesn't for a bulk-list module (Department/Leave Types/Bonus
+Types/Salary Components all keep their own shortcut, since those loop
+several real creates that the group-level run doesn't surface
+individually). `#rstDefaultBtn` and its `wireRegenerate()` wiring
+(above) are gone from `rosterTemplate()`/`wireRosterEvents()`; the
+section-note points at the group-level button instead of describing a
+control that no longer exists. `runDefaultRoster()` itself is
+untouched — it never depended on this button existing in the DOM, only
+on the group/master "Run defaults" flow calling it directly, so
+removing the button changes nothing about what "Run defaults for
+Schedule Management" actually does. The Roster tab's own single-item
+form still exists — Regenerate, and now hand-typing every field, are
+what's left to reach that exact "Default" shape from this page directly
+if wanted, rather than the group-level run.
+
 `runDefaultRoster()` (in `MODULE_DEFAULT_RUNNERS`) matches the same
 "check what already exists first" discipline as Department/Leave
 Types/Salary Components — it checks the real existing list by name
