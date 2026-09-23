@@ -35,14 +35,22 @@ async function gotoSetup(page) {
   await page.waitForSelector("#setupSignInBtn");
 }
 
-function mockSupabaseOk(page) {
-  return page.route("**/auth/v1/token**", (route) =>
+async function mockSupabaseOk(page) {
+  await page.route("**/auth/v1/token**", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ access_token: "fake-tool-token", refresh_token: "fake-refresh", user: { id: "u1" } }),
     })
   );
+  /* Audit log (2026-09-24) — signing in now fires a real POST to this
+     project's own Supabase table (and so does every real settings save
+     and bulk generate, downstream of this same sign-in). Mocked
+     unconditionally wherever a real sign-in can happen, same discipline
+     as every other network call this suite touches, so nothing here
+     sends a real (fake-token-rejected, but still real) request to live
+     Supabase infrastructure. */
+  await page.route("**/rest/v1/audit_log", (route) => route.fulfill({ status: 201, contentType: "application/json", body: "[]" }));
 }
 function mockSupabaseFail(page) {
   return page.route("**/auth/v1/token**", (route) =>

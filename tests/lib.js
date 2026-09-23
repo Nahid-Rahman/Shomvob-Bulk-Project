@@ -120,6 +120,16 @@ async function signIn(page) {
    opens this modal first), waits for the real download, saves it and
    parses it. */
 async function generate(page, XLSX, tag) {
+  /* Audit log (2026-09-24) — a successful generate now fires a real POST
+     to this project's own Supabase table (openGenerateCompleteModal()'s
+     own logAudit() call). None of these five suites otherwise mock any
+     network call at all, since the five generators are 100% client-side
+     — mocked here, the one shared place all five suites call through, so
+     no per-suite change is needed and nothing here touches live
+     Supabase infrastructure. Registered fresh on every call rather than
+     once per test file, since a route persists for the page's lifetime
+     regardless — repeating it is harmless. */
+  await page.route("**/rest/v1/audit_log", (route) => route.fulfill({ status: 201, contentType: "application/json", body: "[]" }));
   await page.click("#generateBtn");
   await page.waitForSelector("#gcDownloadBtn", { state: "visible" });
   const [download] = await Promise.all([

@@ -6553,6 +6553,72 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      Neither token is ever written to storage. Both live only in this
      object, so a reload clears them exactly like every pasted ID list
      and shift assignment elsewhere in the app. */
+
+  /* ---------- Audit log (2026-09-24) ----------
+
+     Lead feedback, relayed directly: "ke ke login korlo, ke ki korlo,
+     konta create korlo, bulk na settings" — who logged in, who did
+     what, and whether it was a bulk file or a real settings save.
+     Written to a new `audit_log` table in this project's own Supabase
+     project (the same one the tool sign-in already uses) via a plain
+     REST insert — no SDK, same fetch-based style as supabaseSignIn()
+     and companySignIn(). Insert-only from this client: the table's own
+     RLS policy allows INSERT for any authenticated (tool-signed-in)
+     user, but has no SELECT policy at all yet, deliberately — nothing
+     here is readable through the anon/authenticated client until the
+     admin panel (with real role checks) exists to gate who may read
+     everyone's activity. Reads for now happen only via the Supabase
+     dashboard directly.
+
+     Fire-and-forget on purpose: a failed audit write must never block
+     or surface an error for the real action it's describing — logging
+     is a side effect of that action, not a precondition for it. */
+  async function logAudit(eventType, detail, extra) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/audit_log`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${setup.toolToken || SUPABASE_ANON_KEY}`,
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({ event_type: eventType, detail, user_email: setup.toolEmail || null, ...extra }),
+      });
+    } catch (e) {
+      // deliberately swallowed — see comment above
+    }
+  }
+
+  /* Every real settings save in this app already ends with
+     `setup.doneModules.add(moduleId)` — single-item, bulk-item and
+     "Run defaults" alike, 66 call sites at last count. Rather than hook
+     each one individually, this Set's own `add()` is wrapped once here
+     so every one of them audits itself for free, with zero changes to
+     any of those 66 sites — a real save landing in the log is a
+     property of the Set itself now, not of each caller remembering to
+     log it. `findSettingsModule()` (below) supplies the human label.
+     `initial`, when given, seeds the Set directly (bypassing the
+     wrapped add below) — restoring done-dots from a previous session
+     (see `loadLastSetupSession()`) isn't a new save happening now, so
+     it must not re-audit modules that were already logged when they
+     were actually saved. */
+  function makeDoneModulesSet(initial) {
+    const set = new Set();
+    const realAdd = set.add.bind(set);
+    if (initial) for (const id of initial) realAdd(id);
+    set.add = (moduleId) => {
+      const mod = findSettingsModule(moduleId);
+      logAudit("settings_save", mod ? `Saved ${mod.label}` : `Saved ${moduleId}`, {
+        environment: setup.env,
+        company_name: setup.companyName,
+        module_id: moduleId,
+      });
+      return realAdd(moduleId);
+    };
+    return set;
+  }
+
   const setup = {
     toolEmail: null,
     toolToken: null, // Supabase access token
@@ -6564,7 +6630,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     busy: false,
     activeGroup: null, // a SETTINGS_GROUPS id, or null to show the group grid
     activeModule: null, // a module id within activeGroup's tab strip
-    doneModules: new Set(), // module ids saved for real this session — resets on sign-out/reload like everything else here
+    doneModules: makeDoneModulesSet(), // module ids saved for real this session — resets on sign-out/reload like everything else here; audits itself, see makeDoneModulesSet() above
     groupRun: null, // { groupId, items: [{id,label,status,message}], running, stopRequested } — "Run this group's defaults" (2026-09-14)
     masterRun: null, // same shape, but items span every group in SETTINGS_GROUPS order — "Run every default"
   };
@@ -6894,7 +6960,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         setup.companyUserType = null;
         setup.activeGroup = null;
         setup.activeModule = null;
-        setup.doneModules = new Set();
+        setup.doneModules = makeDoneModulesSet();
         resetModuleState();
         clearLastSetupSession();
         clearToolSession();
@@ -6912,7 +6978,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         setup.companyUserType = null;
         setup.activeGroup = null;
         setup.activeModule = null;
-        setup.doneModules = new Set();
+        setup.doneModules = makeDoneModulesSet();
         resetModuleState();
         clearLastSetupSession();
         renderSetupBody();
@@ -7009,6 +7075,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         setup.toolEmail = email;
         setup.toolToken = data.access_token;
         saveToolSession(data.expires_at ? data.expires_at * 1000 : Date.now() + 3600 * 1000);
+        logAudit("login", `${email} signed in`, { environment: setup.env });
         renderSetupBody();
       } catch (e) {
         err.textContent = e.message;
@@ -7066,7 +7133,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
            though re-authenticating for real is still required every time. */
         const last = loadLastSetupSession();
         if (last && last.companyName === setup.companyName && last.env === setup.env) {
-          setup.doneModules = new Set(last.doneModules);
+          setup.doneModules = makeDoneModulesSet(last.doneModules);
         }
         renderSetupBody();
       } catch (e) {
@@ -13192,6 +13259,17 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      reopening this modal on a second Generate click can't stack up
      handlers from the first. */
   function openGenerateCompleteModal(title, bodyText, wb, filename) {
+    /* Covers all five generators for free — every one of them funnels
+       its own success path through this one shared function, the same
+       reason the per-module icon and the "file ready" modal itself only
+       needed to be wired here once. No real user identity is attached
+       yet (user_email will be null unless the visitor also happens to be
+       tool-signed-in for Company Setup elsewhere in the same session) —
+       the five generators don't require a real login at all today, only
+       Company Setup does; this becomes attributable once the planned
+       tiered-access work makes Bulk require login too. Still useful for
+       the dashboard's own aggregate counts in the meantime. */
+    logAudit("bulk_generate", title, { module_id: currentOp });
     const modal = $("#generateCompleteModal");
     const downloadBtn = $("#gcDownloadBtn");
     const closeBtn = $("#gcCloseBtn");
