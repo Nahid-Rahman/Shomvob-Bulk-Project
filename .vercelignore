@@ -3,6 +3,7 @@
 # *.vercel.app URL is both guessable and indexable.
 CLAUDE.md
 SPEC.md
+TODO.md
 
 # Test tooling is never served.
 tests/

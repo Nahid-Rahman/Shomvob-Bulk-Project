@@ -13,6 +13,11 @@ file; `src/` holds the editable source (`app.css`, `app.js`,
 `build.py` assembles `src/` + `vendor/` into `index.html`. Run
 `python3 build.py` after any edit under `src/`.
 
+**`TODO.md`** (2026-09-24) is a shared, cross-machine task list — a note
+made on one machine only survives past that session if it's written
+there and pushed; check it at the start of a session and keep it current
+as items are done or added, same discipline as everything else here.
+
 ## Architecture decisions (already made, don't relitigate)
 - **No backend, no database, no Supabase.** Every generation is random,
   in-memory, stateless — nothing needs to persist across sessions or be
