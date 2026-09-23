@@ -18,12 +18,39 @@ or added more).
     er part hobar kotha. je admin dhuke dekhbe ke ki korse").
   - **Dashboard with a proper overview** — real stats (how many
     companies had settings run, how many bulk creates of what type)
-    with appropriate graphs. Not started; now has real audit_log data to
-    draw from.
+    with appropriate graphs. **Confirmed as the next item to build**
+    (2026-09-24) — recommended over starting Tiered access next because
+    (a) the data already exists (`audit_log`, below) so no new pipeline
+    is needed, just querying it; (b) it's non-disruptive — no login-flow
+    change, no existing behaviour breaks; (c) Tiered access is the
+    bigger, riskier piece (it means gating Bulk with real login too, plus
+    the admin login/panel design the user explicitly left open — "admin
+    login ta kemne hobe ota tumi e bolo") and building Dashboard first
+    also doubles as a live check that `audit_log` is actually capturing
+    correctly, since its numbers will draw straight from that table. Not
+    started yet — being picked up on a different machine next.
+
+    **Context for whoever starts this** (so it's readable cold, without
+    needing this conversation): `audit_log` is a real Supabase table
+    (project `wtlaiidtiugxirqcxjzw`, see CLAUDE.md → Phase 2 → "The
+    Supabase project itself" and → "Audit Log") with three event types
+    currently written — `login`, `settings_save`, `bulk_generate` — each
+    row carrying `event_type`, `detail`, `user_email`, plus `extra` fields
+    (`environment`, `company_name`, `module_id` on settings_save events).
+    No SELECT policy exists yet (insert-only via the anon/authenticated
+    client) — reading real rows for a Dashboard needs either a
+    read-enabling RLS policy (scoped sensibly, not wide open — this is
+    the same access-control question Tiered access will also need to
+    answer, so don't over-decide it here) or a server-side aggregation
+    step; **raise this with the user before deciding**, don't assume.
+    Exact stats/graphs to show haven't been dictated yet either — ask
+    before building, same "confirm rules, never assume" discipline this
+    whole project holds itself to.
   - **Tiered access / admin panel** — some users get only the bulk
     generators, some get Company Setup, some get both; an admin can
     raise/lower anyone's access level from a real admin panel. Not
-    started. This is also where the audit log's own viewing UI belongs.
+    started, intentionally after Dashboard (see above). This is also
+    where the audit log's own viewing UI belongs.
 
   **Tiered access — the normal (non-admin) user journey, dictated
   directly (2026-09-24), captured here so it isn't lost between
