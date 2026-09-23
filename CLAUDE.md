@@ -3615,18 +3615,23 @@ this module on *both* companies, consistently, not flakily. Fixed by
 defaulting `latePenaltyEnabled` to `true` instead — both toggles stay
 fully independent in the UI, this only changes which one starts on.
 
-**A fourth, related finding, not (yet) acted on**: the same live curl
+**A fourth, related finding, resolved the same day.** The same live curl
 session also surfaced `"Late penalty and repeated late penalty cannot
-both be enabled at the same time. Please enable only one."` — i.e. the
-real rule is **exactly one**, not merely *at least* one. The new
-default (Late Penalty on, Repeated off) already satisfies this, so
-nothing failed here — but the UI still lets a QA engineer turn *both*
-on by hand, which the real API would then reject (surfaced via this
-app's existing "show the server's message verbatim" error display, not
-a crash). Whether to make the two toggles mutually exclusive in the UI
-itself (contradicting the explicit 2026-09-13 "independent toggles"
-decision) is an open question, flagged back rather than decided
-unilaterally — not changed as part of this fix.
+both be enabled at the same time. Please enable only one."` — the real
+rule is **exactly one**, not merely *at least* one. Flagged back rather
+than decided unilaterally, since it meant reversing the explicit
+2026-09-13 "independent toggles" decision — confirmed directly ("hae
+eta korte parle valo, je exactly ekta hote hobe, duitai na"). Late
+Penalty / Repeated Late Penalty are no longer two independent Yes/No
+segs; `#laPenaltyTypeSeg` is a single radio-pair (`data-val="late"` /
+`"repeated"`) where selecting one always deselects the other, so an
+invalid combination can't be reached from the UI at all — this app's
+usual "let the real API be the backstop" discipline doesn't apply here
+specifically because the real API's own rule is "exactly one," which a
+UI shape can enforce directly rather than merely surface a rejection
+for. `generateLateArrivalFields()`'s defaults are unchanged (Late
+Penalty true, Repeated false); only the control that edits them
+changed shape.
 
 Both companies were left fully configured across all 6 groups by the
 end of this pass (Shark Pukur: every curated module plus Employee/

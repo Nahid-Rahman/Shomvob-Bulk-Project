@@ -1455,17 +1455,18 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AB Late Arrival resolves its own leave-type dependency", (await page.textContent("#setupBody")).includes("Annual Leave"));
 
     /* Late Penalty / Repeated Late Penalty used to be an exclusive pair
-       (one always true) with no off state. Direct request (2026-09-13):
-       both default off and are independent toggles.
-       Revised live 2026-09-24 — a real, confirmed bug: the real API
-       rejects lateThresholdEnabled:true (always sent, not a toggle)
-       unless at least one of these two is also true ("Either late
-       penalty or repeated late penalty must be enabled when late
-       threshold is enabled!"), so both-off was never actually
-       saveable. Late Penalty now defaults on instead — still a fully
-       independent toggle, just a different starting value. */
-    check("AB Late Penalty defaults on now — the real API requires at least one when Late Threshold is on", (await page.getAttribute('#laPenaltySeg button[data-val="yes"]', "aria-pressed")) === "true");
-    check("AB Repeated Late Penalty still defaults off", (await page.getAttribute('#laRepeatedPenaltySeg button[data-val="no"]', "aria-pressed")) === "true");
+       (one always true) with no off state; then two independent Yes/No
+       toggles (2026-09-13, both defaulting off). Redesigned again the
+       same day two real rules were found live (2026-09-24): the real
+       API requires at least one when Late Threshold is on ("Either
+       late penalty or repeated late penalty must be enabled..."), *and*
+       rejects both being on at once ("...cannot both be enabled at the
+       same time"). Now a single radio-pair (`#laPenaltyTypeSeg`) —
+       exactly one selected, always — so an invalid combination can't be
+       reached from the UI at all, rather than being caught by the real
+       API's own rejection. */
+    check("AB Late Penalty is the default selection", (await page.getAttribute('#laPenaltyTypeSeg button[data-val="late"]', "aria-pressed")) === "true");
+    check("AB Repeated Late Penalty is not selected by default", (await page.getAttribute('#laPenaltyTypeSeg button[data-val="repeated"]', "aria-pressed")) === "false");
 
     let laSent = null;
     await page.route("**/api/v1/payroll/configuration/deduction-settings", (route) => {
@@ -1481,19 +1482,17 @@ async function toGrid(page, companyName = "Hogwarts") {
        ("property latePenaltyLeaveType should not exist"). */
     check("AB latePenaltyLeaveTypeIds carries the real leave type id, as an array", laSent && JSON.stringify(laSent.latePenaltyLeaveTypeIds) === JSON.stringify(["lt1"]), JSON.stringify(laSent && laSent.latePenaltyLeaveTypeIds));
 
-    /* The two toggles are still independently clickable in the UI —
-       flipping to the opposite combo from the default proves that,
-       even though the real API separately requires exactly one of them
-       (found the same live pass, not enforced client-side here — same
-       "let the real API be the backstop" discipline as every other
-       business rule this app doesn't duplicate on the client). */
-    await page.click('#laPenaltySeg button[data-val="no"]');
+    /* Switching to Repeated Late Penalty flips both flags together — the
+       radio-pair makes "exactly one" impossible to violate, rather than
+       leaving that to the real API's own rejection. */
+    await page.click('#laPenaltyTypeSeg button[data-val="repeated"]');
     await page.waitForTimeout(80);
-    await page.click('#laRepeatedPenaltySeg button[data-val="yes"]');
-    await page.waitForTimeout(80);
+    check("AB switching selection turns the other one off automatically",
+      (await page.getAttribute('#laPenaltyTypeSeg button[data-val="late"]', "aria-pressed")) === "false" &&
+        (await page.getAttribute('#laPenaltyTypeSeg button[data-val="repeated"]', "aria-pressed")) === "true");
     await page.click("#laSaveBtn");
     await page.waitForTimeout(150);
-    check("AB both toggles remain independently controllable in the UI", laSent && laSent.latePenaltyEnabled === false && laSent.repeatedLatePenaltyEnabled === true, JSON.stringify(laSent));
+    check("AB switching to Repeated Late Penalty sends exactly that combination", laSent && laSent.latePenaltyEnabled === false && laSent.repeatedLatePenaltyEnabled === true, JSON.stringify(laSent));
 
     await page.click('.settings-tab[data-module="absent_deduction"]');
     await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Rule based on"), { timeout: 5000 });

@@ -7957,14 +7957,17 @@
     return {
       lateThresholdEnabled: true,
       monthlyLateLimit: randInt(3, 7),
-      /* latePenaltyEnabled defaults true, not false — a real, confirmed
-         bug found live 2026-09-24: the real API rejects
-         lateThresholdEnabled:true unless at least one of
-         latePenaltyEnabled/repeatedLatePenaltyEnabled is also true
-         ("Either late penalty or repeated late penalty must be enabled
-         when late threshold is enabled!"), so both-off (the original
-         2026-09-13 default) was never actually saveable. Both stay real,
-         independent toggles — this only changes which one starts on. */
+      /* Exactly one of these two is ever true — two real, confirmed
+         rules found live 2026-09-24: lateThresholdEnabled:true (always
+         sent) requires at least one ("Either late penalty or repeated
+         late penalty must be enabled..."), and the real API separately
+         rejects both being true at once ("...cannot both be enabled at
+         the same time"). Both-off was the original 2026-09-13 default
+         (independent toggles, direct request) — revised the same day
+         these were found: no longer independent, always exactly one,
+         enforced by the single radio-pair UI below (`#laPenaltyTypeSeg`),
+         not left to the real API to reject a UI-reachable invalid
+         combination. */
       latePenaltyEnabled: true,
       repeatedLatePenaltyEnabled: false,
       latePenaltyThresholdDays: randInt(2, 5),
@@ -7996,21 +7999,12 @@
     return `
       <div class="section">
         ${head}
-        <p class="section-note">Generated from the muggle-friendly magic scroll's own late-arrival rule. Late Penalty and Repeated Late Penalty default off — turn on whichever you actually want to test.</p>
-        <div class="field-row" style="flex-wrap:wrap">
-          <div class="field" style="max-width:170px">
-            <label>Late Penalty</label>
-            <div class="seg seg-fill" id="laPenaltySeg" role="group" aria-label="Late penalty">
-              <button type="button" data-val="yes" aria-pressed="${f.latePenaltyEnabled}">Yes</button>
-              <button type="button" data-val="no" aria-pressed="${!f.latePenaltyEnabled}">No</button>
-            </div>
-          </div>
-          <div class="field" style="max-width:210px">
-            <label>Repeated Late Penalty</label>
-            <div class="seg seg-fill" id="laRepeatedPenaltySeg" role="group" aria-label="Repeated late penalty">
-              <button type="button" data-val="yes" aria-pressed="${f.repeatedLatePenaltyEnabled}">Yes</button>
-              <button type="button" data-val="no" aria-pressed="${!f.repeatedLatePenaltyEnabled}">No</button>
-            </div>
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own late-arrival rule. Exactly one of Late Penalty / Repeated Late Penalty always applies — the real API rejects both on or both off, confirmed live 2026-09-24.</p>
+        <div class="field">
+          <label>Penalty Type</label>
+          <div class="seg seg-fill" id="laPenaltyTypeSeg" role="group" aria-label="Penalty type">
+            <button type="button" data-val="late" aria-pressed="${f.latePenaltyEnabled}">Late Penalty</button>
+            <button type="button" data-val="repeated" aria-pressed="${f.repeatedLatePenaltyEnabled}">Repeated Late Penalty</button>
           </div>
         </div>
         <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
@@ -8069,16 +8063,16 @@
     }
     if (!lateArrival.leaveTypes || lateArrival.leaveTypes.length === 0) return;
 
-    $all("#laPenaltySeg button").forEach((btn) =>
+    /* Exactly one of these is ever true — a real, confirmed rule found
+       live 2026-09-24 ("Late penalty and repeated late penalty cannot
+       both be enabled at the same time"). A single radio-pair rather
+       than two independent Yes/No segs makes that impossible to violate
+       from the UI, instead of leaving it to the real API to reject. */
+    $all("#laPenaltyTypeSeg button").forEach((btn) =>
       btn.addEventListener("click", () => {
-        lateArrival.fields.latePenaltyEnabled = btn.dataset.val === "yes";
-        $("#setupBody").innerHTML = setupGroupPageTemplate();
-        wireSetupGroupPage();
-      })
-    );
-    $all("#laRepeatedPenaltySeg button").forEach((btn) =>
-      btn.addEventListener("click", () => {
-        lateArrival.fields.repeatedLatePenaltyEnabled = btn.dataset.val === "yes";
+        const wantsLate = btn.dataset.val === "late";
+        lateArrival.fields.latePenaltyEnabled = wantsLate;
+        lateArrival.fields.repeatedLatePenaltyEnabled = !wantsLate;
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       })
