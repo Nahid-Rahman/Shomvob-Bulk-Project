@@ -10,13 +10,20 @@ or added more).
 - Lead feedback, relayed directly (2026-09-24) — three related asks,
   **all need a real backend + database**, a genuine architecture change
   from this app's current stateless/client-only design:
-  - **Audit log** — who did what, when, fully visible.
+  - **Audit log** — **data capture is built** (2026-09-24, see CLAUDE.md
+    → Phase 2 → "Audit Log"): login / settings_save / bulk_generate
+    events now write to a real Supabase `audit_log` table. **Still open:
+    a viewing UI** — deliberately deferred, confirmed this belongs to
+    the future admin panel below, not this phase ("eta kintu admin panel
+    er part hobar kotha. je admin dhuke dekhbe ke ki korse").
   - **Dashboard with a proper overview** — real stats (how many
     companies had settings run, how many bulk creates of what type)
-    with appropriate graphs.
+    with appropriate graphs. Not started; now has real audit_log data to
+    draw from.
   - **Tiered access / admin panel** — some users get only the bulk
     generators, some get Company Setup, some get both; an admin can
-    raise/lower anyone's access level from a real admin panel.
+    raise/lower anyone's access level from a real admin panel. Not
+    started. This is also where the audit log's own viewing UI belongs.
 
   **Tiered access — the normal (non-admin) user journey, dictated
   directly (2026-09-24), captured here so it isn't lost between

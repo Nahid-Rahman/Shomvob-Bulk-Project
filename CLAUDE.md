@@ -3648,6 +3648,86 @@ Pattern, Leave Type→Leave Policy, Salary Components→Configure Salary
 Components, Bonus Type→Bonus Policy, Attendance Policy→Overtime)
 resolves correctly end to end against the real API.
 
+### Audit Log — data capture only, no viewing UI yet (2026-09-24)
+
+The first of three lead-feedback asks (`TODO.md`) to actually get built —
+Dashboard and Tiered access/admin panel are still unstarted, deliberately
+separate phases. Scope was confirmed directly and is exactly three event
+kinds, nothing more: "ke ke login korlo / ke ki korlo / konta create
+korlo, bulk na settings" ("ar kichu? audit to basically eigulai" — that's
+genuinely all of it). Whether this phase needed its own viewing UI was
+asked directly too; the answer was to build capture only for now — "eta
+kintu admin panel er part hobar kotha. je admin dhuke dekhbe ke ki korse"
+(viewing belongs to the future admin panel, not this phase).
+
+**This is the app's first real, consciously-made exception to "No
+backend, no database, no Supabase" (above)** — the Supabase project
+(`wtlaiidtiugxirqcxjzw`, previously Auth-only, see "The Supabase project
+itself" above) gains its first real table, `audit_log`. Every other rule
+in that architecture section is untouched: the five generators are still
+100% client-side, and Company Setup's own two real logins are unchanged.
+This is additive, not a reversal.
+
+**`logAudit(eventType, detail, extra)`** (`app.js`) is a fire-and-forget
+`POST {SUPABASE_URL}/rest/v1/audit_log`, wrapped in try/catch with the
+failure silently swallowed — a logging write must never block or surface
+an error for the real user-facing action it's describing. Three call
+sites, matching the three confirmed event kinds exactly:
+
+- **`login`** — `wireSetupSignIn()`'s tool-login success handler, right
+  after `saveToolSession()`. Fires once per real Supabase tool sign-in,
+  not per company login (the company login was never in scope — it isn't
+  a Bulk Forge account, it's a real Shomvob credential).
+- **`settings_save`** — not a new call site at all. `setup.doneModules`
+  (a plain `Set`, everywhere else in this file) is now built by
+  `makeDoneModulesSet(initial)`, which returns a `Set` whose own `.add()`
+  is overridden to call `logAudit("settings_save", ...)` before doing the
+  real add. Every one of the ~66 pre-existing `setup.doneModules.add(...)`
+  call sites across every settings module — single-item saves, bulk
+  creates, "Run defaults" runners, session restore — logs itself
+  automatically, with zero edits to any of those 66 sites. Chosen
+  deliberately over a 66-site mechanical edit: same call shape everywhere
+  already goes through this one `Set`, so wrapping it once is lower-risk
+  and impossible to miss on the next new module. `setup.doneModules =
+  makeDoneModulesSet()` replaces every prior `new Set()` (Sign out,
+  Disconnect, and session-restore's `new Set(last.doneModules)`).
+- **`bulk_generate`** — `openGenerateCompleteModal()`, the first line of
+  the function body (Phase 1's "Generate now opens a modal" mechanism,
+  above) — fires once per successful generate across all five operations,
+  since all five already funnel through this one shared function.
+  `user_email` is `null` here — Bulk has no real login yet, only the joke
+  gate, per the current design; it will start carrying a real email once
+  the Tiered Access work (`TODO.md`) gates Bulk with real login too.
+
+**RLS: insert-only, deliberately no SELECT policy yet.** `audit_log`
+allows `INSERT` for `authenticated` (real Supabase tool-login) users and
+grants no read access at all — not to `anon`, not to `authenticated`.
+Today the only way to read it is the Supabase dashboard directly. This is
+intentional, not an oversight to fix later: a SELECT policy is exactly
+the kind of decision the future admin panel/tiered-access work should
+make (who can see whose activity), and opening read access now would be
+guessing at that shape ahead of time.
+
+**Test mocking, fixed proactively before the suite was ever run** — the
+project's standing "every network call is intercepted" testing
+discipline (`tests/`'s own section above) would otherwise be broken by
+all three call sites at once, hitting live Supabase infrastructure on
+every test run with fake tokens:
+`mockSupabaseOk()` in `tests/company-setup.test.js` now also mocks
+`**/rest/v1/audit_log` (covering `toGrid()` plus 8 other direct call
+sites); `tests/lib.js`'s shared `generate()` helper mocks the same route
+too, covering all 5 generator-operation suites in the one shared place
+they all call through — the same "fix once in the shared helper, not
+per-suite" pattern the "file ready" modal change (above) already
+established for that exact function. Confirmed: full 8-suite run (692
+checks) green with these mocks in place.
+
+**Next, not yet started**: Dashboard (needs this data to have something
+real to show) and Tiered access/admin panel (needs a real read/view
+surface for this log, plus the admin login flow itself — explicitly left
+open by the user: "admin login ta kemne hobe ota tumi e bolo"). Both are
+captured in full in `TODO.md`.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both
