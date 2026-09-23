@@ -6,4 +6,4 @@ here instead of only saying it out loud, and delete it once it's done
 (pull the latest before checking — another machine may have finished it,
 or added more).
 
-- (nothing yet)
+- Report validation
