@@ -3531,6 +3531,44 @@ run block extended with real Location Type/Location creation, the
 group's own module-count assertions (`5`→`6` throughout the file) and
 tab-order assertions all updated to match.
 
+### A third live pass — Location Types/Locations/Roster/Roster Pattern, driving the real deployed site (2026-09-24)
+
+Requested directly ("full blown test korba... positive negative case"),
+against two real, fresh disposable staging companies (`Shark Pukur`,
+`Shark Balti`) — real tool sign-in and real company logins, driving the
+actual deployed `https://shomvob-bulk-project.vercel.app`, not a local
+build. Credentials used only in-memory in a scratch Playwright script,
+deleted afterward, never committed — same discipline as every other
+live pass in this project.
+
+**Positive (Shark Pukur):** "Run defaults" for both Company Settings and
+Schedule Management, real end to end — 6/6 and 2/2 modules done, 0
+skipped, 0 failed, zero page errors. Confirmed by a direct follow-up
+`curl`: the real company now holds exactly the real default Location
+Type (`Baridhara`) and the real default Location (`Railgate`,
+`isDefault: true`, correctly linked to that same Baridhara type's real
+id) — byte-for-byte what `LOCATION_TYPE_DEFAULT`/`LOCATION_DEFAULT`
+describe.
+
+**Negative/edge (Shark Balti):** Locations correctly blocked with zero
+real Location Types; Roster Pattern correctly blocked with zero real
+time slots. An empty required Name on Location Types got the real
+API's own generic `"Validation failed"` (same bare-message pattern
+found for most other modules in the 2026-09-11 pass). **A genuinely new
+finding**: the real API itself rejects a duplicate Location Type name
+server-side — `"A location type with the name "Gulshan Test Zone"
+already exists."` — confirmed by `curl` afterward that only one real
+record exists, not two. This app's own single-item form has no
+client-side duplicate check (only "Run defaults"/bulk shortcuts do, by
+design), and this confirms that's safe to leave as-is: the real server
+is the actual backstop, and its rejection surfaces through this app's
+existing "show the server's own message verbatim" discipline with no
+change needed.
+
+Zero page errors across either company, across the whole pass —
+further live confirmation that the six-site background-check crash fix
+(above, found the same day) holds up outside a mocked test too.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both
