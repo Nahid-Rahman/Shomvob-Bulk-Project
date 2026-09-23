@@ -3699,14 +3699,48 @@ sites, matching the three confirmed event kinds exactly:
   gate, per the current design; it will start carrying a real email once
   the Tiered Access work (`TODO.md`) gates Bulk with real login too.
 
-**RLS: insert-only, deliberately no SELECT policy yet.** `audit_log`
-allows `INSERT` for `authenticated` (real Supabase tool-login) users and
-grants no read access at all — not to `anon`, not to `authenticated`.
-Today the only way to read it is the Supabase dashboard directly. This is
-intentional, not an oversight to fix later: a SELECT policy is exactly
-the kind of decision the future admin panel/tiered-access work should
-make (who can see whose activity), and opening read access now would be
-guessing at that shape ahead of time.
+**RLS was insert-only for the first day, deliberately.** `audit_log`
+originally allowed `INSERT` for `authenticated` (real Supabase
+tool-login) users and granted no read access at all. That was
+intentional, not an oversight — a SELECT policy is exactly the kind of
+decision the admin-panel/tiered-access work should make (who can see
+whose activity), and opening read access before Dashboard actually
+needed it would have been guessing at the shape ahead of time.
+
+**A minimal admin allowlist, added 2026-09-25 once Dashboard actually
+needed to read this table.** Confirmed directly rather than assumed —
+asked "ei approach kharap na" (is this approach okay) before building
+anything, and separately confirmed the Dashboard's real-stats section
+must itself stay gated behind real tool-login + admin (see "Dashboard
+only shows real stats to a signed-in admin" below) since the Dashboard
+*page* itself is still reachable by anyone past the joke gate alone —
+this is not the full Tiered Access system, just enough to answer "who
+can see this."
+
+- **`public.admins`** — one column, `email`, currently just
+  `mahmudur@shomvob.com` (the user's own explicit call: "khali
+  mahmudur@shomvob.com e thak apatoto"). RLS is enabled with **no
+  policies of its own at all** — not even a self-read policy — so this
+  table can never be queried directly through the API by anyone,
+  `anon` or `authenticated`, admin or not.
+- **`public.is_admin()`** — a `SECURITY DEFINER` SQL function, so it
+  runs with the function owner's privileges rather than the caller's,
+  which is what lets it read `admins` (a table with zero policies)
+  without opening that table up itself. Checks `auth.jwt() ->>
+  'email'` — the real Supabase Auth email of whoever is currently
+  signed in — against `admins`, returns a plain boolean. Granted
+  `EXECUTE` to `authenticated` only.
+- **`audit_log_select_admins`** — a real `SELECT` policy, `for select
+  to authenticated using (public.is_admin())`. So `audit_log` now has
+  two policies total: the original insert-for-anyone-signed-in, and
+  this new admin-gated read. Enforced by Postgres itself, not by
+  anything in this app's own client code — a non-admin signed-in user
+  hitting the same Supabase REST endpoint directly (devtools, `curl`,
+  whatever) gets an empty result, not a client-side-only hidden
+  section.
+- **Growing this list later is one `INSERT` into `admins`**, nothing
+  else — no code change, no redeploy, since `is_admin()` re-checks the
+  table live on every query.
 
 **Test mocking, fixed proactively before the suite was ever run** — the
 project's standing "every network call is intercepted" testing

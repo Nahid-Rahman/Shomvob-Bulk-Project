@@ -37,15 +37,26 @@ or added more).
     currently written — `login`, `settings_save`, `bulk_generate` — each
     row carrying `event_type`, `detail`, `user_email`, plus `extra` fields
     (`environment`, `company_name`, `module_id` on settings_save events).
-    No SELECT policy exists yet (insert-only via the anon/authenticated
-    client) — reading real rows for a Dashboard needs either a
-    read-enabling RLS policy (scoped sensibly, not wide open — this is
-    the same access-control question Tiered access will also need to
-    answer, so don't over-decide it here) or a server-side aggregation
-    step; **raise this with the user before deciding**, don't assume.
-    Exact stats/graphs to show haven't been dictated yet either — ask
-    before building, same "confirm rules, never assume" discipline this
-    whole project holds itself to.
+
+    **Read access is now solved (2026-09-25)** — see CLAUDE.md → Phase 2
+    → "Audit Log" → "A minimal admin allowlist": a real `admins` table
+    (currently just `mahmudur@shomvob.com`, the user's own explicit
+    call) + a `SECURITY DEFINER` `is_admin()` function + a real `SELECT`
+    RLS policy on `audit_log` gated by it. Query it directly, client-side,
+    the same way every other Supabase call in this app already works —
+    no server-side aggregation piece needed.
+
+    **Still open, confirm before building the UI:**
+    - **Exact stats/graphs to show** — not dictated yet, ask before
+      building, same "confirm rules, never assume" discipline this whole
+      project holds itself to.
+    - **The Dashboard page itself is reachable by anyone past the joke
+      gate alone** (no real login needed today) — confirmed directly with
+      the user that the real-stats section must stay gated behind real
+      tool-login *and* `is_admin()`, separately from the rest of the
+      page (memes/stat tiles/operation cards), which stay exactly as
+      they are today for everyone. Don't build the stats section as
+      always-visible.
   - **Tiered access / admin panel** — some users get only the bulk
     generators, some get Company Setup, some get both; an admin can
     raise/lower anyone's access level from a real admin panel. Not
