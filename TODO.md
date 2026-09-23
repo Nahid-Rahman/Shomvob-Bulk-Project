@@ -58,6 +58,44 @@ or added more).
      Company Setup already asks for today — unchanged from the current
      two-step flow, just reached from this new Welcome page instead of
      directly.
-  7. **The admin login/admin-panel flow itself is still undecided** —
-     the user explicitly left this to be proposed, not dictated
-     ("admin login ta kemne hobe ota tumi e bolo").
+  7. **Admin login/panel — proposed by Claude, confirmed directly
+     (2026-09-25)**: no separate admin login at all. The one real tool
+     sign-in (already built, already gates Company Setup) is the same
+     login for everyone; "admin" is just a flag on that same account
+     (`user_access.is_admin`, replacing today's standalone `admins`
+     table — same mechanism Dashboard's `is_admin()` already uses,
+     just widened to also carry each user's tier). An admin sees one
+     extra card on the new Welcome/tier page (step 5): **Admin Panel**.
+     Admin Panel v1 scope, also confirmed: view the audit log, and
+     change an existing real tool user's tier/admin flag. **Adding or
+     removing a real Supabase user stays the current Claude+SQL manual
+     process** — not built into the UI yet, since that needs the
+     `service_role` key, which can never be client-side (this app's own
+     hard rule); revisit only if that manual step becomes a real pain
+     point.
+  8. **Default tier for any real tool account with no `user_access` row
+     yet — confirmed directly (2026-09-25): "both"**, not locked-out.
+     Covers today's 3 existing accounts (mahmudur, tamjida, tanvir)
+     transparently — nobody loses access the moment this ships; an
+     admin can then narrow anyone down from the panel.
+  9. **This journey is being built step by step, not from one locked
+     spec — confirmed directly (2026-09-25)**: "overall journey emne
+     msg e ekbare bujhano hard. amra aste aste agabo." Step 2 (Dashboard)
+     specifically is now known to need more than "today's Dashboard plus
+     a troll button" — a real layout change, more graphs/charts/stats,
+     and "What it can do" (the operation-card grid) possibly removed
+     from the pre-login Dashboard entirely or moved to post-login —
+     **not speced yet, ask before building**. Today's "Team activity"
+     section (CLAUDE.md → Phase 2, built 2026-09-25) is a stopgap likely
+     to be reworked or absorbed once this redesign is actually speced —
+     the user already flagged its current UX as feeling like "ekta
+     portion magically ashe" (an abrupt pop-in); don't polish it further
+     in isolation, it's expected to change shape here.
+
+  **Whoever picks this up next**: don't restart planning from scratch —
+  items 1-8 above are confirmed decisions, not open questions. The only
+  genuinely open piece is the Dashboard's own new layout/stats (item 9)
+  and every step after it (troll button, the real-login gate on
+  Operations, the new Welcome/tier page, tier enforcement, Admin Panel
+  UI) — none of those are built yet. Ask the user what to tackle next
+  rather than assuming the order above is also the build order.
