@@ -1501,12 +1501,19 @@ and connecting Wayne Enterprises regenerates a fresh, correctly-prefixed
 
 ### Locations, Department Management, Designation Management (built 2026-09-10)
 
+**The "Locations" entry below describes a module that no longer
+exists** — replaced entirely on 2026-09-24 by Location Types + Locations
+(a different real API the product moved to; see that section further
+down). Kept here as an accurate historical record of what was built and
+why, not as current behaviour — Department Management and Designation
+Management, below, are both still exactly as described.
+
 All three in Company Settings, all ported verbatim from the Postman
 collection. **"Locations" is the real product's own label for this
 screen** (2026-09-09 admin screenshot); the Postman folder calls the same
 endpoint "Branch Management" — confirmed, not left as a guess.
 
-- **Locations** — `POST /company/branches`. `isGeolocation` is a real
+- **Locations (superseded 2026-09-24)** — `POST /company/branches`. `isGeolocation` is a real
   either/or: off sends `latitude`/`longitude`/`radiusInMeters` as `null`
   (not zero, not omitted), on sends real numbers offset from Baridhara
   DOHS (`BARIDHARA_BASE_LATITUDE`/`_LONGITUDE`, the script's own
@@ -3389,6 +3396,129 @@ icon), which reads as distinct on its own; this fix was only for the
 plain-text ones that didn't. Verified with Playwright screenshots in
 both light and dark — bright accent green against the surface,
 correctly legible in both without a single new hex value.
+
+### Location Types, Locations — replace the old Locations module entirely (2026-09-24)
+
+The old "Locations" (`POST /company/branches`, above) was removed
+outright, not extended — the real product moved to a different real API
+since that module was first built on 2026-09-10, and this session's own
+"ekta Default Location add kora lagbe" (need to add a Default Location)
+request turned into a full rebuild once the real shape came out. Not
+from the Postman collection at all — every endpoint and payload came
+straight from the user, several confirmed live against a real staging
+company (`Shark Pond`) before any code was written, same discipline as
+Roster/Roster Pattern. Two real modules, a genuine dependency between
+them, both still in Company Settings, in the exact slot the old
+Locations module used to occupy (right after Bank Info, before
+Department Management) — the group now holds 6 modules, not 5.
+
+**Location Types** — `POST /locations/location-types`. Only Name and
+"Can Have Geofence" are exposed as editable inputs, confirmed directly
+— `code` (always `""`), `sortOrder` (always `1`), `canHaveEmployees`
+(always `true`), `status` (always `"Active"`) and
+`allowedParentLocationTypeId` (always `null` — no parent-type hierarchy
+support yet, not asked for) are the fixed shape in
+`LOCATION_TYPE_DEFAULT` (`app-data.js`). `LOCATION_TYPE_NAMES` names
+real Dhaka-area zones (Baridhara, Gulshan, Banani, Uttara, …) rather
+than a generic label, matching the shape of the real default itself.
+Same plain "already has N location types — more can still be added
+from here" count as Locations/Department/etc., not a warning — a
+company can hold any number of real types.
+
+**Locations — the first real dependency in Company Settings itself**
+(every other real dependency in this app — Designation→Department,
+Leave Policy→Leave Type, Configure Salary Components→2 Active
+components, Roster Pattern→Roster — lives in a different group).
+`POST /locations`. Every real Location references a real Location Type
+by id (`locationTypeId`), so this blocks with
+`dependencyNoticeHtml("Location Type", "company", "location_types")`
+until at least one exists — same shape as every other dependency notice
+in the app. Four fields are editable: **Name** (from `OFFICE_NAMES`, the
+same pool the old branches module used), **Location Type** (a real
+`<select>` populated from this company's actual fetched types, not a
+free id), **Has Geofence**, and **Is Default** — `parentId`/`timezone`/
+`currency`/`headEmployeeId` stay `null` and `locale` stays `"en-BD"`,
+confirmed directly, no UI for any of them yet.
+
+- **`isDefault` only starts `true` for "Run defaults" itself, confirmed
+  directly** ("Custom korle user toggle on off korte parbe je default
+  naki na" — a hand-created location starts off, toggleable either way;
+  only the real default payload sets it true by default). A company
+  should end up with exactly one real default location — this app
+  doesn't enforce that itself (same "send what's configured, let the
+  real API's own rules apply" discipline as everywhere else), the real
+  default flow is just built around that expectation.
+- **When Has Geofence is on, coordinates are a small random offset from
+  Baridhara DOHS** — `randomBaridharaOffset()`, reused verbatim from the
+  old Locations module (its own reference point, and the same point the
+  real default location's own geofence sits on: `23.8103, 90.4125,
+  200m`), returning `{latitude, longitude, radiusInMeters}` which now
+  nests under a `geofence` key instead of three flat fields — the real
+  shape changed, the random-generation math didn't need to.
+- **`pickDefaultLocationType()` prefers the real type named "Baridhara"
+  (`LOCATION_TYPE_DEFAULT.name`), falling back to whichever real type
+  exists first** — same "match the known default by name" instinct as
+  Roster Pattern's own `pickDefaultTimeSlot()`, Configure Salary
+  Components' filler and Leave Policy's own default policy. Verified by
+  test: a company with only a "Gulshan" type (no "Baridhara") still
+  creates a location, correctly using that type's real id.
+
+**`fetchCompanyResource()`'s wrapper-key fallback widened twice more**
+— `GET .../locations/location-types/paginated` wraps as
+`data.data.locationTypes` (a paginated endpoint, consistent with the
+existing theory), but `GET .../locations` wraps as `data.data.items` —
+a fourth, more generic wrapper key with no endpoint-specific noun,
+checked last in the fallback chain deliberately so it can never shadow
+a more specific key some future endpoint might also use. Both confirmed
+live before being coded, same discipline as every wrapper key already
+in this function.
+
+**"Create the Default" gets no per-module button, on the same
+reasoning Roster's own button was just removed for** (above, same
+day) — "Run defaults for Company Settings" already covers both single
+records, so a second one-click shortcut for the same thing would be the
+identical redundancy just fixed. `runDefaultLocationType()`/
+`runDefaultLocation()` (`MODULE_DEFAULT_RUNNERS`) hold the real default
+payloads (`LOCATION_TYPE_DEFAULT.name` = `"Baridhara"`,
+`LOCATION_DEFAULT.name` = `"Railgate"`) and the same "check what already
+exists first, by name" discipline as every other default-shortcut in
+this app; both are in `MASTER_RUN_MODULE_IDS`, in the old branches
+module's exact old slot.
+
+**A real, confirmed bug found and fixed the same day, while probing
+this exact feature end-to-end**: switching tabs quickly after a save
+(background existing-check resolves after the previously-active tab's
+own inputs have already left the DOM) threw a real, uncaught
+`TypeError: Cannot read properties of null (reading 'value')` —
+reproduced directly with a Playwright probe script, not theoretical.
+Traced to `readCompanyProfileForm()`, but the identical unguarded shape
+existed in **six** places: Company Profile, Bank Info, Roster, Roster
+Pattern, Configure Salary Components and Attendance Policy's own
+background-check `.then()` callbacks all read `$("#someField").value`
+assuming their own tab was still the one on screen. Department's and
+Leave Types' own equivalents (built earlier) already guarded this
+correctly (`const nameInput = $("#deptModName"); if (nameInput) ...`) —
+this was the exact "roughly a dozen more spots... the next one to flake
+will have this exact same cause" gap flagged back on 2026-09-19 (see
+"Leave Policy and Bonus Policy resolved..." above), just found by a
+crash instead of a flaky test assertion this time. Fixed the same way
+everywhere it existed — including the two brand-new modules above,
+found before they ever reached a committed test — by guarding the
+element's existence before reading it, not just the state object's own
+`fields` truthiness. Confirmed by test that the same fast-navigation
+sequence that crashed before this fix no longer throws.
+
+Confirmed end-to-end by Playwright probe before any test was written:
+dependency blocking with zero real types, the real default payload
+(`Baridhara`, `Railgate` with its real geofence numbers) sending
+byte-for-byte, the dropdown populating from real fetched types, and
+both light and dark themes rendering the new `.existing-count-notice`
+correctly. `tests/company-setup.test.js` — blocks P/P2 (single-item
+save, dependency block, dropdown, geofence/isDefault toggles),
+BE/BF/BG/BE2 (existing-count notices, both modules) — and the AW master
+run block extended with real Location Type/Location creation, the
+group's own module-count assertions (`5`→`6` throughout the file) and
+tab-order assertions all updated to match.
 
 ### What's not built yet
 

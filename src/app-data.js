@@ -522,7 +522,8 @@ const SETTINGS_GROUPS = [
     modules: [
       { id: "company_profile", label: "Company Profile" },
       { id: "bank_info", label: "Bank Info" },
-      { id: "branches", label: "Locations" },
+      { id: "location_types", label: "Location Types" },
+      { id: "locations", label: "Locations" },
       { id: "departments", label: "Department Management" },
       { id: "designations", label: "Designation Management" },
     ],
@@ -710,44 +711,67 @@ const BANK_SHORT_CODE_MAP = {
 
 const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
 
-/* ===== Locations (Postman: "Branch Management") — third settings module
-   (built 2026-09-10) =====
+/* ===== Location Types, Locations — Company Settings, replacing the old
+   "Locations" (Postman: "Branch Management", POST /company/branches)
+   module entirely (2026-09-24) =====
 
-   Ported from the Postman collection's own pre-request script for
-   `POST /company/branches`, verbatim. The real product's own sidebar
-   calls this screen "Locations" (2026-09-09 screenshot); the Postman
-   folder calls it "Branch Management" — same endpoint, different label,
-   kept as "Locations" in SETTINGS_GROUPS to match what a user actually
-   sees. */
+   Not from the Postman collection at all — the real product moved on to
+   a different real API since that module was first built, the same way
+   Schedule Management's own endpoints were never in the collection
+   either. The user supplied both real endpoints and real payloads
+   directly, confirmed live against a real staging company
+   (`GET .../locations/location-types/paginated`, `GET .../locations`)
+   before any code was written — same discipline as Roster/Roster
+   Pattern. Two real modules, a genuine dependency between them: every
+   Location references a real Location Type by id. */
 const OFFICE_NAMES = [
   "Head Office", "Zonal Office", "Regional Office", "Branch Office", "Corporate Office",
   "Sales Office", "Operations Office", "Field Office", "Admin Office", "Support Office",
   "Business Center", "Service Center",
 ];
 
-/* district/city/address/zipCode always travel together — same paired-pool
-   discipline as everything else generated in this app. */
-const BD_LOCATION_PRESETS = [
-  { district: "Dhaka", city: "Dhaka", address: "Baridhara DOHS", zipCode: "1206" },
-  { district: "Dhaka", city: "Dhaka", address: "Gulshan Avenue", zipCode: "1212" },
-  { district: "Dhaka", city: "Dhaka", address: "Banani", zipCode: "1213" },
-  { district: "Dhaka", city: "Dhaka", address: "Motijheel Commercial Area", zipCode: "1000" },
-  { district: "Dhaka", city: "Dhaka", address: "Uttara Sector 7", zipCode: "1230" },
-  { district: "Chattogram", city: "Chattogram", address: "Agrabad Commercial Area", zipCode: "4100" },
-  { district: "Chattogram", city: "Chattogram", address: "GEC Circle", zipCode: "4000" },
-  { district: "Sylhet", city: "Sylhet", address: "Zindabazar", zipCode: "3100" },
-  { district: "Khulna", city: "Khulna", address: "Sonadanga", zipCode: "9100" },
-  { district: "Rajshahi", city: "Rajshahi", address: "Shaheb Bazar", zipCode: "6100" },
-  { district: "Bogura", city: "Bogura", address: "Satmatha", zipCode: "5800" },
-  { district: "Cumilla", city: "Cumilla", address: "Kandirpar", zipCode: "3500" },
-  { district: "Narayanganj", city: "Narayanganj", address: "Chashara", zipCode: "1400" },
-  { district: "Gazipur", city: "Gazipur", address: "Gazipur Chowrasta", zipCode: "1700" },
-  { district: "Mymensingh", city: "Mymensingh", address: "Town Hall Area", zipCode: "2200" },
-  { district: "Rangpur", city: "Rangpur", address: "Jahaj Company Mor", zipCode: "5400" },
+/* A Location Type names a real Dhaka-area zone, matching the shape of
+   the real default ("Baridhara") rather than a generic label like
+   "Office" would. */
+const LOCATION_TYPE_NAMES = [
+  "Baridhara", "Gulshan", "Banani", "Uttara", "Bashundhara", "Dhanmondi",
+  "Mirpur", "Motijheel", "Mohakhali", "Tejgaon",
 ];
 
-/* When isGeolocation is on, coordinates are a small random offset from
-   Baridhara DOHS — the Postman script's own reference point, not ours. */
+/* Create Location Types — POST /locations/location-types. Only Name and
+   "Can Have Geofence" are exposed as editable inputs, confirmed directly
+   — code/sortOrder/canHaveEmployees/status/allowedParentLocationTypeId
+   are always the fixed shape below, no hierarchy support yet
+   (allowedParentLocationTypeId stays null; a real parent-type hierarchy
+   is a later phase, not asked for). */
+const LOCATION_TYPE_DEFAULT = {
+  name: "Baridhara",
+  code: "",
+  sortOrder: 1,
+  allowedParentLocationTypeId: null,
+  canHaveEmployees: true,
+  canHaveGeofence: true,
+  status: "Active",
+};
+
+/* Create Locations — POST /locations. locationTypeId is a real
+   dependency on Location Types (a location can't exist without one);
+   Name, Location Type, Has Geofence and Is Default are the only
+   editable inputs — parentId/timezone/currency/headEmployeeId/status
+   are always the fixed shape below, confirmed directly. `isDefault`
+   only defaults true for "Create the Default" itself — a hand-created
+   location starts false, toggleable either way, since the user
+   confirmed a company should end up with exactly one real default. */
+const LOCATION_DEFAULT = {
+  name: "Railgate",
+  hasGeofence: true,
+  isDefault: true,
+  geofence: { latitude: 23.8103, longitude: 90.4125, radiusInMeters: 200 },
+};
+
+/* When Has Geofence is on, coordinates are a small random offset from
+   Baridhara DOHS — the same real reference point the default location's
+   own geofence sits on, not an arbitrary choice. */
 const BARIDHARA_BASE_LATITUDE = 23.812007684570396;
 const BARIDHARA_BASE_LONGITUDE = 90.41516296328736;
 const BRANCH_RADIUS_OPTIONS = [100, 150, 200, 250, 300, 350, 400, 450, 500];

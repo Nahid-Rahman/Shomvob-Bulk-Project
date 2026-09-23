@@ -2441,7 +2441,8 @@ const SETTINGS_GROUPS = [
     modules: [
       { id: "company_profile", label: "Company Profile" },
       { id: "bank_info", label: "Bank Info" },
-      { id: "branches", label: "Locations" },
+      { id: "location_types", label: "Location Types" },
+      { id: "locations", label: "Locations" },
       { id: "departments", label: "Department Management" },
       { id: "designations", label: "Designation Management" },
     ],
@@ -2629,44 +2630,67 @@ const BANK_SHORT_CODE_MAP = {
 
 const MFS_CODES = ["MFSBKASH", "MFSNAGAD"];
 
-/* ===== Locations (Postman: "Branch Management") — third settings module
-   (built 2026-09-10) =====
+/* ===== Location Types, Locations — Company Settings, replacing the old
+   "Locations" (Postman: "Branch Management", POST /company/branches)
+   module entirely (2026-09-24) =====
 
-   Ported from the Postman collection's own pre-request script for
-   `POST /company/branches`, verbatim. The real product's own sidebar
-   calls this screen "Locations" (2026-09-09 screenshot); the Postman
-   folder calls it "Branch Management" — same endpoint, different label,
-   kept as "Locations" in SETTINGS_GROUPS to match what a user actually
-   sees. */
+   Not from the Postman collection at all — the real product moved on to
+   a different real API since that module was first built, the same way
+   Schedule Management's own endpoints were never in the collection
+   either. The user supplied both real endpoints and real payloads
+   directly, confirmed live against a real staging company
+   (`GET .../locations/location-types/paginated`, `GET .../locations`)
+   before any code was written — same discipline as Roster/Roster
+   Pattern. Two real modules, a genuine dependency between them: every
+   Location references a real Location Type by id. */
 const OFFICE_NAMES = [
   "Head Office", "Zonal Office", "Regional Office", "Branch Office", "Corporate Office",
   "Sales Office", "Operations Office", "Field Office", "Admin Office", "Support Office",
   "Business Center", "Service Center",
 ];
 
-/* district/city/address/zipCode always travel together — same paired-pool
-   discipline as everything else generated in this app. */
-const BD_LOCATION_PRESETS = [
-  { district: "Dhaka", city: "Dhaka", address: "Baridhara DOHS", zipCode: "1206" },
-  { district: "Dhaka", city: "Dhaka", address: "Gulshan Avenue", zipCode: "1212" },
-  { district: "Dhaka", city: "Dhaka", address: "Banani", zipCode: "1213" },
-  { district: "Dhaka", city: "Dhaka", address: "Motijheel Commercial Area", zipCode: "1000" },
-  { district: "Dhaka", city: "Dhaka", address: "Uttara Sector 7", zipCode: "1230" },
-  { district: "Chattogram", city: "Chattogram", address: "Agrabad Commercial Area", zipCode: "4100" },
-  { district: "Chattogram", city: "Chattogram", address: "GEC Circle", zipCode: "4000" },
-  { district: "Sylhet", city: "Sylhet", address: "Zindabazar", zipCode: "3100" },
-  { district: "Khulna", city: "Khulna", address: "Sonadanga", zipCode: "9100" },
-  { district: "Rajshahi", city: "Rajshahi", address: "Shaheb Bazar", zipCode: "6100" },
-  { district: "Bogura", city: "Bogura", address: "Satmatha", zipCode: "5800" },
-  { district: "Cumilla", city: "Cumilla", address: "Kandirpar", zipCode: "3500" },
-  { district: "Narayanganj", city: "Narayanganj", address: "Chashara", zipCode: "1400" },
-  { district: "Gazipur", city: "Gazipur", address: "Gazipur Chowrasta", zipCode: "1700" },
-  { district: "Mymensingh", city: "Mymensingh", address: "Town Hall Area", zipCode: "2200" },
-  { district: "Rangpur", city: "Rangpur", address: "Jahaj Company Mor", zipCode: "5400" },
+/* A Location Type names a real Dhaka-area zone, matching the shape of
+   the real default ("Baridhara") rather than a generic label like
+   "Office" would. */
+const LOCATION_TYPE_NAMES = [
+  "Baridhara", "Gulshan", "Banani", "Uttara", "Bashundhara", "Dhanmondi",
+  "Mirpur", "Motijheel", "Mohakhali", "Tejgaon",
 ];
 
-/* When isGeolocation is on, coordinates are a small random offset from
-   Baridhara DOHS — the Postman script's own reference point, not ours. */
+/* Create Location Types — POST /locations/location-types. Only Name and
+   "Can Have Geofence" are exposed as editable inputs, confirmed directly
+   — code/sortOrder/canHaveEmployees/status/allowedParentLocationTypeId
+   are always the fixed shape below, no hierarchy support yet
+   (allowedParentLocationTypeId stays null; a real parent-type hierarchy
+   is a later phase, not asked for). */
+const LOCATION_TYPE_DEFAULT = {
+  name: "Baridhara",
+  code: "",
+  sortOrder: 1,
+  allowedParentLocationTypeId: null,
+  canHaveEmployees: true,
+  canHaveGeofence: true,
+  status: "Active",
+};
+
+/* Create Locations — POST /locations. locationTypeId is a real
+   dependency on Location Types (a location can't exist without one);
+   Name, Location Type, Has Geofence and Is Default are the only
+   editable inputs — parentId/timezone/currency/headEmployeeId/status
+   are always the fixed shape below, confirmed directly. `isDefault`
+   only defaults true for "Create the Default" itself — a hand-created
+   location starts false, toggleable either way, since the user
+   confirmed a company should end up with exactly one real default. */
+const LOCATION_DEFAULT = {
+  name: "Railgate",
+  hasGeofence: true,
+  isDefault: true,
+  geofence: { latitude: 23.8103, longitude: 90.4125, radiusInMeters: 200 },
+};
+
+/* When Has Geofence is on, coordinates are a small random offset from
+   Baridhara DOHS — the same real reference point the default location's
+   own geofence sits on, not an arbitrary choice. */
 const BARIDHARA_BASE_LATITUDE = 23.812007684570396;
 const BARIDHARA_BASE_LONGITUDE = 90.41516296328736;
 const BRANCH_RADIUS_OPTIONS = [100, 150, 200, 250, 300, 350, 400, 450, 500];
@@ -3519,7 +3543,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   const SETTINGS_MODULE_ICONS = {
     company_profile: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M7 16c.5-1.5 1.5-2 2-2s1.5.5 2 2"/><path d="M14 10h4M14 14h4"/>',
     bank_info: '<path d="M4 10l8-5 8 5"/><path d="M5 10v9M9 10v9M15 10v9M19 10v9"/><path d="M3 19h18"/>',
-    branches: '<path d="M12 21s7-6.5 7-11a7 7 0 1 0-14 0c0 4.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/>',
+    location_types: '<path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/>',
+    locations: '<path d="M12 21s7-6.5 7-11a7 7 0 1 0-14 0c0 4.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/>',
     departments: '<circle cx="12" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><path d="M12 7v4M12 11H6v6M12 11h6v6"/>',
     designations: '<circle cx="12" cy="9" r="5"/><path d="M9 13.5 7 21l5-3 5 3-2-7.5"/>',
     custom_fields: '<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="1.6" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="7" cy="17" r="1.6" fill="currentColor" stroke="none"/>',
@@ -7132,7 +7157,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   const SETTINGS_MODULE_HANDLERS = {
     company_profile: { template: companyProfileTemplate, wire: wireCompanyProfileEvents },
     bank_info: { template: bankInfoTemplate, wire: wireBankInfoEvents },
-    branches: { template: branchTemplate, wire: wireBranchEvents },
+    location_types: { template: locationTypeTemplate, wire: wireLocationTypeEvents },
+    locations: { template: locationTemplate, wire: wireLocationEvents },
     departments: { template: departmentModuleTemplate, wire: wireDepartmentModuleEvents },
     designations: { template: designationTemplate, wire: wireDesignationEvents },
     custom_fields: { template: customFieldTemplate, wire: wireCustomFieldEvents },
@@ -7467,7 +7493,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
        typing over the generated defaults. */
     if (companyProfile.existing === undefined) {
       loadCompanyProfileExisting().then(() => {
-        if (companyProfile.fields) companyProfile.fields = readCompanyProfileForm();
+        if (companyProfile.fields && $("#cpLegalName")) companyProfile.fields = readCompanyProfileForm();
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       });
@@ -7633,7 +7659,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   function wireBankInfoEvents() {
     if (bankInfo.existing === undefined) {
       loadBankInfoExisting().then(() => {
-        if (bankInfo.fields) bankInfo.fields = readBankInfoForm();
+        if (bankInfo.fields && $("#biBankName")) bankInfo.fields = readBankInfoForm();
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       });
@@ -7667,136 +7693,84 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     });
   }
 
-  /* ---------- Locations (Postman: "Branch Management") — third module ----------
+  /* ---------- Location Types — third module (2026-09-24) ----------
 
-     POST /company/branches. Same generate/edit/regenerate/save shape.
-     isGeolocation is a real either/or — off means latitude, longitude and
-     radiusInMeters travel as null, not as zeroes or omitted keys, exactly
-     as the Postman script sends them. Toggling it regenerates or clears
-     the three geo fields; nothing else about the form changes. */
-  const companyBranch = { fields: null, error: "", ok: "", createdNames: [], existing: undefined }; // existing: undefined = not yet checked, same reasoning as companyProfile.existing above
+     POST /locations/location-types. Not from the Postman collection —
+     the real product moved to a different real API since this group was
+     first built; the user supplied the real endpoint and payload
+     directly, confirmed live against a real staging company, same
+     discipline as Roster/Roster Pattern. Only Name and Can Have Geofence
+     are exposed; code/sortOrder/canHaveEmployees/status/
+     allowedParentLocationTypeId are always the fixed shape from
+     LOCATION_TYPE_DEFAULT — confirmed directly, no hierarchy support yet. */
+  const companyLocationType = { fields: null, error: "", ok: "", createdNames: [], existing: undefined };
 
-  /* Locations can hold any number of real branches, unlike Company
-     Profile/Bank Info/etc.'s single-record shape — so this isn't a
-     "your data is about to be overwritten" warning the way those are;
-     it's a plain count, confirmed with the user directly: "just bolba
-     je ei company te N ta location acha, ekhan theke aro add kora
-     jabe" (just say this company has N locations already, more can
-     still be added from here). */
-  async function loadBranchExisting() {
+  /* Location Types can hold any number of real entries, same "plain
+     count, not a warning" treatment as every other list-type module. */
+  async function loadLocationTypeExisting() {
     try {
-      companyBranch.existing = await fetchCompanyResource("/company/branches");
+      companyLocationType.existing = await fetchCompanyResource("/locations/location-types/paginated?page=1&limit=100");
     } catch (e) {
-      companyBranch.existing = null;
+      companyLocationType.existing = null;
     }
   }
 
-  function branchExistingNoticeHtml(existing) {
-    /* Plain, unadorned line rather than the warning-boxed treatment
-       Company Profile/Bank Info/etc. get — there's nothing here to be
-       cautious about, since a new location never overwrites an old one. */
+  function locationTypeExistingNoticeHtml(existing) {
     if (!existing || existing.length === 0) return "";
-    return `<p class="existing-count-notice">This company already has ${existing.length === 1 ? "1 location" : `${existing.length} locations`} — more can still be added from here.</p>`;
+    return `<p class="existing-count-notice">This company already has ${existing.length === 1 ? "1 location type" : `${existing.length} location types`} — more can still be added from here.</p>`;
   }
 
-  function randomBaridharaOffset() {
-    return {
-      latitude: Number((BARIDHARA_BASE_LATITUDE + (Math.random() - 0.5) * 0.006).toFixed(15)),
-      longitude: Number((BARIDHARA_BASE_LONGITUDE + (Math.random() - 0.5) * 0.006).toFixed(15)),
-      radiusInMeters: choice(BRANCH_RADIUS_OPTIONS),
-    };
+  function generateLocationTypeFields() {
+    return { name: choice(LOCATION_TYPE_NAMES), canHaveGeofence: true };
   }
 
-  function generateBranchFields() {
-    const loc = choice(BD_LOCATION_PRESETS);
-    const isGeolocation = Math.random() < 0.5;
-    const geo = isGeolocation ? randomBaridharaOffset() : { latitude: null, longitude: null, radiusInMeters: null };
-    return {
-      officeName: choice(OFFICE_NAMES),
-      district: loc.district,
-      city: loc.city,
-      address: loc.address,
-      zipCode: loc.zipCode,
-      isGeolocation,
-      ...geo,
-    };
-  }
-
-  function branchTemplate() {
-    if (!companyBranch.fields) companyBranch.fields = generateBranchFields();
-    const f = companyBranch.fields;
-    const geoFieldsHtml = f.isGeolocation
-      ? `
-        <div class="field-row" style="margin-top:14px">
-          <div class="field"><label for="brLat">Latitude</label><input type="text" id="brLat" value="${escapeHtml(f.latitude)}" /></div>
-          <div class="field"><label for="brLng">Longitude</label><input type="text" id="brLng" value="${escapeHtml(f.longitude)}" /></div>
-        </div>
-        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)"><label for="brRadius">Radius (meters)</label><input type="text" id="brRadius" value="${escapeHtml(f.radiusInMeters)}" /></div>
-      `
-      : "";
+  function locationTypeTemplate() {
+    if (!companyLocationType.fields) companyLocationType.fields = generateLocationTypeFields();
+    const f = companyLocationType.fields;
     return `
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Locations</h2></div>
-        <p class="section-note">Generated from the muggle-friendly magic scroll's own office-name and BD-location pools. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
-        ${branchExistingNoticeHtml(companyBranch.existing)}
+        <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Location Types</h2></div>
+        <p class="section-note">A category every real Location attaches to (e.g. "Baridhara"). Regenerate re-rolls the name; every field can still be edited by hand before saving.</p>
+        ${locationTypeExistingNoticeHtml(companyLocationType.existing)}
         <div class="field-row">
-          <div class="field"><label for="brOfficeName">Office Name</label><input type="text" id="brOfficeName" value="${escapeHtml(f.officeName)}" /></div>
-          <div class="field"><label for="brDistrict">District</label><input type="text" id="brDistrict" value="${escapeHtml(f.district)}" /></div>
-        </div>
-        <div class="field-row" style="margin-top:14px">
-          <div class="field"><label for="brCity">City</label><input type="text" id="brCity" value="${escapeHtml(f.city)}" /></div>
-          <div class="field"><label for="brZip">Zip Code</label><input type="text" id="brZip" value="${escapeHtml(f.zipCode)}" /></div>
-        </div>
-        <div class="field" style="margin-top:14px"><label for="brAddress">Address</label><input type="text" id="brAddress" value="${escapeHtml(f.address)}" /></div>
-        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)">
-          <label>Has Geolocation</label>
-          <div class="seg seg-fill" id="brGeoSeg" role="group" aria-label="Has geolocation">
-            <button type="button" data-geo="yes" aria-pressed="${f.isGeolocation}">Yes</button>
-            <button type="button" data-geo="no" aria-pressed="${!f.isGeolocation}">No</button>
+          <div class="field"><label for="ltyName">Name</label><input type="text" id="ltyName" value="${escapeHtml(f.name)}" /></div>
+          <div class="field">
+            <label>Can Have Geofence</label>
+            <div class="seg seg-fill" id="ltyGeoSeg" role="group" aria-label="Can have geofence">
+              <button type="button" data-geo="yes" aria-pressed="${f.canHaveGeofence}">Yes</button>
+              <button type="button" data-geo="no" aria-pressed="${!f.canHaveGeofence}">No</button>
+            </div>
           </div>
         </div>
-        ${geoFieldsHtml}
-
         <div class="setup-actions" style="flex-direction:row; align-items:center;">
-          <button type="button" class="tiny-btn" id="brRegenerateBtn">↻ Regenerate</button>
-          <button type="button" class="generate-btn" id="brSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+          <button type="button" class="tiny-btn" id="ltyRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="ltySaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
         </div>
-        <span class="error-text" id="brError">${escapeHtml(companyBranch.error)}</span>
-        ${companyBranch.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(companyBranch.ok)}</div>` : ""}
-        ${createdListHtml(companyBranch.createdNames)}
+        <span class="error-text" id="ltyError">${escapeHtml(companyLocationType.error)}</span>
+        ${companyLocationType.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(companyLocationType.ok)}</div>` : ""}
+        ${createdListHtml(companyLocationType.createdNames)}
       </div>
     `;
   }
 
-  function readBranchForm() {
-    const isGeolocation = companyBranch.fields.isGeolocation;
-    return {
-      officeName: $("#brOfficeName").value,
-      district: $("#brDistrict").value,
-      city: $("#brCity").value,
-      zipCode: $("#brZip").value,
-      address: $("#brAddress").value,
-      isGeolocation,
-      latitude: isGeolocation ? Number($("#brLat").value) : null,
-      longitude: isGeolocation ? Number($("#brLng").value) : null,
-      radiusInMeters: isGeolocation ? Number($("#brRadius").value) : null,
-    };
+  function readLocationTypeForm() {
+    return { name: $("#ltyName").value, canHaveGeofence: companyLocationType.fields.canHaveGeofence };
   }
 
-  async function saveBranch(fields) {
+  async function saveLocationType(fields) {
     const env = ENVIRONMENTS[setup.env];
-    /* The real API's field is `name`, not `officeName` — confirmed live
-       against Shomvob staging on 2026-09-10 (a validation error named
-       both: "property officeName should not exist" and "Branch name is
-       required"). Kept as `officeName` everywhere else in this module
-       (the pool, the label, the state) since that's a clearer label for
-       a branch/office than a bare "name" would be — only renamed here,
-       at the point of actually building the request body. */
-    const { officeName, ...rest } = fields;
-    const payload = { name: officeName, ...rest };
+    const payload = {
+      name: fields.name,
+      code: LOCATION_TYPE_DEFAULT.code,
+      sortOrder: LOCATION_TYPE_DEFAULT.sortOrder,
+      allowedParentLocationTypeId: LOCATION_TYPE_DEFAULT.allowedParentLocationTypeId,
+      canHaveEmployees: LOCATION_TYPE_DEFAULT.canHaveEmployees,
+      canHaveGeofence: fields.canHaveGeofence,
+      status: LOCATION_TYPE_DEFAULT.status,
+    };
     let res;
     try {
-      res = await fetch(`${env.apiBase}/company/branches`, {
+      res = await fetch(`${env.apiBase}/locations/location-types`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
         body: JSON.stringify(payload),
@@ -7806,52 +7780,331 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     }
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
-    if (res.status !== 201) throw new Error(data.message || "The server rejected this.");
+    /* Success status not yet confirmed against the real staging API —
+       unlike Bank Info's confirmed real 201, no real save was made here
+       to avoid creating a duplicate real record in the user's own test
+       company, so this uses the generic !res.ok check (same as Roster's
+       own module, for the same reason). */
+    if (!res.ok) throw new Error(data.message || "The server rejected this.");
     return data;
   }
 
-  function wireBranchEvents() {
-    if (companyBranch.existing === undefined) {
-      loadBranchExisting().then(() => {
-        if (companyBranch.fields) companyBranch.fields = readBranchForm();
+  function wireLocationTypeEvents() {
+    if (companyLocationType.existing === undefined) {
+      loadLocationTypeExisting().then(() => {
+        if (companyLocationType.fields && $("#ltyName")) companyLocationType.fields = readLocationTypeForm();
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       });
     }
 
-    $all("#brGeoSeg button").forEach((btn) => {
+    $all("#ltyGeoSeg button").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const wantsGeo = btn.dataset.geo === "yes";
-        companyBranch.fields.isGeolocation = wantsGeo;
-        Object.assign(companyBranch.fields, wantsGeo ? randomBaridharaOffset() : { latitude: null, longitude: null, radiusInMeters: null });
+        companyLocationType.fields.name = $("#ltyName").value;
+        companyLocationType.fields.canHaveGeofence = btn.dataset.geo === "yes";
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       });
     });
 
-    wireRegenerate("#brRegenerateBtn", () => {
-      companyBranch.fields = generateBranchFields();
-      companyBranch.error = "";
-      companyBranch.ok = "";
+    wireRegenerate("#ltyRegenerateBtn", () => {
+      companyLocationType.fields = generateLocationTypeFields();
+      companyLocationType.error = "";
+      companyLocationType.ok = "";
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
     });
 
-    const btn = $("#brSaveBtn");
+    const btn = $("#ltySaveBtn");
     btn.addEventListener("click", async () => {
-      companyBranch.error = "";
-      companyBranch.ok = "";
-      const fields = readBranchForm();
+      companyLocationType.error = "";
+      companyLocationType.ok = "";
+      const fields = readLocationTypeForm();
       setBtnBusy(btn);
       try {
-        await saveBranch(fields);
-        companyBranch.fields = fields;
-        companyBranch.ok = "Saved.";
-        companyBranch.createdNames.push(fields.officeName);
-        companyBranch.existing = undefined;
-        setup.doneModules.add("branches");
+        await saveLocationType(fields);
+        companyLocationType.fields = fields;
+        companyLocationType.ok = "Saved.";
+        companyLocationType.createdNames.push(fields.name);
+        companyLocationType.existing = undefined;
+        companyLocation.locationTypes = null; // Locations' own dependency cache — a real type may now exist
+        setup.doneModules.add("location_types");
       } catch (e) {
-        companyBranch.error = e.message;
+        companyLocationType.error = e.message;
+      }
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+  }
+
+  /* ---------- Locations — fourth module (2026-09-24) ----------
+
+     POST /locations. Replaces the old "Locations" (Postman: "Branch
+     Management", POST /company/branches) module entirely — the real
+     product moved to this API since that module was first built. A real
+     cross-module dependency: every Location references a real Location
+     Type by id, same "own independent fetch, same shape as Roster
+     Pattern→Roster" pattern. Name, Location Type, Has Geofence and Is
+     Default are the only editable inputs — parentId/timezone/currency/
+     headEmployeeId/status are always the fixed shape below, confirmed
+     directly. */
+  const companyLocation = { fields: null, error: "", ok: "", createdNames: [], existing: undefined, locationTypes: null, loadError: "" };
+
+  async function loadLocationLocationTypes() {
+    try {
+      companyLocation.locationTypes = await fetchCompanyResource("/locations/location-types/paginated?page=1&limit=100");
+      companyLocation.loadError = "";
+    } catch (e) {
+      companyLocation.locationTypes = null;
+      companyLocation.loadError = e.message;
+    }
+  }
+
+  async function loadLocationExisting() {
+    try {
+      companyLocation.existing = await fetchCompanyResource("/locations");
+    } catch (e) {
+      companyLocation.existing = null;
+    }
+  }
+
+  function locationExistingNoticeHtml(existing) {
+    if (!existing || existing.length === 0) return "";
+    return `<p class="existing-count-notice">This company already has ${existing.length === 1 ? "1 location" : `${existing.length} locations`} — more can still be added from here.</p>`;
+  }
+
+  /* Prefers the real "Baridhara" location type LOCATION_TYPE_DEFAULT
+     produces, matched by name — same "match the known default by name"
+     instinct as Roster Pattern's own pickDefaultTimeSlot(). Falls back
+     to whichever real location type exists first if a company's types
+     were all made or renamed by hand instead. */
+  function pickDefaultLocationType(types) {
+    return types.find((t) => t.name === LOCATION_TYPE_DEFAULT.name) || types[0];
+  }
+
+  /* When Has Geofence is on, coordinates are a small random offset from
+     Baridhara DOHS — the same real reference point the default
+     location's own geofence sits on. Reused from the old Locations
+     module's own helper, unchanged. */
+  function randomBaridharaOffset() {
+    return {
+      latitude: Number((BARIDHARA_BASE_LATITUDE + (Math.random() - 0.5) * 0.006).toFixed(15)),
+      longitude: Number((BARIDHARA_BASE_LONGITUDE + (Math.random() - 0.5) * 0.006).toFixed(15)),
+      radiusInMeters: choice(BRANCH_RADIUS_OPTIONS),
+    };
+  }
+
+  /* isDefault starts false on a random/hand-created location — only
+     "Run defaults" (via LOCATION_DEFAULT) sets it true, confirmed
+     directly: a company should end up with exactly one real default,
+     and a hand-created one starts off, toggleable either way. */
+  function generateLocationFields(locationTypeId) {
+    const hasGeofence = Math.random() < 0.5;
+    return {
+      name: choice(OFFICE_NAMES),
+      locationTypeId,
+      hasGeofence,
+      isDefault: false,
+      geofence: hasGeofence ? randomBaridharaOffset() : null,
+    };
+  }
+
+  function locationTemplate() {
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Locations</h2></div>`;
+    if (companyLocation.loadError) {
+      return `
+        <div class="section">
+          ${head}
+          <span class="error-text">${escapeHtml(companyLocation.loadError)}</span>
+          <div class="setup-actions" style="margin-top:10px"><button type="button" class="tiny-btn" id="locRetryBtn">Try again</button></div>
+        </div>
+      `;
+    }
+    if (companyLocation.locationTypes === null) {
+      return `<div class="section">${head}<p class="section-note">Checking this company's location types…</p></div>`;
+    }
+    if (companyLocation.locationTypes.length === 0) {
+      return `
+        <div class="section">
+          ${head}
+          <p class="section-note">Every real Location attaches to a Location Type — this company doesn't have one yet.</p>
+          ${dependencyNoticeHtml("Location Type", "company", "location_types")}
+        </div>
+      `;
+    }
+    const types = companyLocation.locationTypes;
+    if (!companyLocation.fields || !types.some((t) => t.id === companyLocation.fields.locationTypeId)) {
+      companyLocation.fields = generateLocationFields(pickDefaultLocationType(types).id);
+    }
+    const f = companyLocation.fields;
+    const typeOptions = types.map((t) => `<option value="${t.id}" ${t.id === f.locationTypeId ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("");
+    const geoFieldsHtml = f.hasGeofence
+      ? `
+        <div class="field-row" style="margin-top:14px">
+          <div class="field"><label for="locLat">Latitude</label><input type="text" id="locLat" value="${escapeHtml(f.geofence.latitude)}" /></div>
+          <div class="field"><label for="locLng">Longitude</label><input type="text" id="locLng" value="${escapeHtml(f.geofence.longitude)}" /></div>
+        </div>
+        <div class="field" style="margin-top:14px; max-width:calc(50% - 8px)"><label for="locRadius">Radius (meters)</label><input type="text" id="locRadius" value="${escapeHtml(f.geofence.radiusInMeters)}" /></div>
+      `
+      : "";
+    return `
+      <div class="section">
+        ${head}
+        <p class="section-note">Generated from the muggle-friendly magic scroll's own office-name pool, attached to a real Location Type from this company. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
+        ${locationExistingNoticeHtml(companyLocation.existing)}
+        <div class="field-row">
+          <div class="field"><label for="locName">Name</label><input type="text" id="locName" value="${escapeHtml(f.name)}" /></div>
+          <div class="field"><label for="locType">Location Type</label><select id="locType">${typeOptions}</select></div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <div class="field">
+            <label>Has Geofence</label>
+            <div class="seg seg-fill" id="locGeoSeg" role="group" aria-label="Has geofence">
+              <button type="button" data-geo="yes" aria-pressed="${f.hasGeofence}">Yes</button>
+              <button type="button" data-geo="no" aria-pressed="${!f.hasGeofence}">No</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Is Default</label>
+            <div class="seg seg-fill" id="locDefaultSeg" role="group" aria-label="Is default location">
+              <button type="button" data-default="yes" aria-pressed="${f.isDefault}">Yes</button>
+              <button type="button" data-default="no" aria-pressed="${!f.isDefault}">No</button>
+            </div>
+          </div>
+        </div>
+        ${geoFieldsHtml}
+
+        <div class="setup-actions" style="flex-direction:row; align-items:center;">
+          <button type="button" class="tiny-btn" id="locRegenerateBtn">↻ Regenerate</button>
+          <button type="button" class="generate-btn" id="locSaveBtn">Save to ${ENVIRONMENTS[setup.env].label}</button>
+        </div>
+        <span class="error-text" id="locError">${escapeHtml(companyLocation.error)}</span>
+        ${companyLocation.ok ? `<div style="display:flex; gap:9px; align-items:center; margin-top:10px; color:var(--success); font-size:13px; font-weight:600;">${iconCheck()}${escapeHtml(companyLocation.ok)}</div>` : ""}
+        ${createdListHtml(companyLocation.createdNames)}
+      </div>
+    `;
+  }
+
+  function readLocationForm() {
+    const hasGeofence = companyLocation.fields.hasGeofence;
+    return {
+      name: $("#locName").value,
+      locationTypeId: $("#locType").value,
+      hasGeofence,
+      isDefault: companyLocation.fields.isDefault,
+      geofence: hasGeofence ? { latitude: Number($("#locLat").value), longitude: Number($("#locLng").value), radiusInMeters: Number($("#locRadius").value) } : null,
+    };
+  }
+
+  async function saveLocation(fields) {
+    const env = ENVIRONMENTS[setup.env];
+    const payload = {
+      name: fields.name,
+      locationTypeId: fields.locationTypeId,
+      parentId: null,
+      timezone: null,
+      currency: null,
+      locale: "en-BD",
+      headEmployeeId: null,
+      hasGeofence: fields.hasGeofence,
+      status: "Active",
+      isDefault: fields.isDefault,
+      geofence: fields.geofence,
+    };
+    let res;
+    try {
+      res = await fetch(`${env.apiBase}/locations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${setup.companyToken}` },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      throw new Error(`Couldn't reach ${env.label}.`);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Your session with this company may have expired — use "Disconnect this company" above and sign in again.');
+    /* Success status not yet confirmed against the real staging API —
+       same reason and same fallback as saveLocationType() above: no real
+       save was made here to avoid duplicating a real record. */
+    if (!res.ok) throw new Error(data.message || "The server rejected this.");
+    return data;
+  }
+
+  function wireLocationEvents() {
+    if (companyLocation.locationTypes === null && !companyLocation.loadError) {
+      loadLocationLocationTypes().then(() => {
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    const retryBtn = $("#locRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        companyLocation.loadError = "";
+        companyLocation.locationTypes = null;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+      return;
+    }
+    if (!companyLocation.locationTypes || companyLocation.locationTypes.length === 0) return; // .dep-shortcut is wired centrally
+
+    if (companyLocation.existing === undefined) {
+      loadLocationExisting().then(() => {
+        if (companyLocation.fields && $("#locName")) companyLocation.fields = readLocationForm();
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    }
+
+    $("#locType").addEventListener("change", (e) => {
+      companyLocation.fields.locationTypeId = e.target.value;
+    });
+
+    $all("#locGeoSeg button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        companyLocation.fields.name = $("#locName").value;
+        const wantsGeo = btn.dataset.geo === "yes";
+        companyLocation.fields.hasGeofence = wantsGeo;
+        companyLocation.fields.geofence = wantsGeo ? randomBaridharaOffset() : null;
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    });
+
+    $all("#locDefaultSeg button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        companyLocation.fields.name = $("#locName").value;
+        companyLocation.fields.isDefault = btn.dataset.default === "yes";
+        $("#setupBody").innerHTML = setupGroupPageTemplate();
+        wireSetupGroupPage();
+      });
+    });
+
+    wireRegenerate("#locRegenerateBtn", () => {
+      companyLocation.fields = generateLocationFields(pickDefaultLocationType(companyLocation.locationTypes).id);
+      companyLocation.error = "";
+      companyLocation.ok = "";
+      $("#setupBody").innerHTML = setupGroupPageTemplate();
+      wireSetupGroupPage();
+    });
+
+    const btn = $("#locSaveBtn");
+    btn.addEventListener("click", async () => {
+      companyLocation.error = "";
+      companyLocation.ok = "";
+      const fields = readLocationForm();
+      setBtnBusy(btn);
+      try {
+        await saveLocation(fields);
+        companyLocation.fields = fields;
+        companyLocation.ok = "Saved.";
+        companyLocation.createdNames.push(fields.name);
+        companyLocation.existing = undefined;
+        setup.doneModules.add("locations");
+      } catch (e) {
+        companyLocation.error = e.message;
       }
       $("#setupBody").innerHTML = setupGroupPageTemplate();
       wireSetupGroupPage();
@@ -7996,7 +8249,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   function wireRosterEvents() {
     if (roster.existing === undefined) {
       loadRosterExisting().then(() => {
-        if (roster.fields) roster.fields = readRosterForm();
+        if (roster.fields && $("#rstName")) roster.fields = readRosterForm();
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       });
@@ -8200,7 +8453,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
     if (rosterPattern.existing === undefined) {
       loadRosterPatternExisting().then(() => {
-        if (rosterPattern.fields) rosterPattern.fields = readRosterPatternForm();
+        if (rosterPattern.fields && $("#rpName")) rosterPattern.fields = readRosterPatternForm();
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       });
@@ -8314,7 +8567,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function departmentModuleTemplate() {
-    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Department Management</h2></div>`;
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">5</span>Department Management</h2></div>`;
     if (companyDepartment.bulk) return bulkListTemplate(head, companyDepartment.bulk, "deptBulk");
     if (!companyDepartment.fields) companyDepartment.fields = generateDepartmentFields();
     const f = companyDepartment.fields;
@@ -8651,6 +8904,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     if (data.data && Array.isArray(data.data.policies)) return data.data.policies;
     if (data.data && Array.isArray(data.data.timeSlots)) return data.data.timeSlots;
     if (data.data && Array.isArray(data.data.patterns)) return data.data.patterns;
+    /* Location Types (2026-09-24) — GET .../locations/location-types/paginated,
+       confirmed live against a real staging company: wraps as
+       data.data.locationTypes, same shape as the paginated wrappers above. */
+    if (data.data && Array.isArray(data.data.locationTypes)) return data.data.locationTypes;
+    /* Locations (2026-09-24) — GET .../locations, confirmed live: wraps as
+       data.data.items, a more generic key than every wrapper above (no
+       endpoint-specific noun), so this is checked last to avoid ever
+       shadowing a more specific key a future endpoint might also use. */
+    if (data.data && Array.isArray(data.data.items)) return data.data.items;
     return [];
   }
 
@@ -8783,7 +9045,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function designationTemplate() {
-    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">5</span>Designation Management</h2></div>`;
+    const head = `<div class="section-head"><h2 class="section-title"><span class="section-num">6</span>Designation Management</h2></div>`;
     if (companyDesignation.loadError) {
       return `
         <div class="section">
@@ -10644,7 +10906,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
     if (companySalaryStructure.existing === undefined) {
       loadSalaryStructureExisting().then(() => {
-        if (companySalaryStructure.fields) companySalaryStructure.fields = readSalaryStructureForm();
+        if (companySalaryStructure.fields && $("#ssBasicPct")) companySalaryStructure.fields = readSalaryStructureForm();
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       });
@@ -12007,7 +12269,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   function wireAttendancePolicyEvents() {
     if (attendancePolicy.existing === undefined) {
       loadAttendancePolicyExisting().then(() => {
-        if (attendancePolicy.fields) attendancePolicy.fields = readAttendancePolicyForm();
+        if (attendancePolicy.fields && $("#apTitle")) attendancePolicy.fields = readAttendancePolicyForm();
         $("#setupBody").innerHTML = setupGroupPageTemplate();
         wireSetupGroupPage();
       });
@@ -12060,11 +12322,18 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     bankInfo.error = "";
     bankInfo.ok = "";
     bankInfo.existing = undefined;
-    companyBranch.fields = null;
-    companyBranch.error = "";
-    companyBranch.ok = "";
-    companyBranch.createdNames = [];
-    companyBranch.existing = undefined;
+    companyLocationType.fields = null;
+    companyLocationType.error = "";
+    companyLocationType.ok = "";
+    companyLocationType.createdNames = [];
+    companyLocationType.existing = undefined;
+    companyLocation.fields = null;
+    companyLocation.error = "";
+    companyLocation.ok = "";
+    companyLocation.createdNames = [];
+    companyLocation.existing = undefined;
+    companyLocation.locationTypes = null;
+    companyLocation.loadError = "";
     roster.fields = null;
     roster.error = "";
     roster.ok = "";
@@ -12262,14 +12531,47 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return { status: "done" };
   }
 
-  async function runDefaultBranches() {
-    const fields = generateBranchFields();
-    await saveBranch(fields);
-    companyBranch.fields = fields;
-    companyBranch.ok = "Saved.";
-    companyBranch.createdNames.push(fields.officeName);
-    companyBranch.existing = undefined;
-    setup.doneModules.add("branches");
+  async function runDefaultLocationType() {
+    if (companyLocationType.existing === undefined) await loadLocationTypeExisting();
+    if (companyLocationType.existing && companyLocationType.existing.some((t) => t.name === LOCATION_TYPE_DEFAULT.name)) {
+      setup.doneModules.add("location_types");
+      return { status: "skipped", message: `"${LOCATION_TYPE_DEFAULT.name}" location type already exists` };
+    }
+    const fields = { name: LOCATION_TYPE_DEFAULT.name, canHaveGeofence: LOCATION_TYPE_DEFAULT.canHaveGeofence };
+    await saveLocationType(fields);
+    companyLocationType.fields = fields;
+    companyLocationType.ok = "Saved.";
+    companyLocationType.createdNames.push(fields.name);
+    companyLocationType.existing = undefined;
+    companyLocation.locationTypes = null; // Locations' own dependency cache — a real type may now exist
+    setup.doneModules.add("location_types");
+    return { status: "done" };
+  }
+
+  async function runDefaultLocation() {
+    if (companyLocation.locationTypes === null) await loadLocationLocationTypes();
+    if (!companyLocation.locationTypes || companyLocation.locationTypes.length === 0) {
+      return { status: "skipped", message: "No location types yet — run Create Location Types first" };
+    }
+    if (companyLocation.existing === undefined) await loadLocationExisting();
+    if (companyLocation.existing && companyLocation.existing.some((l) => l.name === LOCATION_DEFAULT.name)) {
+      setup.doneModules.add("locations");
+      return { status: "skipped", message: `"${LOCATION_DEFAULT.name}" location already exists` };
+    }
+    const type = pickDefaultLocationType(companyLocation.locationTypes);
+    const fields = {
+      name: LOCATION_DEFAULT.name,
+      locationTypeId: type.id,
+      hasGeofence: LOCATION_DEFAULT.hasGeofence,
+      isDefault: LOCATION_DEFAULT.isDefault,
+      geofence: LOCATION_DEFAULT.geofence,
+    };
+    await saveLocation(fields);
+    companyLocation.fields = fields;
+    companyLocation.ok = "Saved.";
+    companyLocation.createdNames.push(fields.name);
+    companyLocation.existing = undefined;
+    setup.doneModules.add("locations");
     return { status: "done" };
   }
 
@@ -12559,7 +12861,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   const MODULE_DEFAULT_RUNNERS = {
     company_profile: runDefaultCompanyProfile,
     bank_info: runDefaultBankInfo,
-    branches: runDefaultBranches,
+    location_types: runDefaultLocationType,
+    locations: runDefaultLocation,
     departments: runDefaultDepartments,
     designations: runDefaultDesignations,
     custom_fields: runDefaultCustomFields,
@@ -12594,7 +12897,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   const MASTER_RUN_MODULE_IDS = [
     "company_profile",
     "bank_info",
-    "branches",
+    "location_types",
+    "locations",
     "departments",
     "designations",
     "attendance_policy",

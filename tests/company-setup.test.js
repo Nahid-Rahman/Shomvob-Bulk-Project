@@ -23,6 +23,7 @@ const { check, state } = makeChecker();
 const { BUSY_MESSAGES } = loadAppData(["BUSY_MESSAGES"]);
 const { BANK_NAMES, BANK_SHORT_CODE_MAP } = loadAppData(["BANK_NAMES", "BANK_SHORT_CODE_MAP"]);
 const { OFFICE_NAMES, DEPARTMENT_NAMES, DESIGNATION_NAMES } = loadAppData(["OFFICE_NAMES", "DEPARTMENT_NAMES", "DESIGNATION_NAMES"]);
+const { LOCATION_TYPE_NAMES } = loadAppData(["LOCATION_TYPE_NAMES"]);
 const { CUSTOM_FIELD_PRESETS, REQUIRED_DOCUMENT_NAMES } = loadAppData(["CUSTOM_FIELD_PRESETS", "REQUIRED_DOCUMENT_NAMES"]);
 const { DEFAULT_DEPARTMENTS } = loadAppData(["DEFAULT_DEPARTMENTS"]);
 const { ROSTER_COLORS } = loadAppData(["ROSTER_COLORS"]);
@@ -152,11 +153,18 @@ async function toGrid(page, companyName = "Hogwarts") {
   await page.route("**/api/v1/attendance/policies", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) })
   );
-  /* Same default for Locations' own "N already exist" notice
-     (2026-09-15) — distinct method (GET) from the real save (POST), so
-     branch rather than assume nothing else ever calls this. */
-  await page.route("**/api/v1/company/branches", (route) => {
-    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
+  /* Same defaults for Location Types and Locations' own "N already
+     exist" notices (2026-09-24) — wrapped as data.data.locationTypes/
+     data.data.items for real, confirmed live against a real staging
+     company, not a flat array (see fetchCompanyResource()'s own comment
+     in app.js). Locations also GETs this same-named endpoint as its
+     real dependency check on Location Types existing at all. */
+  await page.route("**/api/v1/locations/location-types/paginated**", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { locationTypes: [] } }) });
+    else route.continue();
+  });
+  await page.route("**/api/v1/locations", (route) => {
+    if (route.request().method() === "GET") route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { items: [] } }) });
     else route.continue();
   });
   /* Same defaults for Custom Fields, Required Documents and Custom
@@ -432,9 +440,9 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     check("I back link returns to the grid", (await page.locator("#setupBackToModules").count()) === 1);
     check("I opens on the group's first module", (await page.getAttribute('.settings-tab[data-module="company_profile"]', "aria-current")) === "true");
-    check("I all five of the group's tabs are present",
+    check("I all six of the group's tabs are present",
       JSON.stringify(await page.locator(".settings-tab").allTextContents().then((a) => a.map((t) => t.trim()))) ===
-        JSON.stringify(["Company Profile", "Bank Info", "Locations", "Department Management", "Designation Management"]));
+        JSON.stringify(["Company Profile", "Bank Info", "Location Types", "Locations", "Department Management", "Designation Management"]));
 
     /* free pick: jump straight to another built module and back again, in
        whatever order — nothing about this is a wizard */
@@ -508,8 +516,8 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     await page.click("#setupBackToModules");
     await page.waitForTimeout(80);
-    check("J the group card's count updates to 1/5",
-      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).trim() === "1/5 done");
+    check("J the group card's count updates to 1/6",
+      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).trim() === "1/6 done");
 
     check("J no page errors through generate/edit/regenerate/save", errs.length === 0, errs.join(" | "));
     await page.close();
@@ -572,8 +580,8 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     await page.click("#setupBackToModules");
     await page.waitForTimeout(80);
-    check("N the group card's count updates to 1/5",
-      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).trim() === "1/5 done");
+    check("N the group card's count updates to 1/6",
+      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).trim() === "1/6 done");
     check("N no page errors through generate/edit/regenerate/save", errs.length === 0, errs.join(" | "));
     await page.close();
   }
@@ -649,70 +657,100 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
-  /* ---------- P. Locations (Branch Management) ---------- */
+  /* ---------- P. Location Types (2026-09-24, replaces the old Locations/
+     Branch Management module entirely — a different real API the product
+     moved to since that module was first built) ---------- */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await toGrid(page);
     await page.click(".settings-card:has-text('Company Settings')");
     await page.waitForTimeout(100);
-    await page.click('.settings-tab[data-module="branches"]');
+    await page.click('.settings-tab[data-module="location_types"]');
     await page.waitForTimeout(80);
 
-    const officeName = await page.inputValue("#brOfficeName");
-    check("P the generated office name is one of the real ones", OFFICE_NAMES.includes(officeName), officeName);
+    const typeName = await page.inputValue("#ltyName");
+    check("P the generated name is one of the real Dhaka-area ones", LOCATION_TYPE_NAMES.includes(typeName), typeName);
+    check("P Can Have Geofence defaults on", (await page.getAttribute('#ltyGeoSeg button[data-geo="yes"]', "aria-pressed")) === "true");
 
-    const geoOn = (await page.getAttribute('#brGeoSeg button[data-geo="yes"]', "aria-pressed")) === "true";
-    check("P geo fields are present exactly when geolocation is on", (await page.locator("#brLat").count()) === (geoOn ? 1 : 0));
-
-    // force geolocation off, confirm fields disappear and stay null on save
-    if (geoOn) await page.click('#brGeoSeg button[data-geo="no"]');
-    else await page.click('#brGeoSeg button[data-geo="yes"]').then(() => page.click('#brGeoSeg button[data-geo="no"]'));
+    await page.click('#ltyGeoSeg button[data-geo="no"]');
     await page.waitForTimeout(60);
-    check("P turning geolocation off removes the geo fields", (await page.locator("#brLat").count()) === 0);
 
-    let sentOff = null;
-    await page.route("**/api/v1/company/branches", (route) => {
-      /* GET and POST share this exact URL — Locations' own "how many
-         already exist" background check (2026-09-15) also GETs this
-         path, and would otherwise clobber sentOff right after the real
-         POST sets it, same gotcha fixed elsewhere in this file. */
-      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
-      sentOff = route.request().postDataJSON();
-      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Branch created successfully" }) });
+    let sent = null;
+    await page.route("**/api/v1/locations/location-types", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Location type created successfully" }) });
     });
-    await page.click("#brSaveBtn");
+    await page.click("#ltySaveBtn");
     await page.waitForTimeout(150);
-    check("P geolocation-off sends null lat/lng/radius, not zero or omitted",
-      sentOff && sentOff.latitude === null && sentOff.longitude === null && sentOff.radiusInMeters === null, JSON.stringify(sentOff));
-    check("P the real API's field is `name`, not `officeName` — confirmed live against staging 2026-09-10",
-      sentOff && sentOff.name === officeName && !("officeName" in sentOff), JSON.stringify(sentOff));
-    check("P the tab picks up a done marker", (await page.locator('.settings-tab[data-module="branches"] .op-dot').count()) === 1);
+    check("P sends the real fixed shape (code/sortOrder/canHaveEmployees/status/allowedParentLocationTypeId), only name and canHaveGeofence vary",
+      sent && sent.name === typeName && sent.code === "" && sent.sortOrder === 1 && sent.canHaveEmployees === true && sent.status === "Active" && sent.allowedParentLocationTypeId === null && sent.canHaveGeofence === false,
+      JSON.stringify(sent));
+    check("P the tab picks up a done marker", (await page.locator('.settings-tab[data-module="location_types"] .op-dot').count()) === 1);
     check("P no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
+
+  /* ---------- P2. Locations — the real cross-module dependency on Location Types (2026-09-24) ---------- */
   {
-    // geolocation on: confirm real numbers get sent, not null
     const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
     await toGrid(page);
     await page.click(".settings-card:has-text('Company Settings')");
     await page.waitForTimeout(100);
-    await page.click('.settings-tab[data-module="branches"]');
-    await page.waitForTimeout(80);
-    const alreadyOn = (await page.getAttribute('#brGeoSeg button[data-geo="yes"]', "aria-pressed")) === "true";
-    if (!alreadyOn) await page.click('#brGeoSeg button[data-geo="yes"]');
+    await page.click('.settings-tab[data-module="locations"]');
+    await page.waitForFunction(() => document.querySelector("#setupBody")?.textContent.includes("doesn't have a Location Type yet"), { timeout: 5000 });
+    const shortcut = page.locator(".dep-shortcut");
+    check("P2 shortcut names Location Types", (await shortcut.textContent()).includes("Location Type"));
+    await shortcut.click();
+    await page.waitForSelector("#ltyName");
+    check("P2 shortcut lands on Location Types", (await page.locator("#ltyName").count()) === 1);
+    check("P2 no page errors on the blocked path", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    const realTypes = [{ id: "lt-1", name: "Baridhara" }, { id: "lt-2", name: "Gulshan" }];
+    await page.route("**/api/v1/locations/location-types/paginated**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { locationTypes: realTypes } }) })
+    );
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.waitForTimeout(100);
+    await page.click('.settings-tab[data-module="locations"]');
+    await page.waitForSelector("#locName");
+
+    check("P2 Location Type dropdown lists the real fetched types", (await page.locator("#locType option").count()) === 2);
+    check("P2 defaults to the one named Baridhara, matched by name", await page.inputValue("#locType") === "lt-1");
+    const generatedName = await page.inputValue("#locName");
+    check("P2 the generated name is one of the real office-name pool", OFFICE_NAMES.includes(generatedName), generatedName);
+
+    const geoOn = (await page.getAttribute('#locGeoSeg button[data-geo="yes"]', "aria-pressed")) === "true";
+    check("P2 geo fields are present exactly when Has Geofence is on", (await page.locator("#locLat").count()) === (geoOn ? 1 : 0));
+    if (!geoOn) await page.click('#locGeoSeg button[data-geo="yes"]');
     await page.waitForTimeout(60);
-    let sentOn = null;
-    await page.route("**/api/v1/company/branches", (route) => {
-      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) });
-      sentOn = route.request().postDataJSON();
-      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success" }) });
+    check("P2 turning Has Geofence on adds the geo fields", (await page.locator("#locLat").count()) === 1);
+
+    await page.selectOption("#locType", "lt-2");
+    await page.click('#locDefaultSeg button[data-default="yes"]');
+    await page.waitForTimeout(60);
+
+    let sent = null;
+    await page.route("**/api/v1/locations", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { items: [] } }) });
+      sent = route.request().postDataJSON();
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ status: "success", message: "Location created successfully" }) });
     });
-    await page.click("#brSaveBtn");
+    await page.click("#locSaveBtn");
     await page.waitForTimeout(150);
-    check("P geolocation-on sends real numbers for lat/lng/radius",
-      sentOn && typeof sentOn.latitude === "number" && typeof sentOn.longitude === "number" && typeof sentOn.radiusInMeters === "number",
-      JSON.stringify(sentOn));
+    check("P2 sends the picked location type, isDefault true, real geofence numbers, and the fixed shape",
+      sent && sent.locationTypeId === "lt-2" && sent.isDefault === true && sent.hasGeofence === true && typeof sent.geofence.latitude === "number" &&
+        sent.parentId === null && sent.timezone === null && sent.currency === null && sent.locale === "en-BD" && sent.headEmployeeId === null && sent.status === "Active",
+      JSON.stringify(sent));
+    check("P2 the tab picks up a done marker", (await page.locator('.settings-tab[data-module="locations"] .op-dot').count()) === 1);
+    check("P2 no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
@@ -1859,7 +1897,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#setupCoBtn");
     await page.waitForTimeout(150);
     check("AI reconnecting to the same company restores its done-dots from before the reload",
-      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).includes("1/5"));
+      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).includes("1/6"));
 
     await page.click("#setupDisconnectBtn");
     await page.waitForTimeout(80);
@@ -1869,7 +1907,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#setupCoBtn");
     await page.waitForTimeout(150);
     check("AI a different company gets a clean slate, not the previous company's done-dots",
-      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).includes("0/5"));
+      (await page.textContent(".settings-card:has-text('Company Settings') .tally")).includes("0/6"));
     check("AI no page errors across the whole flow", errs.length === 0, errs.join(" | "));
 
     await page.click("#setupSignOutBtn");
@@ -2169,7 +2207,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     const errs = watchPageErrors(page);
     await toGrid(page, "Nexa Technologies");
     const companyCard = page.locator(".settings-card:has-text('Company Settings')");
-    check("AO a fresh card has one dot per module, none done", (await companyCard.locator(".settings-card-dot").count()) === 5);
+    check("AO a fresh card has one dot per module, none done", (await companyCard.locator(".settings-card-dot").count()) === 6);
     check("AO ...and none of them are the done colour yet", (await companyCard.locator(".settings-card-dot.done").count()) === 0);
     check("AO Payroll's card has 11 dots — one per module, not one per group", (await page.locator(".settings-card:has-text('Payroll') .settings-card-dot").count()) === 11);
 
@@ -2184,7 +2222,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(150);
     await page.click("#setupBackToModules");
     await page.waitForTimeout(80);
-    check("AO exactly one dot turns green after saving one of the five", (await companyCard.locator(".settings-card-dot.done").count()) === 1);
+    check("AO exactly one dot turns green after saving one of the six", (await companyCard.locator(".settings-card-dot.done").count()) === 1);
     check("AO hovering (its title) names the specific module, not just 'done'",
       (await companyCard.locator(".settings-card-dot.done").getAttribute("title")) === "Department Management — done");
     check("AO no page errors", errs.length === 0, errs.join(" | "));
@@ -2435,7 +2473,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#setupNextModuleBtn");
     await page.waitForTimeout(80);
     check("AT clicking it actually switches to that module", (await page.getAttribute('.settings-tab[aria-current="true"]', "data-module")) === "bank_info");
-    check("AT and now names the one after that", (await page.textContent("#setupNextModuleBtn")).includes("Locations"));
+    check("AT and now names the one after that", (await page.textContent("#setupNextModuleBtn")).includes("Location Types"));
 
     await page.click('.settings-tab[data-module="designations"]');
     await page.waitForTimeout(80);
@@ -2444,7 +2482,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     // never crosses into the next group
     await page.click(".settings-tab:has-text('Company Profile')");
     await page.waitForTimeout(80);
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       await page.click("#setupNextModuleBtn");
       await page.waitForTimeout(60);
     }
@@ -2578,21 +2616,23 @@ async function toGrid(page, companyName = "Hogwarts") {
 
      One click runs a curated set of modules — not literally every module
      in every group — direct request, with an explicit list: Company
-     Settings (Company Profile, Bank Info, Locations, Department,
-     Designation), Attendance Policy, Schedule Management (Create Roster,
-     Create Roster Pattern — added 2026-09-24, direct request: "ei
-     schedule management ta Standard setup e add koro attendance er
-     pore"), Leave (Leave Types, Leave Policy, Holiday Calendar), and 6 of
-     Payroll's 11 (General, Salary Components, Configure Salary
-     Components, Bonus Types, Bonus Policy, Tax) — Employee Settings and
-     Payroll's Late Arrival/Absent Deduction/Overtime/Attendance Bonus/
-     Custom Addition-Deduction are deliberately left out
-     (`MASTER_RUN_MODULE_IDS` in app.js). Every real cross-module
-     dependency within that list (Department→Designation, Create Roster→
-     Create Roster Pattern, Leave Types→Leave Policy, Salary Components→
-     Configure Salary Components, Bonus Types→Bonus Policy) resolves
-     itself automatically because `MASTER_RUN_MODULE_IDS` preserves
-     SETTINGS_GROUPS' own dependency-safe order. */
+     Settings (Company Profile, Bank Info, Location Types, Locations —
+     replacing the old Locations/Branch Management module entirely,
+     2026-09-24 — Department, Designation), Attendance Policy, Schedule
+     Management (Create Roster, Create Roster Pattern — added 2026-09-24,
+     direct request: "ei schedule management ta Standard setup e add koro
+     attendance er pore"), Leave (Leave Types, Leave Policy, Holiday
+     Calendar), and 6 of Payroll's 11 (General, Salary Components,
+     Configure Salary Components, Bonus Types, Bonus Policy, Tax) —
+     Employee Settings and Payroll's Late Arrival/Absent Deduction/
+     Overtime/Attendance Bonus/Custom Addition-Deduction are deliberately
+     left out (`MASTER_RUN_MODULE_IDS` in app.js). Every real cross-module
+     dependency within that list (Location Types→Locations, Department→
+     Designation, Create Roster→Create Roster Pattern, Leave Types→
+     Leave Policy, Salary Components→Configure Salary Components, Bonus
+     Types→Bonus Policy) resolves itself automatically because
+     `MASTER_RUN_MODULE_IDS` preserves SETTINGS_GROUPS' own
+     dependency-safe order. */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
@@ -2610,12 +2650,34 @@ async function toGrid(page, companyName = "Hogwarts") {
     const realTimeSlots = [];
     const createdTimeSlots = [];
     const createdPatterns = [];
+    const realLocationTypes = [];
+    const createdLocationTypes = [];
+    const createdLocations = [];
 
     await toGrid(page);
 
     await page.route("**/api/v1/company-profile", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
     await page.route("**/api/v1/company-bank-informations/save", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
-    await page.route("**/api/v1/company/branches", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
+
+    /* Location Types → Locations, 2026-09-24: a real cross-module
+       dependency, same shape as Create Roster → Create Roster Pattern
+       just above (Attendance Policy's own routes). */
+    await page.route("**/api/v1/locations/location-types/paginated**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { locationTypes: realLocationTypes } }) })
+    );
+    await page.route("**/api/v1/locations/location-types", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = route.request().postDataJSON();
+      realLocationTypes.push({ id: "lt-1", name: body.name });
+      createdLocationTypes.push(body.name);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+    await page.route("**/api/v1/locations", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { items: [] } }) });
+      const body = route.request().postDataJSON();
+      createdLocations.push(body.name);
+      route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
 
     await page.route("**/api/v1/departments/active", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: realDepartments }) }));
     await page.route("**/api/v1/departments", (route) => {
@@ -2723,7 +2785,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AW opens as a modal, not a page swap — the grid is still there behind it", (await page.locator(".settings-card").count()) === 6);
     check("AW modal title names what it's doing", (await page.locator("#runDefaultsTitle").textContent()).includes("standard setup"));
     check("AW master run gets its own quote", (await page.locator("#runDefaultsQuoteText").textContent()).includes("uselessness of today"));
-    check("AW lists exactly the curated 17 modules, not every module in every group", (await page.locator("#runDefaultsList .bulk-row").count()) === 17);
+    check("AW lists exactly the curated 18 modules, not every module in every group", (await page.locator("#runDefaultsList .bulk-row").count()) === 18);
     check("AW Employee Settings' modules are not in the list", (await page.locator('#runDefaultsList .bulk-row:has-text("Custom Fields"), #runDefaultsList .bulk-row:has-text("Required Documents")').count()) === 0);
     check("AW excluded Payroll modules are not in the list",
       (await page.locator('#runDefaultsList .bulk-row:has-text("Late Arrival"), #runDefaultsList .bulk-row:has-text("Absent Deduction"), #runDefaultsList .bulk-row:has-text("Overtime"), #runDefaultsList .bulk-row:has-text("Attendance Bonus"), #runDefaultsList .bulk-row:has-text("Custom Addition")').count()) === 0);
@@ -2732,9 +2794,11 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#runDefaultsStartBtn");
     await page.waitForFunction(() => document.querySelector("#runDefaultsBanner").textContent.includes("Finished"), { timeout: 15000 });
     const finishedText = (await page.locator("#runDefaultsBanner .validation-banner.success").textContent()).trim();
-    check("AW finishes with all 17 run, nothing skipped or failed (every dependency in the list resolves itself)", finishedText.includes("17 run") && finishedText.includes("0 skipped") && !finishedText.includes("failed"), finishedText);
+    check("AW finishes with all 18 run, nothing skipped or failed (every dependency in the list resolves itself)", finishedText.includes("18 run") && finishedText.includes("0 skipped") && !finishedText.includes("failed"), finishedText);
 
     check("AW General defaults to Calendar Month", sentPayrollCycle && sentPayrollCycle.payrollCycle === "calendar_month", JSON.stringify(sentPayrollCycle));
+    check("AW Location Types' own default was created", JSON.stringify(createdLocationTypes) === JSON.stringify(["Baridhara"]), JSON.stringify(createdLocationTypes));
+    check("AW Locations ran too (dependency on Location Types resolved automatically)", JSON.stringify(createdLocations) === JSON.stringify(["Railgate"]), JSON.stringify(createdLocations));
     check("AW Department's own 6 defaults were created", createdDepartments.length === 6, JSON.stringify(createdDepartments));
     check("AW Designation's own 24 defaults were created (dependency on Department resolved automatically)", createdDesignations.length === 24);
     check("AW Leave Types' own default 3 were created", JSON.stringify(createdLeaveTypes.sort()) === JSON.stringify(["Annual Leave", "Casual Leave", "Sick Leave"].sort()));
@@ -3042,19 +3106,19 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
-  /* ---------- BE. Locations names the real count, plainly, not as a warning (2026-09-15) ---------- */
+  /* ---------- BE. Location Types names the real count, plainly, not as a warning (2026-09-24) ---------- */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await toGrid(page);
-    await page.route("**/api/v1/company/branches", (route) => {
+    await page.route("**/api/v1/locations/location-types/paginated**", (route) => {
       if (route.request().method() !== "GET") return route.continue();
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "br-1", name: "Head Office" }, { id: "br-2", name: "Chattogram Branch" }] }) });
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { locationTypes: [{ id: "lt-1", name: "Baridhara" }, { id: "lt-2", name: "Gulshan" }] } }) });
     });
     await page.click(".settings-card:has-text('Company Settings')");
-    await page.click('.settings-tab[data-module="branches"]');
+    await page.click('.settings-tab[data-module="location_types"]');
     await page.waitForTimeout(150);
-    check("BE names the real count", (await page.textContent("#setupBody")).includes("already has 2 locations — more can still be added from here"));
+    check("BE names the real count", (await page.textContent("#setupBody")).includes("already has 2 location types — more can still be added from here"));
     check("BE no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
@@ -3064,28 +3128,48 @@ async function toGrid(page, companyName = "Hogwarts") {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await toGrid(page);
-    await page.route("**/api/v1/company/branches", (route) => {
+    await page.route("**/api/v1/locations/location-types/paginated**", (route) => {
       if (route.request().method() !== "GET") return route.continue();
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [{ id: "br-1", name: "Head Office" }] }) });
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { locationTypes: [{ id: "lt-1", name: "Baridhara" }] } }) });
     });
     await page.click(".settings-card:has-text('Company Settings')");
-    await page.click('.settings-tab[data-module="branches"]');
+    await page.click('.settings-tab[data-module="location_types"]');
     await page.waitForTimeout(150);
-    check("BF singular wording for exactly 1", (await page.textContent("#setupBody")).includes("already has 1 location —"));
+    check("BF singular wording for exactly 1", (await page.textContent("#setupBody")).includes("already has 1 location type —"));
     check("BF no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
-  /* ---------- BG. ...and nothing when this company has no locations yet ---------- */
+  /* ---------- BG. ...and nothing when this company has no location types yet ---------- */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
-    await toGrid(page); // its own default answers GET /company/branches with an empty array
+    await toGrid(page); // its own default answers GET .../location-types/paginated with an empty array
     await page.click(".settings-card:has-text('Company Settings')");
-    await page.click('.settings-tab[data-module="branches"]');
+    await page.click('.settings-tab[data-module="location_types"]');
     await page.waitForTimeout(150);
-    check("BG no notice when there are no locations yet", (await page.textContent("#setupBody")).includes("already has") === false);
+    check("BG no notice when there are no location types yet", (await page.textContent("#setupBody")).includes("already has") === false);
     check("BG no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  /* ---------- BE2. Locations names the real count too, once its own dependency is met (2026-09-24) ---------- */
+  {
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+    await page.route("**/api/v1/locations/location-types/paginated**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { locationTypes: [{ id: "lt-1", name: "Baridhara" }] } }) })
+    );
+    await page.route("**/api/v1/locations", (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { items: [{ id: "loc-1", name: "Railgate" }, { id: "loc-2", name: "Ononna" }] } }) });
+    });
+    await page.click(".settings-card:has-text('Company Settings')");
+    await page.click('.settings-tab[data-module="locations"]');
+    await page.waitForTimeout(150);
+    check("BE2 names the real count", (await page.textContent("#setupBody")).includes("already has 2 locations — more can still be added from here"));
+    check("BE2 no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

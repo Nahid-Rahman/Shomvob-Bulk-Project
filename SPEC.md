@@ -875,32 +875,54 @@ arriving as a genuine JS `number` in that request (not a numeric
 string), the done dot and group count updating after a real save, and a
 mocked `200` response being treated as a rejection rather than a success.
 
-## Locations, Department Management, Designation Management (built 2026-09-10)
+## Location Types, Locations, Department Management, Designation Management
 
-All three in Company Settings, ported verbatim from the Postman
-collection. "Locations" is the real product's own label for this screen
-(confirmed against a 2026-09-09 admin screenshot); Postman's folder name
-for the same endpoint is "Branch Management".
+**Location Types and Locations (built 2026-09-24) replace the old
+"Locations" module entirely** — the real product moved to a different
+real API since that module was first built on 2026-09-10 (`POST
+/company/branches`, "Branch Management" in the Postman collection).
+Neither new module is in the Postman collection at all; every endpoint
+and payload came straight from the user, confirmed live against a real
+staging company before either was coded.
 
-### Locations — `POST /company/branches`
+### Location Types — `POST /locations/location-types`
 
 | Field | Rule |
 |---|---|
-| `officeName` | One of 12 generic office labels (`OFFICE_NAMES`) |
-| `district` / `city` / `address` / `zipCode` | One of 16 real BD location presets (`BD_LOCATION_PRESETS`), always picked together so they never disagree |
-| `isGeolocation` | Random true/false |
-| `latitude` / `longitude` / `radiusInMeters` | If `isGeolocation`: a small random offset from Baridhara DOHS (`BARIDHARA_BASE_LATITUDE`/`_LONGITUDE`) and one of 9 radius options (`BRANCH_RADIUS_OPTIONS`, 100–500m). If not: **all three `null`**, never `0` or omitted |
+| `name` | One of 10 real Dhaka-area zone names (`LOCATION_TYPE_NAMES`) |
+| `code` | Always `""` |
+| `sortOrder` | Always `1` |
+| `allowedParentLocationTypeId` | Always `null` — no parent-type hierarchy support yet |
+| `canHaveEmployees` | Always `true` |
+| `canHaveGeofence` | Editable Yes/No toggle, defaults `true` |
+| `status` | Always `"Active"` |
 
-Toggling geolocation in the UI regenerates or clears those three fields
-live. Success: `"Branch created successfully"` (201).
+Only Name and Can Have Geofence are exposed as editable inputs — every
+other field is the fixed shape above (`LOCATION_TYPE_DEFAULT` in
+`app-data.js`), confirmed directly, not guessed. Real default:
+`{name: "Baridhara", code: "", sortOrder: 1, allowedParentLocationTypeId:
+null, canHaveEmployees: true, canHaveGeofence: true, status: "Active"}`.
 
-**The field is sent as `name`, not `officeName`.** The Postman
-collection's own script uses `officeName`; a live check against Shomvob
-staging (2026-09-10) showed the real API rejects it outright
-("property officeName should not exist") and requires `name`. Kept
-`officeName` as the internal field name (state, pool, label) since it
-reads better in the UI — only renamed at the point `saveBranch()`
-builds the actual request body.
+### Locations — `POST /locations`
+
+| Field | Rule |
+|---|---|
+| `name` | One of 12 generic office labels (`OFFICE_NAMES`) |
+| `locationTypeId` | A real Location Type's id from this company — the first genuine dependency within Company Settings itself; blocked with none |
+| `parentId` | Always `null` |
+| `timezone` / `currency` | Always `null` |
+| `locale` | Always `"en-BD"` |
+| `headEmployeeId` | Always `null` |
+| `hasGeofence` | Editable Yes/No toggle, random on generate |
+| `status` | Always `"Active"` |
+| `isDefault` | Editable Yes/No toggle, defaults `false` — only "Run defaults" itself sets this `true` |
+| `geofence` | If `hasGeofence`: `{latitude, longitude, radiusInMeters}`, a small random offset from Baridhara DOHS (`BARIDHARA_BASE_LATITUDE`/`_LONGITUDE`, `BRANCH_RADIUS_OPTIONS`, 100–500m — same pool/reference point the old Locations module used). If not: `null` |
+
+Real default (`LOCATION_DEFAULT` in `app-data.js`): `{name: "Railgate",
+hasGeofence: true, isDefault: true, geofence: {latitude: 23.8103,
+longitude: 90.4125, radiusInMeters: 200}}`, attached to the real
+Location Type named "Baridhara" (matched by name, falling back to
+whichever real type exists first).
 
 ### Department Management — `POST /departments`
 
