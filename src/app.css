@@ -1280,6 +1280,19 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   gap: 12px;
   margin-bottom: 30px;
 }
+/* Dashboard's admin-only "Team activity" section (2026-09-25) has 4
+   tiles, not 3 — a modifier rather than a second component, since
+   .stat-tile/.stat-value/.stat-label are otherwise identical. */
+.stat-row-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* Simple horizontal bar lists (bulk generates by operation, settings
+   saves by company) — plain CSS, no chart library, matching this app's
+   own "no external assets" rule. */
+.stat-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; font-size: 12.5px; }
+.stat-bar-label { width: 150px; flex-shrink: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-bar-track { flex: 1; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.stat-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.stat-bar-count { width: 30px; text-align: right; color: var(--text-faint); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .stat-tile {
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -1718,7 +1731,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .main { height: auto; overflow: visible; }
   .main-scroll { overflow: visible; }
   .field-row { grid-template-columns: 1fr; }
-  .stat-row { grid-template-columns: 1fr; }
+  .stat-row, .stat-row-4 { grid-template-columns: 1fr; }
+  .stat-bar-label { width: 110px; }
   .welcome-hero { grid-template-columns: 1fr; }
   .welcome-title { font-size: 27px; }
   .field-grid-3, .field-grid-2 { grid-template-columns: 1fr; }

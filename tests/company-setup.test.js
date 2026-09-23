@@ -50,7 +50,24 @@ async function mockSupabaseOk(page) {
      as every other network call this suite touches, so nothing here
      sends a real (fake-token-rejected, but still real) request to live
      Supabase infrastructure. */
-  await page.route("**/rest/v1/audit_log", (route) => route.fulfill({ status: 201, contentType: "application/json", body: "[]" }));
+  /* Trailing ** rather than a bare path — Dashboard's "Team activity"
+     section (below) GETs this same URL with a ?select=... query string,
+     which a pattern with no wildcard after "audit_log" would NOT match
+     (Playwright's glob matching is exact past the pattern's own end),
+     so both the original bare POST and the new GET need covering here. */
+  await page.route("**/rest/v1/audit_log**", (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+    route.fulfill({ status: 201, contentType: "application/json", body: "[]" });
+  });
+  /* Dashboard's "Team activity" section (2026-09-25) — fires the moment
+     the visitor is back on the Dashboard with a real tool sign-in, so
+     this needs a default mock everywhere sign-in can happen, same
+     reasoning as audit_log just above. Default false: none of this
+     suite's fake sign-ins represent a real admin, matching production
+     (only mahmudur@shomvob.com is in the real admins table) — tests
+     that specifically want the admin view register their own override
+     after this one, same LIFO-override pattern used throughout this file. */
+  await page.route("**/rest/v1/rpc/is_admin", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "false" }));
 }
 function mockSupabaseFail(page) {
   return page.route("**/auth/v1/token**", (route) =>
@@ -3512,6 +3529,65 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("BQ hand-typed Name is what actually gets sent", sentBody.name === "Weekday Pattern");
     check("BQ entries use the fallback slot's real id", sentBody.entries.every((e) => e.timeSlotId === "ts-morning"));
     check("BQ no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  {
+    // BR — Dashboard "Team activity": a non-admin signed-in user sees nothing (2026-09-25)
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page); // mockSupabaseOk()'s own default: is_admin -> false
+
+    await page.click('.op-item:has-text("Dashboard")');
+    await page.waitForTimeout(300); // give the background admin-check a chance to resolve either way
+    const text = await page.textContent("#mainContent");
+    check("BR no Team activity section for a non-admin", text.includes("Team activity") === false);
+    check("BR the rest of the Dashboard still renders normally", text.includes("What it can do"));
+    check("BR no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  {
+    // BS — Dashboard "Team activity": a real admin sees real, correctly-computed numbers (2026-09-25)
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await toGrid(page);
+
+    await page.route("**/rest/v1/rpc/is_admin", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "true" }));
+    await page.route("**/rest/v1/audit_log**", (route) => {
+      if (route.request().method() !== "GET") return route.fulfill({ status: 201, contentType: "application/json", body: "[]" });
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          { event_type: "login", module_id: null, company_name: null },
+          { event_type: "login", module_id: null, company_name: null },
+          { event_type: "login", module_id: null, company_name: null },
+          { event_type: "settings_save", module_id: "company_profile", company_name: "Hogwarts" },
+          { event_type: "settings_save", module_id: "bank_info", company_name: "Hogwarts" },
+          { event_type: "settings_save", module_id: "roster", company_name: "Wayne Enterprises" },
+          { event_type: "bulk_generate", module_id: "employee_add", company_name: null },
+          { event_type: "bulk_generate", module_id: "employee_add", company_name: null },
+          { event_type: "bulk_generate", module_id: "assets_add", company_name: null },
+        ]),
+      });
+    });
+
+    await page.click('.op-item:has-text("Dashboard")');
+    await page.waitForFunction(() => document.querySelector("#mainContent")?.textContent.includes("Team activity"), { timeout: 5000 });
+    const text = await page.textContent("#mainContent");
+
+    check("BS shows the admin-only label", text.includes("admin only"));
+    const tiles = await page.locator(".stat-row-4 .stat-tile").allTextContents();
+    check("BS 4 real stat tiles render (not the default 3)", tiles.length === 4);
+    check("BS total logins tile is 3", tiles[0].startsWith("3") && tiles[0].includes("tool sign-ins"));
+    check("BS total settings saved tile is 3", tiles[1].startsWith("3") && tiles[1].includes("settings saved"));
+    check("BS total bulk generated tile is 3", tiles[2].startsWith("3") && tiles[2].includes("bulk files generated"));
+    // 2 employee_add (4200 cells each) + 1 assets_add (35000 cells) = 43,400 cells x 5s = 217,000s = 60h 16m 40s -> 60h 17m rounded
+    check("BS estimated time-saved tile matches the real math", text.includes("60h 17m"));
+    check("BS operation breakdown names both real operations", text.includes("Employee Add") && text.includes("Assets Add"));
+    check("BS company breakdown names both real companies", text.includes("Hogwarts") && text.includes("Wayne Enterprises"));
+    check("BS no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

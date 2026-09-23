@@ -2953,6 +2953,147 @@
      expense, which is the point, but every number on it is real, pulled
      from the operations' own limits rather than invented for the gag. */
 
+  /* ---------- Dashboard's "Team activity" section — admin-only (2026-09-25) ----------
+
+     The Dashboard *page* stays reachable by anyone past the joke gate,
+     exactly as before — this section's real data is the only thing
+     gated, and it's gated at the network level, not with CSS: nothing
+     is ever fetched unless a real Supabase tool sign-in has happened
+     AND is_admin() (checked live via RPC every time, never cached
+     client-side as a yes/no flag) says true. A non-admin signed-in user
+     sees nothing here, same as someone who hasn't signed in at all. */
+  const dashboardStats = { status: "idle", summary: null, error: "" };
+  // status: "idle" | "checking" | "not_admin" | "ready" | "error"
+
+  async function checkIsAdmin() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/is_admin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` },
+        body: "{}",
+      });
+      if (!res.ok) return false;
+      return await res.json();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /* Everything computed client-side from one fetch of the real rows —
+     no separate aggregation backend, same "no backend beyond what's
+     strictly needed" instinct as the rest of this app. `limit=2000` is
+     generous for an internal QA tool's real volume; revisit if this
+     project ever gets that busy. */
+  function summarizeAuditRows(rows) {
+    let totalLogins = 0;
+    let totalSettingsSaved = 0;
+    let totalBulkGenerated = 0;
+    let totalSeconds = 0;
+    const bulkByOperation = {};
+    const settingsByCompany = {};
+    for (const row of rows) {
+      if (row.event_type === "login") {
+        totalLogins++;
+      } else if (row.event_type === "settings_save") {
+        totalSettingsSaved++;
+        const company = row.company_name || "Unknown company";
+        settingsByCompany[company] = (settingsByCompany[company] || 0) + 1;
+      } else if (row.event_type === "bulk_generate") {
+        totalBulkGenerated++;
+        const op = OPERATIONS.find((o) => o.id === row.module_id);
+        const label = op ? op.label : row.module_id || "Unknown";
+        bulkByOperation[label] = (bulkByOperation[label] || 0) + 1;
+        totalSeconds += (OPERATION_CELL_ESTIMATE[row.module_id] || 0) * WELCOME_SECONDS_PER_CELL;
+      }
+    }
+    return {
+      totalLogins,
+      totalSettingsSaved,
+      totalBulkGenerated,
+      savedHours: Math.floor(totalSeconds / 3600),
+      savedMins: Math.round((totalSeconds % 3600) / 60),
+      bulkByOperation,
+      settingsByCompany,
+    };
+  }
+
+  async function loadDashboardStats() {
+    dashboardStats.status = "checking";
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) {
+      dashboardStats.status = "not_admin";
+      return;
+    }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/audit_log?select=event_type,module_id,company_name&order=created_at.desc&limit=2000`, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` },
+      });
+      if (!res.ok) throw new Error("Couldn't load activity.");
+      const rows = await res.json();
+      dashboardStats.summary = summarizeAuditRows(rows);
+      dashboardStats.status = "ready";
+    } catch (e) {
+      dashboardStats.error = e.message;
+      dashboardStats.status = "error";
+    }
+  }
+
+  /* `counts` is a plain {label: n} object — sorted desc, the biggest bar
+     always reads full-width so every other one reads proportionally
+     against it rather than against some arbitrary fixed max. */
+  function barListHtml(counts) {
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) return `<p class="section-note" style="margin:6px 0 0">Nothing yet.</p>`;
+    const max = entries[0][1];
+    return `<div style="margin-top:8px">${entries
+      .map(
+        ([label, count]) => `
+      <div class="stat-bar-row">
+        <span class="stat-bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+        <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${Math.max(6, Math.round((count / max) * 100))}%"></span></span>
+        <span class="stat-bar-count">${count}</span>
+      </div>`
+      )
+      .join("")}</div>`;
+  }
+
+  function dashboardStatsHtml() {
+    if (dashboardStats.status === "idle" || dashboardStats.status === "not_admin") return "";
+    if (dashboardStats.status === "checking") {
+      return `
+        <div class="section">
+          <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>Team activity</h2></div>
+          <p class="section-note">Checking…</p>
+        </div>
+      `;
+    }
+    if (dashboardStats.status === "error") {
+      return `
+        <div class="section">
+          <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>Team activity</h2></div>
+          <span class="error-text">${escapeHtml(dashboardStats.error)}</span>
+        </div>
+      `;
+    }
+    const s = dashboardStats.summary;
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>Team activity <span style="font-weight:400; font-size:11.5px; color:var(--text-faint)">— admin only</span></h2></div>
+        <p class="section-note">Real usage across the team, pulled straight from this tool's own activity log.</p>
+        <div class="stat-row stat-row-4">
+          <div class="stat-tile"><span class="stat-value">${s.totalLogins}</span><span class="stat-label">tool sign-ins</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalSettingsSaved}</span><span class="stat-label">settings saved into real companies</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalBulkGenerated}</span><span class="stat-label">bulk files generated</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">estimated time those bulk files saved, at five seconds a cell</span></div>
+        </div>
+        <div class="field-row" style="margin-top:6px; align-items:flex-start;">
+          <div class="field"><label>Bulk generates by operation</label>${barListHtml(s.bulkByOperation)}</div>
+          <div class="field"><label>Settings saved by company</label>${barListHtml(s.settingsByCompany)}</div>
+        </div>
+      </div>
+    `;
+  }
+
   function welcomeTemplate() {
     const seconds = WELCOME_BIGGEST_BATCH * WELCOME_SECONDS_PER_CELL;
     const hours = Math.floor(seconds / 3600);
@@ -3028,6 +3169,8 @@
         </div>
       </div>
 
+      ${dashboardStatsHtml()}
+
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>What it can do</h2></div>
         <p class="section-note">Click any of them to jump straight in.</p>
@@ -3050,6 +3193,20 @@
         renderMain();
       });
     });
+    /* Fires once (guarded by status leaving "idle"), and only when a real
+       tool sign-in has already happened — the whole point of not showing
+       anyone else a network request for this at all. Re-renders just
+       #mainContent directly rather than calling renderMain() again, since
+       that also resets scroll position — jarring if the visitor had
+       already started reading the page by the time this resolves. */
+    if (dashboardStats.status === "idle" && setup.toolToken) {
+      loadDashboardStats().then(() => {
+        if (currentOp !== "welcome") return;
+        const root = $("#mainContent");
+        root.innerHTML = welcomeTemplate();
+        wireWelcomeEvents();
+      });
+    }
   }
 
   /* Every operation shares the one action bar, so these dispatch on the
@@ -3708,6 +3865,12 @@
     } catch (e) {
       /* nothing to do */
     }
+    /* Team activity is tied to *this* tool sign-in's admin status — reset
+       it so signing in again (possibly as a different, non-admin user)
+       re-checks rather than keeps showing stale data from before. */
+    dashboardStats.status = "idle";
+    dashboardStats.summary = null;
+    dashboardStats.error = "";
   }
 
   function iconCheck() {

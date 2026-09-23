@@ -16,47 +16,15 @@ or added more).
     a viewing UI** — deliberately deferred, confirmed this belongs to
     the future admin panel below, not this phase ("eta kintu admin panel
     er part hobar kotha. je admin dhuke dekhbe ke ki korse").
-  - **Dashboard with a proper overview** — real stats (how many
-    companies had settings run, how many bulk creates of what type)
-    with appropriate graphs. **Confirmed as the next item to build**
-    (2026-09-24) — recommended over starting Tiered access next because
-    (a) the data already exists (`audit_log`, below) so no new pipeline
-    is needed, just querying it; (b) it's non-disruptive — no login-flow
-    change, no existing behaviour breaks; (c) Tiered access is the
-    bigger, riskier piece (it means gating Bulk with real login too, plus
-    the admin login/panel design the user explicitly left open — "admin
-    login ta kemne hobe ota tumi e bolo") and building Dashboard first
-    also doubles as a live check that `audit_log` is actually capturing
-    correctly, since its numbers will draw straight from that table. Not
-    started yet — being picked up on a different machine next.
-
-    **Context for whoever starts this** (so it's readable cold, without
-    needing this conversation): `audit_log` is a real Supabase table
-    (project `wtlaiidtiugxirqcxjzw`, see CLAUDE.md → Phase 2 → "The
-    Supabase project itself" and → "Audit Log") with three event types
-    currently written — `login`, `settings_save`, `bulk_generate` — each
-    row carrying `event_type`, `detail`, `user_email`, plus `extra` fields
-    (`environment`, `company_name`, `module_id` on settings_save events).
-
-    **Read access is now solved (2026-09-25)** — see CLAUDE.md → Phase 2
-    → "Audit Log" → "A minimal admin allowlist": a real `admins` table
-    (currently just `mahmudur@shomvob.com`, the user's own explicit
-    call) + a `SECURITY DEFINER` `is_admin()` function + a real `SELECT`
-    RLS policy on `audit_log` gated by it. Query it directly, client-side,
-    the same way every other Supabase call in this app already works —
-    no server-side aggregation piece needed.
-
-    **Still open, confirm before building the UI:**
-    - **Exact stats/graphs to show** — not dictated yet, ask before
-      building, same "confirm rules, never assume" discipline this whole
-      project holds itself to.
-    - **The Dashboard page itself is reachable by anyone past the joke
-      gate alone** (no real login needed today) — confirmed directly with
-      the user that the real-stats section must stay gated behind real
-      tool-login *and* `is_admin()`, separately from the rest of the
-      page (memes/stat tiles/operation cards), which stay exactly as
-      they are today for everyone. Don't build the stats section as
-      always-visible.
+  - **Dashboard with a proper overview** — **built 2026-09-25**, see
+    CLAUDE.md → Phase 2 → "Dashboard's 'Team activity' section". 4 real
+    stat tiles (sign-ins, settings saved, bulk files generated,
+    estimated time saved) + 2 breakdowns (bulk generates by operation,
+    settings saves by company), gated behind real tool-login +
+    `is_admin()` — the Dashboard page itself is still reachable by
+    anyone past the joke gate, only this section's data is admin-only.
+    Confirmed end-to-end by test (non-admin sees nothing, admin sees
+    correct real numbers) and by Playwright screenshot in both themes.
   - **Tiered access / admin panel** — some users get only the bulk
     generators, some get Company Setup, some get both; an admin can
     raise/lower anyone's access level from a real admin panel. Not

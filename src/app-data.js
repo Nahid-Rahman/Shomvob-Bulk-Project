@@ -464,6 +464,21 @@ const OPERATION_BLURBS = {
 const WELCOME_SECONDS_PER_CELL = 5;
 const WELCOME_BIGGEST_BATCH = 300 * 14;
 
+/* Dashboard's admin-only "Team activity" section (2026-09-25) needs a
+   per-generate cell-count to turn a real bulk_generate count into an
+   "estimated time saved" figure, since audit_log logs that a generate
+   happened, not how many rows/cells that particular file had. Each
+   number here is lifted directly from the matching OPERATION_BLURBS
+   entry's own `cost` line above, not a fresh guess — same final number
+   already shown on this page today, just multiplied by real counts. */
+const OPERATION_CELL_ESTIMATE = {
+  employee_add: 4200, // 14 columns x 300 rows
+  attendance_add: 13000, // 110 people x 30 days, ~13,000 cells per blurb
+  leave_balance_add: 550, // 110 people x 5 leave types
+  payroll_field_add: 880, // 110 people x 8 fields
+  assets_add: 35000, // 7 columns x up to 5,000 rows
+};
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },

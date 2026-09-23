@@ -3762,6 +3762,89 @@ surface for this log, plus the admin login flow itself — explicitly left
 open by the user: "admin login ta kemne hobe ota tumi e bolo"). Both are
 captured in full in `TODO.md`.
 
+### Dashboard's "Team activity" section — real stats, admin-only (2026-09-25)
+
+The second of three lead-feedback items (`TODO.md`), picked over Tiered
+Access on purpose — the data already existed (`audit_log`, above) and
+this is non-disruptive, no login-flow change. Scope was proposed by
+Claude and confirmed directly rather than dictated up front: 4 stat
+tiles (tool sign-ins, settings saved, bulk files generated, estimated
+time saved) plus 2 breakdowns (bulk generates by operation, settings
+saves by company) — "okay koro" once laid out.
+
+**The Dashboard *page* stays reachable by anyone past the joke gate,
+exactly as before.** Only this one new section is gated, and it's gated
+at the network level, not with CSS — confirmed directly with the user
+after they caught the gap themselves ("dashboard kintu initial dummy
+login er por e dekhte parbe. ami ki bhul bujhaisi?" — the Dashboard is
+visible right after the joke gate, isn't that a problem for
+"admin-only" data?): `dashboardStats.status` starts `"idle"`, and
+`wireWelcomeEvents()` only ever calls `loadDashboardStats()` when
+`setup.toolToken` is already set (a real Supabase tool sign-in has
+happened) — someone who's only clicked through the joke gate never
+triggers a single network request for this, let alone sees data.
+
+**`checkIsAdmin()` calls `is_admin()` live via PostgREST's RPC endpoint
+every time** (`POST {SUPABASE_URL}/rest/v1/rpc/is_admin`, same
+`apikey`/bearer-token shape every other Supabase call in this app
+already uses) — never cached as a stored yes/no flag client-side, so
+growing the real `admins` table takes effect the next time anyone loads
+this section, no redeploy. A `false` (not signed in, or signed in but
+not admin) means `dashboardStats.status` becomes `"not_admin"` and the
+section renders nothing at all — same as the `"idle"` case, not a
+locked/teaser state, since a lock icon would itself be revealing that
+admin-only data exists here.
+
+**Numbers, not raw rows.** `loadDashboardStats()` fetches up to 2,000
+of the real `audit_log` rows in one call (`select=event_type,module_id,
+company_name` — no `user_email`, `detail` or timestamps requested,
+since the tiles/breakdowns above don't need them) and
+`summarizeAuditRows()` computes every tile/breakdown client-side from
+that — no separate aggregation backend, same "no backend beyond what's
+strictly needed" instinct as the rest of this app, now that the SELECT
+policy (above) makes a direct client-side read safe.
+
+**"Estimated time saved" reuses the app's own existing cost math, not a
+fresh number.** `OPERATION_CELL_ESTIMATE` (`app-data.js`) is the exact
+final figure from each operation's own `OPERATION_BLURBS[id].cost`
+line — 4,200 for Employee Add, and so on — multiplied by real
+`bulk_generate` counts per operation, then by the same
+`WELCOME_SECONDS_PER_CELL` (5) already used for the hero's own "5h 50m"
+figure. Explicitly an estimate, not a per-file actual — `audit_log`
+logs that a generate happened, not how many rows that particular file
+had, since row count was never part of what was asked to be captured.
+
+**Bar lists, not a chart library.** `barListHtml()` is plain HTML/CSS —
+a label, a `<div>` track with a width-percented fill `<div>`, a count —
+consistent with this app's "no external assets" rule (no CDN chart
+library) and its existing restraint about decorative chrome. The
+biggest bar in each list always reads full-width, so the rest read
+proportionally against the real biggest value rather than an arbitrary
+fixed scale.
+
+**Re-renders `#mainContent` directly once data resolves, not via
+`renderMain()`** — `renderMain()` also resets scroll position on every
+call (it's built for *changing* page, not updating one already on
+screen), which would jerk the visitor back to the top of the Dashboard
+the moment a slow admin-check resolved. Guarded by `currentOp !==
+"welcome"` first, same "don't apply a stale background response to a
+page the visitor has since left" discipline as every other background
+check in this app.
+
+**Reset on tool sign-out** (`clearToolSession()`) — `dashboardStats`
+goes back to `"idle"` so signing in again, possibly as a different
+(non-admin) user, re-checks rather than keeps showing the previous
+session's numbers.
+
+Confirmed by test: a non-admin signed-in visitor sees no "Team
+activity" section at all (`BR`); a real admin sees all 4 tiles with
+correctly-computed numbers and both breakdowns, verified against a
+known input set of mocked rows including the exact "60h 17m" time-saved
+math (`BS`). Verified visually with Playwright screenshots in both
+light and dark — the new `.stat-row-4`/`.stat-bar-*` styles use only
+existing theme tokens (`--surface-2`, `--border`, `--accent`,
+`--text-faint`), no new hex values.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both
