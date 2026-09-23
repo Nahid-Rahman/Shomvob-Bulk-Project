@@ -3361,6 +3361,29 @@ only in-memory for this one pass and deleted from the scratchpad
 afterward, same discipline as every other live-API verification in this
 project.
 
+### Every "already has N X" notice gets a distinct font treatment (2026-09-24)
+
+Direct request, from a screenshot of Locations' own notice: "jodi emon
+hoy any settings e, etar font ta ektu different koro jeno cokhe pore" —
+these 13 plain-count notices (Locations, Create Roster, Create Roster
+Pattern, Department Management, Designation Management, Custom Fields,
+Required Documents, Leave Types, Leave Policy, Salary Components, Bonus
+Types, Bonus Policy, Custom Addition/Deduction) all rendered as a bare
+`.section-note` — identical weight and colour to the plain description
+line sitting right above them, so a real fact about *this specific
+company* read as more boilerplate copy. New `.existing-count-notice`
+class (`app.css`) — `font-weight: 600`, `color: var(--accent-strong)`,
+a touch larger than `.section-note` (13px) — replaces the literal
+`class="section-note" style="margin-top:-4px; margin-bottom:14px;"`
+that was repeated at all 13 call sites (a single `sed` pass, not 13
+hand-edits, since every occurrence was byte-for-byte identical).
+Deliberately **not** applied to Attendance Policy's own version — that
+one already uses the full warning-boxed treatment (border, background,
+icon), which reads as distinct on its own; this fix was only for the
+plain-text ones that didn't. Verified with Playwright screenshots in
+both light and dark — bright accent green against the surface,
+correctly legible in both without a single new hex value.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both

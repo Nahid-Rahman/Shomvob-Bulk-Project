@@ -542,6 +542,14 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
   flex-shrink: 0;
 }
 .section-note { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; margin-bottom: 16px; }
+/* "This company already has N X" notices (2026-09-24, direct request:
+   "font ta ektu different koro jeno cokhe pore") — these used to be a
+   plain .section-note, reading identically to the ordinary description
+   line right above it. Bumped weight + a distinct accent colour so it
+   registers as real information about this specific company, not more
+   boilerplate copy — still not the warning-boxed treatment reserved for
+   the six single-record modules where re-saving is actually destructive. */
+.existing-count-notice { margin-top: -4px; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--accent-strong); }
 
 /* Per-module icon (Company Setup only) — sits at the right end of each
    settings module's own section-head, next to its title. `currentColor`
@@ -7688,7 +7696,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
        Company Profile/Bank Info/etc. get — there's nothing here to be
        cautious about, since a new location never overwrites an old one. */
     if (!existing || existing.length === 0) return "";
-    return `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${existing.length === 1 ? "1 location" : `${existing.length} locations`} — more can still be added from here.</p>`;
+    return `<p class="existing-count-notice">This company already has ${existing.length === 1 ? "1 location" : `${existing.length} locations`} — more can still be added from here.</p>`;
   }
 
   function randomBaridharaOffset() {
@@ -7891,7 +7899,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   function rosterExistingNoticeHtml(existing) {
     if (!existing || existing.length === 0) return "";
-    return `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${existing.length === 1 ? "1 time slot" : `${existing.length} time slots`} — more can still be added from here.</p>`;
+    return `<p class="existing-count-notice">This company already has ${existing.length === 1 ? "1 time slot" : `${existing.length} time slots`} — more can still be added from here.</p>`;
   }
 
   /* totalWorkingHours/halfDayHours are deliberately NOT part of this
@@ -8085,7 +8093,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   function rosterPatternExistingNoticeHtml(existing) {
     if (!existing || existing.length === 0) return "";
-    return `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${existing.length === 1 ? "1 pattern" : `${existing.length} patterns`} — more can still be added from here.</p>`;
+    return `<p class="existing-count-notice">This company already has ${existing.length === 1 ? "1 pattern" : `${existing.length} patterns`} — more can still be added from here.</p>`;
   }
 
   /* Prefers the real "Default" time slot Create Roster's own default
@@ -8302,7 +8310,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      second GET. */
   function departmentExistingNoticeHtml(existing) {
     if (!existing || existing.length === 0) return "";
-    return `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${existing.length === 1 ? "1 department" : `${existing.length} departments`} — more can still be added from here.</p>`;
+    return `<p class="existing-count-notice">This company already has ${existing.length === 1 ? "1 department" : `${existing.length} departments`} — more can still be added from here.</p>`;
   }
 
   function departmentModuleTemplate() {
@@ -8817,7 +8825,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
              threw here before this guard, since departments itself (this
              branch's own gate) stays populated the whole time. */
           companyDesignation.existingDesignations && companyDesignation.existingDesignations.length > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${companyDesignation.existingDesignations.length === 1 ? "1 designation" : `${companyDesignation.existingDesignations.length} designations`} across its departments — more can still be added from here.</p>`
+            ? `<p class="existing-count-notice">This company already has ${companyDesignation.existingDesignations.length === 1 ? "1 designation" : `${companyDesignation.existingDesignations.length} designations`} across its departments — more can still be added from here.</p>`
             : ""
         }
         <button type="button" class="bulk-shortcut-btn" id="desigBulkEnterLink">Create 4 designations for each of this company's ${depts.length} department${depts.length === 1 ? "" : "s"} at once →</button>
@@ -9012,7 +9020,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">A random field name is generated as a starting point — type it over if you want a different one. Field Type is yours to pick; Regenerate re-rolls a fresh name/type pair.</p>
         ${
           customField.existing && customField.existing.length > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${customField.existing.length === 1 ? "1 custom field" : `${customField.existing.length} custom fields`} — more can still be added from here.</p>`
+            ? `<p class="existing-count-notice">This company already has ${customField.existing.length === 1 ? "1 custom field" : `${customField.existing.length} custom fields`} — more can still be added from here.</p>`
             : ""
         }
         <div class="field-row">
@@ -9195,7 +9203,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">Generated from the muggle-friendly magic scroll's own document-name pool. Regenerate re-rolls everything; any field can still be edited by hand before saving.</p>
         ${
           requiredDocument.existing && requiredDocument.existing.length > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${requiredDocument.existing.length === 1 ? "1 required document" : `${requiredDocument.existing.length} required documents`} — more can still be added from here.</p>`
+            ? `<p class="existing-count-notice">This company already has ${requiredDocument.existing.length === 1 ? "1 required document" : `${requiredDocument.existing.length} required documents`} — more can still be added from here.</p>`
             : ""
         }
         <div class="field-row">
@@ -9503,7 +9511,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">Generated from the muggle-friendly magic scroll's own leave-type rules. Regenerate re-rolls its details; name and the headline limits can still be edited by hand before saving.</p>
         ${
           leaveType.existing && leaveType.existing.length > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${leaveType.existing.length === 1 ? "1 leave type" : `${leaveType.existing.length} leave types`} — more can still be added from here.</p>`
+            ? `<p class="existing-count-notice">This company already has ${leaveType.existing.length === 1 ? "1 leave type" : `${leaveType.existing.length} leave types`} — more can still be added from here.</p>`
             : ""
         }
         <button type="button" class="bulk-shortcut-btn" id="ltBulkEnterLink">Create the default 3 leave types (Annual, Casual, Sick) at once →</button>
@@ -9821,7 +9829,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">Every leave type this company actually has, pulled live. Check off which ones this policy should include — all start checked — and set how many days each gets; name and status can still be edited by hand before saving.</p>
         ${
           leavePolicy.existing && leavePolicy.existing.length > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${leavePolicy.existing.length === 1 ? "a leave policy" : `${leavePolicy.existing.length} leave policies`}: <strong>${leavePolicy.existing.map((p) => escapeHtml(p.name)).join(", ")}</strong>. A new one can still be created.</p>`
+            ? `<p class="existing-count-notice">This company already has ${leavePolicy.existing.length === 1 ? "a leave policy" : `${leavePolicy.existing.length} leave policies`}: <strong>${leavePolicy.existing.map((p) => escapeHtml(p.name)).join(", ")}</strong>. A new one can still be created.</p>`
             : ""
         }
         ${leavePolicyDefaultAvailable(leavePolicy.leaveTypes) ? `<button type="button" class="bulk-shortcut-btn" id="lpDefaultBtn">Create the default policy (Annual/Casual/Sick @ 12 days each) →</button>` : ""}
@@ -10264,7 +10272,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">The muggle-friendly magic scroll's own 4 fixed components, one request each. Status defaults to Active; tax-countability and pro-rata start from its own weighted roll. All three stay editable below before you save.</p>
         ${
           salaryComponent.existing && salaryComponent.existing.length > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${salaryComponent.existing.length === 1 ? "1 salary component" : `${salaryComponent.existing.length} salary components`} — more can still be added from here.</p>`
+            ? `<p class="existing-count-notice">This company already has ${salaryComponent.existing.length === 1 ? "1 salary component" : `${salaryComponent.existing.length} salary components`} — more can still be added from here.</p>`
             : ""
         }
         <button type="button" class="bulk-shortcut-btn" id="scBulkEnterLink">Create the default 3 (Medical, House Rent, Internet) at once →</button>
@@ -11013,7 +11021,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">The muggle-friendly magic scroll's own 4 fixed bonus types, one request each — only the icon is randomised.</p>
         ${
           bonusType.existing && bonusType.existing.length > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${bonusType.existing.length === 1 ? "1 bonus type" : `${bonusType.existing.length} bonus types`} — more can still be added from here.</p>`
+            ? `<p class="existing-count-notice">This company already has ${bonusType.existing.length === 1 ? "1 bonus type" : `${bonusType.existing.length} bonus types`} — more can still be added from here.</p>`
             : ""
         }
         <button type="button" class="bulk-shortcut-btn" id="btBulkEnterLink">Create the default 2 (Eid Bonus, Bangla New Year Bonus) at once →</button>
@@ -11238,7 +11246,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">Generated from the muggle-friendly magic scroll's own policy rule, drawing on this company's real bonus types. Name and bonus percentage can still be edited by hand before saving.</p>
         ${
           bonusPolicy.existing && bonusPolicy.existing.length > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${bonusPolicy.existing.length === 1 ? "a bonus policy" : `${bonusPolicy.existing.length} bonus policies`}: <strong>${bonusPolicy.existing.map((p) => escapeHtml(p.name)).join(", ")}</strong>. A new one can still be created.</p>`
+            ? `<p class="existing-count-notice">This company already has ${bonusPolicy.existing.length === 1 ? "a bonus policy" : `${bonusPolicy.existing.length} bonus policies`}: <strong>${bonusPolicy.existing.map((p) => escapeHtml(p.name)).join(", ")}</strong>. A new one can still be created.</p>`
             : ""
         }
         <button type="button" class="bulk-shortcut-btn" id="bpBulkEnterLink">Create the default 3 (Eid Ul Fitr 40%, Eid Ul Adha 40%, Bangla New Year 20%) at once →</button>
@@ -11694,7 +11702,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <p class="section-note">The muggle-friendly magic scroll's own fixed names, paired by type.</p>
         ${
           customAdditionDeduction.existing && customAdditionDeduction.existing.total > 0
-            ? `<p class="section-note" style="margin-top:-4px; margin-bottom:14px;">This company already has ${customAdditionDeduction.existing.total} of ${customAdditionDeduction.existing.maxAllowed} custom addition/deduction fields — more can still be added from here.</p>`
+            ? `<p class="existing-count-notice">This company already has ${customAdditionDeduction.existing.total} of ${customAdditionDeduction.existing.maxAllowed} custom addition/deduction fields — more can still be added from here.</p>`
             : ""
         }
         <div class="field-row">

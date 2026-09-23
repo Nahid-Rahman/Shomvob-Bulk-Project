@@ -528,6 +528,14 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
   flex-shrink: 0;
 }
 .section-note { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; margin-bottom: 16px; }
+/* "This company already has N X" notices (2026-09-24, direct request:
+   "font ta ektu different koro jeno cokhe pore") — these used to be a
+   plain .section-note, reading identically to the ordinary description
+   line right above it. Bumped weight + a distinct accent colour so it
+   registers as real information about this specific company, not more
+   boilerplate copy — still not the warning-boxed treatment reserved for
+   the six single-record modules where re-saving is actually destructive. */
+.existing-count-notice { margin-top: -4px; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--accent-strong); }
 
 /* Per-module icon (Company Setup only) — sits at the right end of each
    settings module's own section-head, next to its title. `currentColor`
