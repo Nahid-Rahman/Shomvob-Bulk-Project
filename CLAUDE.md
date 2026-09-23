@@ -3845,6 +3845,49 @@ light and dark — the new `.stat-row-4`/`.stat-bar-*` styles use only
 existing theme tokens (`--surface-2`, `--border`, `--accent`,
 `--text-faint`), no new hex values.
 
+### A real, pre-existing Supabase outage was found and fixed (2026-09-25)
+
+The user tried the new Dashboard section and got nothing ("same
+pacchi" — same result, twice, after being walked through a hard
+refresh and a fresh sign-in). Confirmed live rather than guessed at:
+signing in with the real credentials directly by `curl` worked fine
+(`/auth/v1/token` returned a real token), but calling `is_admin()` with
+that same token returned `503 PGRST002 — "Could not query the database
+for the schema cache. Retrying."` — and critically, so did the
+already-existing `audit_log` endpoint, proving this wasn't anything
+specific to today's work.
+
+**Root cause, found in `postgrest_logs`, not guessed:** "Failed to load
+the schema cache using db-schemas=pg_pgrst_no_exposed_schemas... schema
+\"pg_pgrst_no_exposed_schemas\" does not exist." This project's
+"exposed schemas" API setting had somehow ended up pointing at a
+literal placeholder value instead of `public` — a pre-existing, project-
+level misconfiguration, not something either the `admins`/`is_admin()`
+migration or the Dashboard code introduced. The logs show this was
+actually surfaced *by* the earlier `NOTIFY pgrst, 'reload schema'` run
+while debugging — PostgREST had likely been serving a stale-but-working
+schema cache from before this got misconfigured, and forcing a reload
+made it pick up the broken value and fail outright. **This also means
+`audit_log`'s own INSERTs have likely been silently failing since
+before today** — the fire-and-forget `logAudit()` swallows failures on
+purpose (so a logging problem never blocks the real action it
+describes), so this had no visible symptom until someone tried to
+*read* the data back.
+
+**Fixed via SQL, not the dashboard** — `ALTER ROLE authenticator SET
+pgrst.db_schemas = 'public, extensions'` followed by `NOTIFY pgrst,
+'reload config'`. Supabase's PostgREST instance reads schema exposure
+from an `authenticator`-role GUC prefixed `pgrst.`, which can be set
+directly via SQL — this doesn't require dashboard access at all.
+Verified immediately afterward, live: the real `audit_log` GET now
+returns `200`, and `is_admin()` with the real `mahmudur@shomvob.com`
+token now correctly returns `true`.
+
+**Nothing in this app's own code changed for this fix** — Dashboard,
+Audit Log and every RLS policy above are all correct as designed; this
+was purely a broken piece of Supabase project configuration, now
+corrected at the source.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both
