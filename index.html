@@ -7720,12 +7720,19 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return `<p class="existing-count-notice">This company already has ${existing.length === 1 ? "1 location type" : `${existing.length} location types`} — more can still be added from here.</p>`;
   }
 
-  function generateLocationTypeFields() {
-    return { name: choice(LOCATION_TYPE_NAMES), canHaveGeofence: true };
+  /* Only Regenerate rolls a random name — the very first load always
+     opens on the real default ("Baridhara") rather than a random pick,
+     same reasoning and same shape as Payroll General's own Cycle
+     (2026-09-13): a first impression of "the tool defaults to some
+     random type" read as confusing there, and the same instinct applies
+     here since Baridhara is the one this company's real default actually
+     needs. */
+  function generateLocationTypeFields(useDefaultName) {
+    return { name: useDefaultName ? LOCATION_TYPE_DEFAULT.name : choice(LOCATION_TYPE_NAMES), canHaveGeofence: true };
   }
 
   function locationTypeTemplate() {
-    if (!companyLocationType.fields) companyLocationType.fields = generateLocationTypeFields();
+    if (!companyLocationType.fields) companyLocationType.fields = generateLocationTypeFields(true);
     const f = companyLocationType.fields;
     return `
       <div class="section">

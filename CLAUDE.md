@@ -3425,6 +3425,17 @@ Same plain "already has N location types — more can still be added
 from here" count as Locations/Department/etc., not a warning — a
 company can hold any number of real types.
 
+**Only Regenerate rolls a random name, same day, direct follow-up**
+("shuru te baridhaka dekhate chaitesi" — want to show Baridhara at the
+start): the very first load now always opens on the real default
+("Baridhara") rather than a random pick from `LOCATION_TYPE_NAMES` —
+same shape and same reasoning as Payroll General's own Cycle
+(2026-09-13), where a first impression of "the tool defaults to some
+random value" read as confusing. `generateLocationTypeFields
+(useDefaultName)` takes the same optional flag Payroll General's own
+generator does: the tab's first render passes `true`, Regenerate calls
+it with nothing and gets a fresh random pick instead.
+
 **Locations — the first real dependency in Company Settings itself**
 (every other real dependency in this app — Designation→Department,
 Leave Policy→Leave Type, Configure Salary Components→2 Active

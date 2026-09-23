@@ -669,9 +669,13 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click('.settings-tab[data-module="location_types"]');
     await page.waitForTimeout(80);
 
-    const typeName = await page.inputValue("#ltyName");
-    check("P the generated name is one of the real Dhaka-area ones", LOCATION_TYPE_NAMES.includes(typeName), typeName);
+    check("P the very first load opens on the real default name, not a random pick", (await page.inputValue("#ltyName")) === "Baridhara");
     check("P Can Have Geofence defaults on", (await page.getAttribute('#ltyGeoSeg button[data-geo="yes"]', "aria-pressed")) === "true");
+
+    await page.click("#ltyRegenerateBtn");
+    await page.waitForTimeout(1200);
+    const typeName = await page.inputValue("#ltyName");
+    check("P only Regenerate rolls a random name, from the real Dhaka-area pool", LOCATION_TYPE_NAMES.includes(typeName), typeName);
 
     await page.click('#ltyGeoSeg button[data-geo="no"]');
     await page.waitForTimeout(60);
