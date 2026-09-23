@@ -9602,6 +9602,8 @@
     "departments",
     "designations",
     "attendance_policy",
+    "roster",
+    "roster_pattern",
     "leave_types",
     "leave_policy",
     "holiday_calendar",

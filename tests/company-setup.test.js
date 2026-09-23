@@ -2579,17 +2579,20 @@ async function toGrid(page, companyName = "Hogwarts") {
      One click runs a curated set of modules — not literally every module
      in every group — direct request, with an explicit list: Company
      Settings (Company Profile, Bank Info, Locations, Department,
-     Designation), Attendance Policy, Leave (Leave Types, Leave Policy,
-     Holiday Calendar), and 6 of Payroll's 11 (General, Salary Components,
-     Configure Salary Components, Bonus Types, Bonus Policy, Tax) —
-     Employee Settings and Payroll's Late Arrival/Absent Deduction/
-     Overtime/Attendance Bonus/Custom Addition-Deduction are deliberately
-     left out (`MASTER_RUN_MODULE_IDS` in app.js). Every real cross-module
-     dependency within that list (Department→Designation, Leave Types→
-     Leave Policy, Salary Components→Configure Salary Components, Bonus
-     Types→Bonus Policy) resolves itself automatically because
-     `MASTER_RUN_MODULE_IDS` preserves SETTINGS_GROUPS' own dependency-safe
-     order. */
+     Designation), Attendance Policy, Schedule Management (Create Roster,
+     Create Roster Pattern — added 2026-09-24, direct request: "ei
+     schedule management ta Standard setup e add koro attendance er
+     pore"), Leave (Leave Types, Leave Policy, Holiday Calendar), and 6 of
+     Payroll's 11 (General, Salary Components, Configure Salary
+     Components, Bonus Types, Bonus Policy, Tax) — Employee Settings and
+     Payroll's Late Arrival/Absent Deduction/Overtime/Attendance Bonus/
+     Custom Addition-Deduction are deliberately left out
+     (`MASTER_RUN_MODULE_IDS` in app.js). Every real cross-module
+     dependency within that list (Department→Designation, Create Roster→
+     Create Roster Pattern, Leave Types→Leave Policy, Salary Components→
+     Configure Salary Components, Bonus Types→Bonus Policy) resolves
+     itself automatically because `MASTER_RUN_MODULE_IDS` preserves
+     SETTINGS_GROUPS' own dependency-safe order. */
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
@@ -2604,6 +2607,9 @@ async function toGrid(page, companyName = "Hogwarts") {
     const realLeaveTypes = [];
     const realSalaryComponents = [];
     const realBonusTypes = [];
+    const realTimeSlots = [];
+    const createdTimeSlots = [];
+    const createdPatterns = [];
 
     await toGrid(page);
 
@@ -2632,6 +2638,24 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     await page.route("**/api/v1/attendance/policy/create", (route) => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ message: "ok" }) }));
     await page.route("**/api/v1/attendance/policies", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: [] }) }));
+
+    /* Schedule Management, 2026-09-24: Create Roster runs right after
+       Attendance Policy, then Create Roster Pattern — the first real
+       cross-module dependency this master run exercises outside Company
+       Settings' own Department→Designation pair. */
+    await page.route("**/api/v1/workforce/time-slots", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { timeSlots: realTimeSlots } }) });
+      const body = route.request().postDataJSON()[0];
+      realTimeSlots.push({ id: "ts-1", name: body.name });
+      createdTimeSlots.push(body.name);
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
+    await page.route("**/api/v1/workforce/patterns", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success", data: { patterns: [] } }) });
+      const body = route.request().postDataJSON();
+      createdPatterns.push(body.name);
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "ok" }) });
+    });
 
     /* 2026-09-15: "Run defaults" now checks each config-type module's own
        real GET before running it, so a fresh company's own 15-run pass
@@ -2699,7 +2723,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AW opens as a modal, not a page swap — the grid is still there behind it", (await page.locator(".settings-card").count()) === 6);
     check("AW modal title names what it's doing", (await page.locator("#runDefaultsTitle").textContent()).includes("standard setup"));
     check("AW master run gets its own quote", (await page.locator("#runDefaultsQuoteText").textContent()).includes("uselessness of today"));
-    check("AW lists exactly the curated 15 modules, not every module in every group", (await page.locator("#runDefaultsList .bulk-row").count()) === 15);
+    check("AW lists exactly the curated 17 modules, not every module in every group", (await page.locator("#runDefaultsList .bulk-row").count()) === 17);
     check("AW Employee Settings' modules are not in the list", (await page.locator('#runDefaultsList .bulk-row:has-text("Custom Fields"), #runDefaultsList .bulk-row:has-text("Required Documents")').count()) === 0);
     check("AW excluded Payroll modules are not in the list",
       (await page.locator('#runDefaultsList .bulk-row:has-text("Late Arrival"), #runDefaultsList .bulk-row:has-text("Absent Deduction"), #runDefaultsList .bulk-row:has-text("Overtime"), #runDefaultsList .bulk-row:has-text("Attendance Bonus"), #runDefaultsList .bulk-row:has-text("Custom Addition")').count()) === 0);
@@ -2708,7 +2732,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#runDefaultsStartBtn");
     await page.waitForFunction(() => document.querySelector("#runDefaultsBanner").textContent.includes("Finished"), { timeout: 15000 });
     const finishedText = (await page.locator("#runDefaultsBanner .validation-banner.success").textContent()).trim();
-    check("AW finishes with all 15 run, nothing skipped or failed (every dependency in the list resolves itself)", finishedText.includes("15 run") && finishedText.includes("0 skipped") && !finishedText.includes("failed"), finishedText);
+    check("AW finishes with all 17 run, nothing skipped or failed (every dependency in the list resolves itself)", finishedText.includes("17 run") && finishedText.includes("0 skipped") && !finishedText.includes("failed"), finishedText);
 
     check("AW General defaults to Calendar Month", sentPayrollCycle && sentPayrollCycle.payrollCycle === "calendar_month", JSON.stringify(sentPayrollCycle));
     check("AW Department's own 6 defaults were created", createdDepartments.length === 6, JSON.stringify(createdDepartments));
@@ -2723,6 +2747,8 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("AW Bonus Policy's default 3 were created, both Eid ones pointing at the one real Eid Bonus type",
       createdBonusPolicies.length === 3 && createdBonusPolicies.includes("Eid Ul Fitr Bonus Policy") && createdBonusPolicies.includes("Eid Ul Adha Bonus Policy") && createdBonusPolicies.includes("Bangla New Year Bonus Policy"));
     check("AW Tax row shows done", (await page.locator('#runDefaultsList .bulk-row:has-text("Tax")').textContent()).includes("done"));
+    check("AW Create Roster's own default was created", JSON.stringify(createdTimeSlots) === JSON.stringify(["Default"]), JSON.stringify(createdTimeSlots));
+    check("AW Create Roster Pattern ran too (dependency on Create Roster resolved automatically)", JSON.stringify(createdPatterns) === JSON.stringify(["Standard Pattern"]), JSON.stringify(createdPatterns));
 
     check("AW Close button reads 'Close' once everything is settled", (await page.locator("#runDefaultsCloseBtn").textContent()).trim() === "Close");
     await page.click("#runDefaultsCloseBtn");

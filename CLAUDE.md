@@ -2419,12 +2419,16 @@ exists to remove. Two triggers, same machinery underneath (all in
   group grid page. **Deliberately a curated subset, not literally every
   module** — the user's own explicit list, given after the per-group
   button was built and tested: Company Settings (Company Profile, Bank
-  Info, Locations, Department, Designation), Attendance Policy, Leave
-  (Leave Types, Leave Policy, Holiday Calendar), and 6 of Payroll's 11
-  (General, Salary Components, Configure Salary Components, Bonus Types,
-  Bonus Policy, Tax) — 15 modules total, in `MASTER_RUN_MODULE_IDS`.
-  **Employee Settings (Custom Fields, Required Documents) and Payroll's
-  Late Arrival/Absent Deduction/Overtime/Attendance Bonus/Custom
+  Info, Locations, Department, Designation), Attendance Policy, Schedule
+  Management (Create Roster, Create Roster Pattern — added 2026-09-24,
+  direct request: "ei schedule management ta Standard setup e add koro
+  attendance er pore," placed right where the group itself already sits
+  in `SETTINGS_GROUPS`, between Attendance and Leave), Leave (Leave
+  Types, Leave Policy, Holiday Calendar), and 6 of Payroll's 11 (General,
+  Salary Components, Configure Salary Components, Bonus Types, Bonus
+  Policy, Tax) — 17 modules total, in `MASTER_RUN_MODULE_IDS`. **Employee
+  Settings (Custom Fields, Required Documents) and Payroll's Late
+  Arrival/Absent Deduction/Overtime/Attendance Bonus/Custom
   Addition-Deduction are deliberately left out of the master run** — a
   per-group run still covers all of them, only the whole-company one is
   scoped down.
@@ -3218,14 +3222,16 @@ if wanted, rather than the group-level run.
 `runDefaultRoster()` (in `MODULE_DEFAULT_RUNNERS`) matches the same
 "check what already exists first" discipline as Department/Leave
 Types/Salary Components — it checks the real existing list by name
-before creating a second "Default" — and `runDefaultRosterPattern()` is
-a deliberate stub returning `{status: "skipped", message: "Not built
-yet"}`, so "Run defaults for Schedule Management" (which walks every
-module in whichever group it's clicked from) doesn't throw calling an
-undefined runner for the still-unbuilt second module. Neither `roster`
-nor `roster_pattern` are in `MASTER_RUN_MODULE_IDS` — the whole-company
-"Run every default" stays the same curated 15 it always was; a
-per-group Schedule Management run still covers both.
+before creating a second "Default." At the time this module was first
+built, `runDefaultRosterPattern()` was still a deliberate stub
+returning `{status: "skipped", message: "Not built yet"}`, since Create
+Roster Pattern itself didn't exist yet the same day — see below, it was
+built later the same day, and `runDefaultRosterPattern()` now does the
+real thing. **Both `roster` and `roster_pattern` were added to
+`MASTER_RUN_MODULE_IDS` the next day (2026-09-24, direct request)** —
+see "Run defaults" → per-group and whole-company orchestration, above —
+so "Run every default" now covers Schedule Management too, not just a
+per-group run.
 
 ### Create Roster Pattern — Schedule Management's second module (2026-09-23)
 
