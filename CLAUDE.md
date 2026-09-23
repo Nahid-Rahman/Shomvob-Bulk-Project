@@ -3569,6 +3569,75 @@ Zero page errors across either company, across the whole pass —
 further live confirmation that the six-site background-check crash fix
 (above, found the same day) holds up outside a mocked test too.
 
+**Extended the same day into a genuine A-to-Z pass, on direct
+correction** ("tumi ki khali location diye test korso? ami kintu
+complete A-Z test er jonno disilam" — the first pass above only
+exercised the newest modules; the real ask was every group). Ran "Run
+defaults" for every one of the 6 settings groups on both companies
+(not just the master run's curated 18 — every group's own full module
+list, Late Arrival/Absent Deduction/Overtime/Attendance
+Bonus/Custom Addition-Deduction included, since those are only reachable
+through a per-group run, never the master one). This is what actually
+found the three real bugs below — none of them touch a module the first,
+narrower pass had exercised.
+
+**Bug 1 — Location Types' `sortOrder` collided the moment a second real
+type existed.** The real default payload's own `sortOrder: 1` was sent
+unconditionally for every create; the real API rejects it outright once
+one real type already occupies that slot (`LOCATION_TYPE_SORT_ORDER_
+DUPLICATE: Sort order 1 is already used by "..."`) — surfaced on Shark
+Balti specifically because a type had already been hand-created there
+earlier in the same pass. Fixed by fetching the real current count
+fresh inside `saveLocationType()` itself (not a cached one) and sending
+`count + 1` — accurate even if something else created a type since this
+tab last checked, same "read fresh before writing" caution the app
+already applies to Roster's own `totalWorkingHours` recompute.
+
+**Bug 2 — Late Arrival's `latePenaltyLeaveType` isn't a real field at
+all**, on either company, confirmed by `curl` against the real
+`deduction-settings` endpoint directly: `"property latePenaltyLeaveType
+should not exist"`. The real field is **`latePenaltyLeaveTypeIds`, an
+array** — confirmed by trying the plural name and getting past that
+error to the next real validation instead. Same fix applied to
+**Absent Deduction's identically-shaped `absentDeductionLeaveType`** →
+`absentDeductionLeaveTypeIds`, found and fixed the same way, same
+session.
+
+**Bug 3 — Late Arrival's real default combination was never actually
+saveable.** `lateThresholdEnabled` is always sent `true` (never a
+toggle), and the real API requires at least one of `latePenaltyEnabled`/
+`repeatedLatePenaltyEnabled` to also be true whenever it is —
+`"Either late penalty or repeated late penalty must be enabled when
+late threshold is enabled!"`. Both defaulted `false` since the
+2026-09-13 change ("both default off... nothing stops both, either, or
+neither"), which is why "Run defaults for Payroll Settings" failed on
+this module on *both* companies, consistently, not flakily. Fixed by
+defaulting `latePenaltyEnabled` to `true` instead — both toggles stay
+fully independent in the UI, this only changes which one starts on.
+
+**A fourth, related finding, not (yet) acted on**: the same live curl
+session also surfaced `"Late penalty and repeated late penalty cannot
+both be enabled at the same time. Please enable only one."` — i.e. the
+real rule is **exactly one**, not merely *at least* one. The new
+default (Late Penalty on, Repeated off) already satisfies this, so
+nothing failed here — but the UI still lets a QA engineer turn *both*
+on by hand, which the real API would then reject (surfaced via this
+app's existing "show the server's message verbatim" error display, not
+a crash). Whether to make the two toggles mutually exclusive in the UI
+itself (contradicting the explicit 2026-09-13 "independent toggles"
+decision) is an open question, flagged back rather than decided
+unilaterally — not changed as part of this fix.
+
+Both companies were left fully configured across all 6 groups by the
+end of this pass (Shark Pukur: every curated module plus Employee/
+Attendance/Leave/Payroll Settings in full; Shark Balti: the same, after
+its own negative-case detour) — further real, live confirmation beyond
+the mocked test suite that every dependency chain in this app
+(Location Type→Location, Department→Designation, Roster→Roster
+Pattern, Leave Type→Leave Policy, Salary Components→Configure Salary
+Components, Bonus Type→Bonus Policy, Attendance Policy→Overtime)
+resolves correctly end to end against the real API.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both

@@ -4746,10 +4746,25 @@
 
   async function saveLocationType(fields) {
     const env = ENVIRONMENTS[setup.env];
+    /* sortOrder must be unique across this company's real location types —
+       a real, confirmed bug found live 2026-09-24: a hardcoded 1 (the
+       real default payload's own literal value) collided the moment a
+       second real type existed, rejected as "LOCATION_TYPE_SORT_ORDER_
+       DUPLICATE". Fetched fresh right here, not from any cached count, so
+       it's accurate even if something else created a type since this tab
+       last checked. */
+    let nextSortOrder = 1;
+    try {
+      const current = await fetchCompanyResource("/locations/location-types/paginated?page=1&limit=100");
+      nextSortOrder = current.length + 1;
+    } catch (e) {
+      // fall back to the real default's own value — better to risk the
+      // same collision than to block Save entirely over a failed count
+    }
     const payload = {
       name: fields.name,
       code: LOCATION_TYPE_DEFAULT.code,
-      sortOrder: LOCATION_TYPE_DEFAULT.sortOrder,
+      sortOrder: nextSortOrder,
       allowedParentLocationTypeId: LOCATION_TYPE_DEFAULT.allowedParentLocationTypeId,
       canHaveEmployees: LOCATION_TYPE_DEFAULT.canHaveEmployees,
       canHaveGeofence: fields.canHaveGeofence,
@@ -7942,11 +7957,24 @@
     return {
       lateThresholdEnabled: true,
       monthlyLateLimit: randInt(3, 7),
-      latePenaltyEnabled: false,
+      /* latePenaltyEnabled defaults true, not false — a real, confirmed
+         bug found live 2026-09-24: the real API rejects
+         lateThresholdEnabled:true unless at least one of
+         latePenaltyEnabled/repeatedLatePenaltyEnabled is also true
+         ("Either late penalty or repeated late penalty must be enabled
+         when late threshold is enabled!"), so both-off (the original
+         2026-09-13 default) was never actually saveable. Both stay real,
+         independent toggles — this only changes which one starts on. */
+      latePenaltyEnabled: true,
       repeatedLatePenaltyEnabled: false,
       latePenaltyThresholdDays: randInt(2, 5),
       latePenaltyDeductionType: choice(["Salary", "Leave"]),
-      latePenaltyLeaveType: lt.id,
+      /* The real field is latePenaltyLeaveTypeIds — an array — not
+         latePenaltyLeaveType, found the same day: the real API rejects
+         the singular name outright ("property latePenaltyLeaveType
+         should not exist"), confirmed live via curl against a real
+         staging company. Still just the one picked leave type, wrapped. */
+      latePenaltyLeaveTypeIds: [lt.id],
       latePenaltySalaryType: choice(PAYROLL_SALARY_BASIS_OPTIONS),
       _leaveTypeName: lt.name,
     };
@@ -8104,7 +8132,12 @@
       thresholdDays: randInt(2, 5),
       absentDeductionType: choice(["salary_deduction", "leave_deduction"]),
       absentDeductionSalaryBasis: choice(PAYROLL_SALARY_BASIS_OPTIONS),
-      absentDeductionLeaveType: lt.id,
+      /* The real field is absentDeductionLeaveTypeIds — an array — not
+         absentDeductionLeaveType, the identical bug as Late Arrival's
+         own latePenaltyLeaveTypeIds, found the same day via the same
+         live pass and the same real rejection shape ("property
+         absentDeductionLeaveType should not exist"). */
+      absentDeductionLeaveTypeIds: [lt.id],
       _leaveTypeName: lt.name,
     };
   }

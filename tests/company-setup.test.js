@@ -1456,9 +1456,16 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     /* Late Penalty / Repeated Late Penalty used to be an exclusive pair
        (one always true) with no off state. Direct request (2026-09-13):
-       both default off and are independent toggles now. */
-    check("AB Late Penalty defaults off", (await page.getAttribute('#laPenaltySeg button[data-val="no"]', "aria-pressed")) === "true");
-    check("AB Repeated Late Penalty defaults off", (await page.getAttribute('#laRepeatedPenaltySeg button[data-val="no"]', "aria-pressed")) === "true");
+       both default off and are independent toggles.
+       Revised live 2026-09-24 — a real, confirmed bug: the real API
+       rejects lateThresholdEnabled:true (always sent, not a toggle)
+       unless at least one of these two is also true ("Either late
+       penalty or repeated late penalty must be enabled when late
+       threshold is enabled!"), so both-off was never actually
+       saveable. Late Penalty now defaults on instead — still a fully
+       independent toggle, just a different starting value. */
+    check("AB Late Penalty defaults on now — the real API requires at least one when Late Threshold is on", (await page.getAttribute('#laPenaltySeg button[data-val="yes"]', "aria-pressed")) === "true");
+    check("AB Repeated Late Penalty still defaults off", (await page.getAttribute('#laRepeatedPenaltySeg button[data-val="no"]', "aria-pressed")) === "true");
 
     let laSent = null;
     await page.route("**/api/v1/payroll/configuration/deduction-settings", (route) => {
@@ -1467,17 +1474,26 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
     await page.click("#laSaveBtn");
     await page.waitForTimeout(150);
-    check("AB both late-penalty flags are false by default, not forced exclusive", laSent && laSent.latePenaltyEnabled === false && laSent.repeatedLatePenaltyEnabled === false, JSON.stringify(laSent));
+    check("AB Late Penalty defaults true, Repeated Late Penalty defaults false", laSent && laSent.latePenaltyEnabled === true && laSent.repeatedLatePenaltyEnabled === false, JSON.stringify(laSent));
     check("AB the internal leave-type-name field never reaches the request", laSent && laSent._leaveTypeName === undefined);
-    check("AB latePenaltyLeaveType carries the real leave type id", laSent && laSent.latePenaltyLeaveType === "lt1");
+    /* The real field is latePenaltyLeaveTypeIds (an array), not
+       latePenaltyLeaveType — a real, confirmed bug found live 2026-09-24
+       ("property latePenaltyLeaveType should not exist"). */
+    check("AB latePenaltyLeaveTypeIds carries the real leave type id, as an array", laSent && JSON.stringify(laSent.latePenaltyLeaveTypeIds) === JSON.stringify(["lt1"]), JSON.stringify(laSent && laSent.latePenaltyLeaveTypeIds));
 
-    /* Turning one on leaves the other off — proves they're independent,
-       not still secretly negating each other. */
-    await page.click('#laPenaltySeg button[data-val="yes"]');
+    /* The two toggles are still independently clickable in the UI —
+       flipping to the opposite combo from the default proves that,
+       even though the real API separately requires exactly one of them
+       (found the same live pass, not enforced client-side here — same
+       "let the real API be the backstop" discipline as every other
+       business rule this app doesn't duplicate on the client). */
+    await page.click('#laPenaltySeg button[data-val="no"]');
+    await page.waitForTimeout(80);
+    await page.click('#laRepeatedPenaltySeg button[data-val="yes"]');
     await page.waitForTimeout(80);
     await page.click("#laSaveBtn");
     await page.waitForTimeout(150);
-    check("AB Late Penalty toggles on independently of Repeated Late Penalty", laSent && laSent.latePenaltyEnabled === true && laSent.repeatedLatePenaltyEnabled === false, JSON.stringify(laSent));
+    check("AB both toggles remain independently controllable in the UI", laSent && laSent.latePenaltyEnabled === false && laSent.repeatedLatePenaltyEnabled === true, JSON.stringify(laSent));
 
     await page.click('.settings-tab[data-module="absent_deduction"]');
     await page.waitForFunction(() => document.querySelector("#setupBody").textContent.includes("Rule based on"), { timeout: 5000 });
@@ -1489,7 +1505,9 @@ async function toGrid(page, companyName = "Hogwarts") {
     });
     await page.click("#adSaveBtn");
     await page.waitForTimeout(150);
-    check("AB Absent Deduction resolves the dependency independently of Late Arrival", adSent && adSent.absentDeductionLeaveType === "lt1");
+    /* Same real field-name bug, same fix, found the same live pass:
+       absentDeductionLeaveTypeIds (an array), not absentDeductionLeaveType. */
+    check("AB Absent Deduction resolves the dependency independently of Late Arrival", adSent && JSON.stringify(adSent.absentDeductionLeaveTypeIds) === JSON.stringify(["lt1"]));
     check("AB ruleBasedOn defaults to total_absent_days (off)", adSent && adSent.ruleBasedOn === "total_absent_days", adSent && adSent.ruleBasedOn);
 
     await page.click('#adRuleSeg button[data-val="yes"]');
