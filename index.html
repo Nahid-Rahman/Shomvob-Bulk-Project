@@ -3053,6 +3053,11 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   /* ---------- state ---------- */
   let currentOp = "welcome";
+  /* Tiered Access (2026-09-25, step 2 of the journey in TODO.md) —
+     which real operation was actually requested before the real-login
+     gate below interrupted it, so a successful sign-in lands exactly
+     where the visitor meant to go rather than back on the Dashboard. */
+  let pendingOperation = null;
   /* A Set, not a single key, 2026-09-19 (direct request: for a big batch,
      mixing more than one theme means less cycling within any one small
      pool before a numeric suffix has to appear). At least one theme is
@@ -3356,6 +3361,30 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   /* ================= UI ================= */
 
+  /* Tiered Access (2026-09-25) — the one place that decides whether an
+     Operation click can proceed directly or needs a real sign-in first.
+     Both the sidebar's own Operations list and the Dashboard's op-cards
+     route through this rather than setting currentOp themselves, so
+     there's exactly one gate to maintain, not two that could drift.
+     Company Setup and the Dashboard itself are untouched by this — only
+     the five generators are newly gated, per the journey dictated in
+     TODO.md ("Bulk... needs it too now, since access-tiering has to
+     apply everywhere"). Tier itself isn't enforced yet (that's the next
+     step) — this step only requires *a* real sign-in, same as Company
+     Setup's own step one already did. */
+  function goToOperation(opId) {
+    if (!setup.toolToken) {
+      pendingOperation = opId;
+      currentOp = "operations_gate";
+      renderSidebar();
+      renderMain();
+      return;
+    }
+    currentOp = opId;
+    renderSidebar();
+    renderMain();
+  }
+
   function renderSidebar() {
     const home = $("#homeNav");
     home.innerHTML = "";
@@ -3384,9 +3413,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       if (op.status !== "soon") {
         btn.addEventListener("click", () => {
           if (isBulkRunActive()) return;
-          currentOp = op.id;
-          renderSidebar();
-          renderMain();
+          goToOperation(op.id);
         });
       }
       nav.appendChild(btn);
@@ -3444,6 +3471,13 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       root.classList.remove("has-media", "wide");
       root.innerHTML = welcomeTemplate();
       wireWelcomeEvents();
+      return;
+    }
+    if (currentOp === "operations_gate") {
+      $("#actionBar").style.display = "none";
+      root.classList.remove("has-media", "wide");
+      root.innerHTML = operationsGateTemplate();
+      wireOperationsGateEvents();
       return;
     }
     if (currentOp === "attendance_add") {
@@ -6237,9 +6271,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   function wireWelcomeEvents() {
     $all(".op-card").forEach((card) => {
       card.addEventListener("click", () => {
-        currentOp = card.dataset.op;
-        renderSidebar();
-        renderMain();
+        goToOperation(card.dataset.op);
       });
     });
     /* Fires once (guarded by status leaving "idle"), and only when a real
@@ -6256,6 +6288,68 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         wireWelcomeEvents();
       });
     }
+  }
+
+  /* ---------- Operations gate — Tiered Access step 2 (2026-09-25) ----------
+
+     Shown in place of the operation `pendingOperation` was actually
+     requesting. Deliberately not a copy of Company Setup's own
+     setupSignInTemplate() — that one also picks dev/staging, which is
+     meaningless here since the five generators never call a real
+     Shomvob server at all; this is only ever about *who* is signed in,
+     not which server. Same supabaseSignIn()/saveToolSession()/logAudit()
+     calls as Company Setup's own sign-in, though — one real account,
+     one real login, reused everywhere it's needed rather than a second
+     parallel auth flow. */
+  function operationsGateTemplate() {
+    const op = OPERATIONS.find((o) => o.id === pendingOperation);
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Sign in required</span>
+        <h1 class="page-title">${op ? op.label : "This"} needs your real sign-in now</h1>
+        <p class="page-desc">Not just Company Setup any more — every operation does. Same Bulk Forge account either way.</p>
+      </div>
+      <div class="section">
+        <div class="field-row">
+          <div class="field">
+            <label for="opGateEmail">Email</label>
+            <input type="email" id="opGateEmail" autocomplete="off" spellcheck="false" />
+          </div>
+          ${pwFieldMarkup("opGatePass", "Password")}
+        </div>
+        <div class="setup-actions">
+          <span class="error-text" id="opGateError"></span>
+          <button type="button" class="generate-btn" id="opGateSignInBtn">Sign in</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireOperationsGateEvents() {
+    wirePasswordToggles($("#mainContent"));
+    const btn = $("#opGateSignInBtn");
+    const err = $("#opGateError");
+    btn.addEventListener("click", async () => {
+      err.textContent = "";
+      const email = $("#opGateEmail").value.trim();
+      const pass = $("#opGatePass").value;
+      setBtnBusy(btn);
+      try {
+        const data = await supabaseSignIn(email, pass);
+        setup.toolEmail = email;
+        setup.toolToken = data.access_token;
+        saveToolSession(data.expires_at ? data.expires_at * 1000 : Date.now() + 3600 * 1000);
+        logAudit("login", `${email} signed in`, { environment: setup.env });
+        const target = pendingOperation || "welcome";
+        pendingOperation = null;
+        currentOp = target;
+        renderSidebar();
+        renderMain();
+      } catch (e) {
+        clearBtnBusy(btn);
+        err.textContent = e.message;
+      }
+    });
   }
 
   /* Every operation shares the one action bar, so these dispatch on the

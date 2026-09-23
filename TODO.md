@@ -92,10 +92,24 @@ or added more).
      portion magically ashe" (an abrupt pop-in); don't polish it further
      in isolation, it's expected to change shape here.
 
+  **Progress (2026-09-25), see CLAUDE.md → Phase 2 → "Tiered Access —
+  steps 1 and 2" for the full detail:**
+  - ✅ **`user_access` table** — replaces `admins` outright (`tier` +
+    `is_admin` per real account, default tier `"both"`). `is_admin()`
+    redefined in place to read from it; new `my_tier()` sibling.
+  - ✅ **Every Operation now needs the same real sign-in** Company Setup's
+    own step one always used — `goToOperation()` is the one gate, both
+    the sidebar's Operations list and the Dashboard's op-cards route
+    through it. Tier itself is **not enforced yet** — this step only
+    requires *a* real sign-in, same as Company Setup always did.
+  - **Not started**: the new Welcome/tier routing page (Bulk/Settings/
+    Both cards + lock icons), actually reading `my_tier()` to enforce
+    anything, the troll button, Admin Panel UI, and the Dashboard's own
+    layout/stats redesign (deliberately deprioritized — "rong chong
+    anytime any vabe change kora jabe," cosmetics can wait, do the real
+    mechanics first).
+
   **Whoever picks this up next**: don't restart planning from scratch —
-  items 1-8 above are confirmed decisions, not open questions. The only
-  genuinely open piece is the Dashboard's own new layout/stats (item 9)
-  and every step after it (troll button, the real-login gate on
-  Operations, the new Welcome/tier page, tier enforcement, Admin Panel
-  UI) — none of those are built yet. Ask the user what to tackle next
-  rather than assuming the order above is also the build order.
+  every numbered decision above is confirmed, not an open question. Ask
+  the user what to tackle next rather than assuming the order above is
+  also the build order — this is being done step by step on purpose.

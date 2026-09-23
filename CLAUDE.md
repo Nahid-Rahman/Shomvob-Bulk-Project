@@ -748,7 +748,9 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eight suites, 484 checks. `appearance.test.js` is the odd one: it opens two
+Nine suites (`tiered-access.test.js` added 2026-09-25), 787 checks as of
+that addition — this number drifts with every change, so treat it as a
+last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
 background's average channel rather than an exact hex, so a palette tweak
@@ -3887,6 +3889,91 @@ token now correctly returns `true`.
 Audit Log and every RLS policy above are all correct as designed; this
 was purely a broken piece of Supabase project configuration, now
 corrected at the source.
+
+### Tiered Access — steps 1 and 2 (2026-09-25)
+
+Started, deliberately not all at once — direct correction after an
+attempt to plan the whole journey up front: "overall journey emne msg e
+ekbare bujhano hard. amra aste aste agabo" (hard to explain the whole
+thing in one message, we'll go step by step). Full decisions are kept
+in `TODO.md`, not restated here in full — this section covers only
+what's actually built.
+
+**Step 1 — `user_access` replaces `admins` outright.** One table, one
+source of truth per real tool-login account, rather than the narrower
+`admins` (which only ever held a boolean) living alongside a second new
+table for tier: `email` (PK), `tier` (`'bulk' | 'company' | 'both'`,
+default `'both'`), `is_admin` (default `false`). `is_admin()`
+(Dashboard's own function, above) is redefined **in place** — same
+name, same signature, `CREATE OR REPLACE` rather than drop-and-recreate
+— since `audit_log`'s own SELECT policy already depends on it and a
+`DROP FUNCTION` would need `CASCADE`, taking that policy down too.
+**`my_tier()`**, a new sibling function, same `SECURITY DEFINER` shape,
+same default-when-missing instinct: any real account with no
+`user_access` row yet reads as `'both'` — confirmed directly with the
+user rather than assumed, specifically so today's 3 existing accounts
+(mahmudur, tamjida, tanvir) don't lose access the moment this ships. As
+before, `user_access` itself has **no direct read/write policy for
+anyone but an admin** — a regular account only ever learns its own
+tier/admin status through these two narrow RPCs, never by querying the
+table.
+
+**Step 2 — every Operation now needs the same real sign-in Company
+Setup's own step one always used, not just the joke gate.** Direct
+instruction from `TODO.md`'s own dictated journey ("Bulk... needs it
+too now, since access-tiering has to apply everywhere"). `goToOperation
+(opId)` is the one place this is decided — both the sidebar's Operations
+list and the Dashboard's own op-cards route through it now instead of
+setting `currentOp` directly, so there's exactly one gate to maintain:
+if `setup.toolToken` isn't set, the requested op id is stashed in
+`pendingOperation` and `currentOp` becomes `"operations_gate"` instead;
+once signed in, it lands exactly where the visitor meant to go, not
+back on the Dashboard.
+
+**`operationsGateTemplate()` is deliberately not a copy of Company
+Setup's own `setupSignInTemplate()`.** That one also picks dev/staging
+— meaningless here, since the five generators never call a real
+Shomvob server at all; gating Operations is purely about *who's*
+signed in. Same `supabaseSignIn()`/`saveToolSession()`/`logAudit
+("login", ...)` calls as Company Setup's own sign-in, though — one
+real account, reused everywhere it's needed, not a second parallel
+auth flow. **Company Setup's own sign-in also satisfies this gate**,
+and vice versa — both just set the same `setup.toolToken`, so signing
+in from either side unlocks the other for the rest of that session.
+
+**Tier itself isn't enforced yet — this step only requires *a* real
+sign-in**, same as Company Setup's step one always has. Nothing here
+reads `my_tier()` yet; that's the next step, along with the new
+Welcome/tier routing page and Admin Panel — deliberately deferred, see
+`TODO.md`.
+
+**A real, foreseeable side effect, confirmed acceptable rather than
+silently patched around:** `hasUnsavedWork()` already treated a bare
+tool sign-in as "worth warning about" on reload (`hasGeneratorWork() ||
+!!setup.toolToken`, since 2026-09-11 — "redoing that login is already
+the cost being warned about"). Now that Operations also require that
+same sign-in, the reload guard arms itself the moment *any* operation
+has been opened, even with a completely empty form — not a regression,
+the exact reasoning already on record just now also applies to
+Operations, not only Company Setup.
+
+**Test infrastructure:** a new `tests/tiered-access.test.js` — gate
+blocks/unblocks correctly, wrong credentials stay on the gate, a
+successful sign-in lands on the exact operation originally requested
+and logs a real `login` audit event, a later operation switch on the
+same page skips the gate entirely, and signing in via Company Setup
+also unlocks Operations (one account, either door). **Every one of the
+five generator suites' own navigation needed updating** — each drives
+a single shared page (or, for `attendance.test.js`/`assets.test.js`,
+a shared helper that reloads the page on every call) that previously
+reached its operation with a bare sidebar click; `mockToolSignIn()`/
+`goToOp()` (new shared helpers, `tests/lib.js`) now mock the same
+fake-token + `audit_log` calls `company-setup.test.js`'s own
+`toGrid()` already mocks, and drive the gate the same way a real
+visitor would the first time, going straight through on every
+subsequent operation switch after that. `appearance.test.js`'s own
+single operation visit (needed for a file-input dark-theme check)
+got the same fix. Full 9-suite run (787 checks) green.
 
 ### What's not built yet
 

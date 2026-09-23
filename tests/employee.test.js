@@ -5,7 +5,7 @@
  * catch anything that breaks it while a later operation is being added.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn, watchPageErrors } = require("./lib");
+const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
 
 const XLSX = loadSheetJs();
 const { check, state } = makeChecker();
@@ -65,7 +65,11 @@ const { check, state } = makeChecker();
 
   /* the app opens on the dashboard, so pick the operation first */
   check("app opens on the dashboard", await page.isVisible(".welcome-title"));
-  await page.click('.op-item:has-text("Employee Add")');
+  /* Tiered Access (2026-09-25) — the first operation click on a fresh
+     page now needs a real (mocked) tool sign-in; every switch after
+     this one on this same page goes straight through. */
+  await mockToolSignIn(page);
+  await goToOp(page, "Employee Add");
   await page.waitForSelector("#countInput");
   await page.fill("#countInput", "25");
   await page.fill("#prefixInput", "QATE");
@@ -241,7 +245,14 @@ const { check, state } = makeChecker();
   await page.waitForSelector("#countInput");
   check("discarding cleared the form", (await page.inputValue("#countInput")) !== "77",
     await page.inputValue("#countInput"));
-  check("with nothing entered, reload is not guarded", !(await unloadArmed()));
+  /* Tiered Access (2026-09-25): hasUnsavedWork() already counted a bare
+     tool sign-in as "worth warning about" before this — redoing that
+     real login is the cost, whether or not any generator field is also
+     filled in (see CLAUDE.md → "hasUnsavedWork() didn't know Company
+     Setup existed"). Operations now need that same real sign-in too, so
+     this reload is armed even with an empty form — not a regression,
+     the exact reasoning already documented just now also applies here. */
+  check("signed in but nothing entered, reload is still guarded (redoing the real login is the cost)", await unloadArmed());
 
   /* ---------- Name source can mix more than one theme (2026-09-19) ----------
      Direct request: a big batch drawn from just one small pool (e.g.

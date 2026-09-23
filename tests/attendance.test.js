@@ -5,17 +5,21 @@
  * spec changed — check SPEC.md before "fixing" the test.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, toMin, ymd, signIn, watchPageErrors } = require("./lib");
+const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, toMin, ymd, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
 
 const XLSX = loadSheetJs();
 const { check, state } = makeChecker();
 
 const HEADER = ["Employee ID*", "Date*", "In Time*", "Out Time*"];
 
+/* page.goto() below is a full reload every call, so setup.toolToken is
+   gone each time too (2026-09-25) — mockToolSignIn()/goToOp() here,
+   not just once, since there's no single page this state survives on. */
 async function gotoAttendance(page) {
   await page.goto(PAGE);
   await signIn(page);
-  await page.click('.op-item:has-text("Employee Attendance Add")');
+  await mockToolSignIn(page);
+  await goToOp(page, "Employee Attendance Add");
   await page.waitForSelector("#idModeSeg");
 }
 

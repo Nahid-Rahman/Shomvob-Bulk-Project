@@ -7,7 +7,7 @@
  * Every check maps to a rule in SPEC.md. Read SPEC.md before changing one.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, generate, ymd, signIn, watchPageErrors } = require("./lib");
+const { PAGE, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, generate, ymd, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
 
 const XLSX = loadSheetJs();
 const DATA = loadAppData([
@@ -28,10 +28,14 @@ DATA.DEFAULT_ASSET_TYPES.forEach((t) =>
   t.items.forEach((it) => NAME_INDEX.set(it[0], { type: t.name, desc: it[1] }))
 );
 
+/* page.goto() above is a full reload every call, so setup.toolToken is
+   gone each time too (2026-09-25) — mockToolSignIn()/goToOp() here,
+   not just once, since there's no single page this state survives on. */
 async function gotoAssets(page) {
   await page.goto(PAGE);
   await signIn(page);
-  await page.click('.op-item:has-text("Assets Add")');
+  await mockToolSignIn(page);
+  await goToOp(page, "Assets Add");
   await page.waitForSelector("#assetCount");
 }
 

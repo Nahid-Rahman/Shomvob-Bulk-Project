@@ -115,6 +115,42 @@ async function signIn(page) {
   await gate.waitFor({ state: "detached" });
 }
 
+/* Tiered Access (2026-09-25) — every operation now needs a real tool
+   sign-in first, the same account/endpoint Company Setup's own step
+   one always used. Mocks the same two calls that flow touches (a fake
+   Supabase token, and the audit_log write that sign-in now fires) —
+   none of these five suites otherwise mock any network call at all,
+   since the five generators are 100% client-side. Call once per fresh
+   page, before the first operation navigation. */
+async function mockToolSignIn(page) {
+  await page.route("**/auth/v1/token**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ access_token: "fake-tool-token", refresh_token: "fake-refresh", user: { id: "u1" } }),
+    })
+  );
+  await page.route("**/rest/v1/audit_log**", (route) => route.fulfill({ status: 201, contentType: "application/json", body: "[]" }));
+}
+
+/* Clicks an operation's sidebar item; if that lands on the real-login
+   gate (setup.toolToken not set yet on this page), signs in through it
+   with the fake credentials mockToolSignIn() above makes work, landing
+   back on the originally-requested operation — same as a real visitor's
+   first click of any operation in a fresh tab. Every operation switch
+   after this one on the same page goes straight through, since
+   goToOperation() only shows the gate once toolToken is missing. */
+async function goToOp(page, label) {
+  await page.click(`.op-item:has-text("${label}")`);
+  const gateBtn = page.locator("#opGateSignInBtn");
+  if (await gateBtn.count()) {
+    await page.fill("#opGateEmail", "test@example.com");
+    await page.fill("#opGatePass", "whatever");
+    await gateBtn.click();
+    await page.waitForTimeout(150);
+  }
+}
+
 /* Clicks Generate, waits for the "file ready" modal, clicks Download Now
    inside it (2026-09-15 — Generate no longer downloads immediately, it
    opens this modal first), waits for the real download, saves it and
@@ -165,4 +201,4 @@ function ymd(s) {
   return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
 }
 
-module.exports = { REPO, PAGE, DOWNLOADS, loadSheetJs, loadAppData, normalizeRow, makeChecker, watchPageErrors, report, freshDownloads, signIn, generate, toMin, ymd };
+module.exports = { REPO, PAGE, DOWNLOADS, loadSheetJs, loadAppData, normalizeRow, makeChecker, watchPageErrors, report, freshDownloads, signIn, mockToolSignIn, goToOp, generate, toMin, ymd };

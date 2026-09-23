@@ -9,7 +9,7 @@
 const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
-const { PAGE, DOWNLOADS, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn, watchPageErrors } = require("./lib");
+const { PAGE, DOWNLOADS, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
 
 const XLSX = loadSheetJs();
 const { check, state } = makeChecker();
@@ -84,7 +84,8 @@ function cellStats(rows) {
 
   await page.goto(PAGE);
   await signIn(page);
-  await page.click('.op-item:has-text("Payroll Custom Field Add")');
+  await mockToolSignIn(page);
+  await goToOp(page, "Payroll Custom Field Add");
   await page.waitForSelector("#payrollFile");
 
   check("generate disabled before upload", await page.isDisabled("#generateBtn"));

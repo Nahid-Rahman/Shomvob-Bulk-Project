@@ -10,7 +10,7 @@
  * test about the switch working.
  */
 const { chromium } = require("playwright");
-const { PAGE, makeChecker, report, signIn, watchPageErrors } = require("./lib");
+const { PAGE, makeChecker, report, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
 
 const { check, state } = makeChecker();
 
@@ -100,7 +100,8 @@ const isLight = (v) => v > 180;
     isDark(await lightness(page, "#loginPass")), String(await lightness(page, "#loginPass")));
 
   await signIn(page);
-  await page.click('.op-item:has-text("Leave Balance")');
+  await mockToolSignIn(page);
+  await goToOp(page, "Leave Balance");
   await page.waitForSelector('input[type="file"]');
   check("and the file picker",
     isDark(await lightness(page, 'input[type="file"]')),
