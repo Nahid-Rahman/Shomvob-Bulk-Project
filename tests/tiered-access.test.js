@@ -9,14 +9,16 @@
  * page, Admin Panel.
  *
  * Rewritten the same day, right after the Dashboard redesign (also
- * 2026-09-25): the sidebar's Operations section is now hidden entirely
- * (#gatedNav) until a real tool sign-in happens, on direct user feedback
- * ("landing dashboard e ei side bar dekhabona"). That means an operation
- * item can no longer be clicked pre-signin to trigger the inline gate —
- * the Dashboard's own sticky #welcomeLoginBtn is the one way in now.
- * The gate itself (operationsGateTemplate()) is unchanged underneath;
- * only how a visitor reaches it changed, so these blocks now start from
- * that button instead of a direct operation click.
+ * 2026-09-25, round two): the whole sidebar (.sidebar) is now hidden
+ * entirely until a real tool sign-in happens, on direct user feedback
+ * ("side bar shorao... side bar e ekta logout ase eta wrong. amra to
+ * sign in o kori nai" — remove the sidebar, it has a Log out in it and
+ * nothing's been signed in yet). That means an operation item can no
+ * longer be clicked pre-signin to trigger the inline gate — the
+ * Dashboard's own sticky #welcomeLoginBtn is the one way in now. The
+ * gate itself (operationsGateTemplate()) is unchanged underneath; only
+ * how a visitor reaches it changed, so these blocks now start from that
+ * button instead of a direct operation click.
  *
  * Every assertion maps to a rule in TODO.md/CLAUDE.md; if one fails,
  * check those before changing the test.
@@ -52,7 +54,7 @@ function mockAuthFail(page) {
     await signIn(page);
 
     check("A Dashboard itself needs no real sign-in", await page.isVisible(".welcome-title"));
-    check("A Operations section is hidden in the sidebar pre-signin", !(await page.isVisible("#gatedNav")));
+    check("A the whole sidebar is hidden pre-signin", !(await page.isVisible(".sidebar")));
     check("A the sticky Sign in button is there instead", await page.isVisible("#welcomeLoginBtn"));
     check("A no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
@@ -73,13 +75,13 @@ function mockAuthFail(page) {
     await page.click("#opGateSignInBtn");
     await page.waitForTimeout(150);
     check("B wrong credentials show an error", (await page.textContent("#opGateError")).length > 0);
-    check("B still on the gate, Operations still hidden", (await page.locator("#opGateSignInBtn").count()) === 1 && !(await page.isVisible("#gatedNav")));
+    check("B still on the gate, sidebar still hidden", (await page.locator("#opGateSignInBtn").count()) === 1 && !(await page.isVisible(".sidebar")));
     check("B no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
   {
-    // C — a successful sign-in reveals Operations and logs it; picking one then works directly, and a later switch skips any further gate
+    // C — a successful sign-in reveals the whole sidebar and logs it; picking an operation then works directly, and a later switch skips any further gate
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     let auditBody = null;
@@ -96,8 +98,8 @@ function mockAuthFail(page) {
     await page.fill("#opGateEmail", "someone@shomvob.com");
     await page.fill("#opGatePass", "whatever");
     await page.click("#opGateSignInBtn");
-    await page.waitForSelector("#gatedNav");
-    check("C signing in reveals Operations in the sidebar", await page.isVisible("#gatedNav"));
+    await page.waitForSelector(".sidebar");
+    check("C signing in reveals the whole sidebar", await page.isVisible(".sidebar"));
     check("C logs a real login audit event", auditBody && auditBody.event_type === "login" && auditBody.user_email === "someone@shomvob.com", JSON.stringify(auditBody));
 
     await page.click('.op-item:has-text("Employee Add")');
@@ -113,7 +115,14 @@ function mockAuthFail(page) {
   }
 
   {
-    // D — Company Setup's own sign-in also counts, revealing Operations too — same one real account
+    // D — Company Setup's own step one is skipped once the Dashboard's own sign-in already happened — same one real account
+    //
+    // Round two of the sidebar-hiding change (above) made Company Setup's
+    // own sidebar link unreachable pre-signin too, so this block no longer
+    // tests "sign in there first" — that path doesn't exist from the UI
+    // any more. What's left to confirm is the reverse: once signed in via
+    // the Dashboard, Company Setup's own step-one form (setupSignInTemplate())
+    // is skipped straight to step two, since setup.toolToken is already set.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await page.goto(PAGE);
@@ -121,15 +130,15 @@ function mockAuthFail(page) {
     await mockAuthOk(page);
     await page.route("**/rest/v1/audit_log**", (route) => route.fulfill({ status: 201, contentType: "application/json", body: "[]" }));
 
-    await page.click('.op-item:has-text("Company Setup")');
-    await page.fill("#setupEmail", "someone@shomvob.com");
-    await page.fill("#setupPass", "whatever");
-    await page.click("#setupSignInBtn");
-    await page.waitForSelector("#setupCoBtn", { timeout: 5000 });
-    check("D signing in via Company Setup also reveals Operations in the sidebar", await page.isVisible("#gatedNav"));
+    await page.click("#welcomeLoginBtn");
+    await page.waitForSelector("#opGateSignInBtn");
+    await page.fill("#opGateEmail", "someone@shomvob.com");
+    await page.fill("#opGatePass", "whatever");
+    await page.click("#opGateSignInBtn");
+    await page.waitForSelector(".sidebar");
 
-    await page.click('.op-item:has-text("Employee Add")');
-    check("D and Operations works directly — same one real account", (await page.locator("#countInput").count()) === 1);
+    await page.click('.op-item:has-text("Company Setup")');
+    check("D Company Setup's own step one is skipped — same one real account", (await page.locator("#setupCoBtn").count()) === 1 && (await page.locator("#setupSignInBtn").count()) === 0);
     check("D no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }

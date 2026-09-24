@@ -352,19 +352,28 @@
     });
     home.appendChild(homeBtn);
 
-    /* Tiered Access, continued (2026-09-25): the Operations nav section
-       is a direct-access shortcut this whole journey is meant to gate —
-       showing it before a real sign-in defeats the point of the sticky
-       Sign in bar on the Dashboard (direct user feedback: "landing
-       dashboard e ei side bar dekhabona. agei shob dekhay dile
-       somossa"). Scoped to Operations only, not Setup/Company Setup —
-       that section already gates itself with its own two-step sign-in
-       form (setupSignInTemplate()), reachable exactly as it always was;
-       hiding it too would make that form's own step one unreachable,
-       since nothing else lets a visitor type into it. Worth confirming
-       with the user whether it should hide as well — flagged, not
-       assumed. */
-    $("#gatedNav").style.display = setup.toolToken ? "" : "none";
+    /* Tiered Access, continued (2026-09-25, round two — direct
+       follow-up correction): the whole sidebar hides pre-signin now, not
+       just the Operations section. The first pass only hid Operations
+       and kept Setup/Company Setup's own link visible, reasoning that
+       its own step-one form would otherwise be unreachable — flagged
+       directly to the user rather than assumed. The correction that came
+       back was broader than that one link: "side bar shorao... side bar
+       e ekta logout ase eta wrong. amra to sign in o kori nai" (remove
+       the sidebar — it has a Log out in it, which is wrong, since we
+       haven't even signed in) — Log out, Company Setup, everything in
+       here implies a session that doesn't exist yet pre-signin. The
+       sidebar-based nav experience is headed for a real post-login page
+       instead ("eta to arekta je page hobe okhane ashbe"); until that's
+       built, showing the current sidebar in full once a real sign-in
+       *has* happened is the interim stand-in. Company Setup's own
+       sidebar link becomes unreachable pre-signin as a direct
+       consequence — its own step-one form (setupSignInTemplate()) is
+       still correct code, just currently only reachable once toolToken
+       is already set (by which point it's skipped straight to step two),
+       same "unreachable but not dead" shape as goToOperation()'s own
+       pendingOperation handling. */
+    $(".sidebar").style.display = setup.toolToken ? "" : "none";
 
     const nav = $("#opNav");
     nav.innerHTML = "";

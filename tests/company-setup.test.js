@@ -28,9 +28,26 @@ const { CUSTOM_FIELD_PRESETS, REQUIRED_DOCUMENT_NAMES } = loadAppData(["CUSTOM_F
 const { DEFAULT_DEPARTMENTS } = loadAppData(["DEFAULT_DEPARTMENTS"]);
 const { ROSTER_COLORS } = loadAppData(["ROSTER_COLORS"]);
 
+/* The sidebar (2026-09-25, round two) is hidden entirely until a real
+   tool sign-in happens, so "Company Setup" can no longer be clicked from
+   a signed-out page the way it always could before — its own step-one
+   sign-in form is genuinely unreachable via the real UI now, since
+   whatever real path exists always sets setup.toolToken first (the
+   Dashboard's own Sign in button), and Company Setup skips straight to
+   step two once that's already true.
+   Confirmed directly rather than deleted: the form itself stays exactly
+   as it is for now ("rakho ekhon... oi signup page shajanor por oitay
+   transfer kore dilo" — keep it, move it into the new post-login page
+   once that's built). Until that move happens, this one direct DOM poke
+   is what lets this whole suite (30+ checks specifically covering step
+   one: A/A2/B/C/M below) keep testing that real, working code — forcing
+   the sidebar visible without a real sign-in, exactly the way a future
+   caller reaching this form some other way would. Not a real user path;
+   remove this the same day step one actually moves. */
 async function gotoSetup(page) {
   await page.goto(PAGE);
   await signIn(page);
+  await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; });
   await page.click('.op-item:has-text("Company Setup")');
   await page.waitForSelector("#setupSignInBtn");
 }
@@ -635,10 +652,17 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.goto(PAGE);
     await signIn(page);
     const dashboardWidth = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
+    await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; }); // see gotoSetup()'s own comment
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForTimeout(60);
     const setupWidth = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
     check("L Company Setup is wider than the default column", setupWidth > dashboardWidth, `${setupWidth} vs ${dashboardWidth}`);
+    /* Still not really signed in (this block never submits step one), so
+       the Company Setup nav click above already re-ran renderSidebar()
+       and re-hid the sidebar on its own real (unauthenticated) state —
+       force it visible again for this second navigation, same reason as
+       above. */
+    await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; });
     await page.click('.op-item:has-text("Dashboard")');
     await page.waitForTimeout(60);
     const backToDashboard = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
@@ -1961,6 +1985,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.reload();
     await page.waitForTimeout(150);
     await signIn(page);
+    await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; }); // see gotoSetup()'s own comment — genuinely signed out here, same as a fresh visit
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForTimeout(100);
     check("AI Sign out clears the tool session too — the next reload lands back on step 1", (await page.locator("#setupSignInBtn").count()) === 1);
@@ -2350,6 +2375,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await signIn(page);
     check("AQ reload is NOT guarded before Company Setup is even opened", !(await unloadArmed()));
 
+    await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; }); // see gotoSetup()'s own comment
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForSelector("#setupSignInBtn", { timeout: 5000 });
     await mockSupabaseOk(page);
@@ -2378,6 +2404,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     const errs = watchPageErrors(page);
     await page.goto(PAGE);
     await signIn(page);
+    await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; }); // see gotoSetup()'s own comment
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForSelector("#setupSignInBtn", { timeout: 5000 });
 

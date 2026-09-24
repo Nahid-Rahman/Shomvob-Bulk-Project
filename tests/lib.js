@@ -134,26 +134,27 @@ async function mockToolSignIn(page) {
 }
 
 /* Clicks the target operation's sidebar item — signing in first if this
-   page hasn't yet, since the Operations/Setup sidebar sections are
-   hidden entirely (#gatedNav) until a real tool sign-in has happened
-   (2026-09-25, direct feedback: "landing dashboard e ei side bar
-   dekhabona. agei shob dekhay dile somossa" — showing them before
-   sign-in defeats the point of gating). That means the sidebar item
-   itself isn't clickable pre-signin any more, so signing in now goes
-   through the Dashboard's own sticky #welcomeLoginBtn — same fake
-   credentials mockToolSignIn() above makes work — landing back on the
-   Dashboard, where #gatedNav is now visible, before the target item is
-   clicked. A page that already restored a tool session from a prior
-   visit in this same context (attendance.test.js's/assets.test.js's own
-   per-call reload, which restores sessionStorage) skips straight to the
-   click, since #gatedNav is already visible there. */
+   page hasn't yet, since the whole sidebar (not just Operations) is
+   hidden entirely until a real tool sign-in has happened (2026-09-25,
+   round two, direct feedback: "side bar shorao... side bar e ekta
+   logout ase eta wrong. amra to sign in o kori nai" — remove the
+   sidebar, it has a Log out in it and nothing has been signed in yet).
+   That means the sidebar item itself isn't clickable pre-signin any
+   more, so signing in now goes through the Dashboard's own sticky
+   #welcomeLoginBtn — same fake credentials mockToolSignIn() above makes
+   work — landing back on the Dashboard, where the sidebar is now
+   visible, before the target item is clicked. A page that already
+   restored a tool session from a prior visit in this same context
+   (attendance.test.js's/assets.test.js's own per-call reload, which
+   restores sessionStorage) skips straight to the click, since the
+   sidebar is already visible there. */
 async function goToOp(page, label) {
-  if (!(await page.isVisible("#gatedNav"))) {
+  if (!(await page.isVisible(".sidebar"))) {
     await page.click("#welcomeLoginBtn");
     await page.fill("#opGateEmail", "test@example.com");
     await page.fill("#opGatePass", "whatever");
     await page.click("#opGateSignInBtn");
-    await page.waitForSelector("#gatedNav");
+    await page.waitForSelector(".sidebar");
   }
   await page.click(`.op-item:has-text("${label}")`);
 }

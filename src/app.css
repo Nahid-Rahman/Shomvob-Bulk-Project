@@ -276,12 +276,35 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
    the prefers-color-scheme token block already expects.
 
    Named "appearance", not "theme", because .theme-card is the name-theme
-   picker on Employee Add and the two have nothing to do with each other. */
+   picker on Employee Add and the two have nothing to do with each other.
+
+   Lives in its own floating pill (.appearance-float, 2026-09-25), not
+   docked inside .sidebar-foot any more — the sidebar itself now hides
+   entirely pre-signin (see renderSidebar()'s own comment in app.js), and
+   this control has nothing to do with being signed in or not, so it
+   needed to keep working regardless. Fixed-position, top-right, clear of
+   both the sidebar's own brand corner and the sticky bottom bar every
+   page can show. Kept dark unconditionally (var(--sidebar-*) tokens,
+   the same ones the sidebar itself always used) rather than switching to
+   the main content's own light/dark-aware tokens — the point of this
+   control is picking the *page's* theme, so its own chrome staying a
+   fixed dark pill regardless of that choice reads as a stable anchor,
+   not a bug. */
+.appearance-float {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 40;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 99px;
+  padding: 6px 10px;
+  box-shadow: var(--shadow);
+}
 .appearance-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
 }
 .appearance-label {
   font-family: var(--font-mono);
@@ -782,6 +805,7 @@ input.invalid { border-color: var(--danger); }
 .welcome-bar-btn {
   flex: 1 1 220px;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; text-align: center; line-height: 1.3;
   padding: 11px 20px; border-radius: var(--radius-sm);
   font-size: 14px; font-weight: 600; cursor: pointer;
   font-family: inherit;

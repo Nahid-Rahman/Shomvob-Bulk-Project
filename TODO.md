@@ -116,10 +116,28 @@ or added more).
     "Dashboard redesign, round two" for the full detail, including the
     real staleness bug this surfaced and fixed (Company Setup's own
     sign-in/sign-out not re-rendering the sidebar).
+  - ✅ **Dashboard redesign, round three** (2026-09-25, same day, direct
+    correction of round two's own scoping) — the **whole sidebar** now
+    hides pre-signin, not just Operations ("side bar shorao... eta wrong,
+    amra sign in o kori nai" — Log out showing before any real sign-in
+    was the specific complaint). Company Setup's own step-one sign-in
+    form is now unreachable from the real UI as a direct consequence —
+    **confirmed to keep the code as-is for now, move it into the new
+    post-login page once that's designed** ("rakho ekhon... oi signup
+    page shajanor por oitay transfer kore dilo"), not delete it. Sticky
+    bar buttons got a real equal-height fix (`min-height`, not just
+    `align-items: stretch`) and "Sign in" was renamed "Sign In for Real"
+    (the bare label didn't say what it unlocked). The Appearance picker
+    moved out of the sidebar into its own always-visible floating pill —
+    flagged before building, since hiding it too would've been pure
+    collateral damage, confirmed by `appearance.test.js` failing outright
+    when it briefly did. See CLAUDE.md → Phase 2 → "Dashboard redesign,
+    round three" for the full detail.
   - **Not started**: the troll button's actual Rickroll behaviour, the
     new Welcome/tier routing page itself (Bulk/Settings/Both cards +
     lock icons — this is also where the Operations-picking experience
-    now moving off the sidebar is headed), actually reading `my_tier()`
+    now moving off the sidebar is headed, and where Company Setup's own
+    step-one sign-in form is meant to move to), actually reading `my_tier()`
     to enforce anything, and Admin Panel UI.
 
   **Whoever picks this up next**: don't restart planning from scratch —

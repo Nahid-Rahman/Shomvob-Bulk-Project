@@ -4178,6 +4178,100 @@ it) and only routes through `#welcomeLoginBtn` when it isn't. Full
 Playwright screenshot of both the signed-out and signed-in Dashboard
 states, matching the two screenshots above exactly.
 
+### Dashboard redesign, round three — the sidebar hides entirely, not just Operations (2026-09-25)
+
+Direct correction the same day, screenshot-annotated, of round two's own
+scoping call. Round two deliberately hid only the Operations section and
+kept Setup/Company Setup's own sidebar link visible, flagged as a
+judgment call before building it. The correction that came back was
+broader: **"side bar shorao... side bar e ekta logout ase eta wrong.
+amra to sign in o kori nai"** (remove the sidebar — it has a Log out in
+it, which is wrong, since nothing's been signed in yet) — Company Setup,
+Log out, everything in there implies a session that doesn't exist
+pre-signin, and the sidebar-based nav experience as a whole is headed
+for a real post-login page anyway ("eta to arekta je page hobe okhane
+ashbe. side bar ta amader new arekta je dashboard hobe login korar por
+okhane ashbe. almost same functionalities... eta just generic hocche").
+
+**`$(".sidebar").style.display`, not `$("#gatedNav")`.** `renderSidebar()`
+now toggles the whole element on `setup.toolToken`; the `#gatedNav`
+wrapper from round two is gone, `part1.html`'s nav markup reverted to its
+original flat shape. Signed out, the Dashboard is the only reachable
+page and the sticky bar is the only way off it, same mechanism as round
+two just widened to the whole sidebar rather than one section of it.
+
+**This made Company Setup's own sidebar link — and so its whole
+step-one sign-in form — unreachable too, the exact conflict flagged
+before round two started.** Confirmed directly rather than silently
+resolved either way: **"accha taile rakho ekhon. amra oi signup page
+shajanor por oitay transfer kore dilo"** (keep it for now; once the new
+post-login page is designed, move it there). Nothing in
+`setupSignInTemplate()`/`wireSetupSignIn()` was touched — real,
+correct, working code, just currently unreachable from the real UI,
+same "kept for a near-future reuse, not dead" shape as `.op-card`'s own
+CSS in round one. `tests/company-setup.test.js`'s `gotoSetup()` (and
+every other site that clicks `.op-item:has-text("Company Setup")` on a
+genuinely signed-out page — blocks L, AQ, AR, AI) now force the sidebar
+visible via a direct `page.evaluate()` DOM poke before that click,
+documented inline as exactly that: not a real user path, a stand-in
+until step one actually moves. **One real gotcha found fixing this**:
+the sidebar nav's own click handler calls `renderSidebar()` on every
+click, which re-evaluates `setup.toolToken` and silently re-hides the
+forced-visible sidebar the instant a *second* unauthenticated navigation
+happens on the same page (block L, which checks Company Setup's column
+width then clicks back to Dashboard without ever completing sign-in) —
+fixed by re-applying the same forced-visible poke before that second
+click too, not by weakening the app's own real logic to accommodate it.
+`tests/tiered-access.test.js`'s own block D was rewritten to match the
+new reachability direction — it no longer tests "sign in via Company
+Setup," which is no longer a real path, but the reverse: once signed in
+via the Dashboard, Company Setup's own step one is skipped straight to
+step two, confirming the shared account still works from that side.
+
+**Two buttons, restyled and renamed, same feedback pass.** Equal size
+wasn't actually holding — `.welcome-bar-btn`'s `align-items: stretch`
+alone wasn't enough once the "Auto setup my company & bulk upload"
+label wrapped to two lines against "Sign in"'s one, so the shorter
+button sat visibly smaller. Fixed with an explicit shared `min-height`
+(52px) on `.welcome-bar-btn`, guaranteeing both match regardless of how
+either label wraps at any width — a more robust fix than shortening
+text to avoid wrapping, which would only have held at one viewport
+width. **"Sign in" was renamed to "Sign In for Real"** — direct
+feedback that the bare label didn't say what it actually unlocks
+("second ta Sign In to Explore Operations ba ektu proper name dite
+paro. sign in dile bujha jay na specific kisu"); landed on wording that
+echoes the how-row's own step 1 copy just above it ("Sign in for real")
+rather than the longer suggested alternative, so the two read as the
+same idea stated twice rather than two different claims. The first
+button's own label was confirmed fine as-is and left untouched.
+
+**The Appearance picker moved out of the sidebar entirely, into its own
+floating pill (`#appearanceFloat`, `part1.html`), rather than
+disappearing along with everything else.** Flagged before building,
+not assumed: this control has nothing to do with being signed in —
+unlike Log out or Operations, hiding it was pure collateral damage, and
+`tests/appearance.test.js` (33 checks, run entirely on the signed-out
+Dashboard) confirmed the regression directly by failing outright. Fixed
+by relocating rather than special-casing its old spot inside
+`.sidebar-foot`: `position: fixed; top: 16px; right: 20px`, clear of
+both the sidebar's own top-left brand corner and the sticky bottom bar
+every page can show, so it can't collide with either regardless of
+which is visible. Kept its exact original dark styling
+(`var(--sidebar-*)` tokens, a self-contained pill with its own
+background/border/shadow) rather than switching to the main content
+area's own light/dark-aware tokens — since this control's whole job is
+picking the *page's* theme, its own chrome staying a fixed dark anchor
+regardless of that choice reads as deliberate, not inconsistent.
+`wireAppearance()` itself needed no changes — purely ID-based
+(`#appearanceSeg button`), indifferent to where in the DOM those
+buttons actually live.
+
+Full 9-suite run green after all of the above; confirmed visually with
+a fresh Playwright screenshot pass of both the signed-out (no sidebar,
+floating Appearance top-right, equal-weight sticky-bar buttons with the
+new label) and signed-in (full sidebar back, no duplicate Appearance,
+Sign In button correctly gone) states.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both
