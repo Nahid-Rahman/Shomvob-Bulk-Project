@@ -154,13 +154,6 @@ const { check, state } = makeChecker();
     await page.textContent("#deptSelectCount"));
 
 
-  /* the dashboard cards must route to their operation */
-  await page.click('.op-item:has-text("Dashboard")');
-  await page.waitForSelector(".op-card-grid");
-  await page.click('.op-card[data-op="assets_add"]');
-  await page.waitForSelector("#assetCount");
-  check("dashboard card routes to its operation", await page.isVisible("#assetCount"));
-
   /* switching operations must leave both forms usable */
   await page.click('.op-item:has-text("Employee Attendance Add")');
   await page.waitForSelector("#idModeSeg");
@@ -174,7 +167,7 @@ const { check, state } = makeChecker();
   const hops = [
     ["Employee Attendance Add", "#idModeSeg"],
     ["Assets Add", "#assetCount"],
-    ["Dashboard", ".op-card-grid"],
+    ["Dashboard", ".welcome-hero"],
     ["Employee Add", "#countInput"],
   ];
   let landedAtTop = true;
@@ -187,11 +180,11 @@ const { check, state } = makeChecker();
   check("switching operations lands at the top", landedAtTop);
 
   await page.click('.op-item:has-text("Dashboard")');
-  await page.waitForSelector(".op-card-grid");
+  await page.waitForSelector(".welcome-hero");
   await scrollTo(500);
-  await page.click('.op-card[data-op="assets_add"]');
+  await page.click('.op-item:has-text("Assets Add")');
   await page.waitForSelector("#assetCount");
-  check("a dashboard card lands at the top", (await scrollNow()) === 0, String(await scrollNow()));
+  check("leaving a scrolled Dashboard lands at the top", (await scrollNow()) === 0, String(await scrollNow()));
 
   await page.click('.op-item:has-text("Employee Add")');
   await page.waitForSelector("#countInput");

@@ -3542,7 +3542,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(300); // give the background admin-check a chance to resolve either way
     const text = await page.textContent("#mainContent");
     check("BR no Team activity section for a non-admin", text.includes("Team activity") === false);
-    check("BR the rest of the Dashboard still renders normally", text.includes("What it can do"));
+    check("BR the rest of the Dashboard still renders normally", text.includes("By the numbers"));
     check("BR no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }

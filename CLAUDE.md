@@ -3975,6 +3975,115 @@ subsequent operation switch after that. `appearance.test.js`'s own
 single operation visit (needed for a file-input dark-theme check)
 got the same fix. Full 9-suite run (787 checks) green.
 
+### Dashboard redesign — step 2 of the Tiered Access journey (2026-09-25)
+
+Dictated directly, screenshot by screenshot, rather than speced up front
+in one message ("overall journey emne msg e ekbare bujhano hard. amra
+aste aste agabo" — the same working style Tiered Access itself started
+with). This is TODO.md's own flagged item 9 finally getting built: "What
+it can do" (the operation-card grid) leaves the pre-login Dashboard, and
+the old 3-tile hero row is replaced by real content — not a cosmetic
+pass, a real layout change, confirmed piece by piece before writing any
+code (AskUserQuestion rounds on: chart data source/visibility, meme
+content, what the two sticky buttons actually mean, whether the
+operation-card grid and old stat tiles survive).
+
+- **The operation-card grid is gone from the Dashboard**, confirmed
+  directly rather than assumed — it's destined for the still-unbuilt
+  Welcome/tier routing page (TODO.md step 5: Bulk/Settings/Both cards +
+  lock icons), not deleted outright. `.op-card*` CSS (`app.css`) and
+  `OPERATION_BLURBS` (`app-data.js`) are both **kept, not deleted**, with
+  a comment explaining why: the next planned step is expected to want
+  this exact numbered-card shape and blurb/cost text for its own
+  Bulk/Settings/Both choices. `WELCOME_BIGGEST_BATCH` *was* deleted —
+  genuinely orphaned once the old 3-tile row using it was removed,
+  confirmed by grep before deleting, unlike the two kept-for-reuse items
+  above.
+- **The old 3-tile hero stat row is replaced by `welcomeChartsHtml()`** —
+  3 plain-CSS bar charts (reusing `barListHtml()` as-is, the exact same
+  no-chart-library component "Team activity" below already established),
+  confirmed public/no-login-needed rather than folding into the
+  admin-only "Team activity" section: **Cells per operation**, **Minutes
+  saved per operation** (both from `OPERATION_CELL_ESTIMATE`, already-
+  shipped static data, no new numbers invented) and **Built from scratch
+  vs. filled into an export** (the 3-vs-2 split this file's own "Two of
+  the five build a file from scratch... two fill values into the
+  system's own export" distinction, above, visualized for the first
+  time). Sits above "Team activity," which is otherwise completely
+  untouched — still admin-only, still gated the same way.
+- **The meme is now a real GIF** (`assets/hackerman.gif`, ~2.9MB,
+  downloaded from Tenor — the user picked the specific one from a
+  screenshot of search results, Kung Fury's "Hackerman" scene) —
+  **a direct reversal of this app's own stated reason for drawing the
+  old meme instead of fetching one** ("a real meme image would be
+  someone else's to licence," `app.css`'s own prior comment on `.meme`).
+  That reasoning holds for anything published to a stranger; this is the
+  user's own internal QA tool, and the call to use a real image here was
+  made directly by the user, not defaulted into — documented as a
+  reversal for the same reason every other reversal in this file is
+  (reduced-motion, the burnt-copper palette, etc.), not silently
+  overwritten. Kept as a plain relative-path asset, not inlined — same
+  "too big for a data URI" reasoning as `assets/lazy_cat.mp4`.
+- **Two sticky buttons, confirmed to mean exactly this**: `#welcomeBar`
+  (`part1.html`, a static sibling of `#actionBar` inside `.main`, same
+  "normal flex child of a full-height column reads as a sticky bottom
+  bar" mechanism `#actionBar` itself already uses — not literal CSS
+  `position: fixed`) shows only on the Dashboard (`renderMain()` resets
+  it to `display:none` unconditionally at the top, the one branch that
+  needs it turns it back to `flex` — cheaper than touching every other
+  branch individually). **Sign in** reuses the exact Operations-gate
+  sign-in flow (Tiered Access step 2, above) with `pendingOperation =
+  null`, so a successful sign-in lands back on the Dashboard rather than
+  jumping anywhere else — zero new auth code, just a second entry point
+  into the one that already existed. Its own click handler is assigned
+  via `.onclick =`, not `addEventListener` — this button is static
+  markup outside `#mainContent`, so it survives every re-render of this
+  page, and `addEventListener` would have stacked a duplicate handler on
+  every visit (the exact class of bug `askDiscard()`'s and
+  `openGenerateCompleteModal()`'s own clone-and-replace patterns already
+  guard against elsewhere in this file). **Auto setup my company & bulk
+  upload** — TODO.md's own dictated joke/Rickroll button — renders
+  `disabled` with a `title="Coming soon"` rather than shipping a click
+  that does nothing: its actual troll behaviour is a later step in this
+  same walkthrough, not this one, and this app holds itself to a strict
+  "never ship a click with zero visible feedback" rule elsewhere (Create
+  Roster's own 2026-09-23 fix, `wireRegenerate()`'s 2026-09-13 fix) that
+  applies here too.
+- **The bar's own note text and Sign in button both react to
+  `setup.toolToken` live** — signed out: "Real Bulk Forge sign-in
+  unlocks Operations and Company Setup for the rest of this session.";
+  signed in: "Signed in as `{email}` — Operations and Company Setup are
+  unlocked for this session.", Sign in itself hidden. Verified by a
+  direct Playwright probe: clicking Sign in → the real gate → a
+  successful sign-in → lands back on the Dashboard with the note and
+  button both already updated, no reload needed.
+
+**Test fallout, all fixed in the same pass**: `company-setup.test.js`'s
+own "BR" block (Dashboard renders normally for a non-admin) asserted on
+the now-removed "What it can do" text — repointed at "By the numbers"
+instead. `employee.test.js` had three sites depending on
+`.op-card-grid`/`.op-card[data-op=...]`: a dedicated "dashboard card
+routes to its operation" check (removed outright — its own subject no
+longer exists, and the general sidebar-navigation mechanism it exercised
+is already covered everywhere else), the scroll-reset `hops` array's own
+`["Dashboard", ".op-card-grid"]` entry (repointed at `.welcome-hero`,
+which is unaffected by this redesign), and a "dashboard card lands at
+the top" scroll check (adapted to navigate away via the sidebar's own
+"Assets Add" item instead of a now-gone card, since that's the surviving
+path and the underlying scroll-reset concern is identical either way).
+Full 9-suite run green afterward, confirmed by a direct Playwright
+screenshot pass in both light and dark before considering this done —
+the meme, the three charts and the sticky bar all render correctly in
+both themes with no new hex values (`.stat-bar-*`/`.field-row-3` reuse
+existing tokens throughout).
+
+**What's still ahead in this same walkthrough, not started**: the
+troll button's actual Rickroll behaviour, the Welcome/tier routing page
+itself (Bulk/Settings/Both cards + lock icons, `my_tier()` actually
+enforcing anything), and Admin Panel. All still open per TODO.md; ask
+the user what's next rather than assuming this redesign implies a
+particular build order for the rest.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both

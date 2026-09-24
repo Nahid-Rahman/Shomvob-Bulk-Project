@@ -81,19 +81,22 @@ or added more).
   9. **This journey is being built step by step, not from one locked
      spec — confirmed directly (2026-09-25)**: "overall journey emne
      msg e ekbare bujhano hard. amra aste aste agabo." Step 2 (Dashboard)
-     specifically is now known to need more than "today's Dashboard plus
-     a troll button" — a real layout change, more graphs/charts/stats,
-     and "What it can do" (the operation-card grid) possibly removed
-     from the pre-login Dashboard entirely or moved to post-login —
-     **not speced yet, ask before building**. Today's "Team activity"
-     section (CLAUDE.md → Phase 2, built 2026-09-25) is a stopgap likely
-     to be reworked or absorbed once this redesign is actually speced —
-     the user already flagged its current UX as feeling like "ekta
-     portion magically ashe" (an abrupt pop-in); don't polish it further
-     in isolation, it's expected to change shape here.
+     **is now speced and built** — see CLAUDE.md → Phase 2 → "Dashboard
+     redesign — step 2 of the Tiered Access journey": "What it can do"
+     (the operation-card grid) is out of the pre-login Dashboard
+     entirely, destined for the still-unbuilt Welcome/tier page instead;
+     the old 3-tile stat row is replaced by 3 public, no-login-needed
+     bar charts; the meme is now a real Hackerman GIF; a sticky bottom
+     bar carries a working "Sign in" button (reuses the Operations-gate
+     flow) and a disabled "Auto setup my company & bulk upload" button
+     (its Rickroll behaviour is still a later step). Today's "Team
+     activity" section is untouched by this — still sits below the new
+     charts, still admin-only, the "abrupt pop-in" UX complaint that
+     flagged it as a stopgap was about *its own* section, not the
+     Dashboard as a whole, and hasn't been revisited yet.
 
   **Progress (2026-09-25), see CLAUDE.md → Phase 2 → "Tiered Access —
-  steps 1 and 2" for the full detail:**
+  steps 1 and 2" and → "Dashboard redesign" for the full detail:**
   - ✅ **`user_access` table** — replaces `admins` outright (`tier` +
     `is_admin` per real account, default tier `"both"`). `is_admin()`
     redefined in place to read from it; new `my_tier()` sibling.
@@ -102,12 +105,13 @@ or added more).
     the sidebar's Operations list and the Dashboard's op-cards route
     through it. Tier itself is **not enforced yet** — this step only
     requires *a* real sign-in, same as Company Setup always did.
-  - **Not started**: the new Welcome/tier routing page (Bulk/Settings/
-    Both cards + lock icons), actually reading `my_tier()` to enforce
-    anything, the troll button, Admin Panel UI, and the Dashboard's own
-    layout/stats redesign (deliberately deprioritized — "rong chong
-    anytime any vabe change kora jabe," cosmetics can wait, do the real
-    mechanics first).
+  - ✅ **Dashboard redesign** — operation-card grid removed (kept in code
+    for the tier page to reuse), 3 public charts replace the old stat
+    tiles, real Hackerman meme, sticky Sign in + (disabled) troll button.
+  - **Not started**: the troll button's actual Rickroll behaviour, the
+    new Welcome/tier routing page itself (Bulk/Settings/Both cards +
+    lock icons), actually reading `my_tier()` to enforce anything, and
+    Admin Panel UI.
 
   **Whoever picks this up next**: don't restart planning from scratch —
   every numbered decision above is confirmed, not an open question. Ask

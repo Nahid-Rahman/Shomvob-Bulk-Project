@@ -429,10 +429,15 @@ const DEMO_LOGIN = { email: "amilazy@yopmail.com", password: "amioneklazy" };
 
 /* ===== Dashboard ===== */
 
-/* One card per operation on the dashboard. `cost` is what you would be
-   typing by hand instead — the numbers are real, taken from each
-   operation's own limits and from the sample account's 110 employees, so
-   keep them honest if a limit changes.
+/* Originally one card per operation on the Dashboard; the 2026-09-25
+   redesign moved that card grid off the Dashboard entirely (destined for
+   the still-unbuilt Welcome/tier routing page, TODO.md). Kept, not
+   deleted — OPERATION_CELL_ESTIMATE below is still derived from `cost`
+   here and is still live (welcomeChartsHtml()), and the future tier page
+   is expected to want this exact blurb/cost text for its own cards.
+   `cost` is what you would be typing by hand instead — the numbers are
+   real, taken from each operation's own limits and from the sample
+   account's 110 employees, so keep them honest if a limit changes.
 
    The dashboard is the one screen written in English; every operation's
    own copy stays in Banglish. */
@@ -460,9 +465,9 @@ const OPERATION_BLURBS = {
 };
 
 /* Five seconds a cell is generous for someone typing carefully from a
-   spec. 4,200 cells at that rate is the figure in the hero. */
+   spec — the constant welcomeChartsHtml()'s own "minutes saved" chart
+   and Team activity's "estimated time saved" tile both multiply by. */
 const WELCOME_SECONDS_PER_CELL = 5;
-const WELCOME_BIGGEST_BATCH = 300 * 14;
 
 /* Dashboard's admin-only "Team activity" section (2026-09-25) needs a
    per-generate cell-count to turn a real bulk_generate count into an

@@ -557,6 +557,10 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
 }
 
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+/* Dashboard's public "By the numbers" charts (2026-09-25) need three
+   columns, not two — a modifier alongside .stat-row-4's own precedent
+   rather than a new component. */
+.field-row-3 { grid-template-columns: repeat(3, 1fr); }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 12.5px; font-weight: 600; color: var(--text); }
 .field .hint { font-size: 11.5px; color: var(--text-faint); }
@@ -761,6 +765,10 @@ input.invalid { border-color: var(--danger); }
   font-weight: 500;
 }
 .tiny-btn:hover { border-color: var(--accent); color: var(--accent); }
+.tiny-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.tiny-btn:disabled:hover { border-color: var(--border-strong); color: var(--text-muted); }
+
+.welcome-bar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .icon-btn {
   border: 1px solid var(--border); background: var(--surface); color: var(--text-faint);
   width: 30px; height: 30px; border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0;
@@ -1342,103 +1350,31 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-weight: 700;
 }
 
-/* The meme: a spreadsheet being filled in by hand at 2am, which is the
-   thing this app exists to prevent. Drawn rather than fetched — the page
-   ships no external assets beyond the font, and a real meme image would
-   be someone else's to licence. The caret blink is covered by the global
-   prefers-reduced-motion rule at the bottom of this file. */
+/* The meme (2026-09-25, Dashboard redesign): a real Hackerman GIF
+   (assets/hackerman.gif, downloaded from Tenor at the user's own direct
+   instruction) — reverses the original "drawn rather than fetched"
+   decision below this app held for its whole life, on the reasoning
+   that a real meme image is someone else's to licence. That reasoning
+   stands for anything published to a stranger; this is the user's own
+   internal QA tool, and the call to use a real meme here was made
+   directly, not defaulted into. Not inlined — the file is ~2.9MB,
+   the same "too big for a data URI" reasoning as assets/lazy_cat.mp4,
+   kept as a plain relative-path asset instead. */
 .meme { margin: 0; }
-
-.meme-win {
+.meme-img {
+  display: block;
+  width: 100%;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  overflow: hidden;
   box-shadow: var(--shadow);
 }
 
-.meme-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 9px;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border);
-}
-.meme-dots { display: flex; gap: 4px; flex-shrink: 0; }
-.meme-dots i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--border-strong);
-}
-.meme-file {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  color: var(--text-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.meme-sheet {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  table-layout: fixed;
-}
-.meme-sheet th,
-.meme-sheet td {
-  border: 1px solid var(--border);
-  padding: 4px 5px;
-  text-align: left;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-/* the row-number gutter and the A/B/C strip */
-.meme-sheet th {
-  width: 18px;
-  background: var(--surface-2);
-  color: var(--text-faint);
-  font-weight: 500;
-  text-align: center;
-}
-.meme-sheet tr:first-child th { width: auto; }
-.meme-sheet td { color: var(--text-muted); }
-.meme-sheet td.hd { color: var(--text); font-weight: 600; }
-/* the cell the cursor is sitting in, still empty */
-.meme-sheet td.sel {
-  outline: 1.5px solid var(--accent);
-  outline-offset: -1.5px;
-  background: var(--accent-soft);
-}
-.caret {
-  display: inline-block;
-  width: 1px;
-  height: 10px;
-  background: var(--text);
-  vertical-align: -1px;
-  animation: memeCaret 1.1s step-end infinite;
-}
-@keyframes memeCaret { 50% { opacity: 0; } }
-
-.meme-status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 7px 9px;
-  border-top: 1px solid var(--border);
-  background: var(--danger-soft);
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  color: var(--danger);
-}
-.meme-time { white-space: nowrap; }
-
-/* one clickable card per operation */
+/* One clickable card per operation. No longer used on the Dashboard
+   itself as of the 2026-09-25 redesign — "What it can do" moved out,
+   destined for the still-unbuilt Welcome/tier routing page (TODO.md),
+   which is expected to want the exact same numbered-card shape for its
+   own Bulk/Settings/Both choices. Kept rather than deleted for that
+   reason; delete if that page ends up not reusing it. */
 .op-card-grid { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
 .op-card {
   display: flex;
@@ -1730,7 +1666,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .sidebar { width: 100%; height: auto; position: relative; }
   .main { height: auto; overflow: visible; }
   .main-scroll { overflow: visible; }
-  .field-row { grid-template-columns: 1fr; }
+  .field-row, .field-row-3 { grid-template-columns: 1fr; }
   .stat-row, .stat-row-4 { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
   .welcome-hero { grid-template-columns: 1fr; }

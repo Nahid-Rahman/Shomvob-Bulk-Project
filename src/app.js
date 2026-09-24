@@ -417,11 +417,18 @@
     const scroller = $(".main-scroll");
     if (scroller) scroller.scrollTop = 0;
 
+    /* welcomeBar only ever shows on the Dashboard itself (below) — reset
+       to hidden by default here rather than in every other branch, since
+       it's a static sibling of #actionBar that survives every
+       #mainContent re-render on its own. */
+    $("#welcomeBar").style.display = "none";
+
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media", "wide");
       root.innerHTML = welcomeTemplate();
       wireWelcomeEvents();
+      $("#welcomeBar").style.display = "flex";
       return;
     }
     if (currentOp === "operations_gate") {
@@ -3091,6 +3098,34 @@
       .join("")}</div>`;
   }
 
+  /* Dashboard's public "By the numbers" charts (2026-09-25 redesign) —
+     unlike "Team activity" below, these need no sign-in and no network
+     call at all: every number here is static data this file already
+     ships (OPERATION_CELL_ESTIMATE, the same figures the old 3-tile
+     stat row and each op-card's own "by hand" cost line already showed).
+     Reuses barListHtml() as-is rather than a second bar component. */
+  function welcomeChartsHtml() {
+    const cellCounts = {};
+    const minuteCounts = {};
+    OPERATIONS.forEach((op) => {
+      const cells = OPERATION_CELL_ESTIMATE[op.id] || 0;
+      cellCounts[op.label] = cells;
+      minuteCounts[op.label] = Math.round((cells * WELCOME_SECONDS_PER_CELL) / 60);
+    });
+    const shapeCounts = { "Build from scratch": 3, "Fill an existing export": 2 };
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>By the numbers</h2></div>
+        <p class="section-note">Static facts about the five operations themselves — nothing here needs a real sign-in.</p>
+        <div class="field-row field-row-3">
+          <div class="field"><label>Cells per operation, by hand</label>${barListHtml(cellCounts)}</div>
+          <div class="field"><label>Minutes saved per operation, at five seconds a cell</label>${barListHtml(minuteCounts)}</div>
+          <div class="field"><label>Built from scratch vs. filled into an export</label>${barListHtml(shapeCounts)}</div>
+        </div>
+      </div>
+    `;
+  }
+
   function dashboardStatsHtml() {
     if (dashboardStats.status === "idle" || dashboardStats.status === "not_admin") return "";
     if (dashboardStats.status === "checking") {
@@ -3128,27 +3163,14 @@
     `;
   }
 
+  /* Dashboard redesign (2026-09-25), driven directly, screenshot by
+     screenshot: the operation-card grid ("What it can do") and the old
+     3-tile hero stat row both leave this page — the cards move to the
+     still-unbuilt Welcome/tier routing page (TODO.md), and the tiles are
+     replaced by welcomeChartsHtml()'s own public charts below. The meme
+     becomes a real GIF (see app.css's own note on that reversal) rather
+     than the old drawn spreadsheet. */
   function welcomeTemplate() {
-    const seconds = WELCOME_BIGGEST_BATCH * WELCOME_SECONDS_PER_CELL;
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.round((seconds % 3600) / 60);
-
-    const cards = OPERATIONS.filter((op) => op.status === "active")
-      .map((op, i) => {
-        const b = OPERATION_BLURBS[op.id] || { blurb: "", cost: "" };
-        return `
-          <button type="button" class="op-card" data-op="${op.id}">
-            <span class="op-card-num">${String(i + 1).padStart(2, "0")}</span>
-            <span class="op-card-body">
-              <span class="op-card-title">${escapeHtml(op.label)}</span>
-              <span class="op-card-blurb">${escapeHtml(b.blurb)}</span>
-              <span class="op-card-cost">by hand: ${escapeHtml(b.cost)}</span>
-            </span>
-            <span class="op-card-go" aria-hidden="true">&rsaquo;</span>
-          </button>`;
-      })
-      .join("");
-
     return `
       <div class="welcome-hero">
         <div class="welcome-intro">
@@ -3161,55 +3183,20 @@
             an afternoon filling 4,200 cells to get some. So now you don't.
           </p>
           <div class="how-row">
-            <span class="how-step"><b>1</b> Pick an operation</span>
-            <span class="how-step"><b>2</b> Fill in a few fields</span>
+            <span class="how-step"><b>1</b> Sign in for real</span>
+            <span class="how-step"><b>2</b> Pick Bulk or Settings</span>
             <span class="how-step"><b>3</b> Hit Generate. That's it.</span>
           </div>
         </div>
 
-        <figure class="meme" aria-label="A spreadsheet being filled in by hand at two in the morning, with 4,197 cells left to go">
-          <div class="meme-win">
-            <div class="meme-bar">
-              <span class="meme-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span class="meme-file">employees_FINAL_v7_use_this.xlsx</span>
-            </div>
-            <table class="meme-sheet">
-              <tr><th></th><th>A</th><th>B</th><th>C</th></tr>
-              <tr><th>1</th><td class="hd">Emp ID</td><td class="hd">First Name</td><td class="hd">Phone</td></tr>
-              <tr><th>2</th><td>JHTY0001</td><td>Rahim</td><td>8801712&hellip;</td></tr>
-              <tr><th>3</th><td>JHTY0002</td><td>Karim</td><td>8801913&hellip;</td></tr>
-              <tr><th>4</th><td>JHTY0003</td><td class="sel"><span class="caret"></span></td><td></td></tr>
-            </table>
-            <div class="meme-status">
-              <span>4,197 cells to go</span>
-              <span class="meme-time">2:14 AM &#128565;</span>
-            </div>
-          </div>
+        <figure class="meme" aria-label="Hackerman, from Kung Fury — this whole page runs on hacker-movie logic">
+          <img class="meme-img" src="assets/hackerman.gif" alt="Hackerman" loading="lazy" />
         </figure>
       </div>
 
-      <div class="stat-row">
-        <div class="stat-tile">
-          <span class="stat-value">5</span>
-          <span class="stat-label">operations, each matching a real Shomvob upload template</span>
-        </div>
-        <div class="stat-tile">
-          <span class="stat-value">${WELCOME_BIGGEST_BATCH.toLocaleString("en-US")}</span>
-          <span class="stat-label">cells in one 300-employee batch, none of which you will type</span>
-        </div>
-        <div class="stat-tile">
-          <span class="stat-value">${hours}h ${mins}m</span>
-          <span class="stat-label">that would take by hand, at five seconds a cell. Here it takes two</span>
-        </div>
-      </div>
+      ${welcomeChartsHtml()}
 
       ${dashboardStatsHtml()}
-
-      <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>What it can do</h2></div>
-        <p class="section-note">Click any of them to jump straight in.</p>
-        <div class="op-card-grid">${cards}</div>
-      </div>
 
       <p class="welcome-foot">
         No backend, no database, nothing sent anywhere — the whole thing runs
@@ -3220,11 +3207,35 @@
   }
 
   function wireWelcomeEvents() {
-    $all(".op-card").forEach((card) => {
-      card.addEventListener("click", () => {
-        goToOperation(card.dataset.op);
-      });
-    });
+    /* The sticky Login/Setup bar (2026-09-25) — Login reuses the exact
+       operations-gate sign-in flow (Tiered Access step 2, above) rather
+       than a second auth path: it just sends the visitor there with no
+       pending operation, so a successful sign-in lands back here
+       (`target = pendingOperation || "welcome"`) instead of jumping
+       somewhere unrelated. Setup is the joke "Auto setup my company and
+       bulk upload" button from TODO.md's dictated journey — its own
+       Rickroll behaviour is a later step, so it stays honestly disabled
+       for now rather than shipping a click that does nothing. `.onclick =`
+       (not addEventListener) on purpose: this button is static markup
+       outside #mainContent, so it survives every re-render of this page,
+       and a plain addEventListener would stack a duplicate handler on
+       every visit. */
+    const note = $("#welcomeBarNote");
+    const loginBtn = $("#welcomeLoginBtn");
+    if (setup.toolToken) {
+      note.textContent = `Signed in as ${setup.toolEmail} — Operations and Company Setup are unlocked for this session.`;
+      loginBtn.style.display = "none";
+    } else {
+      note.textContent = "Real Bulk Forge sign-in unlocks Operations and Company Setup for the rest of this session.";
+      loginBtn.style.display = "inline-flex";
+      loginBtn.onclick = () => {
+        pendingOperation = null;
+        currentOp = "operations_gate";
+        renderSidebar();
+        renderMain();
+      };
+    }
+
     /* Fires once (guarded by status leaving "idle"), and only when a real
        tool sign-in has already happened — the whole point of not showing
        anyone else a network request for this at all. Re-renders just
