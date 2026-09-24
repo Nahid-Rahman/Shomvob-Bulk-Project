@@ -4374,8 +4374,8 @@ references them any more.
 page:** the shared operation-page shell is tuned for a tall scrolling
 form beside a modest video rail, which is neither what this page has —
 flagged directly with three asks: a bigger video, the left copy
-vertically centred against it, and "Fine, back to reality" leading
-somewhere real. Three scoped overrides, all gated behind a
+vertically centred against it, and the exit button leading somewhere
+real. Three scoped overrides, all gated behind a
 `.rickroll-layout` class on `.main-inner` (reset to removed at the top
 of every `renderMain()` call, the same place `#welcomeBar` already
 resets itself, so it can never leak onto an actual operation's own
@@ -4393,11 +4393,18 @@ against the video's own full height. All three reset to the ordinary
 single-column mobile behaviour under 1100px, same breakpoint the shared
 shell already collapses at.
 
-**"Fine, back to reality" now opens the real sign-in gate, not the
+**The exit button now opens the real sign-in gate, not the
 Dashboard** — direct request ("okhane click korle main login e nibe"):
 the joke's own punchline is that there's no shortcut, so its own exit
 button leads to the actual next step (signing in for real) rather than
-back to the same Dashboard the joke was clicked from. Reuses
+back to the same Dashboard the joke was clicked from. **Relabelled the
+same way, direct follow-up** ("back to reality term ta sorao? login to
+Bulk Cheat emon kisu ekta dao" — drop that wording, give something like
+"login to Bulk [X]"): "Fine, back to reality" implied a return trip
+that no longer happens now that the button leads forward into sign-in
+instead — **`#rickrollBackBtn` now reads "Login to Bulk Forge"**, the
+app's own real name rather than an invented one, since the joke here is
+that there's no cheat code, just the real product. Reuses
 `operations_gate`/`operationsGateTemplate()` exactly as every other
 real sign-in in this app does, with `pendingOperation` cleared first so
 a successful sign-in lands on the Dashboard rather than jumping

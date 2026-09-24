@@ -3377,7 +3377,7 @@
         </p>
       </div>
       <div class="setup-actions">
-        <button type="button" class="tiny-btn" id="rickrollBackBtn">Fine, back to reality</button>
+        <button type="button" class="tiny-btn" id="rickrollBackBtn">Login to Bulk Forge</button>
       </div>
     `;
   }
