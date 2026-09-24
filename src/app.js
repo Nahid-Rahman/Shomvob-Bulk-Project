@@ -461,6 +461,18 @@
       wireOperationsGateEvents();
       return;
     }
+    if (currentOp === "rickroll") {
+      $("#actionBar").style.display = "none";
+      root.classList.remove("wide");
+      root.classList.add("has-media");
+      root.innerHTML =
+        `<div class="op-col">${rickrollTemplate()}</div>` +
+        `<aside class="op-media"><figure class="op-media-frame">` +
+        `<video src="assets/rickroll.mp4" loop muted playsinline autoplay></video>` +
+        `</figure></aside>`;
+      wireRickrollEvents();
+      return;
+    }
     if (currentOp === "attendance_add") {
       $("#actionBar").style.display = "flex";
       paintOperation(root, attendanceTemplate(), "attendance_add");
@@ -3334,6 +3346,40 @@
         clearBtnBusy(btn);
         err.textContent = e.message;
       }
+    });
+  }
+
+  /* The Dashboard's joke "Auto setup my company & bulk upload" button
+     (TODO.md's own dictated journey, step 3) — a real Rickroll, not a real
+     feature. A full page, not a modal (rebuilt 2026-09-25 after direct
+     feedback: "eta ekta page hobar kotha" — this is supposed to be a
+     page) — reuses the exact same op-col/op-media two-column shell every
+     operation page already uses for its own video rail (renderMain()'s
+     "rickroll" branch, above), rather than a small modal cramping the
+     video into a fraction of the screen. */
+  function rickrollTemplate() {
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Dear certified lazy</span>
+        <h1 class="page-title">LMAO you lazy!</h1>
+        <p class="page-desc">
+          Did you really think it would be this easy? No — it'll make your
+          life easier and save you 95% of the time, but you still have to
+          do it yourself. Just a few basic inputs, and whatever you
+          actually need is ready.
+        </p>
+      </div>
+      <div class="setup-actions">
+        <button type="button" class="tiny-btn" id="rickrollBackBtn">Fine, back to reality</button>
+      </div>
+    `;
+  }
+
+  function wireRickrollEvents() {
+    $("#rickrollBackBtn").addEventListener("click", () => {
+      currentOp = "welcome";
+      renderSidebar();
+      renderMain();
     });
   }
 
@@ -10616,28 +10662,17 @@
      joke, not a real feature." Wired once here rather than inside
      wireWelcomeEvents(), since #welcomeSetupBtn is static markup outside
      #mainContent that survives every Dashboard re-render — the same
-     stacking risk #welcomeLoginBtn's own .onclick assignment avoids,
-     just solved the other way here since this button's own behaviour
-     never depends on setup.toolToken and so never needs rewiring. Same
-     clone-and-replace-on-open + Escape pattern askDiscard() already
-     uses, so a second open can't stack a duplicate close handler. */
-  function wireRickrollModal() {
+     stacking risk #welcomeLoginBtn's own .onclick assignment avoids, just
+     solved the other way here since this button's own behaviour never
+     depends on setup.toolToken and so never needs rewiring. Rebuilt
+     2026-09-25 from a small modal into a real page navigation (direct
+     feedback: "eta ekta page hobar kotha") — see rickrollTemplate()/
+     wireRickrollEvents() and renderMain()'s "rickroll" branch, above. */
+  function wireRickroll() {
     $("#welcomeSetupBtn").addEventListener("click", () => {
-      const modal = $("#rickrollModal");
-      const closeBtn = $("#rickrollCloseBtn");
-      const close = () => {
-        modal.hidden = true;
-        document.removeEventListener("keydown", onKey);
-      };
-      const onKey = (e) => {
-        if (e.key === "Escape") close();
-      };
-      const freshClose = closeBtn.cloneNode(true);
-      closeBtn.replaceWith(freshClose);
-      freshClose.addEventListener("click", close);
-      document.addEventListener("keydown", onKey);
-      modal.hidden = false;
-      freshClose.focus();
+      currentOp = "rickroll";
+      renderSidebar();
+      renderMain();
     });
   }
 
@@ -10721,7 +10756,7 @@
     wireLogin();
     wireLogout();
     wireUnloadGuard();
-    wireRickrollModal();
+    wireRickroll();
     /* Static, same on every page, set once rather than re-rendered by
        every page template — the year is the only moving part. */
     $("#appFooter").textContent = `© ${today.getFullYear()} Mahmudur Rahman Nahid — Made with !Love, not for !promotion.`;

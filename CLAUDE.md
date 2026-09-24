@@ -4346,6 +4346,30 @@ being built, same as how a card-game reference or a quote's exact
 wording elsewhere in this app was only ever pinned down at build time,
 not predicted in the planning note that came before it.
 
+**Rebuilt from a modal into a real page the same day, on direct
+feedback** ("eta eto choto keno banaiso? eta ekta page hobar kotha" —
+why did you make this so small, this is supposed to be a page): the
+`.modal-card-split` shell above was scoped to `max-width: 720px`, which
+read as a cramped popup rather than the "right side Rickroll, left side
+copy" layout actually wanted. `#rickrollModal` is gone from
+`part1.html` entirely — clicking `#welcomeSetupBtn` now navigates
+(`currentOp = "rickroll"`) instead of un-hiding a modal, and
+`renderMain()` renders it through the exact same `.has-media`/
+`.op-col`/`.op-media`/`.op-media-frame` two-column shell every
+operation page already uses for its own video rail (`paintOperation()`,
+above) — left column ~65% width for the copy, right column sticky with
+the video filling it properly, rather than a second, smaller layout
+system built just for this one page. `rickrollTemplate()`/
+`wireRickrollEvents()` replace the old modal's markup/open-close
+handlers; the button wiring itself (`wireRickroll()`, still called once
+from `init()`, same reasoning as before — `#welcomeSetupBtn` is static
+markup outside `#mainContent`) now just sets `currentOp` and calls
+`renderSidebar()`/`renderMain()`, the same shape every other
+page-to-page navigation in this app already uses, rather than a modal
+open/close pair. "Fine, back to reality" returns to the Dashboard the
+same way. `.rickroll-card`/`.rickroll-title`/`.rickroll-video-panel`
+are deleted from `app.css` — nothing references them any more.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both

@@ -1553,35 +1553,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* The Dashboard's joke "Auto setup my company & bulk upload" button
-   (TODO.md's own dictated journey, step 3; built 2026-09-25) — a real
-   Rickroll, not a real feature. Same .modal-card-split shell "Run
-   defaults" already uses, but the right-hand panel is a real video, not
-   a thin decorative quote strip, so it gets its own width/treatment
-   rather than reusing .modal-quote-panel. rickroll.mp4 is the user's
-   own supplied clip (see CLAUDE.md), same "always muted, looping,
-   playsinline, no sound" handling as every other video in this app. */
-.rickroll-card { max-width: 720px; }
-.rickroll-title { font-size: 27px; letter-spacing: -0.01em; }
-.rickroll-video-panel {
-  margin: 0;
-  flex: 0 0 260px;
-  min-width: 200px;
-  position: relative;
-  background: #000;
-  border-left: 1px solid var(--border);
-}
-.rickroll-video-panel video {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-@media (max-width: 760px) {
-  .rickroll-card { max-width: 460px; }
-  .rickroll-video-panel { border-left: none; border-top: 1px solid var(--border); flex-basis: 220px; }
-}
+   (TODO.md's own dictated journey, step 3) — a real Rickroll, not a real
+   feature. Rebuilt 2026-09-25 from a small modal into a full page
+   (flagged directly: "eta ekta page hobar kotha") — reuses the exact
+   same .has-media/.op-col/.op-media/.op-media-frame two-column shell
+   every operation page already uses for its own video rail, rather than
+   inventing a second layout system just for this one page. rickroll.mp4
+   is the user's own supplied clip (see CLAUDE.md), same "always muted,
+   looping, playsinline, no sound" handling as every other video here. */
 /* Scroll still works, the browser's own scrollbar chrome doesn't show
    (2026-09-14, direct request: "scroll bar ta shoray dite parba?"). */
 .modal-run-list { margin: 14px 0 6px; max-height: 46vh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
@@ -1939,26 +1918,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
       <p class="modal-quote-text" id="runDefaultsQuoteText"></p>
       <p class="modal-quote-attr" id="runDefaultsQuoteAttr"></p>
     </div>
-  </div>
-</div>
-
-<div class="modal" id="rickrollModal" hidden>
-  <div class="modal-card modal-card-split rickroll-card" role="dialog" aria-modal="true" aria-labelledby="rickrollTitle">
-    <div class="modal-card-main">
-      <h2 class="modal-title rickroll-title" id="rickrollTitle">LMAO you lazy!</h2>
-      <p class="modal-body">
-        Did you really think it would be this easy? No — it'll make your
-        life easier and save you 95% of the time, but you still have to
-        do it yourself. Just a few basic inputs, and whatever you
-        actually need is ready.
-      </p>
-      <div class="modal-actions">
-        <button type="button" class="tiny-btn modal-keep" id="rickrollCloseBtn">Fine, back to reality</button>
-      </div>
-    </div>
-    <figure class="rickroll-video-panel">
-      <video src="assets/rickroll.mp4" loop muted playsinline autoplay></video>
-    </figure>
   </div>
 </div>
 
@@ -3557,6 +3516,18 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       root.classList.remove("has-media", "wide");
       root.innerHTML = operationsGateTemplate();
       wireOperationsGateEvents();
+      return;
+    }
+    if (currentOp === "rickroll") {
+      $("#actionBar").style.display = "none";
+      root.classList.remove("wide");
+      root.classList.add("has-media");
+      root.innerHTML =
+        `<div class="op-col">${rickrollTemplate()}</div>` +
+        `<aside class="op-media"><figure class="op-media-frame">` +
+        `<video src="assets/rickroll.mp4" loop muted playsinline autoplay></video>` +
+        `</figure></aside>`;
+      wireRickrollEvents();
       return;
     }
     if (currentOp === "attendance_add") {
@@ -6432,6 +6403,40 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         clearBtnBusy(btn);
         err.textContent = e.message;
       }
+    });
+  }
+
+  /* The Dashboard's joke "Auto setup my company & bulk upload" button
+     (TODO.md's own dictated journey, step 3) — a real Rickroll, not a real
+     feature. A full page, not a modal (rebuilt 2026-09-25 after direct
+     feedback: "eta ekta page hobar kotha" — this is supposed to be a
+     page) — reuses the exact same op-col/op-media two-column shell every
+     operation page already uses for its own video rail (renderMain()'s
+     "rickroll" branch, above), rather than a small modal cramping the
+     video into a fraction of the screen. */
+  function rickrollTemplate() {
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Dear certified lazy</span>
+        <h1 class="page-title">LMAO you lazy!</h1>
+        <p class="page-desc">
+          Did you really think it would be this easy? No — it'll make your
+          life easier and save you 95% of the time, but you still have to
+          do it yourself. Just a few basic inputs, and whatever you
+          actually need is ready.
+        </p>
+      </div>
+      <div class="setup-actions">
+        <button type="button" class="tiny-btn" id="rickrollBackBtn">Fine, back to reality</button>
+      </div>
+    `;
+  }
+
+  function wireRickrollEvents() {
+    $("#rickrollBackBtn").addEventListener("click", () => {
+      currentOp = "welcome";
+      renderSidebar();
+      renderMain();
     });
   }
 
@@ -13714,28 +13719,17 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      joke, not a real feature." Wired once here rather than inside
      wireWelcomeEvents(), since #welcomeSetupBtn is static markup outside
      #mainContent that survives every Dashboard re-render — the same
-     stacking risk #welcomeLoginBtn's own .onclick assignment avoids,
-     just solved the other way here since this button's own behaviour
-     never depends on setup.toolToken and so never needs rewiring. Same
-     clone-and-replace-on-open + Escape pattern askDiscard() already
-     uses, so a second open can't stack a duplicate close handler. */
-  function wireRickrollModal() {
+     stacking risk #welcomeLoginBtn's own .onclick assignment avoids, just
+     solved the other way here since this button's own behaviour never
+     depends on setup.toolToken and so never needs rewiring. Rebuilt
+     2026-09-25 from a small modal into a real page navigation (direct
+     feedback: "eta ekta page hobar kotha") — see rickrollTemplate()/
+     wireRickrollEvents() and renderMain()'s "rickroll" branch, above. */
+  function wireRickroll() {
     $("#welcomeSetupBtn").addEventListener("click", () => {
-      const modal = $("#rickrollModal");
-      const closeBtn = $("#rickrollCloseBtn");
-      const close = () => {
-        modal.hidden = true;
-        document.removeEventListener("keydown", onKey);
-      };
-      const onKey = (e) => {
-        if (e.key === "Escape") close();
-      };
-      const freshClose = closeBtn.cloneNode(true);
-      closeBtn.replaceWith(freshClose);
-      freshClose.addEventListener("click", close);
-      document.addEventListener("keydown", onKey);
-      modal.hidden = false;
-      freshClose.focus();
+      currentOp = "rickroll";
+      renderSidebar();
+      renderMain();
     });
   }
 
@@ -13819,7 +13813,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     wireLogin();
     wireLogout();
     wireUnloadGuard();
-    wireRickrollModal();
+    wireRickroll();
     /* Static, same on every page, set once rather than re-rendered by
        every page template — the year is the only moving part. */
     $("#appFooter").textContent = `© ${today.getFullYear()} Mahmudur Rahman Nahid — Made with !Love, not for !promotion.`;
