@@ -4084,6 +4084,100 @@ enforcing anything), and Admin Panel. All still open per TODO.md; ask
 the user what's next rather than assuming this redesign implies a
 particular build order for the rest.
 
+### Dashboard redesign, round two — sidebar hidden pre-signin, sticky bar restyled (2026-09-25)
+
+Same day, three more items dictated screenshot by screenshot ("ami
+koyekta jinish boli age okay. then bolle koiro" — let me say a few
+things first, then implement once I say go), confirmed before any code
+was written, same discipline as round one.
+
+**The sidebar's Operations section is now hidden until a real tool
+sign-in happens** — direct feedback, with an arrow drawn on a
+screenshot: "landing dashboard e ei side bar dekhabona. agei shob
+dekhay dile somossa" (don't show this sidebar on the landing dashboard;
+showing everything up front is a problem). `#gatedNav`
+(`part1.html`) wraps the "Operations" label + `#opNav`; `renderSidebar()`
+toggles its `display` on every call based on `setup.toolToken`. With
+this hidden, the Dashboard is the only reachable page while signed out,
+and the sticky bar's own Sign in button is the one way off it.
+
+**Deliberately scoped to Operations only, not Setup/Company Setup** —
+found and flagged before touching it, not silently decided: Company
+Setup already gates itself with its own two-step sign-in form
+(`setupSignInTemplate()`), reachable by clicking its own always-visible
+sidebar link. Hiding that link too would have made its own step one
+form unreachable — nothing else lets a visitor type into it — a real
+regression against an existing, tested feature, not a cosmetic call.
+Raised directly rather than assumed; the user confirmed the split
+(Operations hidden, Setup/Company Setup untouched) is correct, since the
+Operations-picking experience itself is what's moving to a future,
+not-yet-built post-login page ("side bar ta amader new arekta je
+dashboard hobe login korar por okhane ashbe. almost same
+functionalities... eta just generic hocche" — the sidebar's Operations
+list is headed for that new post-login page; what's on the pre-login
+landing page now is meant to be generic).
+
+**This made yesterday's per-operation inline gate unreachable from the
+sidebar, confirmed acceptable rather than silently left broken.** Tiered
+Access step 2 (above) was built around clicking an operation item
+directly — even signed out — to trigger `operationsGateTemplate()` with
+`pendingOperation` set, landing back on that exact operation after
+signing in. With the operation item itself now hidden pre-signin, that
+path can never fire from the sidebar any more; the Dashboard's own
+sticky Sign in button (`pendingOperation = null`) is the only real entry
+point now, always returning to the Dashboard rather than a specific
+operation. `tests/tiered-access.test.js` was rewritten to match — blocks
+A/B/C now start from `#welcomeLoginBtn` instead of a direct
+`.op-item` click, and assert Operations becomes visible
+(`#gatedNav`) rather than assuming it always was. The underlying gate
+mechanism and `goToOperation()`'s `pendingOperation` handling are
+otherwise untouched — infrastructure that's currently only ever called
+with a null pending operation, not dead code, since a future page with
+its own per-operation entry points could still exercise it.
+
+**A real bug found while confirming this, fixed the same pass:**
+`#gatedNav`'s visibility could go stale. Company Setup's own tool
+sign-in success handler called `renderSetupBody()` but never
+`renderSidebar()`, so a visitor who signed in through Company Setup's
+own form (rather than the Dashboard's) had Operations already unlocked
+functionally but still hidden until some unrelated click (Dashboard,
+say) happened to re-render the sidebar — confirmed live via
+`tiered-access.test.js`'s own block D, which now asserts `#gatedNav` is
+visible immediately after that sign-in, not just that a subsequent
+operation click happens to work. The mirror case — Company Setup's own
+Sign out clearing `setup.toolToken` without re-rendering the sidebar,
+which would have left Operations visibly (but falsely) unlocked — was
+fixed the same way, on the same reasoning, before it could be reported
+live.
+
+**The sticky bar itself was restyled against a cookie-consent-banner
+screenshot the user supplied as a reference** — the ask was narrower
+than the reference's full layout: keep the existing note line
+(`#welcomeBarNote`, unchanged wording, confirmed to stay: "lagle pore
+change kora jabe" — can change it later if needed) sitting above the
+button row, like the reference's title/description sitting above its
+own three buttons, and make **both buttons read as equally real
+choices** — round one's pairing of a solid green Sign in against a
+dashed `.tiny-btn` made the disabled Setup button "get lost" ("ekhon
+jemon auto setup lagtese haray gese or mishe gese pura"). `.welcome-bar`
+switched from `.action-bar`'s default row layout to a stacked column;
+`.welcome-bar-btn` is the shared shape (padding, radius, font-size/
+weight, `flex: 1 1 220px` so they split the row evenly) both buttons
+carry, with `.generate-btn`/`.btn-neutral` only supplying colour —
+`.btn-neutral` is a new, plain solid secondary button (`--surface-2`
+background, `--border-strong` outline), reusable anywhere else a
+same-weight non-accent button is needed alongside a `.generate-btn`.
+
+**Test fallout**: `tests/lib.js`'s shared `goToOp()` helper (used by all
+five generator suites' own first operation visit) rewritten the same
+way as `tiered-access.test.js` — checks whether `#gatedNav` is already
+visible (a page that restored a session via `sessionStorage` on reload,
+as `attendance.test.js`/`assets.test.js` both do per-call, already has
+it) and only routes through `#welcomeLoginBtn` when it isn't. Full
+9-suite run green throughout this pass; confirmed visually with a direct
+Playwright screenshot of both the signed-out and signed-in Dashboard
+states, matching the two screenshots above exactly.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both

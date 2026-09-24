@@ -75,8 +75,10 @@ __APP_CSS__
     </div>
     <nav class="op-nav">
       <div id="homeNav"></div>
-      <div class="op-nav-label">Operations</div>
-      <div id="opNav"></div>
+      <div id="gatedNav">
+        <div class="op-nav-label">Operations</div>
+        <div id="opNav"></div>
+      </div>
       <div class="op-nav-label">Setup</div>
       <div id="setupNav"></div>
     </nav>
@@ -128,10 +130,10 @@ __APP_CSS__
       </button>
     </div>
     <div class="action-bar welcome-bar" id="welcomeBar" style="display:none">
-      <span class="action-summary" id="welcomeBarNote"></span>
+      <span class="action-summary welcome-bar-note" id="welcomeBarNote"></span>
       <div class="welcome-bar-actions">
-        <button type="button" class="tiny-btn" id="welcomeSetupBtn" disabled title="Coming soon">Auto setup my company &amp; bulk upload</button>
-        <button type="button" class="generate-btn" id="welcomeLoginBtn">Sign in</button>
+        <button type="button" class="welcome-bar-btn btn-neutral" id="welcomeSetupBtn" disabled title="Coming soon">Auto setup my company &amp; bulk upload</button>
+        <button type="button" class="welcome-bar-btn generate-btn" id="welcomeLoginBtn">Sign in</button>
       </div>
     </div>
   </main>

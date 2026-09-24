@@ -352,6 +352,20 @@
     });
     home.appendChild(homeBtn);
 
+    /* Tiered Access, continued (2026-09-25): the Operations nav section
+       is a direct-access shortcut this whole journey is meant to gate —
+       showing it before a real sign-in defeats the point of the sticky
+       Sign in bar on the Dashboard (direct user feedback: "landing
+       dashboard e ei side bar dekhabona. agei shob dekhay dile
+       somossa"). Scoped to Operations only, not Setup/Company Setup —
+       that section already gates itself with its own two-step sign-in
+       form (setupSignInTemplate()), reachable exactly as it always was;
+       hiding it too would make that form's own step one unreachable,
+       since nothing else lets a visitor type into it. Worth confirming
+       with the user whether it should hide as well — flagged, not
+       assumed. */
+    $("#gatedNav").style.display = setup.toolToken ? "" : "none";
+
     const nav = $("#opNav");
     nav.innerHTML = "";
     OPERATIONS.forEach((op) => {
@@ -4213,6 +4227,10 @@
         clearLastSetupSession();
         clearToolSession();
         renderSetupBody();
+        /* Mirrors the sign-in fix above — without this, #gatedNav would
+           keep showing Operations as unlocked after a real tool
+           sign-out, since nothing else re-renders the sidebar here. */
+        renderSidebar();
       });
     }
     /* Lives in the persistent strip now, alongside Sign out, rather than
@@ -4325,6 +4343,12 @@
         saveToolSession(data.expires_at ? data.expires_at * 1000 : Date.now() + 3600 * 1000);
         logAudit("login", `${email} signed in`, { environment: setup.env });
         renderSetupBody();
+        /* Also reveals the sidebar's Operations section (2026-09-25,
+           #gatedNav) immediately — without this, a visitor who signs in
+           here first would have Operations already unlocked functionally
+           but still hidden until some other click (e.g. Dashboard)
+           happened to re-render the sidebar. */
+        renderSidebar();
       } catch (e) {
         err.textContent = e.message;
         clearBtnBusy(btn);

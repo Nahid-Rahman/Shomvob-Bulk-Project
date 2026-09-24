@@ -782,7 +782,30 @@ input.invalid { border-color: var(--danger); }
 .tiny-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .tiny-btn:disabled:hover { border-color: var(--border-strong); color: var(--text-muted); }
 
-.welcome-bar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* The Dashboard's sticky Sign in / Setup bar (2026-09-25, redesigned
+   the same day on direct feedback against a cookie-consent-banner
+   reference: the note reads as a title line above the button row, and
+   both buttons must read as equally real choices — the original pairing
+   of a solid green Sign in against a dashed .tiny-btn made the second
+   button "get lost." .welcome-bar-btn is the shared shape (size, radius,
+   weight) both buttons share; .generate-btn/.btn-neutral only supply the
+   colour. */
+.welcome-bar { flex-direction: column; align-items: stretch; gap: 12px; }
+.welcome-bar-note { font-size: 13px; }
+.welcome-bar-actions { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+.welcome-bar-btn {
+  flex: 1 1 220px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 20px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: inherit;
+}
+.welcome-bar-btn.btn-neutral {
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+.welcome-bar-btn.btn-neutral:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-strong); }
+.welcome-bar-btn.btn-neutral:disabled { opacity: 0.6; cursor: not-allowed; }
 .icon-btn {
   border: 1px solid var(--border); background: var(--surface); color: var(--text-faint);
   width: 30px; height: 30px; border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0;
@@ -1756,8 +1779,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     </div>
     <nav class="op-nav">
       <div id="homeNav"></div>
-      <div class="op-nav-label">Operations</div>
-      <div id="opNav"></div>
+      <div id="gatedNav">
+        <div class="op-nav-label">Operations</div>
+        <div id="opNav"></div>
+      </div>
       <div class="op-nav-label">Setup</div>
       <div id="setupNav"></div>
     </nav>
@@ -1809,10 +1834,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
       </button>
     </div>
     <div class="action-bar welcome-bar" id="welcomeBar" style="display:none">
-      <span class="action-summary" id="welcomeBarNote"></span>
+      <span class="action-summary welcome-bar-note" id="welcomeBarNote"></span>
       <div class="welcome-bar-actions">
-        <button type="button" class="tiny-btn" id="welcomeSetupBtn" disabled title="Coming soon">Auto setup my company &amp; bulk upload</button>
-        <button type="button" class="generate-btn" id="welcomeLoginBtn">Sign in</button>
+        <button type="button" class="welcome-bar-btn btn-neutral" id="welcomeSetupBtn" disabled title="Coming soon">Auto setup my company &amp; bulk upload</button>
+        <button type="button" class="welcome-bar-btn generate-btn" id="welcomeLoginBtn">Sign in</button>
       </div>
     </div>
   </main>
@@ -3348,6 +3373,20 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       renderMain();
     });
     home.appendChild(homeBtn);
+
+    /* Tiered Access, continued (2026-09-25): the Operations nav section
+       is a direct-access shortcut this whole journey is meant to gate —
+       showing it before a real sign-in defeats the point of the sticky
+       Sign in bar on the Dashboard (direct user feedback: "landing
+       dashboard e ei side bar dekhabona. agei shob dekhay dile
+       somossa"). Scoped to Operations only, not Setup/Company Setup —
+       that section already gates itself with its own two-step sign-in
+       form (setupSignInTemplate()), reachable exactly as it always was;
+       hiding it too would make that form's own step one unreachable,
+       since nothing else lets a visitor type into it. Worth confirming
+       with the user whether it should hide as well — flagged, not
+       assumed. */
+    $("#gatedNav").style.display = setup.toolToken ? "" : "none";
 
     const nav = $("#opNav");
     nav.innerHTML = "";
@@ -7210,6 +7249,10 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         clearLastSetupSession();
         clearToolSession();
         renderSetupBody();
+        /* Mirrors the sign-in fix above — without this, #gatedNav would
+           keep showing Operations as unlocked after a real tool
+           sign-out, since nothing else re-renders the sidebar here. */
+        renderSidebar();
       });
     }
     /* Lives in the persistent strip now, alongside Sign out, rather than
@@ -7322,6 +7365,12 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         saveToolSession(data.expires_at ? data.expires_at * 1000 : Date.now() + 3600 * 1000);
         logAudit("login", `${email} signed in`, { environment: setup.env });
         renderSetupBody();
+        /* Also reveals the sidebar's Operations section (2026-09-25,
+           #gatedNav) immediately — without this, a visitor who signs in
+           here first would have Operations already unlocked functionally
+           but still hidden until some other click (e.g. Dashboard)
+           happened to re-render the sidebar. */
+        renderSidebar();
       } catch (e) {
         err.textContent = e.message;
         clearBtnBusy(btn);

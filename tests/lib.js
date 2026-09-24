@@ -133,22 +133,29 @@ async function mockToolSignIn(page) {
   await page.route("**/rest/v1/audit_log**", (route) => route.fulfill({ status: 201, contentType: "application/json", body: "[]" }));
 }
 
-/* Clicks an operation's sidebar item; if that lands on the real-login
-   gate (setup.toolToken not set yet on this page), signs in through it
-   with the fake credentials mockToolSignIn() above makes work, landing
-   back on the originally-requested operation — same as a real visitor's
-   first click of any operation in a fresh tab. Every operation switch
-   after this one on the same page goes straight through, since
-   goToOperation() only shows the gate once toolToken is missing. */
+/* Clicks the target operation's sidebar item — signing in first if this
+   page hasn't yet, since the Operations/Setup sidebar sections are
+   hidden entirely (#gatedNav) until a real tool sign-in has happened
+   (2026-09-25, direct feedback: "landing dashboard e ei side bar
+   dekhabona. agei shob dekhay dile somossa" — showing them before
+   sign-in defeats the point of gating). That means the sidebar item
+   itself isn't clickable pre-signin any more, so signing in now goes
+   through the Dashboard's own sticky #welcomeLoginBtn — same fake
+   credentials mockToolSignIn() above makes work — landing back on the
+   Dashboard, where #gatedNav is now visible, before the target item is
+   clicked. A page that already restored a tool session from a prior
+   visit in this same context (attendance.test.js's/assets.test.js's own
+   per-call reload, which restores sessionStorage) skips straight to the
+   click, since #gatedNav is already visible there. */
 async function goToOp(page, label) {
-  await page.click(`.op-item:has-text("${label}")`);
-  const gateBtn = page.locator("#opGateSignInBtn");
-  if (await gateBtn.count()) {
+  if (!(await page.isVisible("#gatedNav"))) {
+    await page.click("#welcomeLoginBtn");
     await page.fill("#opGateEmail", "test@example.com");
     await page.fill("#opGatePass", "whatever");
-    await gateBtn.click();
-    await page.waitForTimeout(150);
+    await page.click("#opGateSignInBtn");
+    await page.waitForSelector("#gatedNav");
   }
+  await page.click(`.op-item:has-text("${label}")`);
 }
 
 /* Clicks Generate, waits for the "file ready" modal, clicks Download Now

@@ -108,10 +108,19 @@ or added more).
   - ✅ **Dashboard redesign** — operation-card grid removed (kept in code
     for the tier page to reuse), 3 public charts replace the old stat
     tiles, real Hackerman meme, sticky Sign in + (disabled) troll button.
+  - ✅ **Dashboard redesign, round two** (2026-09-25, same day) — sidebar's
+    Operations section now hidden until a real tool sign-in happens
+    (Setup/Company Setup deliberately left visible — it already gates
+    itself); sticky bar restyled to a stacked note-then-buttons layout
+    with both buttons the same size/weight. See CLAUDE.md → Phase 2 →
+    "Dashboard redesign, round two" for the full detail, including the
+    real staleness bug this surfaced and fixed (Company Setup's own
+    sign-in/sign-out not re-rendering the sidebar).
   - **Not started**: the troll button's actual Rickroll behaviour, the
     new Welcome/tier routing page itself (Bulk/Settings/Both cards +
-    lock icons), actually reading `my_tier()` to enforce anything, and
-    Admin Panel UI.
+    lock icons — this is also where the Operations-picking experience
+    now moving off the sidebar is headed), actually reading `my_tier()`
+    to enforce anything, and Admin Panel UI.
 
   **Whoever picks this up next**: don't restart planning from scratch —
   every numbered decision above is confirmed, not an open question. Ask

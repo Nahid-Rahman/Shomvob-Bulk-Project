@@ -768,7 +768,30 @@ input.invalid { border-color: var(--danger); }
 .tiny-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .tiny-btn:disabled:hover { border-color: var(--border-strong); color: var(--text-muted); }
 
-.welcome-bar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* The Dashboard's sticky Sign in / Setup bar (2026-09-25, redesigned
+   the same day on direct feedback against a cookie-consent-banner
+   reference: the note reads as a title line above the button row, and
+   both buttons must read as equally real choices — the original pairing
+   of a solid green Sign in against a dashed .tiny-btn made the second
+   button "get lost." .welcome-bar-btn is the shared shape (size, radius,
+   weight) both buttons share; .generate-btn/.btn-neutral only supply the
+   colour. */
+.welcome-bar { flex-direction: column; align-items: stretch; gap: 12px; }
+.welcome-bar-note { font-size: 13px; }
+.welcome-bar-actions { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+.welcome-bar-btn {
+  flex: 1 1 220px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 20px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: inherit;
+}
+.welcome-bar-btn.btn-neutral {
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+.welcome-bar-btn.btn-neutral:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-strong); }
+.welcome-bar-btn.btn-neutral:disabled { opacity: 0.6; cursor: not-allowed; }
 .icon-btn {
   border: 1px solid var(--border); background: var(--surface); color: var(--text-faint);
   width: 30px; height: 30px; border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0;
