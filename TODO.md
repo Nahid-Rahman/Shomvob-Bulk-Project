@@ -140,12 +140,15 @@ or added more).
     collateral damage, confirmed by `appearance.test.js` failing outright
     when it briefly did. See CLAUDE.md → Phase 2 → "Dashboard redesign,
     round three" for the full detail.
-  - **Not started**: the troll button's actual Rickroll behaviour, the
-    new Welcome/tier routing page itself (Bulk/Settings/Both cards +
-    lock icons — this is also where the Operations-picking experience
-    now moving off the sidebar is headed, and where Company Setup's own
-    step-one sign-in form is meant to move to), actually reading `my_tier()`
-    to enforce anything, and Admin Panel UI.
+  - ✅ **The Rickroll** — the "Auto setup my company & bulk upload"
+    button's own payoff, built 2026-09-25, see step 3 above and CLAUDE.md
+    → Phase 2 → "The Rickroll".
+  - **Not started**: the new Welcome/tier routing page itself
+    (Bulk/Settings/Both cards + lock icons — this is also where the
+    Operations-picking experience now moved off the sidebar is headed,
+    and where Company Setup's own step-one sign-in form is meant to
+    move to), actually reading `my_tier()` to enforce anything, and
+    Admin Panel UI. **This is the next piece to pick up.**
 
   **Whoever picks this up next**: don't restart planning from scratch —
   every numbered decision above is confirmed, not an open question. Ask
