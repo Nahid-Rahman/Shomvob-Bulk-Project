@@ -4366,9 +4366,42 @@ from `init()`, same reasoning as before — `#welcomeSetupBtn` is static
 markup outside `#mainContent`) now just sets `currentOp` and calls
 `renderSidebar()`/`renderMain()`, the same shape every other
 page-to-page navigation in this app already uses, rather than a modal
-open/close pair. "Fine, back to reality" returns to the Dashboard the
-same way. `.rickroll-card`/`.rickroll-title`/`.rickroll-video-panel`
-are deleted from `app.css` — nothing references them any more.
+open/close pair. `.rickroll-card`/`.rickroll-title`/
+`.rickroll-video-panel` are deleted from `app.css` — nothing
+references them any more.
+
+**Sized and aligned further, same day, direct follow-up on that same
+page:** the shared operation-page shell is tuned for a tall scrolling
+form beside a modest video rail, which is neither what this page has —
+flagged directly with three asks: a bigger video, the left copy
+vertically centred against it, and "Fine, back to reality" leading
+somewhere real. Three scoped overrides, all gated behind a
+`.rickroll-layout` class on `.main-inner` (reset to removed at the top
+of every `renderMain()` call, the same place `#welcomeBar` already
+resets itself, so it can never leak onto an actual operation's own
+video rail): `.main-inner.has-media.rickroll-layout` widens the video's
+grid column relative to the copy's (`1fr` : `1.2fr`, versus the shared
+shell's `1.9fr` : `1fr` favouring the form side); `.rickroll-frame`
+drops the shared frame's `max-height` cap so the video fills nearly the
+full viewport height instead of a modest rail's worth; `.rickroll-col`
+overrides the shared shell's `align-items: start` (which content-sizes
+each column and top-aligns it — fine for a form that's naturally
+shorter than the video rail, but left this page's short copy block
+stranded at the top of a much taller row) with `align-self: stretch`
+plus a centred flex column, so the copy now sits vertically centred
+against the video's own full height. All three reset to the ordinary
+single-column mobile behaviour under 1100px, same breakpoint the shared
+shell already collapses at.
+
+**"Fine, back to reality" now opens the real sign-in gate, not the
+Dashboard** — direct request ("okhane click korle main login e nibe"):
+the joke's own punchline is that there's no shortcut, so its own exit
+button leads to the actual next step (signing in for real) rather than
+back to the same Dashboard the joke was clicked from. Reuses
+`operations_gate`/`operationsGateTemplate()` exactly as every other
+real sign-in in this app does, with `pendingOperation` cleared first so
+a successful sign-in lands on the Dashboard rather than jumping
+somewhere unrelated.
 
 ### What's not built yet
 

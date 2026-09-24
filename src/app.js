@@ -446,6 +446,13 @@
        #mainContent re-render on its own. */
     $("#welcomeBar").style.display = "none";
 
+    /* rickroll-layout only ever applies to the Rickroll page's own
+       oversized video treatment (below) — reset here the same way, so
+       it can never leak onto another has-media page (an operation's own
+       video rail is tuned for a tall scrolling form beside a modest
+       rail, not this page's bigger, vertically-centred one). */
+    root.classList.remove("rickroll-layout");
+
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media", "wide");
@@ -464,10 +471,10 @@
     if (currentOp === "rickroll") {
       $("#actionBar").style.display = "none";
       root.classList.remove("wide");
-      root.classList.add("has-media");
+      root.classList.add("has-media", "rickroll-layout");
       root.innerHTML =
-        `<div class="op-col">${rickrollTemplate()}</div>` +
-        `<aside class="op-media"><figure class="op-media-frame">` +
+        `<div class="op-col rickroll-col">${rickrollTemplate()}</div>` +
+        `<aside class="op-media"><figure class="op-media-frame rickroll-frame">` +
         `<video src="assets/rickroll.mp4" loop muted playsinline autoplay></video>` +
         `</figure></aside>`;
       wireRickrollEvents();
@@ -3376,8 +3383,16 @@
   }
 
   function wireRickrollEvents() {
+    /* "Fine, back to reality" goes straight to the real sign-in gate, not
+       back to the Dashboard — direct request: the joke's own punchline
+       ("you still have to do it yourself") is the real login, not a
+       return to the same Dashboard the joke button was clicked from.
+       Same operations_gate flow every other real sign-in in this app
+       uses, with no pending operation, so a successful sign-in lands on
+       the Dashboard rather than jumping somewhere unrelated. */
     $("#rickrollBackBtn").addEventListener("click", () => {
-      currentOp = "welcome";
+      pendingOperation = null;
+      currentOp = "operations_gate";
       renderSidebar();
       renderMain();
     });
