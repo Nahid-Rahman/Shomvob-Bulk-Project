@@ -4272,6 +4272,80 @@ floating Appearance top-right, equal-weight sticky-bar buttons with the
 new label) and signed-in (full sidebar back, no duplicate Appearance,
 Sign In button correctly gone) states.
 
+### The Rickroll — TODO.md step 3, built (2026-09-25)
+
+"Auto setup my company & bulk upload" (the sticky bar's own disabled
+button since round one, above) is no longer disabled — clicking it
+opens `#rickrollModal`, a real joke, not a real feature, exactly as
+TODO.md's dictated journey named it: "a deliberate joke... plays a
+Rickroll video." Reuses the existing `.modal-card-split` shell ("Run
+defaults" own two-column modal, above) rather than a new component —
+left panel is the joke's own text, right panel is a real video instead
+of that modal's thin decorative quote strip, so it gets its own
+`.rickroll-video-panel` width/treatment rather than reusing
+`.modal-quote-panel`.
+
+**The clip is the user's own file, supplied directly** — a local
+`rickroll.mp4` on their machine, copied into `assets/` (renamed from
+its original filename, which had a `#` and spaces in it — exactly the
+"truncates the src" trap this file's own media-rail section already
+warns about). Same treatment as every other video in this app: `loop
+muted playsinline autoplay`, no controls, no sound — confirmed directly
+this is what was wanted ("no sound, continues play hobe"), not a
+one-off exception for this clip.
+
+**Sourcing this took two passes, both confirmed directly rather than
+assumed.** The first instinct was to embed the real, official YouTube
+video — flagged back rather than built, since it would have been this
+app's first-ever external network dependency (this app inlines or
+self-hosts literally everything except the Google Fonts stylesheet) and
+would have needed a `vercel.json` CSP change to allow the iframe. The
+user's own call was self-hosted instead, same discipline as
+`assets/hackerman.gif` (Dashboard redesign, round one, above). The
+second pass hit an unexpected snag: **Tenor doesn't have anything
+close to the requested 15–20 second length** — every Rick Astley GIF
+found there tops out around 1–4 seconds, since Tenor's whole format is
+short looping clips, not longer segments. Flagged directly rather than
+padding the gap with a longer segment cut from the official music video
+(more real copyright exposure for marginal benefit, given the video
+already loops continuously) — the user resolved it by supplying their
+own already-downloaded clip directly, which is what actually shipped.
+
+**Copy, dictated directly, translated into English** (this app's rule
+that all product copy stays English, Operations section above) rather
+than left in the Banglish it was given in: "LMAO you lazy!" (in a
+visibly larger title size, `.rickroll-title`, 27px vs. the standard
+modal title's 19px — the one thing specifically asked to be bigger)
+followed by "Did you really think it would be this easy? No — it'll
+make your life easier and save you 95% of the time, but you still have
+to do it yourself. Just a few basic inputs, and whatever you actually
+need is ready." — kept as a direct translation of the dictated Banglish
+rather than a looser paraphrase, since the exact framing (the "no, but"
+structure, "95%," "just a few basic inputs") was given deliberately,
+not as rough notes.
+
+**Wired once in `init()`, not inside `wireWelcomeEvents()`** —
+`#welcomeSetupBtn` is static markup outside `#mainContent` that
+survives every Dashboard re-render, so a handler added inside
+`wireWelcomeEvents()` (which re-runs on every visit) would stack via
+plain `addEventListener` the same way `#welcomeLoginBtn` would have;
+unlike that button, this one's behaviour never depends on
+`setup.toolToken`, so it never needs rewiring at all — wiring it once,
+permanently, in `init()` sidesteps the stacking risk entirely rather
+than needing the `.onclick =` workaround `#welcomeLoginBtn` uses. The
+modal's own open/close/Escape handling follows `askDiscard()`'s
+established clone-and-replace pattern, so a second open can't stack a
+duplicate close handler either.
+
+**Supersedes TODO.md's own original rough description**, not an
+incomplete reading of it — that entry only ever said the left side
+"says 'no, log in first'" as a placeholder for whatever the real copy
+would turn out to be; the dictated text above (LMAO you lazy!/"no,
+but...") is that real copy, given directly once this step was actually
+being built, same as how a card-game reference or a quote's exact
+wording elsewhere in this app was only ever pinned down at build time,
+not predicted in the planning note that came before it.
+
 ### What's not built yet
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both

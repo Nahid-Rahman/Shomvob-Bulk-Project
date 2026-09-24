@@ -10611,6 +10611,36 @@
     freshCancel.focus();
   }
 
+  /* The Dashboard's joke "Auto setup my company & bulk upload" button
+     (2026-09-25) — TODO.md's own dictated journey, step 3: "a deliberate
+     joke, not a real feature." Wired once here rather than inside
+     wireWelcomeEvents(), since #welcomeSetupBtn is static markup outside
+     #mainContent that survives every Dashboard re-render — the same
+     stacking risk #welcomeLoginBtn's own .onclick assignment avoids,
+     just solved the other way here since this button's own behaviour
+     never depends on setup.toolToken and so never needs rewiring. Same
+     clone-and-replace-on-open + Escape pattern askDiscard() already
+     uses, so a second open can't stack a duplicate close handler. */
+  function wireRickrollModal() {
+    $("#welcomeSetupBtn").addEventListener("click", () => {
+      const modal = $("#rickrollModal");
+      const closeBtn = $("#rickrollCloseBtn");
+      const close = () => {
+        modal.hidden = true;
+        document.removeEventListener("keydown", onKey);
+      };
+      const onKey = (e) => {
+        if (e.key === "Escape") close();
+      };
+      const freshClose = closeBtn.cloneNode(true);
+      closeBtn.replaceWith(freshClose);
+      freshClose.addEventListener("click", close);
+      document.addEventListener("keydown", onKey);
+      modal.hidden = false;
+      freshClose.focus();
+    });
+  }
+
   function wireLogout() {
     $("#logoutBtn").addEventListener("click", () => {
       if (!hasUnsavedWork()) {
@@ -10691,6 +10721,7 @@
     wireLogin();
     wireLogout();
     wireUnloadGuard();
+    wireRickrollModal();
     /* Static, same on every page, set once rather than re-rendered by
        every page template — the year is the only moving part. */
     $("#appFooter").textContent = `© ${today.getFullYear()} Mahmudur Rahman Nahid — Made with !Love, not for !promotion.`;

@@ -1537,6 +1537,37 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .modal-card-split { flex-direction: column; max-width: 460px; }
   .modal-quote-panel { border-left: none; border-top: 1px solid var(--border); }
 }
+
+/* The Dashboard's joke "Auto setup my company & bulk upload" button
+   (TODO.md's own dictated journey, step 3; built 2026-09-25) — a real
+   Rickroll, not a real feature. Same .modal-card-split shell "Run
+   defaults" already uses, but the right-hand panel is a real video, not
+   a thin decorative quote strip, so it gets its own width/treatment
+   rather than reusing .modal-quote-panel. rickroll.mp4 is the user's
+   own supplied clip (see CLAUDE.md), same "always muted, looping,
+   playsinline, no sound" handling as every other video in this app. */
+.rickroll-card { max-width: 720px; }
+.rickroll-title { font-size: 27px; letter-spacing: -0.01em; }
+.rickroll-video-panel {
+  margin: 0;
+  flex: 0 0 260px;
+  min-width: 200px;
+  position: relative;
+  background: #000;
+  border-left: 1px solid var(--border);
+}
+.rickroll-video-panel video {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+@media (max-width: 760px) {
+  .rickroll-card { max-width: 460px; }
+  .rickroll-video-panel { border-left: none; border-top: 1px solid var(--border); flex-basis: 220px; }
+}
 /* Scroll still works, the browser's own scrollbar chrome doesn't show
    (2026-09-14, direct request: "scroll bar ta shoray dite parba?"). */
 .modal-run-list { margin: 14px 0 6px; max-height: 46vh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }

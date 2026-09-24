@@ -37,12 +37,19 @@ or added more).
   1. Joke gate (dummy id/password) as today.
   2. Lands on the **updated Dashboard** (per the item above — real
      stats/graphs once the audit log exists).
-  3. A new "Auto setup my company and bulk upload" button on the
-     Dashboard — **a deliberate joke, not a real feature** (this isn't
-     something Bulk Forge can actually do end-to-end). Clicking it
-     plays a Rickroll video on the right; the left side says "no, log
-     in first" — a troll, same dry self-deprecating tone as the login
-     gate/footer jokes elsewhere in this app.
+  3. ✅ **Built (2026-09-25).** "Auto setup my company and bulk upload"
+     on the Dashboard — **a deliberate joke, not a real feature**.
+     Clicking it opens a modal: the user's own self-hosted clip
+     (`assets/rickroll.mp4`, muted/looping, no controls) on the right,
+     dictated real copy on the left ("LMAO you lazy!" + "Did you really
+     think it would be this easy? No — it'll make your life easier and
+     save you 95% of the time, but you still have to do it yourself.
+     Just a few basic inputs, and whatever you actually need is
+     ready."). See CLAUDE.md → Phase 2 → "The Rickroll" for the full
+     detail, including why a real YouTube embed was flagged and rejected
+     (this app's first-ever external dependency) and why Tenor couldn't
+     supply the originally-wanted 15–20 second length (short clips only —
+     the user supplied their own file instead).
   4. **Real login now gates the whole app, not just Company Setup** —
      confirmed directly: Bulk (the five generators) needs it too now,
      since access-tiering has to apply everywhere, not only Company
