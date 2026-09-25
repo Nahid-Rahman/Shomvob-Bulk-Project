@@ -3,7 +3,7 @@
   "private": true,
   "description": "Browser tests for Bulk Forge. Deliberately kept out of the repo root so Vercel keeps treating the project as a plain static site with no build step.",
   "scripts": {
-    "test": "node employee.test.js && node attendance.test.js && node leave.test.js && node payroll.test.js && node assets.test.js && node appearance.test.js && node company-setup.test.js && node tiered-access.test.js && node gate.test.js",
+    "test": "node employee.test.js && node attendance.test.js && node leave.test.js && node payroll.test.js && node assets.test.js && node appearance.test.js && node company-setup.test.js && node tiered-access.test.js && node back-navigation.test.js && node gate.test.js",
     "test:employee": "node employee.test.js",
     "test:attendance": "node attendance.test.js",
     "setup": "npm install && npx playwright install chromium",
@@ -13,6 +13,7 @@
     "test:appearance": "node appearance.test.js",
     "test:company-setup": "node company-setup.test.js",
     "test:tiered-access": "node tiered-access.test.js",
+    "test:back-navigation": "node back-navigation.test.js",
     "test:gate": "node gate.test.js"
   },
   "devDependencies": {

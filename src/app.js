@@ -312,6 +312,47 @@
 
   /* ================= UI ================= */
 
+  /* Real browser Back/Forward, not just "leave the page" (2026-09-25,
+     direct request: "kono page e gele je arek jaygay properly back
+     korbo eta nai" — going to some page, there's no proper way back to
+     where you were). This app never touched the History API before —
+     every top-level page swap was pure in-memory state (currentOp), so
+     the browser's own Back button had nothing to go back TO and either
+     left the app entirely or did nothing at all.
+
+     navigateTo() is now the one place every top-level page change goes
+     through, replacing the `currentOp = X; renderSidebar(); renderMain();`
+     triple that used to be repeated at every call site — centralised so
+     a future call site can't forget the history half of it, the same
+     reasoning goToOperation() itself was already built on. `replace:
+     true` swaps the *current* history entry instead of adding a new
+     one — used only where landing on a page is the completion of the
+     previous one rather than a genuinely new step (signing in through
+     the operations gate lands on the operation that was actually
+     requested; Back from there should return to whatever page was open
+     before the gate interrupted it, not to the gate itself). The URL
+     itself is never changed — this is a plain static single-file site
+     with no server-side routing to match, so only `history.state` (an
+     in-memory-to-the-tab marker, `{op}`) carries the page; a hard
+     reload always lands back on the Dashboard (or a restored session),
+     same as before this feature existed.
+
+     `popstate` (wired once in init(), below) is the Back/Forward
+     handler — it reads the id straight out of the state that was
+     pushed and renders it directly, deliberately *not* calling
+     navigateTo() itself, since pushing a new entry from inside a
+     Back/Forward handler would corrupt the Forward stack the browser
+     is already managing. */
+  function navigateTo(opId, opts) {
+    const replace = opts && opts.replace;
+    currentOp = opId;
+    const state = { op: opId };
+    if (replace) history.replaceState(state, "", location.href);
+    else history.pushState(state, "", location.href);
+    renderSidebar();
+    renderMain();
+  }
+
   /* Tiered Access (2026-09-25) — the one place that decides whether an
      Operation click can proceed directly or needs a real sign-in first.
      Both the sidebar's own Operations list and the Dashboard's op-cards
@@ -326,14 +367,10 @@
   function goToOperation(opId) {
     if (!setup.toolToken) {
       pendingOperation = opId;
-      currentOp = "operations_gate";
-      renderSidebar();
-      renderMain();
+      navigateTo("operations_gate");
       return;
     }
-    currentOp = opId;
-    renderSidebar();
-    renderMain();
+    navigateTo(opId);
   }
 
   function renderSidebar() {
@@ -346,9 +383,7 @@
     homeBtn.innerHTML = `<span class="op-item-label">${opIcon("welcome")}Dashboard</span>`;
     homeBtn.addEventListener("click", () => {
       if (isBulkRunActive()) return;
-      currentOp = "welcome";
-      renderSidebar();
-      renderMain();
+      navigateTo("welcome");
     });
     home.appendChild(homeBtn);
 
@@ -403,9 +438,7 @@
       btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span>`;
       btn.addEventListener("click", () => {
         if (isBulkRunActive()) return;
-        currentOp = op.id;
-        renderSidebar();
-        renderMain();
+        navigateTo(op.id);
       });
       setupNav.appendChild(btn);
     });
@@ -3272,9 +3305,7 @@
       loginBtn.style.display = "inline-flex";
       loginBtn.onclick = () => {
         pendingOperation = null;
-        currentOp = "operations_gate";
-        renderSidebar();
-        renderMain();
+        navigateTo("operations_gate");
       };
     }
 
@@ -3346,9 +3377,11 @@
         logAudit("login", `${email} signed in`, { environment: setup.env });
         const target = pendingOperation || "welcome";
         pendingOperation = null;
-        currentOp = target;
-        renderSidebar();
-        renderMain();
+        /* replace: true — signing in completes the gate rather than
+           adding a new step, so Back from the target operation returns
+           to whatever page was open before the gate interrupted it, not
+           back to the gate itself. */
+        navigateTo(target, { replace: true });
       } catch (e) {
         clearBtnBusy(btn);
         err.textContent = e.message;
@@ -3392,9 +3425,7 @@
        the Dashboard rather than jumping somewhere unrelated. */
     $("#rickrollBackBtn").addEventListener("click", () => {
       pendingOperation = null;
-      currentOp = "operations_gate";
-      renderSidebar();
-      renderMain();
+      navigateTo("operations_gate");
     });
   }
 
@@ -10685,9 +10716,7 @@
      wireRickrollEvents() and renderMain()'s "rickroll" branch, above. */
   function wireRickroll() {
     $("#welcomeSetupBtn").addEventListener("click", () => {
-      currentOp = "rickroll";
-      renderSidebar();
-      renderMain();
+      navigateTo("rickroll");
     });
   }
 
@@ -10784,12 +10813,51 @@
     });
   }
 
+  /* Back/Forward's own handler (2026-09-25, see navigateTo() above for
+     the full story) — restores whichever page a pushState/replaceState
+     call recorded, without itself pushing a new entry (that would
+     corrupt the Forward stack the browser is already managing here).
+
+     Two things it guards that a bare `currentOp = e.state.op` wouldn't:
+     - **A gated Operation reached via Back/Forward still needs a real
+       sign-in.** Every Operation is normally only reachable through
+       goToOperation()'s own gate check; without this, Back could land
+       directly on an operation's page from a still-signed-in history
+       entry after the visitor has since logged out, skipping the gate
+       entirely. Same OPERATIONS lookup goToOperation() already uses.
+     - **Mid-bulk-run, Back/Forward is blocked the same way every other
+       navigation control already is** (`isBulkRunActive()`, sidebar
+       nav/tabs/dep-shortcuts) — a run's own progress list is keyed to
+       whichever page is on screen, so navigating away mid-run would
+       point its updates at the wrong place. A popstate can't be
+       cancelled the way a click can; undone instead, by pushing the
+       still-current page's state right back so the address bar/history
+       position doesn't silently drift out of sync with what's showing. */
+  function wirePopstate() {
+    window.addEventListener("popstate", (e) => {
+      if (isBulkRunActive()) {
+        history.pushState({ op: currentOp }, "", location.href);
+        return;
+      }
+      const opId = (e.state && e.state.op) || "welcome";
+      if (OPERATIONS.some((o) => o.id === opId) && !setup.toolToken) {
+        pendingOperation = opId;
+        currentOp = "operations_gate";
+      } else {
+        currentOp = opId;
+      }
+      renderSidebar();
+      renderMain();
+    });
+  }
+
   function init() {
     wireAppearance();
     wireLogin();
     wireLogout();
     wireUnloadGuard();
     wireRickroll();
+    wirePopstate();
     /* Static, same on every page, set once rather than re-rendered by
        every page template — the year is the only moving part. */
     $("#appFooter").textContent = `© ${today.getFullYear()} Mahmudur Rahman Nahid — Made with !Love, not for !promotion.`;
@@ -10806,6 +10874,12 @@
       setup.env = savedTool.env;
       currentOp = "company_setup";
     }
+    /* Establishes the first history entry — every later page change
+       (navigateTo()) pushes on top of this one, so Back eventually
+       lands here rather than running out of history and leaving the
+       app. replaceState, not pushState: this is the page that's
+       already loaded, not a new step. */
+    history.replaceState({ op: currentOp }, "", location.href);
     renderSidebar();
     renderMain();
     $("#generateBtn").addEventListener("click", handleGenerate);

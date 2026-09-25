@@ -808,9 +808,9 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Nine suites (`tiered-access.test.js` added 2026-09-25), 787 checks as of
-that addition — this number drifts with every change, so treat it as a
-last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
+Ten suites (`back-navigation.test.js` added 2026-09-25), 798 checks as
+of that addition — this number drifts with every change, so treat it as
+a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
 background's average channel rather than an exact hex, so a palette tweak
@@ -4469,6 +4469,87 @@ that there's no cheat code, just the real product. Reuses
 real sign-in in this app does, with `pendingOperation` cleared first so
 a successful sign-in lands on the Dashboard rather than jumping
 somewhere unrelated.
+
+### Real browser Back/Forward (2026-09-25)
+
+Direct request: "amader proper back function nai. kono page e gele je
+arek jaygay properly back korbo eta nai" (there's no proper way to go
+back to where you were). This app never touched the History API before
+this — every top-level page swap was pure in-memory state (`currentOp`
++ a re-render), so the browser's own Back button had no history entry
+of this app's own pages to go back to; it either left the app for
+whatever the tab held before, or did nothing at all.
+
+**`navigateTo(opId, {replace})`** (`app.js`) is now the one place every
+top-level page change goes through, replacing the
+`currentOp = X; renderSidebar(); renderMain();` triple that used to be
+repeated at every call site — centralised so a future call site can't
+forget the history half of it, the same reasoning `goToOperation()`
+itself was already built on (and now calls `navigateTo()` internally).
+`history.pushState({op: opId}, "", location.href)` records the page;
+the URL itself is never touched — this is a plain static single-file
+site with no server-side routing to match, so only `history.state` (a
+marker private to the tab's own session, not a real address) carries
+which page is showing. A hard reload always lands back on the Dashboard
+(or a restored tool session), same as before this feature existed.
+
+**`replace: true` swaps the *current* history entry instead of adding a
+new one** — used only where landing on a page is the completion of a
+previous step rather than a genuinely new one: a successful sign-in
+through the operations gate (`wireOperationsGateEvents()`) replaces the
+gate's own entry with the operation that was actually requested, so
+Back from there returns to whatever page was open *before* the gate
+interrupted it, not back to the gate itself.
+
+**`popstate` (`wirePopstate()`, wired once in `init()`) is the
+Back/Forward handler** — it reads the id straight out of the state that
+was pushed/replaced and renders it directly, deliberately *not* calling
+`navigateTo()` itself (pushing a new entry from inside a Back/Forward
+handler would corrupt the Forward stack the browser is already
+managing). Two things it guards that a bare `currentOp = e.state.op`
+wouldn't:
+
+- **A gated Operation reached via Back/Forward still needs a real
+  sign-in.** Every Operation is normally only reachable through
+  `goToOperation()`'s own gate check; without this, Back could land
+  directly on an operation's page from a still-signed-in history entry
+  after the visitor has since logged out — a real gap, confirmed live
+  with a Playwright probe before this guard was added (push Employee
+  Add, push Attendance Add so Employee Add's entry is buried rather
+  than current, clear the session and reload — which only overwrites
+  the *current* top entry's state, leaving the buried one stale — then
+  Back into it: without the guard the form rendered directly; with it,
+  the real gate does). Same `OPERATIONS` lookup `goToOperation()`
+  already uses.
+- **Mid-bulk-run, Back/Forward is blocked the same way every other
+  navigation control already is** (`isBulkRunActive()` — sidebar
+  nav/tabs/dep-shortcuts, "Run defaults"' own orchestration section
+  above). A popstate can't be cancelled the way a click can, so it's
+  undone instead: the still-current page's state is pushed right back
+  (`history.pushState({op: currentOp}, ...)`), so the address bar's
+  history position doesn't silently drift out of sync with what's still
+  on screen.
+
+**`init()` establishes the first history entry with `replaceState`, not
+`pushState`**, right before the first render — this is the page that's
+already loaded, not a new step, and every later `navigateTo()` push
+lands on top of this one so Back eventually returns here rather than
+running out of history entries and leaving the app.
+
+**Deliberately scoped to top-level page changes only** — Company
+Setup's own internal drill-down (group grid → a group's tabbed page →
+a specific module tab) is untouched; its existing "← Back to Company
+Setup" link still works exactly as before, just without any History
+API involvement. Extending this to that level (or to individual
+settings tabs) wasn't asked for and would meaningfully deepen the
+history stack for comparatively little benefit — revisit only if asked.
+
+Confirmed by a new suite, `tests/back-navigation.test.js` (12 checks):
+Back/Forward moves correctly between real operation pages; signing in
+through the gate replaces that entry, so Back from the requested
+operation skips the gate entirely; and Back into a stale signed-in
+operation entry after a real sign-out re-shows the real gate rather
+than the operation's own form.
 
 ### What's not built yet
 
