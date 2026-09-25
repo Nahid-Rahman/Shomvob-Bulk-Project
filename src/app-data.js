@@ -521,6 +521,17 @@ const SUPABASE_ANON_KEY = "sb_publishable_F8HUWz-rcg9SqQgXsEcWeA_YrXilWgT";
 
 const SETUP_TOOLS = [{ id: "company_setup", label: "Company Setup", status: "active" }];
 
+/* Admin Panel (2026-09-25, restructured the same day into real
+   individual pages — direct request: "shob gula individual page hobe" —
+   rather than one long scrolling page with three sections). "Users"
+   listed first since it's the default landing page for this section;
+   there is no separate id for "Add a user" — that's a sub-action of
+   the Users page, not its own concern the way Audit Log is. */
+const ADMIN_TOOLS = [
+  { id: "admin_users", label: "Users" },
+  { id: "admin_audit", label: "Audit Log" },
+];
+
 /* The ~20 settings modules, two levels deep — confirmed with the user
    2026-09-09 against real screenshots of the actual HRIS admin (not
    invented): a group is a tabbed page (mirrors "Company Settings" and

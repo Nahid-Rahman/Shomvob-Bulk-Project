@@ -808,7 +808,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 813 checks as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 814 checks as
 of that addition — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
@@ -4578,46 +4578,70 @@ own Team Activity section already uses) right after every real sign-in
 — both doors, the operations gate and Company Setup's own step one,
 since either one can be how an admin actually signs in — and resets it
 to `false` on a real sign-out. **This flag only ever gates the nav
-item, never the data itself** — `adminPanelTemplate()` re-verifies via
-`checkIsAdmin()` live, every single time the page is actually opened
-(`wireAdminPanelEvents()`'s own `"idle"` branch), the same "never trust
-a cached flag for admin-gated data" discipline the Dashboard already
+items, never the data itself** — `adminUsersTemplate()`/
+`adminAuditTemplate()` re-verify via `checkIsAdmin()` live, every single
+time either page is actually opened (`loadAdminPanelData()`, triggered
+from each page's own `"idle"` branch), the same "never trust a cached
+flag for admin-gated data" discipline the Dashboard already
 established. A non-admin who somehow reaches `currentOp ===
-"admin_panel"` anyway (a stale `popstate` entry, say) sees "Admins
-only," not the real panel — confirmed by test.
+"admin_users"`/`"admin_audit"` anyway (a stale `popstate` entry, say)
+sees "Admins only," not the real page — confirmed by test.
 
-**Three sections on one page**, all built from existing components
-rather than new ones — `.preview-table`/`.preview-table-wrap` for both
-tables, `.switch`/`.switch-track` (Leave Types' own Sandwich/Bridge
-toggle) for the per-row Admin flag, `.seg`/`.seg-fill` for the new-user
-form's Admin choice, `pwFieldMarkup()` for the new-user password field
-— checked in both themes with a Playwright screenshot before this was
+**Two real, individually-navigable pages, not one long scrolling
+page** — restructured the same day it first shipped, direct feedback
+from a screenshot: "ekhane default users ta khulbe, ar side menu te
+audit users shob serially niche niche thakbe... shob gula individual
+page hobe" (Users should open by default, and the sidebar should list
+Audit/Users etc. one below another — meaning these are all individual
+pages). `ADMIN_TOOLS` (`app-data.js`) drives the sidebar's own "ADMIN"
+section exactly the way `SETUP_TOOLS` already drives the "SETUP"
+section above it — `{id: "admin_users", label: "Users"}` listed first
+(the array order is what makes it the default first click, no separate
+redirect needed), `{id: "admin_audit", label: "Audit Log"}` second.
+`renderMain()` gets one branch per id, each rendering only its own
+template. **Both pages still share one `loadAdminPanelData()` call**
+(`adminPanel` state, one admin check, one Edge Function call, one audit
+fetch, done together) rather than fetching independently per page —
+an admin opening one of these two is likely to check the other in the
+same sitting, so this avoids a redundant second `is_admin()`/`list`
+round trip when they click over. `wireAdminStatusHandling()` is the
+small shared helper both pages' own wiring functions call first, so the
+idle/checking/denied/error handling (identical on either page) isn't
+duplicated twice.
+
+All built from existing components rather than new ones —
+`.preview-table`/`.preview-table-wrap` for both tables,
+`.switch`/`.switch-track` (Leave Types' own Sandwich/Bridge toggle) for
+the per-row Admin flag, `.seg`/`.seg-fill` for the new-user form's
+Admin choice, `pwFieldMarkup()` for the new-user password field —
+checked in both themes with a Playwright screenshot before this was
 considered done, no new hex values anywhere:
 
-1. **Audit log** — the real `audit_log` table, last 200 rows, newest
-   first (`GET .../audit_log?select=*&order=created_at.desc&limit=200`,
-   the admin's own bearer token, gated by the existing
-   `audit_log_select_admins` policy — nothing new needed here). A
-   "Refresh" button re-fetches just this section without reloading the
-   whole page.
-2. **Users** — every real `auth.users` account (via the Edge Function's
-   `list` action, below — this can't come from `user_access` alone,
-   since that table only ever gains a row once someone's actually been
-   retiered or admin-flagged; a full account list needs the real
-   `auth.users`, which isn't in the exposed `public`/`extensions`
-   schemas this project's PostgREST serves). Each row: email, last real
-   sign-in, a Tier `<select>`, an Admin `.switch`, Save, Remove.
-   **Tier/admin-flag Save is a direct client write to `user_access`, no
-   Edge Function involved** — confirmed via `execute_sql` before writing
-   any code that `user_access_write_admins` is already `FOR ALL`
-   (covers INSERT/UPDATE/DELETE, not split into separate policies), so
-   an admin's own browser upserting a row
+1. **Users** (`admin_users`, default) — every real `auth.users` account
+   (via the Edge Function's `list` action, below — this can't come from
+   `user_access` alone, since that table only ever gains a row once
+   someone's actually been retiered or admin-flagged; a full account
+   list needs the real `auth.users`, which isn't in the exposed
+   `public`/`extensions` schemas this project's PostgREST serves). Each
+   row: email, last real sign-in, a Tier `<select>`, an Admin `.switch`,
+   Save, Remove. **Tier/admin-flag Save is a direct client write to
+   `user_access`, no Edge Function involved** — confirmed via
+   `execute_sql` before writing any code that `user_access_write_admins`
+   is already `FOR ALL` (covers INSERT/UPDATE/DELETE, not split into
+   separate policies), so an admin's own browser upserting a row
    (`Prefer: resolution=merge-duplicates`) is already exactly what RLS
    allows, the same discipline every other write in this app already
    follows. Logged via the existing `logAudit()` helper, a new event
-   type: `admin_access_change`.
-3. **Add a user** — email, password, tier, admin toggle → the Edge
-   Function's `create` action.
+   type: `admin_access_change`. The same page's own "Add a user" section
+   (email, password, tier, admin toggle → the Edge Function's `create`
+   action) is a sub-action of managing users, not a third concern, so it
+   stays on this page rather than getting its own nav item.
+2. **Audit Log** (`admin_audit`) — the real `audit_log` table, last 200
+   rows, newest first (`GET .../audit_log?select=*&order=created_at.desc&limit=200`,
+   the admin's own bearer token, gated by the existing
+   `audit_log_select_admins` policy — nothing new needed here). A
+   "Refresh" button re-fetches just this page's data without reloading
+   the whole page.
 
 **The `admin-users` Edge Function is the one, narrow exception to "no
 backend beyond what's strictly needed"** — deployed to this same
@@ -4668,14 +4692,15 @@ parbe" (more admins can be added from here) is exactly the Admin toggle
 in the Users table; growing the admin list is purely a data change from
 this point on, the same way it already was via direct SQL.
 
-Confirmed by a new suite, `tests/admin-panel.test.js` (15 checks): the
-nav item is invisible to a non-admin; an admin sees both real tables
-and the Users list correctly (their own Remove disabled, everyone
-else's enabled); a tier/admin-flag save sends a direct `user_access`
-write with the real values; creating a user calls the Edge Function
-with the real form values, not a direct auth write; removing another
-account confirms first, then calls the Edge Function with that
-account's real id and email.
+Confirmed by a new suite, `tests/admin-panel.test.js` (16 checks): both
+nav items are invisible to a non-admin; an admin sees both, Users
+listed before Audit Log; each page shows only its own real data (Users
+never shows the audit table and vice versa) with the signed-in admin's
+own Remove disabled and everyone else's enabled; a tier/admin-flag save
+sends a direct `user_access` write with the real values; creating a
+user calls the Edge Function with the real form values, not a direct
+auth write; removing another account confirms first, then calls the
+Edge Function with that account's real id and email.
 
 ### What's not built yet
 

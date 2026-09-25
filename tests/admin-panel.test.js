@@ -94,13 +94,15 @@ async function signInForReal(page, email) {
     await mockAdminBackend(page, { isAdmin: false });
 
     await signInForReal(page, "someone@shomvob.com");
-    check("A no Admin Panel nav item for a non-admin", (await page.locator('.op-item:has-text("Admin Panel")').count()) === 0);
+    check("A no Admin Panel nav item for a non-admin", (await page.locator('.op-item:has-text("Users")').count()) === 0);
     check("A no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
   {
-    // B — an admin sees the nav item, and the panel shows real data
+    // B — an admin sees both nav items (Users, Audit Log — real
+    // individual pages, not one long scrolling page), Users first/
+    // default, and each page shows the real data it's meant to
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await page.goto(PAGE);
@@ -109,18 +111,29 @@ async function signInForReal(page, email) {
     await mockAdminBackend(page, { isAdmin: true });
 
     await signInForReal(page, "mahmudur@shomvob.com");
-    check("B Admin Panel nav item shown for an admin", (await page.locator('.op-item:has-text("Admin Panel")').count()) === 1);
+    check("B both Admin nav items shown for an admin",
+      (await page.locator('.op-item:has-text("Users")').count()) === 1 &&
+      (await page.locator('.op-item:has-text("Audit Log")').count()) === 1);
+    const adminNavLabels = await page.locator("#adminNav .op-item").allTextContents();
+    check("B Users is listed before Audit Log (the default page)",
+      adminNavLabels[0].includes("Users") && adminNavLabels[1].includes("Audit Log"),
+      JSON.stringify(adminNavLabels));
 
-    await page.click('.op-item:has-text("Admin Panel")');
+    await page.click('.op-item:has-text("Users")');
     await page.waitForSelector(".preview-table");
     await page.waitForTimeout(150);
 
-    check("B the audit log's real row is shown", (await page.locator("text=signed in").count()) > 0);
-    check("B both real users are listed", (await page.locator("tr[data-email]").count()) === 2);
+    check("B the Users page shows both real users, not the audit log",
+      (await page.locator("tr[data-email]").count()) === 2 && (await page.locator(".preview-table td.strong").count()) === 0);
     check("B the signed-in admin's own Remove is disabled (no self-lockout)",
       await page.isDisabled('tr[data-email="mahmudur@shomvob.com"] .admin-remove-btn'));
     check("B another account's Remove stays enabled",
       !(await page.isDisabled('tr[data-email="tamjida@shomvob.com"] .admin-remove-btn')));
+
+    await page.click('.op-item:has-text("Audit Log")');
+    await page.waitForTimeout(150);
+    check("B the Audit Log page shows the real event, not the users table",
+      (await page.locator(".preview-table td.strong:has-text('login')").count()) > 0 && (await page.locator("tr[data-email]").count()) === 0);
     check("B no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
@@ -136,7 +149,7 @@ async function signInForReal(page, email) {
     const { getSavedAccessBody } = await mockAdminBackend(page, { isAdmin: true });
 
     await signInForReal(page, "mahmudur@shomvob.com");
-    await page.click('.op-item:has-text("Admin Panel")');
+    await page.click('.op-item:has-text("Users")');
     await page.waitForSelector(".preview-table");
 
     await page.selectOption('tr[data-email="tamjida@shomvob.com"] .admin-tier-select', "bulk");
@@ -164,7 +177,7 @@ async function signInForReal(page, email) {
     const { calls } = await mockAdminBackend(page, { isAdmin: true });
 
     await signInForReal(page, "mahmudur@shomvob.com");
-    await page.click('.op-item:has-text("Admin Panel")');
+    await page.click('.op-item:has-text("Users")');
     await page.waitForSelector(".preview-table");
 
     await page.fill("#adminNewEmail", "newperson@shomvob.com");
@@ -194,7 +207,7 @@ async function signInForReal(page, email) {
     const { calls } = await mockAdminBackend(page, { isAdmin: true });
 
     await signInForReal(page, "mahmudur@shomvob.com");
-    await page.click('.op-item:has-text("Admin Panel")');
+    await page.click('.op-item:has-text("Users")');
     await page.waitForSelector(".preview-table");
 
     await page.click('tr[data-email="tamjida@shomvob.com"] .admin-remove-btn');

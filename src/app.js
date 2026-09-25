@@ -447,21 +447,28 @@
        isAdminUser is confirmed true (refreshAdminNav(), above). Same
        "hidden entirely, not shown-disabled" instinct the whole sidebar
        already holds itself to pre-signin — a lock icon here would
-       itself reveal that an admin-only page exists. */
+       itself reveal that an admin-only page exists. Restructured the
+       same day into real individual pages, `ADMIN_TOOLS` driving this
+       list exactly the way `SETUP_TOOLS` already drives the one above
+       it — direct request: "shob gula individual page hobe," not one
+       long scrolling page. `ADMIN_TOOLS`' own array order is what makes
+       Users the default first click, not a separate redirect. */
     $("#adminNavLabel").style.display = isAdminUser ? "" : "none";
     const adminNav = $("#adminNav");
     adminNav.innerHTML = "";
     if (isAdminUser) {
-      const btn = document.createElement("button");
-      btn.className = "op-item";
-      btn.type = "button";
-      btn.setAttribute("aria-current", String(currentOp === "admin_panel"));
-      btn.innerHTML = `<span class="op-item-label">${opIcon("admin_panel")}Admin Panel</span>`;
-      btn.addEventListener("click", () => {
-        if (isBulkRunActive()) return;
-        navigateTo("admin_panel");
+      ADMIN_TOOLS.forEach((op) => {
+        const btn = document.createElement("button");
+        btn.className = "op-item";
+        btn.type = "button";
+        btn.setAttribute("aria-current", String(op.id === currentOp));
+        btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span>`;
+        btn.addEventListener("click", () => {
+          if (isBulkRunActive()) return;
+          navigateTo(op.id);
+        });
+        adminNav.appendChild(btn);
       });
-      adminNav.appendChild(btn);
     }
   }
 
@@ -534,11 +541,18 @@
       wireRickrollEvents();
       return;
     }
-    if (currentOp === "admin_panel") {
+    if (currentOp === "admin_users") {
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media", "wide");
-      root.innerHTML = adminPanelTemplate();
-      wireAdminPanelEvents();
+      root.innerHTML = adminUsersTemplate();
+      wireAdminUsersEvents();
+      return;
+    }
+    if (currentOp === "admin_audit") {
+      $("#actionBar").style.display = "none";
+      root.classList.remove("has-media", "wide");
+      root.innerHTML = adminAuditTemplate();
+      wireAdminAuditEvents();
       return;
     }
     if (currentOp === "attendance_add") {
@@ -616,7 +630,8 @@
     payroll_field_add: '<path d="M12 2.5v19"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
     assets_add: '<rect x="2.5" y="3.5" width="19" height="13.5" rx="2"/><path d="M8.5 21h7M12 17v4"/>',
     company_setup: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-    admin_panel: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>',
+    admin_users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    admin_audit: '<path d="M9 2h6l4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v4h4"/><path d="M8 12h8M8 16h8M8 8h3"/>',
   };
 
   function opIcon(id) {
@@ -3507,6 +3522,15 @@
    * nothing that hardcodes that one email as special anywhere in this
    * code, only the data already in the table. */
 
+  /* Restructured the same day into two real, individually-navigable
+     pages — direct request, screenshot-annotated: "shob gula individual
+     page hobe" (all of these should be individual pages), not one long
+     scrolling page. `adminPanel` still loads both datasets together in
+     one `loadAdminPanelData()` call (one admin check, one Edge Function
+     call, one audit fetch) since an admin visiting one of these pages
+     is likely to visit the other in the same session — `admin_users`/
+     `admin_audit` (ADMIN_TOOLS, app-data.js) are just two different
+     renders of the same underlying state, not two separate fetches. */
   const adminPanel = { status: "idle", error: "", auditRows: null, users: null };
   // status: "idle" | "checking" | "denied" | "ready" | "error"
 
@@ -3615,15 +3639,10 @@
     `;
   }
 
-  function adminPanelTemplate() {
-    if (adminPanel.status === "idle" || adminPanel.status === "checking") {
-      return `
-        <div class="page-head">
-          <span class="page-eyebrow">Admin Panel</span>
-          <h1 class="page-title">Checking access…</h1>
-        </div>
-      `;
-    }
+  /* Shared across both admin_users and admin_audit — checking/denied/
+     error read identically on either page, only the ready-state body
+     actually differs. */
+  function adminStatusPageHtml() {
     if (adminPanel.status === "denied") {
       return `
         <div class="page-head">
@@ -3645,33 +3664,50 @@
         </div>
       `;
     }
-
     return `
       <div class="page-head">
         <span class="page-eyebrow">Admin Panel</span>
-        <h1 class="page-title">Admin Panel</h1>
-        <p class="page-desc">Signed in as ${escapeHtml(setup.toolEmail)}.</p>
+        <h1 class="page-title">Checking access…</h1>
+      </div>
+    `;
+  }
+
+  /* Kicks off the shared load if this is the first admin page opened
+     this session (or after a Retry), otherwise just wires whatever's
+     already on screen. `pageOp`/`template`/`wire` let this one function
+     serve both admin_users and admin_audit without duplicating the
+     idle/retry dance twice. */
+  function wireAdminStatusHandling(pageOp, template, wire) {
+    if (adminPanel.status === "idle") {
+      loadAdminPanelData().then(() => {
+        if (currentOp !== pageOp) return;
+        $("#mainContent").innerHTML = template();
+        wire();
+      });
+      return true;
+    }
+    const retryBtn = $("#adminRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        adminPanel.status = "idle";
+        $("#mainContent").innerHTML = template();
+        wire();
+      });
+    }
+    return adminPanel.status !== "ready";
+  }
+
+  function adminUsersTemplate() {
+    if (adminPanel.status !== "ready") return adminStatusPageHtml();
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Admin Panel</span>
+        <h1 class="page-title">Users</h1>
+        <p class="page-desc">Change an existing account's access, add a new one, or remove one entirely.</p>
       </div>
 
       <div class="section">
-        <div class="section-head">
-          <h2 class="section-title"><span class="section-num">1</span>Audit log</h2>
-          <button type="button" class="tiny-btn" id="adminRefreshAuditBtn">Refresh</button>
-        </div>
-        <p class="section-note">The last ${adminPanel.auditRows.length} real events — most recent first.</p>
-        <div class="preview-table-wrap">
-          <table class="preview-table">
-            <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Company</th><th>Module</th><th>Detail</th></tr></thead>
-            <tbody>
-              ${adminPanel.auditRows.length ? adminPanel.auditRows.map(adminAuditRowHtml).join("") : `<tr><td colspan="6" class="faint">Nothing logged yet.</td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Users</h2></div>
-        <p class="section-note">Change an existing account's access, or remove one entirely.</p>
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Existing users</h2></div>
         <div class="preview-table-wrap">
           <table class="preview-table">
             <thead><tr><th>Email</th><th>Last signed in</th><th>Tier</th><th>Admin</th><th></th></tr></thead>
@@ -3682,7 +3718,7 @@
       </div>
 
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Add a user</h2></div>
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Add a user</h2></div>
         <p class="section-note">Creates a real Bulk Forge sign-in — same account used everywhere in this app.</p>
         <div class="field-row">
           <div class="field">
@@ -3714,42 +3750,36 @@
     `;
   }
 
-  function wireAdminPanelEvents() {
-    if (adminPanel.status === "idle") {
-      loadAdminPanelData().then(() => {
-        if (currentOp !== "admin_panel") return;
-        $("#mainContent").innerHTML = adminPanelTemplate();
-        wireAdminPanelEvents();
-      });
-      return;
-    }
+  function adminAuditTemplate() {
+    if (adminPanel.status !== "ready") return adminStatusPageHtml();
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Admin Panel</span>
+        <h1 class="page-title">Audit Log</h1>
+        <p class="page-desc">The last ${adminPanel.auditRows.length} real events — most recent first.</p>
+      </div>
 
-    const retryBtn = $("#adminRetryBtn");
-    if (retryBtn) {
-      retryBtn.addEventListener("click", () => {
-        adminPanel.status = "idle";
-        $("#mainContent").innerHTML = adminPanelTemplate();
-        wireAdminPanelEvents();
-      });
-    }
+      <div class="section">
+        <div class="section-head">
+          <h2 class="section-title"><span class="section-num">1</span>Activity</h2>
+          <button type="button" class="tiny-btn" id="adminRefreshAuditBtn">Refresh</button>
+        </div>
+        <div class="preview-table-wrap">
+          <table class="preview-table">
+            <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Company</th><th>Module</th><th>Detail</th></tr></thead>
+            <tbody>
+              ${adminPanel.auditRows.length ? adminPanel.auditRows.map(adminAuditRowHtml).join("") : `<tr><td colspan="6" class="faint">Nothing logged yet.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
 
-    if (adminPanel.status !== "ready") return;
+  function wireAdminUsersEvents() {
+    if (wireAdminStatusHandling("admin_users", adminUsersTemplate, wireAdminUsersEvents)) return;
 
     wirePasswordToggles($("#mainContent"));
-
-    const refreshAuditBtn = $("#adminRefreshAuditBtn");
-    if (refreshAuditBtn) {
-      refreshAuditBtn.addEventListener("click", async () => {
-        setBtnBusy(refreshAuditBtn);
-        try {
-          adminPanel.auditRows = await fetchAuditLogRows();
-        } catch (e) {
-          /* the table just keeps showing what it already had */
-        }
-        $("#mainContent").innerHTML = adminPanelTemplate();
-        wireAdminPanelEvents();
-      });
-    }
 
     const usersErr = $("#adminUsersError");
     $all(".admin-save-btn").forEach((btn) => {
@@ -3786,8 +3816,8 @@
           await adminUsersFetch("delete", { userId: u.id, email });
           adminPanel.users = adminPanel.users.filter((x) => x.email !== email);
           adminPanel.status = "ready";
-          $("#mainContent").innerHTML = adminPanelTemplate();
-          wireAdminPanelEvents();
+          $("#mainContent").innerHTML = adminUsersTemplate();
+          wireAdminUsersEvents();
         } catch (e) {
           clearBtnBusy(btn);
           usersErr.textContent = e.message;
@@ -3819,13 +3849,31 @@
       try {
         await adminUsersFetch("create", { email, password, tier, is_admin: newIsAdmin });
         adminPanel.status = "idle";
-        $("#mainContent").innerHTML = adminPanelTemplate();
-        wireAdminPanelEvents();
+        $("#mainContent").innerHTML = adminUsersTemplate();
+        wireAdminUsersEvents();
       } catch (e) {
         clearBtnBusy(createBtn);
         createErr.textContent = e.message;
       }
     });
+  }
+
+  function wireAdminAuditEvents() {
+    if (wireAdminStatusHandling("admin_audit", adminAuditTemplate, wireAdminAuditEvents)) return;
+
+    const refreshAuditBtn = $("#adminRefreshAuditBtn");
+    if (refreshAuditBtn) {
+      refreshAuditBtn.addEventListener("click", async () => {
+        setBtnBusy(refreshAuditBtn);
+        try {
+          adminPanel.auditRows = await fetchAuditLogRows();
+        } catch (e) {
+          /* the table just keeps showing what it already had */
+        }
+        $("#mainContent").innerHTML = adminAuditTemplate();
+        wireAdminAuditEvents();
+      });
+    }
   }
 
   /* Every operation shares the one action bar, so these dispatch on the
