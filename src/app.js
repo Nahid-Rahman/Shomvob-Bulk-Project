@@ -442,6 +442,27 @@
       });
       setupNav.appendChild(btn);
     });
+
+    /* Admin Panel (2026-09-25) — a third nav section, shown only once
+       isAdminUser is confirmed true (refreshAdminNav(), above). Same
+       "hidden entirely, not shown-disabled" instinct the whole sidebar
+       already holds itself to pre-signin — a lock icon here would
+       itself reveal that an admin-only page exists. */
+    $("#adminNavLabel").style.display = isAdminUser ? "" : "none";
+    const adminNav = $("#adminNav");
+    adminNav.innerHTML = "";
+    if (isAdminUser) {
+      const btn = document.createElement("button");
+      btn.className = "op-item";
+      btn.type = "button";
+      btn.setAttribute("aria-current", String(currentOp === "admin_panel"));
+      btn.innerHTML = `<span class="op-item-label">${opIcon("admin_panel")}Admin Panel</span>`;
+      btn.addEventListener("click", () => {
+        if (isBulkRunActive()) return;
+        navigateTo("admin_panel");
+      });
+      adminNav.appendChild(btn);
+    }
   }
 
   /* Wraps an operation's form in the two-column shell when that operation
@@ -511,6 +532,13 @@
         `<video src="assets/rickroll.mp4" loop muted playsinline autoplay></video>` +
         `</figure></aside>`;
       wireRickrollEvents();
+      return;
+    }
+    if (currentOp === "admin_panel") {
+      $("#actionBar").style.display = "none";
+      root.classList.remove("has-media", "wide");
+      root.innerHTML = adminPanelTemplate();
+      wireAdminPanelEvents();
       return;
     }
     if (currentOp === "attendance_add") {
@@ -588,6 +616,7 @@
     payroll_field_add: '<path d="M12 2.5v19"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
     assets_add: '<rect x="2.5" y="3.5" width="19" height="13.5" rx="2"/><path d="M8.5 21h7M12 17v4"/>',
     company_setup: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    admin_panel: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>',
   };
 
   function opIcon(id) {
@@ -3095,6 +3124,19 @@
     }
   }
 
+  /* Admin Panel (2026-09-25) — whether the sidebar's own "Admin" nav
+     item shows at all. Deliberately just a nav-visibility flag, not the
+     access check itself: `adminPanelTemplate()` re-verifies via
+     checkIsAdmin() every time the page is actually opened (below), same
+     "never trust a cached flag for admin-gated data" discipline the
+     Dashboard's own Team Activity section already holds itself to — the
+     real access check happens live, every time, not once and cached. */
+  let isAdminUser = false;
+  async function refreshAdminNav() {
+    isAdminUser = setup.toolToken ? await checkIsAdmin() : false;
+    renderSidebar();
+  }
+
   /* Everything computed client-side from one fetch of the real rows —
      no separate aggregation backend, same "no backend beyond what's
      strictly needed" instinct as the rest of this app. `limit=2000` is
@@ -3375,6 +3417,7 @@
         setup.toolToken = data.access_token;
         saveToolSession(data.expires_at ? data.expires_at * 1000 : Date.now() + 3600 * 1000);
         logAudit("login", `${email} signed in`, { environment: setup.env });
+        refreshAdminNav();
         const target = pendingOperation || "welcome";
         pendingOperation = null;
         /* replace: true — signing in completes the gate rather than
@@ -3426,6 +3469,362 @@
     $("#rickrollBackBtn").addEventListener("click", () => {
       pendingOperation = null;
       navigateTo("operations_gate");
+    });
+  }
+
+  /* ================= Admin Panel (2026-09-25) ================= *
+   *
+   * TODO.md's Admin Panel v1 scope, plus one more piece the user asked
+   * for directly the same day: "user add remove korte parbe" — adding
+   * and removing a real Supabase account, not just viewing the audit
+   * log and adjusting an existing account's tier/admin flag. The tier/
+   * admin-flag part needed nothing new — `user_access_write_admins` is
+   * already `FOR ALL` gated by `is_admin()`, so an admin's own browser
+   * can write straight to `user_access` under RLS, same as every other
+   * write in this app. Creating or deleting a *real Supabase Auth user*
+   * is different: that needs the Admin API, which needs the
+   * `service_role` key, which this app's own hard rule says can never
+   * be client-side (see "The Supabase project itself", above). The
+   * `admin-users` Edge Function (deployed to this same Supabase
+   * project, not committed here — it holds no secret of its own, the
+   * `service_role` key is a Supabase-managed environment variable it
+   * reads at runtime) is the one, narrow, server-side exception this
+   * needs: it re-checks `is_admin` itself using its own service-role
+   * client before doing anything (never trusts the caller), and refuses
+   * to let an admin delete their own account even if a client-side
+   * button were bypassed entirely. Three actions: `list` (real
+   * `auth.users` merged with each one's `user_access` row),
+   * `create` (`auth.admin.createUser`), `delete` (`auth.admin.deleteUser`
+   * + cleans up that email's `user_access` row). Both `create` and
+   * `delete` log themselves into `audit_log` from inside the function
+   * (`admin_user_create`/`admin_user_delete` — the CHECK constraint on
+   * `audit_log.event_type` was widened for these plus
+   * `admin_access_change`, the same day, to allow them).
+   *
+   * mahmudur@shomvob.com is the one seeded admin (`user_access`,
+   * confirmed 2026-09-24) — "chaile admin aro add korte parbe" (more
+   * can be added from here) is exactly the Admin toggle below; there's
+   * nothing that hardcodes that one email as special anywhere in this
+   * code, only the data already in the table. */
+
+  const adminPanel = { status: "idle", error: "", auditRows: null, users: null };
+  // status: "idle" | "checking" | "denied" | "ready" | "error"
+
+  const ADMIN_TIER_OPTIONS = [
+    { id: "bulk", label: "Bulk only" },
+    { id: "company", label: "Settings only" },
+    { id: "both", label: "Both" },
+  ];
+
+  async function fetchAuditLogRows() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/audit_log?select=*&order=created_at.desc&limit=200`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` },
+    });
+    if (!res.ok) throw new Error("Could not load the audit log.");
+    return await res.json();
+  }
+
+  /* The one client for every admin-users Edge Function call — same
+     apikey/bearer shape every other Supabase call in this app already
+     uses, just against /functions/v1/ instead of /rest/v1/. */
+  async function adminUsersFetch(action, body) {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` },
+      body: JSON.stringify({ action, ...body }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Something went wrong.");
+    return data;
+  }
+
+  /* Direct REST write under RLS — no Edge Function involved, this is
+     exactly the write `user_access_write_admins` already allows an
+     admin's own browser to make. Prefer: resolution=merge-duplicates
+     upserts, so this works whether the target already has a row (an
+     existing account being retiered) or not (an account that's only
+     ever hit the default-both path via my_tier()'s own fallback). */
+  async function saveUserAccess(email, tier, isAdmin) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/user_access`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${setup.toolToken}`,
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify({ email, tier, is_admin: isAdmin }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Could not save.");
+    }
+  }
+
+  async function loadAdminPanelData() {
+    adminPanel.status = "checking";
+    adminPanel.error = "";
+    const ok = await checkIsAdmin();
+    if (!ok) {
+      adminPanel.status = "denied";
+      return;
+    }
+    try {
+      const [auditRows, listData] = await Promise.all([fetchAuditLogRows(), adminUsersFetch("list")]);
+      adminPanel.auditRows = auditRows;
+      adminPanel.users = listData.users;
+      adminPanel.status = "ready";
+    } catch (e) {
+      adminPanel.status = "error";
+      adminPanel.error = e.message;
+    }
+  }
+
+  function adminAuditRowHtml(row) {
+    return `
+      <tr>
+        <td class="faint">${escapeHtml(new Date(row.created_at).toLocaleString())}</td>
+        <td>${escapeHtml(row.user_email || "—")}</td>
+        <td class="strong">${escapeHtml(row.event_type)}</td>
+        <td>${escapeHtml(row.company_name || "—")}</td>
+        <td>${escapeHtml(row.module_id || "—")}</td>
+        <td class="faint">${escapeHtml(row.detail || "")}</td>
+      </tr>
+    `;
+  }
+
+  function adminUserRowHtml(u) {
+    const isSelf = u.email === setup.toolEmail;
+    return `
+      <tr data-email="${escapeHtml(u.email)}">
+        <td>${escapeHtml(u.email)}</td>
+        <td class="faint">${u.last_sign_in_at ? escapeHtml(new Date(u.last_sign_in_at).toLocaleDateString()) : "Never"}</td>
+        <td>
+          <select class="admin-tier-select">
+            ${ADMIN_TIER_OPTIONS.map((t) => `<option value="${t.id}" ${t.id === u.tier ? "selected" : ""}>${t.label}</option>`).join("")}
+          </select>
+        </td>
+        <td>
+          <label class="switch"><input type="checkbox" class="admin-flag-checkbox" ${u.is_admin ? "checked" : ""} /><span class="switch-track"></span></label>
+        </td>
+        <td>
+          <button type="button" class="tiny-btn admin-save-btn">Save</button>
+          <button type="button" class="tiny-btn admin-remove-btn" ${isSelf ? `disabled title="You can't remove your own account."` : ""}>Remove</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  function adminPanelTemplate() {
+    if (adminPanel.status === "idle" || adminPanel.status === "checking") {
+      return `
+        <div class="page-head">
+          <span class="page-eyebrow">Admin Panel</span>
+          <h1 class="page-title">Checking access…</h1>
+        </div>
+      `;
+    }
+    if (adminPanel.status === "denied") {
+      return `
+        <div class="page-head">
+          <span class="page-eyebrow">Admin Panel</span>
+          <h1 class="page-title">Admins only</h1>
+          <p class="page-desc">This account isn't on the admin list.</p>
+        </div>
+      `;
+    }
+    if (adminPanel.status === "error") {
+      return `
+        <div class="page-head">
+          <span class="page-eyebrow">Admin Panel</span>
+          <h1 class="page-title">Couldn't load the Admin Panel</h1>
+        </div>
+        <div class="section">
+          <span class="error-text">${escapeHtml(adminPanel.error)}</span>
+          <div class="setup-actions"><button type="button" class="tiny-btn" id="adminRetryBtn">Try again</button></div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Admin Panel</span>
+        <h1 class="page-title">Admin Panel</h1>
+        <p class="page-desc">Signed in as ${escapeHtml(setup.toolEmail)}.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <h2 class="section-title"><span class="section-num">1</span>Audit log</h2>
+          <button type="button" class="tiny-btn" id="adminRefreshAuditBtn">Refresh</button>
+        </div>
+        <p class="section-note">The last ${adminPanel.auditRows.length} real events — most recent first.</p>
+        <div class="preview-table-wrap">
+          <table class="preview-table">
+            <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Company</th><th>Module</th><th>Detail</th></tr></thead>
+            <tbody>
+              ${adminPanel.auditRows.length ? adminPanel.auditRows.map(adminAuditRowHtml).join("") : `<tr><td colspan="6" class="faint">Nothing logged yet.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Users</h2></div>
+        <p class="section-note">Change an existing account's access, or remove one entirely.</p>
+        <div class="preview-table-wrap">
+          <table class="preview-table">
+            <thead><tr><th>Email</th><th>Last signed in</th><th>Tier</th><th>Admin</th><th></th></tr></thead>
+            <tbody>${adminPanel.users.map(adminUserRowHtml).join("")}</tbody>
+          </table>
+        </div>
+        <span class="error-text" id="adminUsersError"></span>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Add a user</h2></div>
+        <p class="section-note">Creates a real Bulk Forge sign-in — same account used everywhere in this app.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="adminNewEmail">Email</label>
+            <input type="email" id="adminNewEmail" autocomplete="off" spellcheck="false" />
+          </div>
+          ${pwFieldMarkup("adminNewPass", "Password")}
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="adminNewTier">Tier</label>
+            <select id="adminNewTier">
+              ${ADMIN_TIER_OPTIONS.map((t) => `<option value="${t.id}" ${t.id === "both" ? "selected" : ""}>${t.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label>Admin</label>
+            <div class="seg seg-fill" id="adminNewAdminSeg" role="group" aria-label="Admin">
+              <button type="button" data-val="no" aria-pressed="true">No</button>
+              <button type="button" data-val="yes" aria-pressed="false">Yes</button>
+            </div>
+          </div>
+        </div>
+        <div class="setup-actions">
+          <span class="error-text" id="adminCreateError"></span>
+          <button type="button" class="generate-btn" id="adminCreateBtn">Create user</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireAdminPanelEvents() {
+    if (adminPanel.status === "idle") {
+      loadAdminPanelData().then(() => {
+        if (currentOp !== "admin_panel") return;
+        $("#mainContent").innerHTML = adminPanelTemplate();
+        wireAdminPanelEvents();
+      });
+      return;
+    }
+
+    const retryBtn = $("#adminRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        adminPanel.status = "idle";
+        $("#mainContent").innerHTML = adminPanelTemplate();
+        wireAdminPanelEvents();
+      });
+    }
+
+    if (adminPanel.status !== "ready") return;
+
+    wirePasswordToggles($("#mainContent"));
+
+    const refreshAuditBtn = $("#adminRefreshAuditBtn");
+    if (refreshAuditBtn) {
+      refreshAuditBtn.addEventListener("click", async () => {
+        setBtnBusy(refreshAuditBtn);
+        try {
+          adminPanel.auditRows = await fetchAuditLogRows();
+        } catch (e) {
+          /* the table just keeps showing what it already had */
+        }
+        $("#mainContent").innerHTML = adminPanelTemplate();
+        wireAdminPanelEvents();
+      });
+    }
+
+    const usersErr = $("#adminUsersError");
+    $all(".admin-save-btn").forEach((btn) => {
+      const row = btn.closest("tr");
+      btn.addEventListener("click", async () => {
+        usersErr.textContent = "";
+        const email = row.dataset.email;
+        const tier = $(".admin-tier-select", row).value;
+        const isAdmin = $(".admin-flag-checkbox", row).checked;
+        setBtnBusy(btn);
+        try {
+          await saveUserAccess(email, tier, isAdmin);
+          logAudit("admin_access_change", `${setup.toolEmail} set ${email} to ${tier}${isAdmin ? " (admin)" : ""}`);
+          const u = adminPanel.users.find((x) => x.email === email);
+          if (u) { u.tier = tier; u.is_admin = isAdmin; }
+          clearBtnBusy(btn);
+        } catch (e) {
+          clearBtnBusy(btn);
+          usersErr.textContent = e.message;
+        }
+      });
+    });
+    $all(".admin-remove-btn").forEach((btn) => {
+      if (btn.disabled) return;
+      const row = btn.closest("tr");
+      btn.addEventListener("click", async () => {
+        usersErr.textContent = "";
+        const email = row.dataset.email;
+        const u = adminPanel.users.find((x) => x.email === email);
+        if (!u) return;
+        if (!window.confirm(`Remove ${email}? This deletes their real sign-in — they won't be able to log in any more.`)) return;
+        setBtnBusy(btn);
+        try {
+          await adminUsersFetch("delete", { userId: u.id, email });
+          adminPanel.users = adminPanel.users.filter((x) => x.email !== email);
+          adminPanel.status = "ready";
+          $("#mainContent").innerHTML = adminPanelTemplate();
+          wireAdminPanelEvents();
+        } catch (e) {
+          clearBtnBusy(btn);
+          usersErr.textContent = e.message;
+        }
+      });
+    });
+
+    const newAdminSeg = $("#adminNewAdminSeg");
+    let newIsAdmin = false;
+    $all("button", newAdminSeg).forEach((btn) => {
+      btn.addEventListener("click", () => {
+        newIsAdmin = btn.dataset.val === "yes";
+        $all("button", newAdminSeg).forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+      });
+    });
+
+    const createBtn = $("#adminCreateBtn");
+    const createErr = $("#adminCreateError");
+    createBtn.addEventListener("click", async () => {
+      createErr.textContent = "";
+      const email = $("#adminNewEmail").value.trim();
+      const password = $("#adminNewPass").value;
+      const tier = $("#adminNewTier").value;
+      if (!email || !password) {
+        createErr.textContent = "Both fields are needed.";
+        return;
+      }
+      setBtnBusy(createBtn);
+      try {
+        await adminUsersFetch("create", { email, password, tier, is_admin: newIsAdmin });
+        adminPanel.status = "idle";
+        $("#mainContent").innerHTML = adminPanelTemplate();
+        wireAdminPanelEvents();
+      } catch (e) {
+        clearBtnBusy(createBtn);
+        createErr.textContent = e.message;
+      }
     });
   }
 
@@ -4327,6 +4726,7 @@
         resetModuleState();
         clearLastSetupSession();
         clearToolSession();
+        isAdminUser = false;
         renderSetupBody();
         /* Mirrors the sign-in fix above — without this, #gatedNav would
            keep showing Operations as unlocked after a real tool
@@ -4443,6 +4843,7 @@
         setup.toolToken = data.access_token;
         saveToolSession(data.expires_at ? data.expires_at * 1000 : Date.now() + 3600 * 1000);
         logAudit("login", `${email} signed in`, { environment: setup.env });
+        refreshAdminNav();
         renderSetupBody();
         /* Also reveals the sidebar's Operations section (2026-09-25,
            #gatedNav) immediately — without this, a visitor who signs in

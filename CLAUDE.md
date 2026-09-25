@@ -808,7 +808,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Ten suites (`back-navigation.test.js` added 2026-09-25), 798 checks as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 813 checks as
 of that addition — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
@@ -4550,6 +4550,132 @@ through the gate replaces that entry, so Back from the requested
 operation skips the gate entirely; and Back into a stale signed-in
 operation entry after a real sign-out re-shows the real gate rather
 than the operation's own form.
+
+### Admin Panel (2026-09-25)
+
+TODO.md's Admin Panel v1 scope (view the audit log, change an existing
+account's tier/admin flag), built the same day it was finally picked
+up — plus one scope change given directly when the build started:
+"user add remove korte parbe" (be able to add/remove users too), which
+TODO.md's own earlier entry had deliberately deferred as a manual
+Claude+SQL process. Confirmed directly rather than assumed to still be
+out of scope, since it changes the architecture: add/remove needs the
+Supabase Admin API, which needs the `service_role` key, which this
+app's own hard rule says can never be client-side (see "The Supabase
+project itself", above). "Beshi complex korbo na" (don't make this too
+complex) was the one explicit constraint — kept to by reusing existing
+mechanisms everywhere one already fit, rather than building new UI
+patterns for this page.
+
+**A real sidebar section, shown only to a confirmed admin.** `isAdminUser`
+(a plain module-level flag, `app.js`) drives whether the new "Admin"
+`.op-nav-label`/`#adminNav` section renders at all in `renderSidebar()`
+— same "hidden entirely, not shown-disabled" instinct the rest of the
+sidebar already holds itself to pre-signin (a lock icon here would
+itself reveal that an admin-only page exists). `refreshAdminNav()` sets
+it via a live `checkIsAdmin()` call (the exact same RPC the Dashboard's
+own Team Activity section already uses) right after every real sign-in
+— both doors, the operations gate and Company Setup's own step one,
+since either one can be how an admin actually signs in — and resets it
+to `false` on a real sign-out. **This flag only ever gates the nav
+item, never the data itself** — `adminPanelTemplate()` re-verifies via
+`checkIsAdmin()` live, every single time the page is actually opened
+(`wireAdminPanelEvents()`'s own `"idle"` branch), the same "never trust
+a cached flag for admin-gated data" discipline the Dashboard already
+established. A non-admin who somehow reaches `currentOp ===
+"admin_panel"` anyway (a stale `popstate` entry, say) sees "Admins
+only," not the real panel — confirmed by test.
+
+**Three sections on one page**, all built from existing components
+rather than new ones — `.preview-table`/`.preview-table-wrap` for both
+tables, `.switch`/`.switch-track` (Leave Types' own Sandwich/Bridge
+toggle) for the per-row Admin flag, `.seg`/`.seg-fill` for the new-user
+form's Admin choice, `pwFieldMarkup()` for the new-user password field
+— checked in both themes with a Playwright screenshot before this was
+considered done, no new hex values anywhere:
+
+1. **Audit log** — the real `audit_log` table, last 200 rows, newest
+   first (`GET .../audit_log?select=*&order=created_at.desc&limit=200`,
+   the admin's own bearer token, gated by the existing
+   `audit_log_select_admins` policy — nothing new needed here). A
+   "Refresh" button re-fetches just this section without reloading the
+   whole page.
+2. **Users** — every real `auth.users` account (via the Edge Function's
+   `list` action, below — this can't come from `user_access` alone,
+   since that table only ever gains a row once someone's actually been
+   retiered or admin-flagged; a full account list needs the real
+   `auth.users`, which isn't in the exposed `public`/`extensions`
+   schemas this project's PostgREST serves). Each row: email, last real
+   sign-in, a Tier `<select>`, an Admin `.switch`, Save, Remove.
+   **Tier/admin-flag Save is a direct client write to `user_access`, no
+   Edge Function involved** — confirmed via `execute_sql` before writing
+   any code that `user_access_write_admins` is already `FOR ALL`
+   (covers INSERT/UPDATE/DELETE, not split into separate policies), so
+   an admin's own browser upserting a row
+   (`Prefer: resolution=merge-duplicates`) is already exactly what RLS
+   allows, the same discipline every other write in this app already
+   follows. Logged via the existing `logAudit()` helper, a new event
+   type: `admin_access_change`.
+3. **Add a user** — email, password, tier, admin toggle → the Edge
+   Function's `create` action.
+
+**The `admin-users` Edge Function is the one, narrow exception to "no
+backend beyond what's strictly needed"** — deployed to this same
+Supabase project (`wtlaiidtiugxirqcxjzw`) via
+`mcp__claude_ai_Supabase__deploy_edge_function`, **not committed to this
+repo**, since it holds no secret of its own to protect (the
+`service_role` key it uses is a Supabase-managed environment variable,
+auto-injected at runtime, never typed or stored anywhere in this
+codebase) — same principle as `.vercelignore` keeping `CLAUDE.md` out
+of the deploy, just the reverse direction. `verify_jwt: true` (the
+platform rejects a request with no valid Supabase-issued JWT before the
+function's own code ever runs), and the function *also* re-checks
+`is_admin` itself, using its own service-role client, before doing
+anything — a client-side check alone would only be a UI convenience;
+this is the actual enforcement, since anyone could otherwise call the
+function's URL directly. Three actions:
+
+- **`list`** — `auth.admin.listUsers()` merged with each email's
+  `user_access` row (defaulting to `tier: "both", is_admin: false` for
+  an account with no row yet, same fallback `my_tier()`/`is_admin()`
+  already use).
+- **`create`** — `auth.admin.createUser({ email, password, email_confirm:
+  true })`, then an upsert into `user_access` **only if** the chosen
+  tier/admin differs from the default (both/false) — no pointless row
+  for the common case.
+- **`delete`** — `auth.admin.deleteUser(userId)`, then deletes that
+  email's `user_access` row. **Refuses to let an admin delete their own
+  account, even called directly** — not just a disabled button on the
+  client (`isSelf` in `adminUserRowHtml()`, which also gets no click
+  handler wired at all), the function's own code checks
+  `targetEmail === callerEmail` first and rejects it — defense in
+  depth, so a bypassed or hand-crafted request can't lock an admin out
+  of their own account.
+
+Both `create` and `delete` log themselves into `audit_log` from inside
+the function, using its own service-role client (so this works even if
+the RLS insert policy ever changed) — two new event types,
+`admin_user_create`/`admin_user_delete`. **`audit_log.event_type`'s own
+CHECK constraint had to be widened for this** (migration
+`widen_audit_log_event_type_for_admin_actions`) — it only ever allowed
+`login`/`bulk_generate`/`settings_save` before, the three kinds scoped
+when audit logging was first built; now also allows the three admin
+ones above.
+
+**mahmudur@shomvob.com stays the one seeded admin, nothing hardcodes
+it as special anywhere in this code** — "chaile admin aro add korte
+parbe" (more admins can be added from here) is exactly the Admin toggle
+in the Users table; growing the admin list is purely a data change from
+this point on, the same way it already was via direct SQL.
+
+Confirmed by a new suite, `tests/admin-panel.test.js` (15 checks): the
+nav item is invisible to a non-admin; an admin sees both real tables
+and the Users list correctly (their own Remove disabled, everyone
+else's enabled); a tier/admin-flag save sends a direct `user_access`
+write with the real values; creating a user calls the Edge Function
+with the real form values, not a direct auth write; removing another
+account confirms first, then calls the Edge Function with that
+account's real id and email.
 
 ### What's not built yet
 

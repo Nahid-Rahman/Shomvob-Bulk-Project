@@ -10,12 +10,13 @@ or added more).
 - Lead feedback, relayed directly (2026-09-24) — three related asks,
   **all need a real backend + database**, a genuine architecture change
   from this app's current stateless/client-only design:
-  - **Audit log** — **data capture is built** (2026-09-24, see CLAUDE.md
-    → Phase 2 → "Audit Log"): login / settings_save / bulk_generate
-    events now write to a real Supabase `audit_log` table. **Still open:
-    a viewing UI** — deliberately deferred, confirmed this belongs to
-    the future admin panel below, not this phase ("eta kintu admin panel
-    er part hobar kotha. je admin dhuke dekhbe ke ki korse").
+  - **Audit log** — **fully done** (data capture 2026-09-24, viewing UI
+    2026-09-25 as part of the Admin Panel, see CLAUDE.md → Phase 2 →
+    "Audit Log" and → "Admin Panel"): login / settings_save /
+    bulk_generate / admin_user_create / admin_user_delete /
+    admin_access_change events all write to a real Supabase `audit_log`
+    table, and an admin can now read the last 200 of them straight from
+    the Admin Panel.
   - **Dashboard with a proper overview** — **built 2026-09-25**, see
     CLAUDE.md → Phase 2 → "Dashboard's 'Team activity' section". 4 real
     stat tiles (sign-ins, settings saved, bulk files generated,
@@ -27,9 +28,15 @@ or added more).
     correct real numbers) and by Playwright screenshot in both themes.
   - **Tiered access / admin panel** — some users get only the bulk
     generators, some get Company Setup, some get both; an admin can
-    raise/lower anyone's access level from a real admin panel. Not
-    started, intentionally after Dashboard (see above). This is also
-    where the audit log's own viewing UI belongs.
+    raise/lower anyone's access level from a real admin panel. **Admin
+    Panel v1 is built** (2026-09-25, see CLAUDE.md → Phase 2 → "Admin
+    Panel") — view the audit log, change an existing account's tier/
+    admin flag, **and add/remove a real account** (a scope addition
+    given directly when this was picked up — "user add remove korte
+    parbe" — via a new `admin-users` Supabase Edge Function, since that
+    needs the `service_role` key this app's client code can never hold).
+    **Tier itself still isn't enforced anywhere** — that's the
+    Welcome/tier routing page below, still not started.
 
   **Tiered access — the normal (non-admin) user journey, dictated
   directly (2026-09-24), captured here so it isn't lost between
@@ -143,12 +150,23 @@ or added more).
   - ✅ **The Rickroll** — the "Auto setup my company & bulk upload"
     button's own payoff, built 2026-09-25, see step 3 above and CLAUDE.md
     → Phase 2 → "The Rickroll".
+  - ✅ **Real browser Back/Forward** (2026-09-25, not one of the
+    originally numbered steps — a separate direct request the same day:
+    "amader proper back function nai") — see CLAUDE.md → Phase 2 →
+    "Real browser Back/Forward". Every top-level page change now goes
+    through `navigateTo()`, which pushes real history entries.
+  - ✅ **Admin Panel** (2026-09-25) — see CLAUDE.md → Phase 2 → "Admin
+    Panel". Audit log viewer, tier/admin-flag management (direct
+    `user_access` write under RLS), and add/remove a real account (via
+    the new `admin-users` Edge Function). `mahmudur@shomvob.com` is
+    still the one seeded admin; more can be added from the panel itself
+    now, no SQL needed for that specific step any more.
   - **Not started**: the new Welcome/tier routing page itself
     (Bulk/Settings/Both cards + lock icons — this is also where the
     Operations-picking experience now moved off the sidebar is headed,
     and where Company Setup's own step-one sign-in form is meant to
-    move to), actually reading `my_tier()` to enforce anything, and
-    Admin Panel UI. **This is the next piece to pick up.**
+    move to), and actually reading `my_tier()` to enforce anything.
+    **This is the last piece of the originally-dictated journey left.**
 
   **Whoever picks this up next**: don't restart planning from scratch —
   every numbered decision above is confirmed, not an open question. Ask
