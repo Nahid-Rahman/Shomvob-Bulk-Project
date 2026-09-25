@@ -808,7 +808,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 815 checks as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 819 checks as
 of that addition — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
@@ -4715,9 +4715,26 @@ parbe" (more admins can be added from here) is exactly the Admin toggle
 in the Users table; growing the admin list is purely a data change from
 this point on, the same way it already was via direct SQL.
 
-Confirmed by a new suite, `tests/admin-panel.test.js` (17 checks): both
+**A real bug, found live 2026-09-26: the Admin nav section vanished on
+a hard refresh** ("hard refresh dile amake logged in dekhay but abar
+admin menu gula ashe na" — a refresh still shows me signed in, but the
+admin menu doesn't come back). `refreshAdminNav()` was only ever wired
+into the two real sign-in *success handlers* — a session restored on
+reload sets `setup.toolToken` directly from the persisted
+`TOOL_SESSION_KEY` (`init()`, "Two logins, not one" above), skipping
+both, so `isAdminUser` stayed `false` even for a genuine admin and the
+whole "ADMIN" section silently disappeared every time the page
+reloaded, landing on Company Setup's own step two exactly as designed
+— just missing its Admin nav. Fixed by calling `refreshAdminNav()`
+right there too, in the same `if (savedTool)` branch that restores
+`setup.toolToken` — fire-and-forget, same as both sign-in call sites,
+correcting the sidebar once the async check resolves.
+
+Confirmed by a new suite, `tests/admin-panel.test.js` (21 checks): both
 nav items are invisible to a non-admin; an admin sees both, Users
-listed before Audit Log; each page shows only its own real data (Users
+listed before Audit Log; the Admin section survives a hard refresh
+(the bug above, reproduced and fixed the same day); each page shows
+only its own real data (Users
 never shows the audit table and vice versa) with the signed-in admin's
 own Remove disabled and everyone else's enabled; unchecking Company
 alone (starting from "both") sends `tier: "bulk"`; unchecking the last

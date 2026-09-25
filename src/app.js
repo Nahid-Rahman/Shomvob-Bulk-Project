@@ -11348,6 +11348,15 @@
       setup.toolToken = savedTool.toolToken;
       setup.env = savedTool.env;
       currentOp = "company_setup";
+      /* A real, confirmed bug, found live 2026-09-26: refreshAdminNav()
+         only ever ran from the two real sign-in *success handlers* —
+         a session restored here on a hard refresh set setup.toolToken
+         directly, skipping both, so isAdminUser stayed false even for
+         a genuine admin and the sidebar's whole "ADMIN" section
+         silently disappeared on every reload. Fire-and-forget here too,
+         same as the sign-in call sites — it re-renders the sidebar
+         itself once the async check resolves. */
+      refreshAdminNav();
     }
     /* Establishes the first history entry — every later page change
        (navigateTo()) pushes on top of this one, so Back eventually

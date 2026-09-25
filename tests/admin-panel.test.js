@@ -229,6 +229,33 @@ async function signInForReal(page, email) {
     await page.close();
   }
 
+  {
+    // F — a real, confirmed bug, found live 2026-09-26: refreshAdminNav()
+    // only ever ran from the two real sign-in *success handlers*, so a
+    // session restored on a hard refresh (setup.toolToken set directly
+    // from sessionStorage, skipping both handlers) left isAdminUser
+    // false even for a genuine admin, and the sidebar's whole "ADMIN"
+    // section silently disappeared on every reload.
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await page.goto(PAGE);
+    await signIn(page);
+    await mockAuthOk(page);
+    await mockAdminBackend(page, { isAdmin: true });
+
+    await signInForReal(page, "mahmudur@shomvob.com");
+    check("F Admin section visible right after sign-in", (await page.locator('.op-item:has-text("Users")').count()) === 1);
+
+    await page.reload();
+    await page.waitForSelector(".sidebar", { timeout: 5000 });
+    await page.waitForTimeout(400);
+    check("F still signed in after a hard refresh", await page.isVisible(".sidebar"));
+    check("F Admin section still visible after a hard refresh",
+      (await page.locator('.op-item:has-text("Users")').count()) === 1);
+    check("F no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   await browser.close();
   report("Admin Panel", state, []);
 })();
