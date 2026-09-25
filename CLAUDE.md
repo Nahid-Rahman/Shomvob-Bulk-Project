@@ -600,16 +600,33 @@ token from the sources. `index.html` stays self-contained that way.
 
 **The browser tab itself had no favicon at all until 2026-09-25** —
 direct request, from a screenshot of a generic globe icon sitting among
-a real tab bar of real product icons. `<link rel="icon" href=
-"__SHOMVOB_LOGO__" type="image/png">` in `src/part1.html`'s own head
-content (there is no explicit `<html>`/`<head>` wrapper anywhere in this
-file — the browser infers one from `<title>`/`<link>` appearing before
-any body content, same as the existing `<title>` and Google Fonts
-`<link>` already relied on) reuses the exact same `__SHOMVOB_LOGO__`
-token and inlining mechanism as the sidebar/login-card logo above,
-rather than a second image or a separately-cropped favicon file — one
-real asset, one build-time substitution, now referenced from three
-places instead of two.
+a real tab bar of real product icons. `<link rel="icon" ...>` in
+`src/part1.html`'s own head content (there is no explicit
+`<html>`/`<head>` wrapper anywhere in this file — the browser infers
+one from `<title>`/`<link>` appearing before any body content, same as
+the existing `<title>` and Google Fonts `<link>` already relied on)
+reuses the same `INLINE_ASSETS` build-time-substitution mechanism as
+the sidebar/login-card logo above, not a second, unrelated technique.
+
+**Points at a second, composited asset, not the bare logo — direct
+follow-up the same day** ("amader ei lazy logo ta dao," with a
+screenshot circling the sidebar's full tile: logo *and* the tilted
+"Lazy" stamp together): the first pass used `__SHOMVOB_LOGO__` alone,
+which is correct for the sidebar/login-card renders (that stamp is a
+separate CSS layer hanging off the tile, per this section's own note
+above) but reads as a half-finished favicon on its own — a
+`<link rel="icon">` can't host a live CSS overlay the way an `<img>`
+inside `.brand-logo-wrap` can. `assets/shomvob_hr_logo_lazy.png` is a
+new, flattened composite — the same base logo plus a baked-in "LAZY"
+badge, positioned bottom-right and rotated to match `.brand-stamp`'s
+own colours (`--accent`/`--accent-strong`) and roughly its angle,
+generated once with Pillow (not committed as a script, since this asset
+never needs regenerating unless the source logo itself changes) rather
+than hand-drawn. `__SHOMVOB_LOGO_LAZY__` is a second `INLINE_ASSETS`
+entry, `src/part1.html`'s favicon link points at it instead of the bare
+logo token — the sidebar/login-card `<img>` renders are untouched,
+still `__SHOMVOB_LOGO__` plus their own live `.brand-stamp`, since
+those already show the real thing correctly.
 
 ## Sidebar icons
 

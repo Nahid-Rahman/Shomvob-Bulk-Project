@@ -19,6 +19,7 @@ ASSETS = ROOT / "assets"
 # tokens the sources use.
 INLINE_ASSETS = {
     "__SHOMVOB_LOGO__": (ASSETS / "shomvob_hr_logo.png", "image/png"),
+    "__SHOMVOB_LOGO_LAZY__": (ASSETS / "shomvob_hr_logo_lazy.png", "image/png"),
 }
 
 
