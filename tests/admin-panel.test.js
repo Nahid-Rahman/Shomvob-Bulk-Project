@@ -130,6 +130,19 @@ async function signInForReal(page, email) {
     check("B another account's Remove stays enabled",
       !(await page.isDisabled('tr[data-email="tamjida@shomvob.com"] .admin-remove-btn')));
 
+    // Manage Users and Create new user are two real tabs, not stacked
+    // on the same page -- direct correction: "manage ar user create
+    // kora alada rakhar kotha chilo. 1 page e na"
+    check("B Manage Users is the default active tab",
+      (await page.textContent('.settings-tab[aria-current="true"]')).trim() === "Manage Users");
+    check("B the Create new user form is not shown on the Manage Users tab",
+      (await page.locator("#adminNewEmail").count()) === 0);
+
+    await page.click('.settings-tab:has-text("Create new user")');
+    await page.waitForSelector("#adminNewEmail");
+    check("B switching tabs shows the create form and hides the users table",
+      (await page.locator("#adminNewEmail").count()) === 1 && (await page.locator("tr[data-email]").count()) === 0);
+
     await page.click('.op-item:has-text("Audit Log")');
     await page.waitForTimeout(150);
     check("B the Audit Log page shows the real event, not the users table",
@@ -188,6 +201,8 @@ async function signInForReal(page, email) {
     await signInForReal(page, "mahmudur@shomvob.com");
     await page.click('.op-item:has-text("Users")');
     await page.waitForSelector(".preview-table");
+    await page.click('.settings-tab:has-text("Create new user")');
+    await page.waitForSelector("#adminNewEmail");
 
     await page.fill("#adminNewEmail", "newperson@shomvob.com");
     await page.fill("#adminNewPass", "whatever123");
@@ -200,6 +215,8 @@ async function signInForReal(page, email) {
       calls.create && calls.create.email === "newperson@shomvob.com" && calls.create.password === "whatever123" &&
       calls.create.tier === "company" && calls.create.is_admin === true,
       JSON.stringify(calls.create));
+    check("D switches back to Manage Users after a successful create",
+      (await page.textContent('.settings-tab[aria-current="true"]')).trim() === "Manage Users");
     check("D no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }

@@ -543,14 +543,22 @@
     }
     if (currentOp === "admin_users") {
       $("#actionBar").style.display = "none";
-      root.classList.remove("has-media", "wide");
+      root.classList.remove("has-media");
+      /* Same wider 1100px column Company Setup already gets — direct
+         feedback: "amader page width besh valoi khali thaktese. table
+         eto kiptami kore choto rakhteso keno?" (the page has plenty of
+         spare width, why is the table kept so stingily narrow). The
+         default 760px column was designed for the five generators'
+         own short field-rows, not a data table with six columns. */
+      root.classList.add("wide");
       root.innerHTML = adminUsersTemplate();
       wireAdminUsersEvents();
       return;
     }
     if (currentOp === "admin_audit") {
       $("#actionBar").style.display = "none";
-      root.classList.remove("has-media", "wide");
+      root.classList.remove("has-media");
+      root.classList.add("wide");
       root.innerHTML = adminAuditTemplate();
       wireAdminAuditEvents();
       return;
@@ -3540,6 +3548,23 @@
     { id: "both", label: "Both" },
   ];
 
+  /* The Users page split into two real tabs, same day as the checkbox
+     redesign above — direct correction against the same reference
+     screenshot's own tab strip (Company Settings → Company Profile/
+     Bank Info/...): "manage ar user create kora alada rakhar kotha
+     chilo. 1 page e na" (managing and creating were supposed to stay
+     separate, not on one page). Reuses `.settings-tabs`/`.settings-tab`
+     — the exact component Company Setup's own module tabs already are
+     — rather than a second, Admin-only tab component; `adminUsersTab`
+     is deliberately a plain local variable, not tied into
+     `setup.activeModule`, since none of that machinery (done-dots,
+     "Run defaults", dependency blocking) applies here. */
+  let adminUsersTab = "manage";
+  const ADMIN_USERS_TABS = [
+    { id: "manage", label: "Manage Users" },
+    { id: "create", label: "Create new user" },
+  ];
+
   async function fetchAuditLogRows() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/audit_log?select=*&order=created_at.desc&limit=200`, {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` },
@@ -3707,15 +3732,8 @@
     return adminPanel.status !== "ready";
   }
 
-  function adminUsersTemplate() {
-    if (adminPanel.status !== "ready") return adminStatusPageHtml();
+  function adminManageUsersBodyHtml() {
     return `
-      <div class="page-head">
-        <span class="page-eyebrow">Admin Panel</span>
-        <h1 class="page-title">Users</h1>
-        <p class="page-desc">Change an existing account's access, add a new one, or remove one entirely.</p>
-      </div>
-
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Manage Users</h2></div>
         <div class="preview-table-wrap">
@@ -3726,9 +3744,13 @@
         </div>
         <span class="error-text" id="adminUsersError"></span>
       </div>
+    `;
+  }
 
+  function adminCreateUserBodyHtml() {
+    return `
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Create new user</h2></div>
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Create new user</h2></div>
         <p class="section-note">Creates a real Bulk Forge sign-in — same account used everywhere in this app.</p>
         <div class="field-row">
           <div class="field">
@@ -3757,6 +3779,23 @@
           <button type="button" class="generate-btn" id="adminCreateBtn">Create user</button>
         </div>
       </div>
+    `;
+  }
+
+  function adminUsersTemplate() {
+    if (adminPanel.status !== "ready") return adminStatusPageHtml();
+    const tabs = ADMIN_USERS_TABS.map(
+      (t) => `<button type="button" class="settings-tab" data-tab="${t.id}" aria-current="${t.id === adminUsersTab}">${t.label}</button>`
+    ).join("");
+    const body = adminUsersTab === "create" ? adminCreateUserBodyHtml() : adminManageUsersBodyHtml();
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Admin Panel</span>
+        <h1 class="page-title">Users</h1>
+        <p class="page-desc">Change an existing account's access, add a new one, or remove one entirely.</p>
+      </div>
+      <div class="settings-tabs" role="tablist" style="margin-top:12px">${tabs}</div>
+      <div style="margin-top:16px">${body}</div>
     `;
   }
 
@@ -3789,8 +3828,22 @@
   function wireAdminUsersEvents() {
     if (wireAdminStatusHandling("admin_users", adminUsersTemplate, wireAdminUsersEvents)) return;
 
-    wirePasswordToggles($("#mainContent"));
+    $all(".settings-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        adminUsersTab = tab.dataset.tab;
+        $("#mainContent").innerHTML = adminUsersTemplate();
+        wireAdminUsersEvents();
+      });
+    });
 
+    if (adminUsersTab === "create") {
+      wireAdminCreateUserEvents();
+    } else {
+      wireAdminManageUsersEvents();
+    }
+  }
+
+  function wireAdminManageUsersEvents() {
     const usersErr = $("#adminUsersError");
     /* Neither Bulk nor Company Operations can be unchecked down to
        zero — same "can't configure your way to nothing" discipline
@@ -3850,6 +3903,10 @@
         }
       });
     });
+  }
+
+  function wireAdminCreateUserEvents() {
+    wirePasswordToggles($("#mainContent"));
 
     const newAdminSeg = $("#adminNewAdminSeg");
     let newIsAdmin = false;
@@ -3874,6 +3931,10 @@
       setBtnBusy(createBtn);
       try {
         await adminUsersFetch("create", { email, password, tier, is_admin: newIsAdmin });
+        /* Switch back to Manage Users so the account just created is
+           visible right away, rather than leaving the visitor staring
+           at their own just-submitted form. */
+        adminUsersTab = "manage";
         adminPanel.status = "idle";
         $("#mainContent").innerHTML = adminUsersTemplate();
         wireAdminUsersEvents();

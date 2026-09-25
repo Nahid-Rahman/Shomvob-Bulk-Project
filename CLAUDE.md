@@ -808,7 +808,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 819 checks as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 823 checks as
 of that addition — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
@@ -4651,20 +4651,47 @@ considered done, no new hex values anywhere:
    (`Prefer: resolution=merge-duplicates`) is already exactly what RLS
    allows, the same discipline every other write in this app already
    follows. Logged via the existing `logAudit()` helper, a new event
-   type: `admin_access_change`. The same page's own "Create new user"
-   section (email, password, tier, admin toggle → the Edge Function's
-   `create` action) is a sub-action of managing users, not a third
-   concern, so it stays on this page rather than getting its own nav
-   item. **The two section titles were renamed the same day, direct
-   request against a real admin-screen reference** — "Existing users"
-   → **"Manage Users"**, "Add a user" → **"Create new user"** — no
-   change to what either section actually does.
+   type: `admin_access_change`. **The two section titles were renamed
+   the same day, direct request against a real admin-screen
+   reference** — "Existing users" → **"Manage Users"**, "Add a user" →
+   **"Create new user"** — no change to what either section actually
+   does.
+
+   **Manage Users and Create new user split into two real tabs the
+   same day, direct correction of the first pass** ("manage ar user
+   create kora alada rakhar kotha chilo. 1 page e na" — managing and
+   creating were supposed to stay separate, not on one page), against
+   the same real admin-screen reference this whole redesign started
+   from (its own "Company Settings" tab strip: Company Profile/Bank
+   Info/Department Management/Designation Management). Reuses
+   `.settings-tabs`/`.settings-tab` — the exact tab component Company
+   Setup's own module pages already are — rather than a second,
+   Admin-only tab component. `adminUsersTab` (a plain local variable,
+   `"manage"` default) is deliberately *not* wired into
+   `setup.activeModule` — none of that machinery (done-dots, "Run
+   defaults", dependency blocking) applies here, just which of two
+   template bodies (`adminManageUsersBodyHtml()`/
+   `adminCreateUserBodyHtml()`) is showing. A successful create switches
+   back to the Manage Users tab automatically, so the account just
+   created is visible right away rather than leaving the admin staring
+   at their own just-submitted form.
 2. **Audit Log** (`admin_audit`) — the real `audit_log` table, last 200
    rows, newest first (`GET .../audit_log?select=*&order=created_at.desc&limit=200`,
    the admin's own bearer token, gated by the existing
    `audit_log_select_admins` policy — nothing new needed here). A
    "Refresh" button re-fetches just this page's data without reloading
    the whole page.
+
+**Both admin pages get the wider 1100px `.wide` column Company Setup
+already uses, not the default 760px** — direct feedback, same day:
+"amader page width besh valoi khali thaktese. table eto kiptami kore
+choto rakhteso keno?" (there's plenty of spare width, why keep the
+table so stingily narrow). The default column was sized for the five
+generators' own short field-rows; a six-column data table reads
+cramped at that width (the Audit Log's own Detail column was visibly
+cut off before this). `renderMain()`'s `admin_users`/`admin_audit`
+branches add `"wide"` instead of removing it, same class Company Setup
+already relies on.
 
 **The `admin-users` Edge Function is the one, narrow exception to "no
 backend beyond what's strictly needed"** — deployed to this same
@@ -4730,10 +4757,12 @@ right there too, in the same `if (savedTool)` branch that restores
 `setup.toolToken` — fire-and-forget, same as both sign-in call sites,
 correcting the sidebar once the async check resolves.
 
-Confirmed by a new suite, `tests/admin-panel.test.js` (21 checks): both
+Confirmed by a new suite, `tests/admin-panel.test.js` (25 checks): both
 nav items are invisible to a non-admin; an admin sees both, Users
 listed before Audit Log; the Admin section survives a hard refresh
-(the bug above, reproduced and fixed the same day); each page shows
+(the bug above, reproduced and fixed the same day); Manage Users is
+the default active tab and the create form isn't shown until its own
+tab is clicked (and vice versa); each page shows
 only its own real data (Users
 never shows the audit table and vice versa) with the signed-in admin's
 own Remove disabled and everyone else's enabled; unchecking Company
