@@ -234,7 +234,15 @@ const { check, state } = makeChecker();
   await page.waitForSelector("#loginGate");
   check("discarding returns to the login page", await page.isVisible("#loginGate"));
   await signIn(page);
-  await page.click('.op-item:has-text("Employee Add")');
+  /* Log out really clears the tool session now (a real bug fixed
+     2026-09-25 — "login na kore logout korsi, but still dekhacche log
+     in asi": a bare reload never cleared the persisted tool session
+     before this fix, so the sidebar looked signed-in right through a
+     logout). That means the sidebar is genuinely hidden again after
+     this discard, same as any other fresh signed-out page — goToOp()
+     signs back in through the real gate rather than assuming the
+     sidebar item is already clickable. */
+  await goToOp(page, "Employee Add");
   await page.waitForSelector("#countInput");
   check("discarding cleared the form", (await page.inputValue("#countInput")) !== "77",
     await page.inputValue("#countInput"));

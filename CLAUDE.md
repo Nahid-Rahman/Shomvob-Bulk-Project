@@ -537,6 +537,36 @@ wording for whichever condition is actually true (generator work takes
 priority if, rarely, both are); `beforeunload` doesn't need to, since the
 browser supplies its own text either way.
 
+**Log out stopped actually logging out the moment tool-session
+persistence was added, and nobody caught it until the Dashboard
+redesign made the leftover state impossible to miss — a real,
+confirmed bug, fixed 2026-09-25.** `wireLogout()`'s reload was always
+the "honest implementation given nothing is persisted" (as the opening
+line of this section still claims) — true when it was written, but
+`TOOL_SESSION_KEY` started persisting in `sessionStorage` that same day
+(2026-09-11, "Two logins, not one" above), and a plain
+`window.location.reload()` does **not** clear `sessionStorage` — that's
+the whole point of using it over `localStorage`'s longer lifetime, not
+a gap in a reload. So `init()` just restored the exact same tool
+session right back on the reload Log out triggered, every time — Log
+out looked like it did nothing, or worse, looked broken, since nothing
+in the UI told you it had even tried. Found live: "ami login na kore
+logout korsi. but still dekhacche log in asi" (I logged out without
+[re-]logging in, but it still shows signed in). Company Setup's own
+"Sign out" (`#setupSignOutBtn`) never had this bug — it already called
+`clearToolSession()` directly, no reload involved. Fixed by having
+`wireLogout()` call `clearToolSession()` and `clearLastSetupSession()`
+too, right before the reload, on both paths (the direct reload and the
+"Hey Lazy!"-confirmed one) — so the reload that follows is actually
+into a clean, signed-out state, the same guarantee Sign out already
+gave. `employee.test.js`'s own "discarding clears everything" check
+(block right after "Escape keeps the work too") needed a matching
+update — before this fix, a bare `.op-item` click right after this
+Log out worked *only because* the leaked tool session kept the sidebar
+visible; now it correctly goes through `goToOp()`, which signs back in
+for real, matching what every other post-signout navigation in this
+app already has to do.
+
 ## Sidebar branding
 
 The Shomvob HR logo appears in two places: the sidebar head (logo tile,

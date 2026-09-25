@@ -13767,10 +13767,26 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     });
   }
 
+  /* A bare reload alone stopped being a real log out the day the tool
+     session started persisting in sessionStorage (2026-09-11) — a
+     reload doesn't clear sessionStorage, so init() just restored the
+     exact same session right back, on purpose (that's the point of
+     persisting it at all). This button's own dialog copy already
+     promises "logging out clears both logins," but nothing here ever
+     actually cleared the persisted one — a real, confirmed bug, found
+     live once the Dashboard redesign made a stale "Signed in as..."
+     state impossible to miss ("login na kore logout korsi, but still
+     dekhacche log in asi"). Fixed by clearing the same two keys
+     Company Setup's own Sign out already clears before this reloads —
+     TOOL_SESSION_KEY (via clearToolSession()) and SETUP_LAST_SESSION_KEY
+     (via clearLastSetupSession()) — so a genuinely fresh reload follows,
+     same as Sign out already gets without one. */
   function wireLogout() {
     $("#logoutBtn").addEventListener("click", () => {
       if (!hasUnsavedWork()) {
         leavingOnPurpose = true;
+        clearToolSession();
+        clearLastSetupSession();
         window.location.reload();
         return;
       }
@@ -13779,6 +13795,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         : "You're signed into Company Setup. Logging out clears both logins — you'll need to sign in to the tool and the company again.";
       askDiscard(body, "Discard and log out", () => {
         leavingOnPurpose = true;
+        clearToolSession();
+        clearLastSetupSession();
         window.location.reload();
       });
     });
