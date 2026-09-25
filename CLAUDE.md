@@ -598,6 +598,19 @@ never burned into the image.
 binary asset: add it to `INLINE_ASSETS` in `build.py` and reference the
 token from the sources. `index.html` stays self-contained that way.
 
+**The browser tab itself had no favicon at all until 2026-09-25** —
+direct request, from a screenshot of a generic globe icon sitting among
+a real tab bar of real product icons. `<link rel="icon" href=
+"__SHOMVOB_LOGO__" type="image/png">` in `src/part1.html`'s own head
+content (there is no explicit `<html>`/`<head>` wrapper anywhere in this
+file — the browser infers one from `<title>`/`<link>` appearing before
+any body content, same as the existing `<title>` and Google Fonts
+`<link>` already relied on) reuses the exact same `__SHOMVOB_LOGO__`
+token and inlining mechanism as the sidebar/login-card logo above,
+rather than a second image or a separately-cropped favicon file — one
+real asset, one build-time substitution, now referenced from three
+places instead of two.
+
 ## Sidebar icons
 
 Each operation carries a line icon matching the equivalent item in
