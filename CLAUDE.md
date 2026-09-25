@@ -4729,6 +4729,19 @@ considered done, no new hex values anywhere:
    checkboxes, just outside a `<table>` this time. `ADMIN_TIER_OPTIONS`
    and the old `#adminNewTier`/`#adminNewAdminSeg` markup are deleted
    outright, not left dead — nothing reads either any more.
+
+   **Each checkbox moved to the left of its own label text, same day,
+   direct follow-up** ("check box gula name er baam pashe dao" — put
+   the checkboxes to the left of the names): the three `.field` divs
+   (label above, checkbox below, per `.field`'s own
+   `flex-direction: column`) are now a single wrapping `<label
+   class="field-checkbox-row">` per checkbox, same inline shape Leave
+   Types' own Sandwich/Bridge checkboxes (`.rule-scope-box label`)
+   already use — `<input> Bulk Operations`, checkbox first, text
+   after, laid out as a horizontal flex row rather than stacked. Same
+   element ids (`#adminNewBulkCb`/`#adminNewCompanyCb`/
+   `#adminNewAdminCb`), so `wireAdminCreateUserEvents()` and this
+   module's own tests needed no changes.
 2. **Audit Log** (`admin_audit`) — the real `audit_log` table, last 200
    rows, newest first (`GET .../audit_log?select=*&order=created_at.desc&limit=200`,
    the admin's own bearer token, gated by the existing

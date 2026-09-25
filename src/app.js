@@ -3754,18 +3754,18 @@
           ${pwFieldMarkup("adminNewPass", "Password")}
         </div>
         <div class="field-row field-row-3">
-          <div class="field">
-            <label>Bulk Operations</label>
+          <label class="field-checkbox-row">
             <input type="checkbox" id="adminNewBulkCb" class="field-checkbox" checked />
-          </div>
-          <div class="field">
-            <label>Company Operations</label>
+            Bulk Operations
+          </label>
+          <label class="field-checkbox-row">
             <input type="checkbox" id="adminNewCompanyCb" class="field-checkbox" checked />
-          </div>
-          <div class="field">
-            <label>Admin</label>
+            Company Operations
+          </label>
+          <label class="field-checkbox-row">
             <input type="checkbox" id="adminNewAdminCb" class="field-checkbox" />
-          </div>
+            Admin
+          </label>
         </div>
         <div class="setup-actions">
           <span class="error-text" id="adminCreateError"></span>
