@@ -808,7 +808,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 814 checks as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 815 checks as
 of that addition — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
@@ -4623,19 +4623,42 @@ considered done, no new hex values anywhere:
    someone's actually been retiered or admin-flagged; a full account
    list needs the real `auth.users`, which isn't in the exposed
    `public`/`extensions` schemas this project's PostgREST serves). Each
-   row: email, last real sign-in, a Tier `<select>`, an Admin `.switch`,
-   Save, Remove. **Tier/admin-flag Save is a direct client write to
-   `user_access`, no Edge Function involved** — confirmed via
+   row: email, last real sign-in, **Bulk Operations / Company
+   Operations / Admin as three plain checkboxes**, Save, Remove.
+   **Rebuilt from a Tier `<select>` + a `.switch` into this shape the
+   same day, direct instruction against a spreadsheet mockup**
+   ("Manage users er table er design ta kemon hobe dilam... Check box
+   hobe, Check dile Green tick mark ashbe"): `tier` stays exactly one
+   column in `user_access` (`bulk`/`company`/`both`) — nothing changed
+   in the database — only the two edges converting to/from it changed.
+   `tierToChecks(tier)` reads it as two independent booleans for
+   rendering; `checksToTier(bulk, company)` converts back at Save time
+   (`both` when both are checked, otherwise whichever one is). **Neither
+   Bulk nor Company can be unchecked down to zero** — the same "can't
+   configure your way to nothing" discipline Employee Add's own theme
+   picker already holds itself to (the last remaining one is a silent
+   no-op, not an error message), since a tier with neither checked has
+   no real meaning in `checksToTier()`. A checked box reads as a plain
+   green tick — `.preview-table input[type="checkbox"]` sets
+   `accent-color: var(--accent)`, the exact same native-checkbox
+   styling hook `.dept-head`/`.choice`/`.rule-scope-box` already use
+   elsewhere, not a new custom checkbox component. **Tier/admin-flag
+   Save is a direct client write to `user_access`, no Edge Function
+   involved** — confirmed via
    `execute_sql` before writing any code that `user_access_write_admins`
    is already `FOR ALL` (covers INSERT/UPDATE/DELETE, not split into
    separate policies), so an admin's own browser upserting a row
    (`Prefer: resolution=merge-duplicates`) is already exactly what RLS
    allows, the same discipline every other write in this app already
    follows. Logged via the existing `logAudit()` helper, a new event
-   type: `admin_access_change`. The same page's own "Add a user" section
-   (email, password, tier, admin toggle → the Edge Function's `create`
-   action) is a sub-action of managing users, not a third concern, so it
-   stays on this page rather than getting its own nav item.
+   type: `admin_access_change`. The same page's own "Create new user"
+   section (email, password, tier, admin toggle → the Edge Function's
+   `create` action) is a sub-action of managing users, not a third
+   concern, so it stays on this page rather than getting its own nav
+   item. **The two section titles were renamed the same day, direct
+   request against a real admin-screen reference** — "Existing users"
+   → **"Manage Users"**, "Add a user" → **"Create new user"** — no
+   change to what either section actually does.
 2. **Audit Log** (`admin_audit`) — the real `audit_log` table, last 200
    rows, newest first (`GET .../audit_log?select=*&order=created_at.desc&limit=200`,
    the admin's own bearer token, gated by the existing
@@ -4692,15 +4715,17 @@ parbe" (more admins can be added from here) is exactly the Admin toggle
 in the Users table; growing the admin list is purely a data change from
 this point on, the same way it already was via direct SQL.
 
-Confirmed by a new suite, `tests/admin-panel.test.js` (16 checks): both
+Confirmed by a new suite, `tests/admin-panel.test.js` (17 checks): both
 nav items are invisible to a non-admin; an admin sees both, Users
 listed before Audit Log; each page shows only its own real data (Users
 never shows the audit table and vice versa) with the signed-in admin's
-own Remove disabled and everyone else's enabled; a tier/admin-flag save
-sends a direct `user_access` write with the real values; creating a
-user calls the Edge Function with the real form values, not a direct
-auth write; removing another account confirms first, then calls the
-Edge Function with that account's real id and email.
+own Remove disabled and everyone else's enabled; unchecking Company
+alone (starting from "both") sends `tier: "bulk"`; unchecking the last
+remaining operations checkbox is a no-op, confirmed still checked
+afterward; creating a user calls the Edge Function with the real form
+values, not a direct auth write; removing another account confirms
+first, then calls the Edge Function with that account's real id and
+email.
 
 ### What's not built yet
 

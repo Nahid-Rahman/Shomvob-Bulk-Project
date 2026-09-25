@@ -3617,20 +3617,30 @@
     `;
   }
 
+  /* `tier` stays one column in `user_access` (bulk/company/both), but
+     the real admin screen's own reference shows it as two independent
+     checkboxes, not a single dropdown — converted at the two edges
+     (`tierToChecks()` for rendering, `checksToTier()` for saving) so
+     the stored shape doesn't have to change to match the new UI. */
+  function tierToChecks(tier) {
+    return { bulk: tier === "bulk" || tier === "both", company: tier === "company" || tier === "both" };
+  }
+  function checksToTier(bulk, company) {
+    if (bulk && company) return "both";
+    if (bulk) return "bulk";
+    return "company";
+  }
+
   function adminUserRowHtml(u) {
     const isSelf = u.email === setup.toolEmail;
+    const checks = tierToChecks(u.tier);
     return `
       <tr data-email="${escapeHtml(u.email)}">
         <td>${escapeHtml(u.email)}</td>
         <td class="faint">${u.last_sign_in_at ? escapeHtml(new Date(u.last_sign_in_at).toLocaleDateString()) : "Never"}</td>
-        <td>
-          <select class="admin-tier-select">
-            ${ADMIN_TIER_OPTIONS.map((t) => `<option value="${t.id}" ${t.id === u.tier ? "selected" : ""}>${t.label}</option>`).join("")}
-          </select>
-        </td>
-        <td>
-          <label class="switch"><input type="checkbox" class="admin-flag-checkbox" ${u.is_admin ? "checked" : ""} /><span class="switch-track"></span></label>
-        </td>
+        <td><input type="checkbox" class="admin-bulk-checkbox" ${checks.bulk ? "checked" : ""} /></td>
+        <td><input type="checkbox" class="admin-company-checkbox" ${checks.company ? "checked" : ""} /></td>
+        <td><input type="checkbox" class="admin-flag-checkbox" ${u.is_admin ? "checked" : ""} /></td>
         <td>
           <button type="button" class="tiny-btn admin-save-btn">Save</button>
           <button type="button" class="tiny-btn admin-remove-btn" ${isSelf ? `disabled title="You can't remove your own account."` : ""}>Remove</button>
@@ -3707,10 +3717,10 @@
       </div>
 
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Existing users</h2></div>
+        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Manage Users</h2></div>
         <div class="preview-table-wrap">
           <table class="preview-table">
-            <thead><tr><th>Email</th><th>Last signed in</th><th>Tier</th><th>Admin</th><th></th></tr></thead>
+            <thead><tr><th>Email</th><th>Last signed in</th><th>Bulk Operations</th><th>Company Operations</th><th>Admin</th><th></th></tr></thead>
             <tbody>${adminPanel.users.map(adminUserRowHtml).join("")}</tbody>
           </table>
         </div>
@@ -3718,7 +3728,7 @@
       </div>
 
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Add a user</h2></div>
+        <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Create new user</h2></div>
         <p class="section-note">Creates a real Bulk Forge sign-in — same account used everywhere in this app.</p>
         <div class="field-row">
           <div class="field">
@@ -3782,12 +3792,28 @@
     wirePasswordToggles($("#mainContent"));
 
     const usersErr = $("#adminUsersError");
+    /* Neither Bulk nor Company Operations can be unchecked down to
+       zero — same "can't configure your way to nothing" discipline
+       Employee Add's own theme picker already holds itself to (the
+       last remaining one is a no-op, not an error message), since a
+       tier with neither checked has no real meaning in `checksToTier()`
+       and would otherwise silently coerce to "company" on Save. */
+    $all("tr[data-email]").forEach((row) => {
+      const bulkCb = $(".admin-bulk-checkbox", row);
+      const companyCb = $(".admin-company-checkbox", row);
+      bulkCb.addEventListener("change", () => {
+        if (!bulkCb.checked && !companyCb.checked) bulkCb.checked = true;
+      });
+      companyCb.addEventListener("change", () => {
+        if (!companyCb.checked && !bulkCb.checked) companyCb.checked = true;
+      });
+    });
     $all(".admin-save-btn").forEach((btn) => {
       const row = btn.closest("tr");
       btn.addEventListener("click", async () => {
         usersErr.textContent = "";
         const email = row.dataset.email;
-        const tier = $(".admin-tier-select", row).value;
+        const tier = checksToTier($(".admin-bulk-checkbox", row).checked, $(".admin-company-checkbox", row).checked);
         const isAdmin = $(".admin-flag-checkbox", row).checked;
         setBtnBusy(btn);
         try {

@@ -152,7 +152,9 @@ async function signInForReal(page, email) {
     await page.click('.op-item:has-text("Users")');
     await page.waitForSelector(".preview-table");
 
-    await page.selectOption('tr[data-email="tamjida@shomvob.com"] .admin-tier-select', "bulk");
+    // tamjida starts at "both" (both boxes checked) -- unchecking Company
+    // alone should leave just Bulk checked
+    await page.uncheck('tr[data-email="tamjida@shomvob.com"] .admin-company-checkbox');
     await page.click('tr[data-email="tamjida@shomvob.com"] .admin-flag-checkbox');
     await page.click('tr[data-email="tamjida@shomvob.com"] .admin-save-btn');
     await page.waitForTimeout(250);
@@ -162,6 +164,13 @@ async function signInForReal(page, email) {
       saved && saved.email === "tamjida@shomvob.com" && saved.tier === "bulk" && saved.is_admin === true,
       JSON.stringify(saved));
     check("C no error shown after a successful save", (await page.textContent("#adminUsersError")).trim() === "");
+
+    // C2 -- can't uncheck both Bulk and Company down to zero (a no-op,
+    // same "can't configure your way to nothing" discipline as Employee
+    // Add's own theme picker)
+    await page.click('tr[data-email="tamjida@shomvob.com"] .admin-bulk-checkbox');
+    check("C2 unchecking the last operations checkbox is a no-op",
+      await page.isChecked('tr[data-email="tamjida@shomvob.com"] .admin-bulk-checkbox'));
     check("C no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
