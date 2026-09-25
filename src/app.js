@@ -3542,12 +3542,6 @@
   const adminPanel = { status: "idle", error: "", auditRows: null, users: null };
   // status: "idle" | "checking" | "denied" | "ready" | "error"
 
-  const ADMIN_TIER_OPTIONS = [
-    { id: "bulk", label: "Bulk only" },
-    { id: "company", label: "Settings only" },
-    { id: "both", label: "Both" },
-  ];
-
   /* The Users page split into two real tabs, same day as the checkbox
      redesign above — direct correction against the same reference
      screenshot's own tab strip (Company Settings → Company Profile/
@@ -3737,7 +3731,7 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Manage Users</h2></div>
         <div class="preview-table-wrap">
-          <table class="preview-table">
+          <table class="preview-table admin-users-table">
             <thead><tr><th>Email</th><th>Last signed in</th><th>Bulk Operations</th><th>Company Operations</th><th>Admin</th><th></th></tr></thead>
             <tbody>${adminPanel.users.map(adminUserRowHtml).join("")}</tbody>
           </table>
@@ -3759,19 +3753,18 @@
           </div>
           ${pwFieldMarkup("adminNewPass", "Password")}
         </div>
-        <div class="field-row">
+        <div class="field-row field-row-3">
           <div class="field">
-            <label for="adminNewTier">Tier</label>
-            <select id="adminNewTier">
-              ${ADMIN_TIER_OPTIONS.map((t) => `<option value="${t.id}" ${t.id === "both" ? "selected" : ""}>${t.label}</option>`).join("")}
-            </select>
+            <label>Bulk Operations</label>
+            <input type="checkbox" id="adminNewBulkCb" class="field-checkbox" checked />
+          </div>
+          <div class="field">
+            <label>Company Operations</label>
+            <input type="checkbox" id="adminNewCompanyCb" class="field-checkbox" checked />
           </div>
           <div class="field">
             <label>Admin</label>
-            <div class="seg seg-fill" id="adminNewAdminSeg" role="group" aria-label="Admin">
-              <button type="button" data-val="no" aria-pressed="true">No</button>
-              <button type="button" data-val="yes" aria-pressed="false">Yes</button>
-            </div>
+            <input type="checkbox" id="adminNewAdminCb" class="field-checkbox" />
           </div>
         </div>
         <div class="setup-actions">
@@ -3908,13 +3901,20 @@
   function wireAdminCreateUserEvents() {
     wirePasswordToggles($("#mainContent"));
 
-    const newAdminSeg = $("#adminNewAdminSeg");
-    let newIsAdmin = false;
-    $all("button", newAdminSeg).forEach((btn) => {
-      btn.addEventListener("click", () => {
-        newIsAdmin = btn.dataset.val === "yes";
-        $all("button", newAdminSeg).forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
-      });
+    /* Same checkbox shape as Manage Users now, direct follow-up request
+       ("ekhane tier ta manage users er moto tick mark box gula diba")
+       — including the same "can't uncheck both down to zero" guard,
+       reusing checksToTier() rather than a second conversion. Admin is
+       a single checkbox here (not two sides of a seg) since there's
+       only ever one real choice to make on a brand-new account: off
+       (the real default) or on. */
+    const bulkCb = $("#adminNewBulkCb");
+    const companyCb = $("#adminNewCompanyCb");
+    bulkCb.addEventListener("change", () => {
+      if (!bulkCb.checked && !companyCb.checked) bulkCb.checked = true;
+    });
+    companyCb.addEventListener("change", () => {
+      if (!companyCb.checked && !bulkCb.checked) companyCb.checked = true;
     });
 
     const createBtn = $("#adminCreateBtn");
@@ -3923,14 +3923,15 @@
       createErr.textContent = "";
       const email = $("#adminNewEmail").value.trim();
       const password = $("#adminNewPass").value;
-      const tier = $("#adminNewTier").value;
+      const tier = checksToTier(bulkCb.checked, companyCb.checked);
+      const isAdmin = $("#adminNewAdminCb").checked;
       if (!email || !password) {
         createErr.textContent = "Both fields are needed.";
         return;
       }
       setBtnBusy(createBtn);
       try {
-        await adminUsersFetch("create", { email, password, tier, is_admin: newIsAdmin });
+        await adminUsersFetch("create", { email, password, tier, is_admin: isAdmin });
         /* Switch back to Manage Users so the account just created is
            visible right away, rather than leaving the visitor staring
            at their own just-submitted form. */

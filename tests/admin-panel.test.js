@@ -204,10 +204,14 @@ async function signInForReal(page, email) {
     await page.click('.settings-tab:has-text("Create new user")');
     await page.waitForSelector("#adminNewEmail");
 
+    check("D Admin defaults unchecked (No)", !(await page.isChecked("#adminNewAdminCb")));
+    check("D Bulk/Company Operations both default checked (Both)",
+      (await page.isChecked("#adminNewBulkCb")) && (await page.isChecked("#adminNewCompanyCb")));
+
     await page.fill("#adminNewEmail", "newperson@shomvob.com");
     await page.fill("#adminNewPass", "whatever123");
-    await page.selectOption("#adminNewTier", "company");
-    await page.click('#adminNewAdminSeg button[data-val="yes"]');
+    await page.uncheck("#adminNewBulkCb");
+    await page.check("#adminNewAdminCb");
     await page.click("#adminCreateBtn");
     await page.waitForTimeout(400);
 

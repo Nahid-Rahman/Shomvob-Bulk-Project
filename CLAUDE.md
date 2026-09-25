@@ -661,6 +661,31 @@ variant (`.main-inner.wide + .app-footer` selector) so it lines up with
 Company Setup's wider column too. Plain `var(--text-faint)`, no new
 colour — reads correctly in light/dark/auto for free.
 
+**Rebuilt into a real sticky footer, 2026-09-26** — the `-100px`
+pull-up above was never an actual "stick to the bottom" mechanism, just
+a fixed-distance nudge that happened to land near the true viewport
+bottom on every page that existed at the time, because all of them had
+enough content to roughly fill the viewport. The Admin Panel's own
+short pages (a small table, nothing else) broke that assumption —
+found live, direct feedback: "eita to ekta footer er moto act korar
+kotha... eta emne upre uthe ashe keno" (this is supposed to act like a
+footer, why does it float up like this) — the footer sat right under
+the card instead of pinned to the bottom, on every page short enough to
+expose the gap. Fixed the standard way rather than special-casing the
+short pages: `.main-scroll` is now `display: flex; flex-direction:
+column`, `.main-inner` gets `flex: 1 0 auto` (always claims at least
+the remaining vertical space, pushing `#appFooter` — a normal
+`flex-shrink: 0` sibling — down to the true bottom on a short page) and
+the old negative margin/140px padding hack is gone, replaced with
+ordinary padding on both. A page tall enough to scroll is unaffected —
+`.main-inner` simply grows past that minimum with its own real content,
+the footer still following directly after it exactly as before.
+Verified with Playwright screenshots on both a short page (Admin Users)
+and a tall one (Employee Add) — the tall page's footer sits below the
+fold exactly as it always has, only reachable by scrolling, and the
+short page's footer now sits at the true bottom of the viewport instead
+of floating up under the card.
+
 ## Generate now opens a modal instead of downloading immediately (2026-09-15)
 
 Direct request, all five generators: clicking Generate used to call
@@ -808,7 +833,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 823 checks as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 825 checks as
 of that addition — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
@@ -4675,6 +4700,35 @@ considered done, no new hex values anywhere:
    back to the Manage Users tab automatically, so the account just
    created is visible right away rather than leaving the admin staring
    at their own just-submitted form.
+
+   **Manage Users' middle 4 columns center-aligned, header and data
+   alike, same day** — direct instruction, two screenshots: the header
+   row first ("egula center align korba"), then a follow-up naming the
+   data cells too ("ei 4 ta column er data o center align thakbe").
+   Scoped to `.admin-users-table th:nth-child(n+2):nth-child(-n+5)` /
+   `td:nth-child(n+2):nth-child(-n+5)` (Last signed in, Bulk Operations,
+   Company Operations, Admin) — Email (column 1) and the trailing
+   actions column (6, no header) both stay left, since the second
+   screenshot's own marked box explicitly excluded the Email data
+   column. `.admin-users-table` is a class on that one table
+   specifically, not a `.preview-table`-wide rule, so Leave Balance's/
+   Payroll's own preview tables elsewhere (plain left-aligned text
+   columns) are untouched.
+
+   **Create new user's own Tier `<select>`/Admin `.seg` replaced with
+   the identical three checkboxes Manage Users already uses, same day,
+   direct follow-up** ("ekhane tier ta manage users er moto tick mark
+   box gula diba. same goes for admin, Yes or No box diba. Default No
+   thakbe"): Bulk Operations/Company Operations (both default checked —
+   matches the old `<select>`'s own "Both" default, and reuses
+   `checksToTier()`/the identical "can't uncheck both to zero" guard,
+   not a second copy of that logic) and a single Admin checkbox
+   (default unchecked, since a brand-new account being an admin was
+   never the common case). `.field-checkbox` gives these the same
+   `accent-color: var(--accent)` green tick as the table's own
+   checkboxes, just outside a `<table>` this time. `ADMIN_TIER_OPTIONS`
+   and the old `#adminNewTier`/`#adminNewAdminSeg` markup are deleted
+   outright, not left dead — nothing reads either any more.
 2. **Audit Log** (`admin_audit`) — the real `audit_log` table, last 200
    rows, newest first (`GET .../audit_log?select=*&order=created_at.desc&limit=200`,
    the admin's own bearer token, gated by the existing

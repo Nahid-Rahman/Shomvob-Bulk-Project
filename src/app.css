@@ -369,19 +369,34 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
 
 /* ---- Main ---- */
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-.main-scroll { flex: 1; overflow-y: auto; }
-.main-inner { max-width: 760px; margin: 0 auto; padding: 40px 32px 140px; }
+/* A real sticky footer, not a fixed negative-margin pull-up (found live
+   2026-09-26, direct feedback: "eita to ekta footer er moto act korar
+   kotha... eta emne upre uthe ashe keno" — this is supposed to act like
+   a footer, staying at the very bottom of the page; why does it float
+   up like this?). The old version pulled #appFooter up by a fixed
+   -100px into #mainContent's own 140px bottom padding — that only
+   landed near the true bottom of the viewport when a page's content
+   happened to be tall enough to fill it, which most pages were, but a
+   short page (the new Admin Panel's own small table, say) left the
+   footer floating right under the card instead of pinned to the
+   bottom. Fixed the standard way: .main-scroll is a flex column,
+   #mainContent gets `flex: 1 0 auto` so it always claims at least the
+   remaining space, pushing the footer to the true bottom on a short
+   page — and on a page tall enough to scroll, #mainContent simply
+   grows past that minimum with its real content, the footer still
+   following directly after it, same as before. */
+.main-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.main-inner { max-width: 760px; width: 100%; margin: 0 auto; padding: 40px 32px 40px; flex: 1 0 auto; }
 
-/* Sits right after .main-inner inside the same scroll area, on every
-   page — pulled up into .main-inner's own generous bottom padding
-   rather than adding yet more empty space below it. */
 .app-footer {
   max-width: 760px;
-  margin: -100px auto 0;
-  padding: 0 32px 32px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 32px 32px;
   text-align: center;
   font-size: 11.5px;
   color: var(--text-faint);
+  flex-shrink: 0;
 }
 .main-inner.wide + .app-footer { max-width: 1100px; }
 
@@ -587,6 +602,10 @@ details[open] .rules-summary .chev { transform: rotate(90deg); }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 12.5px; font-weight: 600; color: var(--text); }
 .field .hint { font-size: 11.5px; color: var(--text-faint); }
+/* Admin Panel's "Create new user" form (2026-09-26) — a plain checkbox
+   under a .field label, same green-tick accent-color hook Manage Users'
+   own table checkboxes already use, just outside a table this time. */
+.field-checkbox { width: 17px; height: 17px; accent-color: var(--accent); }
 /* Company Setup only (wired in wireFieldClearButtons()) — a clear button
    over a text/number field, so a QA engineer can empty a field the real
    API might not actually require and see what Save does with it, without
@@ -1290,6 +1309,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    already uses (.dept-head, .choice, .rule-scope-box), not a new
    custom checkbox component. */
 .preview-table input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+/* Manage Users' own 4 middle columns (Last signed in, Bulk Operations,
+   Company Operations, Admin) — direct feedback, both header and data —
+   Email (column 1) stays left, since a variable-length address reads
+   worse centered; the trailing actions column (6, no header) is
+   untouched too. Scoped to .admin-users-table specifically, not
+   .preview-table as a whole, so Leave Balance/Payroll's own preview
+   tables elsewhere (plain left-aligned text columns) are unaffected. */
+.admin-users-table th:nth-child(n+2):nth-child(-n+5),
+.admin-users-table td:nth-child(n+2):nth-child(-n+5) { text-align: center; }
 
 /* Stacked under 860px the figure sits alone on its line, where an
    out-of-flow video would collapse it to nothing — so give it the clip's
