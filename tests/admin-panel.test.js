@@ -33,7 +33,9 @@ const SAMPLE_USERS = [
   { id: "u2", email: "tamjida@shomvob.com", created_at: "2026-01-01", last_sign_in_at: null, tier: "both", is_admin: false },
 ];
 
-async function mockAdminBackend(page, { isAdmin }) {
+const DEFAULT_AUDIT_ROWS = [{ id: "1", created_at: new Date().toISOString(), user_email: "mahmudur@shomvob.com", event_type: "login", company_name: null, module_id: null, detail: "signed in" }];
+
+async function mockAdminBackend(page, { isAdmin, auditRows }) {
   await page.route("**/rest/v1/rpc/is_admin", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: String(isAdmin) })
   );
@@ -42,7 +44,7 @@ async function mockAdminBackend(page, { isAdmin }) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify([{ id: "1", created_at: new Date().toISOString(), user_email: "mahmudur@shomvob.com", event_type: "login", company_name: null, module_id: null, detail: "signed in" }]),
+        body: JSON.stringify(auditRows || DEFAULT_AUDIT_ROWS),
       });
     }
     return route.fulfill({ status: 201, contentType: "application/json", body: "[]" });
@@ -313,6 +315,59 @@ async function signInForReal(page, email) {
       JSON.stringify(calls.reset_password));
     check("G a success toast confirms the reset", (await page.textContent("#toast")).includes("tamjida@shomvob.com"));
     check("G no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  {
+    // H — Audit Log filters (2026-09-26, direct request: "audit e duita
+    // filter ano. User ar date"), plain client-side filtering over the
+    // already-loaded rows.
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await page.goto(PAGE);
+    await signIn(page);
+    await mockAuthOk(page);
+    const auditRows = [
+      { id: "1", created_at: "2026-09-26T10:00:00.000Z", user_email: "mahmudur@shomvob.com", event_type: "login", company_name: null, module_id: null, detail: "signed in" },
+      { id: "2", created_at: "2026-09-26T11:00:00.000Z", user_email: "tamjida@shomvob.com", event_type: "settings_save", company_name: "Shark Pond", module_id: "company_profile", detail: "saved" },
+      { id: "3", created_at: "2026-09-20T09:00:00.000Z", user_email: "mahmudur@shomvob.com", event_type: "bulk_generate", company_name: null, module_id: "employee_add", detail: "generated" },
+    ];
+    await mockAdminBackend(page, { isAdmin: true, auditRows });
+
+    await signInForReal(page, "mahmudur@shomvob.com");
+    await page.click('.op-item:has-text("Audit Log")');
+    await page.waitForSelector(".preview-table");
+
+    check("H all 3 rows show with no filter applied", (await page.locator(".preview-table tbody tr").count()) === 3);
+    check("H no 'Clear filters' button with no filter applied", (await page.locator("#adminAuditClearFilterBtn").count()) === 0);
+
+    await page.selectOption("#adminAuditUserFilter", "mahmudur@shomvob.com");
+    await page.waitForTimeout(150);
+    check("H filtering by user shows only that user's 2 rows",
+      (await page.locator(".preview-table tbody tr").count()) === 2 &&
+      (await page.locator(".preview-table tbody").textContent()).includes("tamjida@shomvob.com") === false);
+    check("H the filter count line names both numbers", (await page.textContent("#adminAuditFilterCount")).trim() === "Showing 2 of 3 events.");
+
+    await page.fill("#adminAuditDateFilter", "2026-09-26");
+    await page.waitForTimeout(150);
+    check("H combining the date filter narrows to the single matching row",
+      (await page.locator(".preview-table tbody tr").count()) === 1 &&
+      (await page.textContent(".preview-table tbody")).includes("login"));
+
+    await page.click("#adminAuditClearFilterBtn");
+    await page.waitForTimeout(150);
+    check("H Clear filters restores all 3 rows and both controls reset",
+      (await page.locator(".preview-table tbody tr").count()) === 3 &&
+      (await page.inputValue("#adminAuditUserFilter")) === "" &&
+      (await page.inputValue("#adminAuditDateFilter")) === "");
+
+    await page.selectOption("#adminAuditUserFilter", "tamjida@shomvob.com");
+    await page.fill("#adminAuditDateFilter", "2026-09-20");
+    await page.waitForTimeout(150);
+    check("H a combination matching nothing shows the 'no events match' message",
+      (await page.textContent(".preview-table tbody")).includes("No events match these filters."));
+
+    check("H no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

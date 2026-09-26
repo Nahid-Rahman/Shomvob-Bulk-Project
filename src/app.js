@@ -3542,6 +3542,26 @@
   const adminPanel = { status: "idle", error: "", auditRows: null, users: null };
   // status: "idle" | "checking" | "denied" | "ready" | "error"
 
+  /* Audit Log filters (2026-09-26, direct request: "audit e duita
+     filter ano. User ar date") — plain client-side filtering over the
+     200 rows already fetched, no new query/endpoint needed. A module-
+     level object rather than folded into `adminPanel` itself, same
+     reasoning `adminUsersTab` above is kept separate: this is UI state
+     about how the loaded data is displayed, not part of the load
+     itself. `date` is a YYYY-MM-DD string (an <input type="date">'s own
+     native value shape), matched against each row's own local date. */
+  let adminAuditFilter = { user: "", date: "" };
+  function auditRowLocalDate(row) {
+    return new Date(row.created_at).toLocaleDateString("en-CA");
+  }
+  function filteredAuditRows() {
+    return (adminPanel.auditRows || []).filter((row) => {
+      if (adminAuditFilter.user && row.user_email !== adminAuditFilter.user) return false;
+      if (adminAuditFilter.date && auditRowLocalDate(row) !== adminAuditFilter.date) return false;
+      return true;
+    });
+  }
+
   /* The Users page split into two real tabs, same day as the checkbox
      redesign above — direct correction against the same reference
      screenshot's own tab strip (Company Settings → Company Profile/
@@ -3795,6 +3815,15 @@
 
   function adminAuditTemplate() {
     if (adminPanel.status !== "ready") return adminStatusPageHtml();
+    /* Distinct users present in the loaded 200 rows, sorted — not every
+       real account (this app has no "list every account that ever
+       logged an event" endpoint, and doesn't need one; whoever shows
+       up in the loaded window is exactly who's filterable). */
+    const users = Array.from(new Set(adminPanel.auditRows.map((r) => r.user_email).filter(Boolean))).sort();
+    const rows = filteredAuditRows();
+    const filtered = adminAuditFilter.user || adminAuditFilter.date;
+    let emptyMsg = "Nothing logged yet.";
+    if (adminPanel.auditRows.length && !rows.length) emptyMsg = "No events match these filters.";
     return `
       <div class="page-head">
         <span class="page-eyebrow">Admin Panel</span>
@@ -3805,13 +3834,30 @@
       <div class="section">
         <div class="section-head">
           <h2 class="section-title"><span class="section-num">1</span>Activity</h2>
-          <button type="button" class="tiny-btn" id="adminRefreshAuditBtn">Refresh</button>
+          <div style="display:flex; gap:8px">
+            ${filtered ? `<button type="button" class="tiny-btn" id="adminAuditClearFilterBtn">Clear filters</button>` : ""}
+            <button type="button" class="tiny-btn" id="adminRefreshAuditBtn">Refresh</button>
+          </div>
         </div>
+        <div class="field-row" style="margin-bottom:16px">
+          <div class="field">
+            <label for="adminAuditUserFilter">User</label>
+            <select id="adminAuditUserFilter">
+              <option value="">All users</option>
+              ${users.map((u) => `<option value="${escapeHtml(u)}" ${u === adminAuditFilter.user ? "selected" : ""}>${escapeHtml(u)}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label for="adminAuditDateFilter">Date</label>
+            <input type="date" id="adminAuditDateFilter" value="${escapeHtml(adminAuditFilter.date)}" />
+          </div>
+        </div>
+        <p class="section-note" id="adminAuditFilterCount">${filtered ? `Showing ${rows.length} of ${adminPanel.auditRows.length} events.` : ""}</p>
         <div class="preview-table-wrap">
           <table class="preview-table">
             <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Company</th><th>Module</th><th>Detail</th></tr></thead>
             <tbody>
-              ${adminPanel.auditRows.length ? adminPanel.auditRows.map(adminAuditRowHtml).join("") : `<tr><td colspan="6" class="faint">Nothing logged yet.</td></tr>`}
+              ${rows.length ? rows.map(adminAuditRowHtml).join("") : `<tr><td colspan="6" class="faint">${emptyMsg}</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -3988,6 +4034,29 @@
         } catch (e) {
           /* the table just keeps showing what it already had */
         }
+        $("#mainContent").innerHTML = adminAuditTemplate();
+        wireAdminAuditEvents();
+      });
+    }
+
+    /* User + Date filters (2026-09-26, direct request: "audit e duita
+       filter ano. User ar date") — plain client-side re-render, same
+       shape as every other control here that swaps the whole tab body
+       rather than patching the table in place. */
+    $("#adminAuditUserFilter").addEventListener("change", (e) => {
+      adminAuditFilter.user = e.target.value;
+      $("#mainContent").innerHTML = adminAuditTemplate();
+      wireAdminAuditEvents();
+    });
+    $("#adminAuditDateFilter").addEventListener("change", (e) => {
+      adminAuditFilter.date = e.target.value;
+      $("#mainContent").innerHTML = adminAuditTemplate();
+      wireAdminAuditEvents();
+    });
+    const clearFilterBtn = $("#adminAuditClearFilterBtn");
+    if (clearFilterBtn) {
+      clearFilterBtn.addEventListener("click", () => {
+        adminAuditFilter = { user: "", date: "" };
         $("#mainContent").innerHTML = adminAuditTemplate();
         wireAdminAuditEvents();
       });

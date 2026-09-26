@@ -833,8 +833,8 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 829 checks as
-of the Reset password addition (2026-09-26) — this number drifts with every change, so treat it as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 837 checks as
+of the Audit Log filters addition (2026-09-26) — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
@@ -4884,6 +4884,40 @@ Confirmed by test (`tests/admin-panel.test.js`, block G): the prompt
 names the account being reset; the real call carries that account's
 real user id, email and the typed password; a success toast confirms
 it; no page errors.
+
+**Audit Log filters — User and Date (2026-09-26)** — direct request:
+"audit e duita filter ano. User ar date." Plain client-side filtering
+over the already-loaded 200 rows, no new query — `adminAuditFilter`
+(`{ user, date }`, a module-level object kept separate from `adminPanel`
+itself, same reasoning `adminUsersTab` already is: this is display
+state about the loaded data, not part of the load). User is a real
+`<select>` populated from the distinct `user_email` values actually
+present in the loaded rows (not every real account — there's no "every
+account that ever logged an event" endpoint, and the loaded window is
+exactly who's filterable); Date is a plain `<input type="date">`,
+matched against each row's own local date
+(`new Date(row.created_at).toLocaleDateString("en-CA")`, which is
+already the `YYYY-MM-DD` shape the input's own `value` uses). Either
+control re-renders the whole tab (`filteredAuditRows()`), same "swap
+the whole body" shape every other control in this section already
+uses. A **"Clear filters"** button appears next to Refresh only once a
+filter is active, and a `"Showing N of M events."` line appears above
+the table the same way — both absent entirely rather than shown-empty
+when nothing is filtered, matching this app's own instinct elsewhere
+(a lock icon, an empty-state notice) not to reveal a control's presence
+before it has anything to say. The zero-rows message distinguishes
+"Nothing logged yet." (no real events at all) from "No events match
+these filters." (real events exist, just not this combination) —
+different situations, different messages, same principle as every
+other empty-state in this app.
+
+Confirmed by test (`tests/admin-panel.test.js`, block H, against a
+3-row fixture spanning two users and two dates): unfiltered shows all
+3 rows with no Clear button; filtering by user narrows to that user's
+rows and shows the count line; adding the date filter on top narrows
+further; Clear filters restores all 3 rows and resets both controls;
+a combination matching nothing shows the "no events match" message; no
+page errors.
 
 ### What's not built yet
 
