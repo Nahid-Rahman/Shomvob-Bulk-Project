@@ -1326,6 +1326,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .admin-users-table th:nth-child(n+2):nth-child(-n+5),
 .admin-users-table td:nth-child(n+2):nth-child(-n+5) { text-align: center; }
 
+/* Audit Log (2026-09-26, direct request: "table ta ektu boro koro" —
+   make the table a bit bigger) — scoped to .audit-table specifically,
+   not .preview-table as a whole, so Manage Users/Leave Balance/
+   Payroll's own preview tables elsewhere keep their existing size. */
+.audit-table { font-size: 13.5px; }
+.audit-table th, .audit-table td { padding: 10px 14px; }
+/* Previous/Page N of M/Next (2026-09-26, direct request: "ekhane 50 ta
+   entry rakho per page") — only rendered at all once there's a second
+   page, so it can't read as a control with nothing to do. */
+.audit-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
+.audit-pagination-label { font-size: 12.5px; font-family: var(--font-mono); color: var(--text-faint); }
+
 /* Stacked under 860px the figure sits alone on its line, where an
    out-of-flow video would collapse it to nothing — so give it the clip's
    own shape, capped so it can't take over the screen. */

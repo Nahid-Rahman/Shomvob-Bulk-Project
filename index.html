@@ -1341,6 +1341,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .admin-users-table th:nth-child(n+2):nth-child(-n+5),
 .admin-users-table td:nth-child(n+2):nth-child(-n+5) { text-align: center; }
 
+/* Audit Log (2026-09-26, direct request: "table ta ektu boro koro" —
+   make the table a bit bigger) — scoped to .audit-table specifically,
+   not .preview-table as a whole, so Manage Users/Leave Balance/
+   Payroll's own preview tables elsewhere keep their existing size. */
+.audit-table { font-size: 13.5px; }
+.audit-table th, .audit-table td { padding: 10px 14px; }
+/* Previous/Page N of M/Next (2026-09-26, direct request: "ekhane 50 ta
+   entry rakho per page") — only rendered at all once there's a second
+   page, so it can't read as a control with nothing to do. */
+.audit-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
+.audit-pagination-label { font-size: 12.5px; font-family: var(--font-mono); color: var(--text-faint); }
+
 /* Stacked under 860px the figure sits alone on its line, where an
    out-of-flow video would collapse it to nothing — so give it the clip's
    own shape, capped so it can't take over the screen. */
@@ -6693,6 +6705,16 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     });
   }
 
+  /* Pagination (2026-09-26, direct request: "ekhane 50 ta entry rakho
+     per page") — plain client-side slicing of the already-filtered
+     rows, same "no new query, just display state" shape the filters
+     themselves already use. Reset to page 1 wherever the filtered set
+     can change out from under it (a filter changing, Clear filters,
+     Refresh) so a stale page number can never point past the new end
+     of the list. */
+  const ADMIN_AUDIT_PAGE_SIZE = 50;
+  let adminAuditPage = 1;
+
   /* The Users page split into two real tabs, same day as the checkbox
      redesign above — direct correction against the same reference
      screenshot's own tab strip (Company Settings → Company Profile/
@@ -6774,7 +6796,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     }
   }
 
+  /* Which SETTINGS_GROUPS group a module_id belongs to — direct request
+     ("module e bank info asche properly but eta kon settings er moddhe
+     etao ekta column e dekhao er pashe"): a bare module id like
+     "bank_info" doesn't say which of the 6 groups it lives in without
+     already knowing this app's own module list by heart. Reuses
+     findSettingsModule() (below, already built for "Run defaults"'
+     own lookups) rather than a second id→group table. */
   function adminAuditRowHtml(row) {
+    const mod = row.module_id ? findSettingsModule(row.module_id) : null;
     return `
       <tr>
         <td class="faint">${escapeHtml(new Date(row.created_at).toLocaleString())}</td>
@@ -6782,6 +6812,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <td class="strong">${escapeHtml(row.event_type)}</td>
         <td>${escapeHtml(row.company_name || "—")}</td>
         <td>${escapeHtml(row.module_id || "—")}</td>
+        <td class="faint">${escapeHtml(mod ? mod.groupLabel : "—")}</td>
         <td class="faint">${escapeHtml(row.detail || "")}</td>
       </tr>
     `;
@@ -6955,6 +6986,11 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     const filtered = adminAuditFilter.user || adminAuditFilter.date;
     let emptyMsg = "Nothing logged yet.";
     if (adminPanel.auditRows.length && !rows.length) emptyMsg = "No events match these filters.";
+    const totalPages = Math.max(1, Math.ceil(rows.length / ADMIN_AUDIT_PAGE_SIZE));
+    if (adminAuditPage > totalPages) adminAuditPage = totalPages;
+    if (adminAuditPage < 1) adminAuditPage = 1;
+    const pageStart = (adminAuditPage - 1) * ADMIN_AUDIT_PAGE_SIZE;
+    const pageRows = rows.slice(pageStart, pageStart + ADMIN_AUDIT_PAGE_SIZE);
     return `
       <div class="page-head">
         <span class="page-eyebrow">Admin Panel</span>
@@ -6985,13 +7021,20 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         </div>
         <p class="section-note" id="adminAuditFilterCount">${filtered ? `Showing ${rows.length} of ${adminPanel.auditRows.length} events.` : ""}</p>
         <div class="preview-table-wrap">
-          <table class="preview-table">
-            <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Company</th><th>Module</th><th>Detail</th></tr></thead>
+          <table class="preview-table audit-table">
+            <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Company</th><th>Module</th><th>Settings Group</th><th>Detail</th></tr></thead>
             <tbody>
-              ${rows.length ? rows.map(adminAuditRowHtml).join("") : `<tr><td colspan="6" class="faint">${emptyMsg}</td></tr>`}
+              ${pageRows.length ? pageRows.map(adminAuditRowHtml).join("") : `<tr><td colspan="7" class="faint">${emptyMsg}</td></tr>`}
             </tbody>
           </table>
         </div>
+        ${totalPages > 1 ? `
+          <div class="audit-pagination">
+            <button type="button" class="tiny-btn" id="adminAuditPrevBtn" ${adminAuditPage === 1 ? "disabled" : ""}>‹ Previous</button>
+            <span class="audit-pagination-label">Page ${adminAuditPage} of ${totalPages}</span>
+            <button type="button" class="tiny-btn" id="adminAuditNextBtn" ${adminAuditPage === totalPages ? "disabled" : ""}>Next ›</button>
+          </div>
+        ` : ""}
       </div>
     `;
   }
@@ -7162,6 +7205,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         setBtnBusy(refreshAuditBtn);
         try {
           adminPanel.auditRows = await fetchAuditLogRows();
+          adminAuditPage = 1;
         } catch (e) {
           /* the table just keeps showing what it already had */
         }
@@ -7173,14 +7217,19 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     /* User + Date filters (2026-09-26, direct request: "audit e duita
        filter ano. User ar date") — plain client-side re-render, same
        shape as every other control here that swaps the whole tab body
-       rather than patching the table in place. */
+       rather than patching the table in place. Each one also resets
+       back to page 1 — a stale page number from before the filter
+       changed could otherwise point past the end of the newly
+       narrowed list. */
     $("#adminAuditUserFilter").addEventListener("change", (e) => {
       adminAuditFilter.user = e.target.value;
+      adminAuditPage = 1;
       $("#mainContent").innerHTML = adminAuditTemplate();
       wireAdminAuditEvents();
     });
     $("#adminAuditDateFilter").addEventListener("change", (e) => {
       adminAuditFilter.date = e.target.value;
+      adminAuditPage = 1;
       $("#mainContent").innerHTML = adminAuditTemplate();
       wireAdminAuditEvents();
     });
@@ -7188,6 +7237,28 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     if (clearFilterBtn) {
       clearFilterBtn.addEventListener("click", () => {
         adminAuditFilter = { user: "", date: "" };
+        adminAuditPage = 1;
+        $("#mainContent").innerHTML = adminAuditTemplate();
+        wireAdminAuditEvents();
+      });
+    }
+
+    /* Pagination (2026-09-26, direct request: "ekhane 50 ta entry rakho
+       per page") — Previous/Next, same "swap the whole tab body" shape
+       as every other control here; only rendered at all once there's a
+       second page to go to. */
+    const prevBtn = $("#adminAuditPrevBtn");
+    if (prevBtn) {
+      prevBtn.addEventListener("click", () => {
+        adminAuditPage -= 1;
+        $("#mainContent").innerHTML = adminAuditTemplate();
+        wireAdminAuditEvents();
+      });
+    }
+    const nextBtn = $("#adminAuditNextBtn");
+    if (nextBtn) {
+      nextBtn.addEventListener("click", () => {
+        adminAuditPage += 1;
         $("#mainContent").innerHTML = adminAuditTemplate();
         wireAdminAuditEvents();
       });

@@ -833,8 +833,8 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 842 checks as
-of the environment-picker move to step two (2026-09-26) — this number drifts with every change, so treat it as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 853 checks as
+of the Audit Log pagination/Settings Group column addition (2026-09-26) — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
@@ -4957,6 +4957,43 @@ rows and shows the count line; adding the date filter on top narrows
 further; Clear filters restores all 3 rows and resets both controls;
 a combination matching nothing shows the "no events match" message; no
 page errors.
+
+**Pagination and a Settings Group column (2026-09-26)** — direct
+request, both from the same screenshot: "ekhane 50 ta entry rakho per
+page. table ta ektu boro koro. ar module e bank info asche properly
+but eta kon settings er moddhe etao ekta column e dekhao er pashe."
+
+- **50 rows per page** — `ADMIN_AUDIT_PAGE_SIZE`, plain client-side
+  slicing of the already-filtered rows (`adminAuditPage`, same "display
+  state, not a new query" shape the User/Date filters themselves
+  already use — this is still slicing the one `limit=200` fetch, not a
+  new paginated endpoint). Previous/Page N of M/Next
+  (`.audit-pagination`) renders only once there's a second page, same
+  "absent entirely, not shown-disabled with nothing to do" instinct as
+  Clear filters above. Changing either filter, Clear filters, or
+  Refresh all reset back to page 1 — a stale page number from before
+  could otherwise point past the end of the newly changed list.
+- **The table itself got bigger** — `.audit-table` (a modifier on this
+  one table specifically, not `.preview-table` as a whole, so Manage
+  Users/Leave Balance/Payroll's own preview tables elsewhere keep their
+  existing size): font-size 12.5px → 13.5px, cell padding 8px 12px →
+  10px 14px.
+- **A "Settings Group" column, right after Module** — a bare module id
+  like `bank_info` doesn't say which of the 6 `SETTINGS_GROUPS` it
+  belongs to without already knowing this app's module list by heart.
+  Reuses `findSettingsModule(moduleId)` (built for "Run defaults"' own
+  lookups, above) rather than a second id→group table — its
+  `groupLabel` is exactly what's needed. A module id with no match
+  (`bulk_generate` events, whose `module_id` names an *operation* like
+  `employee_add`, not a settings module) shows a plain "—", same dash
+  every other empty cell in this table already uses.
+
+Confirmed by test (`tests/admin-panel.test.js`, block I, against a
+62-row fixture): the Settings Group column names `bank_info`'s real
+group ("Company Settings"); a non-settings module id shows a dash;
+page 1 shows exactly 50 rows with Previous disabled and Next enabled;
+Next moves to page 2's remaining 12 rows with Next now disabled;
+Previous returns to page 1's own 50; no page errors.
 
 ### What's not built yet
 

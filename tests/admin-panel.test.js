@@ -371,6 +371,57 @@ async function signInForReal(page, email) {
     await page.close();
   }
 
+  {
+    // I — pagination (50/page) and the Settings Group column
+    // (2026-09-26, direct request: "ekhane 50 ta entry rakho per page...
+    // ar module e bank info asche properly but eta kon settings er
+    // moddhe etao ekta column e dekhao er pashe").
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await page.goto(PAGE);
+    await signIn(page);
+    await mockAuthOk(page);
+    const bigAuditRows = [];
+    for (let i = 0; i < 62; i++) {
+      bigAuditRows.push({
+        id: String(i),
+        created_at: new Date(Date.now() - i * 3600000).toISOString(),
+        user_email: "mahmudur@shomvob.com",
+        event_type: i % 2 === 0 ? "settings_save" : "bulk_generate",
+        company_name: i % 2 === 0 ? "Nexa Technologies" : null,
+        module_id: i % 2 === 0 ? "bank_info" : "employee_add",
+        detail: i % 2 === 0 ? "Saved Bank Info" : "Employee Add file is ready!",
+      });
+    }
+    await mockAdminBackend(page, { isAdmin: true, auditRows: bigAuditRows });
+
+    await signInForReal(page, "mahmudur@shomvob.com");
+    await page.click('.op-item:has-text("Audit Log")');
+    await page.waitForSelector(".preview-table");
+
+    check("I the Settings Group column names bank_info's real group", (await page.textContent(".preview-table thead")).includes("Settings Group"));
+    check("I a settings module's row names its own group", (await page.locator(".preview-table tbody tr:has-text('bank_info')").first().textContent()).includes("Company Settings"));
+    check("I a non-settings module (employee_add) shows a dash, not a group", (await page.locator(".preview-table tbody tr:has-text('employee_add')").first().textContent()).includes("—"));
+
+    check("I only the first 50 rows show on page 1", (await page.locator(".preview-table tbody tr").count()) === 50);
+    check("I the pagination reads 'Page 1 of 2'", (await page.textContent(".audit-pagination-label")).trim() === "Page 1 of 2");
+    check("I Previous is disabled on page 1", await page.isDisabled("#adminAuditPrevBtn"));
+    check("I Next is enabled on page 1", !(await page.isDisabled("#adminAuditNextBtn")));
+
+    await page.click("#adminAuditNextBtn");
+    await page.waitForTimeout(150);
+    check("I page 2 shows exactly the remaining 12 rows", (await page.locator(".preview-table tbody tr").count()) === 12);
+    check("I the pagination reads 'Page 2 of 2'", (await page.textContent(".audit-pagination-label")).trim() === "Page 2 of 2");
+    check("I Next is disabled on the last page", await page.isDisabled("#adminAuditNextBtn"));
+
+    await page.click("#adminAuditPrevBtn");
+    await page.waitForTimeout(150);
+    check("I Previous returns to page 1's own 50 rows", (await page.locator(".preview-table tbody tr").count()) === 50);
+
+    check("I no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
   await browser.close();
   report("Admin Panel", state, []);
 })();
