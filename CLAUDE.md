@@ -1074,6 +1074,18 @@ re-reading inputs first. `#setupEnvSeg`'s own equal-width CSS rule
 this file's own test (`tests/company-setup.test.js`, block B) failing
 on exactly that check.
 
+**Reordered the same day, direct follow-up from a screenshot** (a red
+box drawn around the Environment control: "eta niche dao creds er" —
+put this below the credentials): the picker had landed above
+Email/Password on step two, mirroring where it sat on step one before
+the move — but this step's own natural reading order is "who are you
+logging in as, then which server" the same way every other real
+credential form in this app reads top-to-bottom. Environment is now
+the last field before Continue, Email/Password lead. Purely a markup
+reorder in `setupCompanyLoginTemplate()` — same ids, same click
+handler, same "no full re-render" behaviour, nothing else about the
+feature changed.
+
 The environment picked in step two is shown for the rest of the session
 in a persistent strip above the page body (`#setupStatusBar`,
 `setupStatusBarHtml()`) — an `.env-badge`, coloured by environment (`--env-

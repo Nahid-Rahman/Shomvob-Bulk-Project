@@ -8232,20 +8232,20 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Sign in as the company</h2></div>
         <p class="section-note" id="setupCoNote">${setupCoNoteText(env)}</p>
-        <div class="field" style="margin-bottom:6px">
-          <label>Environment</label>
-          <div class="seg" id="setupCoEnvSeg" role="group" aria-label="Environment">
-            <button type="button" data-env="dev" aria-pressed="${setup.env === "dev"}">Dev</button>
-            <button type="button" data-env="staging" aria-pressed="${setup.env === "staging"}">Staging</button>
-          </div>
-          <span class="hint">Everything past this point runs against this server for the rest of this session. There's no third option, and no field to type a URL into — on purpose.</span>
-        </div>
         <div class="field-row">
           <div class="field">
             <label for="setupCoEmail">Email</label>
             <input type="email" id="setupCoEmail" autocomplete="off" spellcheck="false" />
           </div>
           ${pwFieldMarkup("setupCoPass", "Password")}
+        </div>
+        <div class="field" style="margin-top:14px">
+          <label>Environment</label>
+          <div class="seg" id="setupCoEnvSeg" role="group" aria-label="Environment">
+            <button type="button" data-env="dev" aria-pressed="${setup.env === "dev"}">Dev</button>
+            <button type="button" data-env="staging" aria-pressed="${setup.env === "staging"}">Staging</button>
+          </div>
+          <span class="hint">Everything past this point runs against this server for the rest of this session. There's no third option, and no field to type a URL into — on purpose.</span>
         </div>
         <div class="setup-actions">
           <span class="error-text" id="setupCoError"></span>
