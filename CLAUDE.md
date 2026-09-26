@@ -833,8 +833,8 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 863 checks as
-of Tiered Access's real enforcement + lock icons addition (2026-09-26) — this number drifts with every change, so treat it as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 866 checks as
+of the Manage Users success-modal addition (2026-09-26) — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
@@ -5077,6 +5077,30 @@ group ("Company Settings"); a non-settings module id shows a dash;
 page 1 shows exactly 50 rows with Previous disabled and Next enabled;
 Next moves to page 2's remaining 12 rows with Next now disabled;
 Previous returns to page 1's own 50; no page errors.
+
+**Manage Users' own Save had no visible feedback at all, found live
+2026-09-26 ("kisu change korle ba update korle ekta proper success
+modal dekhao with proper msg").** Unlike Reset password (a toast,
+above) or Remove (the row visibly disappearing), a tier/admin change
+via Save gave no confirmation whatsoever beyond the spinner clearing —
+the exact "a real change with zero visible feedback reads as broken"
+class of bug this app has fixed repeatedly elsewhere (`wireRegenerate()`,
+Create Roster's own Default button). Direct request this time was for
+a modal specifically, not another toast. `openSuccessModal(title,
+bodyText)` (`app.js`) is a small, reusable "this real change went
+through" component — `#successModal` in `part1.html`, the same
+`.modal`/`.modal-card` shell `#discardModal`/`#generateCompleteModal`
+already use, one title, one message, one "Got it" button, same
+clone-and-replace close-handler pattern as those two so reopening it
+can't stack a duplicate. Wired into Manage Users' Save success path:
+`"Access updated"` / `"{email} now has {tier in plain English}{, plus
+Admin if set}."` — `tierSummaryLabel(tier)` spells out the same three
+tier states the checkboxes already represent, just as a sentence
+rather than a checkbox pair.
+
+Confirmed by test (`tests/admin-panel.test.js`, block C, extended):
+the modal appears naming the real email and the real tier/admin
+change; Got it closes it. Verified visually in both themes.
 
 ### What's not built yet
 

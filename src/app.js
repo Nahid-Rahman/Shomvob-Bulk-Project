@@ -3787,6 +3787,15 @@
     if (bulk) return "bulk";
     return "company";
   }
+  /* Plain-English name for a tier value, for the Save success modal's
+     own message (below) — reuses the exact same three states this
+     column has always had, just spelled out for a sentence rather than
+     a checkbox pair. */
+  function tierSummaryLabel(tier) {
+    if (tier === "both") return "Bulk Operations and Company Operations";
+    if (tier === "bulk") return "Bulk Operations only";
+    return "Company Operations only";
+  }
 
   function adminUserRowHtml(u) {
     const isSelf = u.email === setup.toolEmail;
@@ -4045,6 +4054,7 @@
           const u = adminPanel.users.find((x) => x.email === email);
           if (u) { u.tier = tier; u.is_admin = isAdmin; }
           clearBtnBusy(btn);
+          openSuccessModal("Access updated", `${email} now has ${tierSummaryLabel(tier)}${isAdmin ? ", plus Admin" : ""}.`);
         } catch (e) {
           clearBtnBusy(btn);
           usersErr.textContent = e.message;
@@ -11487,6 +11497,39 @@
 
     modal.hidden = false;
     freshDownload.focus();
+  }
+
+  /* A plain "this real change went through" confirmation — one title,
+     one message, one "Got it" button — for the class of action that
+     used to give no visible feedback at all beyond a spinner clearing
+     (Admin Panel's own Manage Users Save, 2026-09-26: "kisu change
+     korle ba update korle ekta proper success modal dekhao with proper
+     msg"). Deliberately a modal rather than showToast() here, per
+     direct request, even though a toast is this app's usual "quick
+     confirmation" shape (Reset password, just above, uses one) — this
+     one asked for a modal specifically. Same clone-and-replace pattern
+     as askDiscard()/openGenerateCompleteModal() so reopening it can't
+     stack a duplicate close handler. */
+  function openSuccessModal(title, bodyText) {
+    const modal = $("#successModal");
+    const okBtn = $("#successOkBtn");
+    $("#successTitle").textContent = title;
+    $("#successBody").textContent = bodyText;
+
+    const close = () => {
+      modal.hidden = true;
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+    };
+    const freshOk = okBtn.cloneNode(true);
+    okBtn.replaceWith(freshOk);
+    freshOk.addEventListener("click", close);
+    document.addEventListener("keydown", onKey);
+
+    modal.hidden = false;
+    freshOk.focus();
   }
 
   function askDiscard(body, confirmLabel, onConfirm) {

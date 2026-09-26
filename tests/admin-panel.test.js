@@ -189,6 +189,18 @@ async function signInForReal(page, email) {
       JSON.stringify(saved));
     check("C no error shown after a successful save", (await page.textContent("#adminUsersError")).trim() === "");
 
+    // A proper success modal, not silence (2026-09-26, direct request:
+    // "kisu change korle ba update korle ekta proper success modal
+    // dekhao with proper msg").
+    check("C a success modal appears naming the real change",
+      (await page.isVisible("#successModal")) &&
+      (await page.textContent("#successTitle")).trim() === "Access updated" &&
+      (await page.textContent("#successBody")).includes("tamjida@shomvob.com") &&
+      (await page.textContent("#successBody")).includes("Bulk Operations only") &&
+      (await page.textContent("#successBody")).includes("Admin"));
+    await page.click("#successOkBtn");
+    check("C the modal closes on Got it", !(await page.isVisible("#successModal")));
+
     // C2 -- can't uncheck both Bulk and Company down to zero (a no-op,
     // same "can't configure your way to nothing" discipline as Employee
     // Add's own theme picker)
