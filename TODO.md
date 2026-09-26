@@ -35,8 +35,9 @@ or added more).
     given directly when this was picked up — "user add remove korte
     parbe" — via a new `admin-users` Supabase Edge Function, since that
     needs the `service_role` key this app's client code can never hold).
-    **Tier itself still isn't enforced anywhere** — that's the
-    Welcome/tier routing page below, still not started.
+    **Tier is now enforced too** (2026-09-26, see the ✅ bullet further
+    down) — only the dedicated Welcome/tier routing page itself is still
+    outstanding, see the bottom of this section.
 
   **Tiered access — the normal (non-admin) user journey, dictated
   directly (2026-09-24), captured here so it isn't lost between
@@ -117,8 +118,10 @@ or added more).
   - ✅ **Every Operation now needs the same real sign-in** Company Setup's
     own step one always used — `goToOperation()` is the one gate, both
     the sidebar's Operations list and the Dashboard's op-cards route
-    through it. Tier itself is **not enforced yet** — this step only
-    requires *a* real sign-in, same as Company Setup always did.
+    through it. At the time this step shipped, tier itself wasn't
+    enforced yet — this step only required *a* real sign-in, same as
+    Company Setup always did. (Real tier enforcement followed the next
+    day — see the ✅ bullet near the bottom of this list.)
   - ✅ **Dashboard redesign** — operation-card grid removed (kept in code
     for the tier page to reuse), 3 public charts replace the old stat
     tiles, real Hackerman meme, sticky Sign in + (disabled) troll button.

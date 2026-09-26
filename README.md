@@ -1,19 +1,44 @@
 # Bulk Forge
 
-QA bulk-upload Excel generator for Shomvob. Runs fully in the browser — no
-backend, no database, no login. Currently supports one operation:
-**Employee Add**. Four more are planned (Attendance Add, Leave Balance Add,
-Payroll Custom Field Add, Assets Add) — see `SPEC.md`.
+QA tool for Shomvob HRIS, two parts:
+
+- **Phase 1 — Bulk generators (done, all 5).** Client-side, no backend,
+  no login beyond a joke gate: pick an operation (Employee Add,
+  Attendance Add, Leave Balance Add, Payroll Custom Field Add, Assets
+  Add), fill a few fields, get a real bulk-upload `.xlsx` matching
+  Shomvob's own template. See `SPEC.md` for the column-by-column rules.
+- **Phase 2 — Company Setup + Admin Panel (in progress).** Signs in
+  with a real Supabase-backed account and writes directly into a real
+  Shomvob dev/staging company through its actual API (~20 settings
+  modules — departments, leave types, payroll config, etc.), plus an
+  Admin Panel (manage accounts, tier/access, audit log) and a Tiered
+  Access system gating who can use Bulk vs. Company Setup. This half
+  **does** use a real backend — a dedicated Supabase project (Auth +
+  a few tables + one Edge Function) — the "no backend" line above is
+  Phase 1 only.
+
+**Read `CLAUDE.md` first if you're picking this project up** — it's
+the full, dated history of every decision made and why, kept current
+after every change. `TODO.md` is the short version: what's actually
+left. As of 2026-09-26, that's just two things: a still-unscoped
+"Report validation" item, and the Welcome/tier routing page (the last
+piece of the Tiered Access journey — real enforcement is already done,
+only the dedicated landing page itself is missing). Everything else in
+both phases is built, tested and pushed.
 
 ## Project layout
 
 ```
 src/
-  part1.html      page shell (sidebar, layout, the __APP_CSS__ placeholder)
+  part1.html      page shell (sidebar, layout, every static modal, the
+                  __APP_CSS__ placeholder)
   app.css         all styling (design tokens, light/dark theme)
-  app-data.js     name pools (Bangla + 5 character themes) and default
-                  department/designation lists
-  app.js          all app logic: state, rendering, data generation, xlsx export
+  app-data.js     data tables for both phases — Phase 1's name pools
+                  (15 themes) and default department/designation lists,
+                  Phase 2's ENVIRONMENTS/SETTINGS_GROUPS/bank names/etc.
+  app.js          all app logic for both phases — one large file
+                  (11,000+ lines); build.py inlines it as-is, nothing
+                  about it requires splitting
 vendor/
   xlsx.mini.min.js   SheetJS (MIT licensed), used to build the .xlsx file
                      client-side. The "mini" build is used deliberately —
@@ -52,8 +77,12 @@ Or connect the GitHub repo in the Vercel dashboard and it will redeploy on
 every push to `main`. Framework preset: **Other** (no build command, output
 directory `.`).
 
-No environment variables, no database, no Supabase — everything the app
-needs is already inlined in `index.html`.
+No environment variables and nothing to configure on Vercel's side —
+`index.html` is fully self-contained, including Phase 2's Supabase
+project URL/publishable key (safe to ship client-side by design, see
+`CLAUDE.md` → "The Supabase project itself"). The live deployment is
+already connected to that real Supabase project; a fresh clone works
+against it immediately, nothing to set up.
 
 ## Why not deploy the source-split files directly?
 
@@ -63,11 +92,11 @@ be the single assembled file for the page to work. Always run `build.py`
 after touching anything in `src/` and commit the regenerated `index.html`
 alongside your source changes.
 
-## Adding the next operation
+## Adding a sixth Phase 1 operation, or a new Phase 2 settings module
 
-See `SPEC.md` for the full column-by-column spec of Employee Add (already
-built) as a reference for the pattern to follow: get the real upload
-template for the new operation, confirm each column's input/generation
-rule, add it to `OPERATIONS` in `src/app-data.js`, then wire its form +
-generation logic into `src/app.js` alongside `employeeAddTemplate()` /
-`generateWorkbookRows()`.
+All 5 Phase 1 operations and all ~20 Phase 2 settings modules are built
+already — nothing outstanding in either. If a new one is ever asked
+for, `CLAUDE.md` has the exact route that worked every time so far:
+"Adding a sixth operation" (bottom of the file) for Phase 1, or the
+`SETTINGS_MODULE_HANDLERS` lookup-table pattern described throughout
+the Phase 2 section for a new settings module.
