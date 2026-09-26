@@ -833,8 +833,8 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 837 checks as
-of the Audit Log filters addition (2026-09-26) — this number drifts with every change, so treat it as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 842 checks as
+of the environment-picker move to step two (2026-09-26) — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
@@ -954,9 +954,8 @@ thing:
 
 1. **Bulk Forge's own sign-in** — email + password, checked against
    Supabase Auth (`supabaseSignIn()`). This is what decides *who may open
-   this section at all*, and it also fixes which environment the rest of
-   the session talks to (picked in the same form, via the `.seg` control
-   also used for e.g. the ID-source picker elsewhere). Sign-up is switched
+   this section at all* — nothing more; it no longer touches which
+   environment anything talks to (see below). Sign-up is switched
    off on the Supabase project (`Authentication → Sign In / Providers →
    Allow new users to sign up`, unchecked), so passing this gate really
    means "someone added this email in the Supabase dashboard by hand" —
@@ -969,7 +968,10 @@ thing:
    separate permission model layered on top of it. Whatever that account
    can do through the real HRIS is exactly what this page can do on its
    behalf, no more — the page inherits the account's permissions rather
-   than asserting any of its own.
+   than asserting any of its own. **This form also picks which real
+   server it's checked against** (dev/staging, via the same `.seg`
+   control used elsewhere, e.g. the ID-source picker) — moved here from
+   step one, 2026-09-26, see "Two servers, fixed at build time" below.
 
 The company token is **never written to storage** — no `localStorage`,
 no cookie, no `sessionStorage`. A reload clears it unconditionally,
@@ -1047,7 +1049,32 @@ page. This is deliberate: a tool whose whole second half is "write data
 into a real company" should not have a path from "I mistyped a URL" to
 "I just flooded production."
 
-The environment picked in step one is shown for the rest of the session
+**Moved from step one to step two, 2026-09-26** — direct request
+("ekhon ota company login er shomoy diba" — now give it during the
+company login instead). The environment only ever decided which real
+Shomvob server *step two's own login* is checked against, so asking
+for it during step one (Bulk Forge's own tool sign-in, before the
+company account is even typed in) was one step earlier than it needed
+to be. `setup.env` itself, `ENVIRONMENTS`, the "no third option, no
+field to type a URL into" discipline above — none of that changed,
+only which step's template renders the `.seg` (`#setupCoEnvSeg` now,
+was `#setupEnvSeg`) and wires its click handler
+(`wireSetupCompanyLogin()` now, was `wireSetupSignIn()`). Switching
+Dev/Staging on step two updates that step's own note text (which names
+the environment twice, "The company-admin login for the X company...
+checked by the real Shomvob X server") and the persistent strip
+without a full re-render — snapshotting nothing, since the click
+handler only ever touches the seg's own `aria-pressed` state, the note
+text and the strip, exactly the same "don't lose a hand-typed value to
+a re-render" discipline every toggle in this file already holds itself
+to, just achieved here by not re-rendering at all rather than by
+re-reading inputs first. `#setupEnvSeg`'s own equal-width CSS rule
+(`app.css`, "Dev is a third the width of Staging otherwise") moved to
+`#setupCoEnvSeg` alongside it — missed on the first pass, caught by
+this file's own test (`tests/company-setup.test.js`, block B) failing
+on exactly that check.
+
+The environment picked in step two is shown for the rest of the session
 in a persistent strip above the page body (`#setupStatusBar`,
 `setupStatusBarHtml()`) — an `.env-badge`, coloured by environment (`--env-
 dev` / `--env-staging` tokens in `src/app.css`, blue and purple). Those

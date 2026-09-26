@@ -276,10 +276,6 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("A sidebar has exactly one Company Setup entry", (await page.locator('.op-item:has-text("Company Setup")').count()) === 1);
     check("A the shared Generate bar is hidden on this page", (await page.locator("#actionBar").evaluate((el) => getComputedStyle(el).display)) === "none");
     check("A opens on step one, tool sign-in", (await page.locator("#setupSignInBtn").count()) === 1);
-    check("A staging is the default environment", (await page.getAttribute('#setupEnvSeg button[data-env="staging"]', "aria-pressed")) === "true");
-    check("A the two environment buttons are equal width",
-      (await page.locator('#setupEnvSeg button[data-env="dev"]').boundingBox().then((b) => b.width)) ===
-        (await page.locator('#setupEnvSeg button[data-env="staging"]').boundingBox().then((b) => b.width)));
     check("A no page errors yet", errs.length === 0, errs.join(" | "));
     await page.close();
   }
@@ -299,13 +295,35 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
-  /* ---------- B. environment picker ---------- */
+  /* ---------- B. environment picker — moved to step two, 2026-09-26 ----------
+     Direct request ("ekhon ota company login er shomoy diba" — now give
+     it during the company login instead): the environment only ever
+     decides which real server step two's own login is checked against,
+     so it moved from step one (before that account is even typed in) to
+     step two itself. */
   {
     const page = await browser.newContext().then((c) => c.newPage());
+    await mockSupabaseOk(page);
     await gotoSetup(page);
-    await page.click('#setupEnvSeg button[data-env="staging"]');
-    check("B staging becomes pressed", (await page.getAttribute('#setupEnvSeg button[data-env="staging"]', "aria-pressed")) === "true");
-    check("B dev is un-pressed", (await page.getAttribute('#setupEnvSeg button[data-env="dev"]', "aria-pressed")) === "false");
+    await page.fill("#setupEmail", "mahmudur@shomvob.com");
+    await page.fill("#setupPass", "whatever");
+    await page.click("#setupSignInBtn");
+    await page.waitForTimeout(150);
+
+    check("B no environment picker left on step one", (await page.locator("#setupEnvSeg").count()) === 0);
+    check("B staging is the default environment on step two", (await page.getAttribute('#setupCoEnvSeg button[data-env="staging"]', "aria-pressed")) === "true");
+    check("B the two environment buttons are equal width",
+      (await page.locator('#setupCoEnvSeg button[data-env="dev"]').boundingBox().then((b) => b.width)) ===
+        (await page.locator('#setupCoEnvSeg button[data-env="staging"]').boundingBox().then((b) => b.width)));
+
+    await page.fill("#setupCoEmail", "half-typed@company.com");
+    await page.click('#setupCoEnvSeg button[data-env="dev"]');
+    check("B dev becomes pressed", (await page.getAttribute('#setupCoEnvSeg button[data-env="dev"]', "aria-pressed")) === "true");
+    check("B staging is un-pressed", (await page.getAttribute('#setupCoEnvSeg button[data-env="staging"]', "aria-pressed")) === "false");
+    check("B step two's own note names the newly picked environment", (await page.textContent("#setupCoNote")).includes("Dev"));
+    check("B the persistent strip updates too, without a full re-render", (await statusbar(page)) === "Dev mahmudur@shomvob.com Sign out");
+    check("B a hand-typed company email survives switching environments (no full re-render)",
+      (await page.inputValue("#setupCoEmail")) === "half-typed@company.com");
     await page.close();
   }
 
@@ -338,7 +356,6 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     check("D no status bar before signing in", (await statusbar(page)) === "");
 
-    await page.click('#setupEnvSeg button[data-env="staging"]');
     await page.fill("#setupEmail", "mahmudur@shomvob.com");
     await page.fill("#setupPass", "whatever");
     await page.click("#setupSignInBtn");
@@ -346,7 +363,12 @@ async function toGrid(page, companyName = "Hogwarts") {
 
     check("D step two appears after tool sign-in", (await page.locator("#setupCoBtn").count()) === 1);
     check("D step two's password field also has a show/hide toggle", (await page.locator('.pw-toggle[data-target="setupCoPass"]').count()) === 1);
-    check("D status bar shows the chosen env and the tool email", (await statusbar(page)) === "Staging mahmudur@shomvob.com Sign out");
+    check("D status bar shows the (default) env and the tool email", (await statusbar(page)) === "Staging mahmudur@shomvob.com Sign out");
+
+    /* The environment picker itself lives on step two now — confirm the
+       default and then explicitly pick Staging, same as this block
+       always did (it just used to happen a step earlier, on step one). */
+    await page.click('#setupCoEnvSeg button[data-env="staging"]');
     check("D step two names the same environment", (await page.textContent("#setupBody")).includes("Staging"));
 
     await page.fill("#setupCoEmail", "sportsacademy@yopmail.com");

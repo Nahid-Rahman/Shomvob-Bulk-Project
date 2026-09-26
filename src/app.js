@@ -3394,7 +3394,8 @@
 
      Shown in place of the operation `pendingOperation` was actually
      requesting. Deliberately not a copy of Company Setup's own
-     setupSignInTemplate() — that one also picks dev/staging, which is
+     setupSignInTemplate() — that one's sibling step two
+     (setupCompanyLoginTemplate()) also picks dev/staging, which is
      meaningless here since the five generators never call a real
      Shomvob server at all; this is only ever about *who* is signed in,
      not which server. Same supabaseSignIn()/saveToolSession()/logAudit()
@@ -4529,8 +4530,7 @@
 
      The first — "the tool" below — gates the whole section before any
      real credential is ever asked for. It is Bulk Forge's own sign-in,
-     checked against Supabase Auth, and it also fixes which environment
-     the rest of this section talks to. Sign-up is switched off on that
+     checked against Supabase Auth. Sign-up is switched off on that
      project, so passing this gate really means "someone added your email
      in the Supabase dashboard," nothing this file decides on its own.
 
@@ -4539,7 +4539,12 @@
      what the rest of this section can actually do. There is no separate
      permission model layered on top of it: whatever that account can do
      through the real HRIS is exactly what this page can do on its
-     behalf, no more.
+     behalf, no more. **The environment picker moved here, 2026-09-26**
+     (direct request: "ekhon ota company login er shomoy diba" — now
+     give it during the company login) — it only ever decided which
+     real server *this* login is checked against, so asking for it one
+     step earlier, before this account is even typed in, was one step
+     too soon.
 
      Neither token is ever written to storage. Both live only in this
      object, so a reload clears them exactly like every pasted ID list
@@ -5034,14 +5039,6 @@
           </div>
           ${pwFieldMarkup("setupPass", "Password")}
         </div>
-        <div class="field" style="margin-top:14px">
-          <label>Environment</label>
-          <div class="seg" id="setupEnvSeg" role="group" aria-label="Environment">
-            <button type="button" data-env="dev" aria-pressed="${setup.env === "dev"}">Dev</button>
-            <button type="button" data-env="staging" aria-pressed="${setup.env === "staging"}">Staging</button>
-          </div>
-          <span class="hint">Everything past this point runs against this server for the rest of this session. There's no third option, and no field to type a URL into — on purpose.</span>
-        </div>
         <div class="setup-actions">
           <span class="error-text" id="setupError"></span>
           <button type="button" class="generate-btn" id="setupSignInBtn">Sign in</button>
@@ -5052,14 +5049,6 @@
 
   function wireSetupSignIn() {
     wirePasswordToggles($("#setupBody"));
-
-    const seg = $("#setupEnvSeg");
-    $all("button", seg).forEach((btn) => {
-      btn.addEventListener("click", () => {
-        setup.env = btn.dataset.env;
-        $all("button", seg).forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
-      });
-    });
 
     const btn = $("#setupSignInBtn");
     const err = $("#setupError");
@@ -5077,7 +5066,7 @@
         setup.toolEmail = email;
         setup.toolToken = data.access_token;
         saveToolSession(data.expires_at ? data.expires_at * 1000 : Date.now() + 3600 * 1000);
-        logAudit("login", `${email} signed in`, { environment: setup.env });
+        logAudit("login", `${email} signed in`);
         refreshAdminNav();
         renderSetupBody();
         /* Also reveals the sidebar's Operations section (2026-09-25,
@@ -5093,13 +5082,34 @@
     });
   }
 
+  /* Moved here from step one, 2026-09-26, direct request ("ekhon ota
+     company login er shomoy diba" — now give it during the company
+     login instead): the environment only ever decides which real
+     Shomvob server step two's own company-admin login is checked
+     against, so picking it during step one (before that account is
+     even typed in) was one step earlier than it actually needed to be.
+     `setup.env` itself is untouched — still one flag, still fixed at
+     build time via ENVIRONMENTS, still defaults to "staging" — this is
+     purely which step asks for it. */
+  function setupCoNoteText(env) {
+    return `The company-admin login for the ${env.label} company you want to configure. This is checked by the real Shomvob ${env.label} server, and it decides everything past this point.`;
+  }
+
   function setupCompanyLoginTemplate() {
     const env = ENVIRONMENTS[setup.env];
     return `
       ${lastSessionNoticeHtml()}
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">2</span>Sign in as the company</h2></div>
-        <p class="section-note">The company-admin login for the ${env.label} company you want to configure. This is checked by the real Shomvob ${env.label} server, and it decides everything past this point.</p>
+        <p class="section-note" id="setupCoNote">${setupCoNoteText(env)}</p>
+        <div class="field" style="margin-bottom:6px">
+          <label>Environment</label>
+          <div class="seg" id="setupCoEnvSeg" role="group" aria-label="Environment">
+            <button type="button" data-env="dev" aria-pressed="${setup.env === "dev"}">Dev</button>
+            <button type="button" data-env="staging" aria-pressed="${setup.env === "staging"}">Staging</button>
+          </div>
+          <span class="hint">Everything past this point runs against this server for the rest of this session. There's no third option, and no field to type a URL into — on purpose.</span>
+        </div>
         <div class="field-row">
           <div class="field">
             <label for="setupCoEmail">Email</label>
@@ -5117,6 +5127,19 @@
 
   function wireSetupCompanyLogin() {
     wirePasswordToggles($("#setupBody"));
+
+    /* Same "just update the seg + whatever text names the environment"
+       shape step one's own handler used to use — no full re-render, so
+       a hand-typed Email/Password survives switching Dev/Staging. */
+    const envSeg = $("#setupCoEnvSeg");
+    $all("button", envSeg).forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setup.env = btn.dataset.env;
+        $all("button", envSeg).forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+        $("#setupCoNote").textContent = setupCoNoteText(ENVIRONMENTS[setup.env]);
+        $("#setupStatusBar").innerHTML = setupStatusBarHtml();
+      });
+    });
 
     const btn = $("#setupCoBtn");
     const err = $("#setupCoError");
