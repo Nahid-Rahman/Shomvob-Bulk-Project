@@ -3965,7 +3965,7 @@
 
       <div class="section">
         <div class="section-head">
-          <h2 class="section-title"><span class="section-num">1</span>Activity</h2>
+          <h2 class="section-title">Activity</h2>
           <div style="display:flex; gap:8px">
             ${filtered ? `<button type="button" class="tiny-btn" id="adminAuditClearFilterBtn">Clear filters</button>` : ""}
             <button type="button" class="tiny-btn" id="adminRefreshAuditBtn">Refresh</button>

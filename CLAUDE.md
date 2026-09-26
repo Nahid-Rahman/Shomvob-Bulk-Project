@@ -5112,6 +5112,11 @@ carry one. Both `<h2 class="section-title">` headers dropped the
 `<span class="section-num">1</span>` — plain text titles now, matching
 what a single-section page actually is.
 
+**Audit Log's own "Activity" section had the identical badge, caught
+in a same-day follow-up** ("audit log eo emon ekta 1 ase uthay dao" —
+Audit Log has one of these too, remove it): same fix, same reasoning —
+one standalone section, no "2" to number it against.
+
 Nothing — every module in every `SETTINGS_GROUPS` group (including both
 of Schedule Management's) now has a real handler; per-day/per-slot
 assignment for Roster Pattern (above) is a deliberately deferred phase
