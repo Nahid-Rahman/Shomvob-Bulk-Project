@@ -161,6 +161,13 @@ or added more).
     the new `admin-users` Edge Function). `mahmudur@shomvob.com` is
     still the one seeded admin; more can be added from the panel itself
     now, no SQL needed for that specific step any more.
+  - ✅ **Reset password** (2026-09-26, direct follow-up: "keu password
+    vule gele ki korbe?" — total user count is 25) — a "Reset password"
+    button next to Save/Remove in Manage Users, admin sets a new
+    password directly (`admin-users` Edge Function's new
+    `reset_password` action, `auth.admin.updateUserById`) rather than a
+    self-service emailed reset link — see CLAUDE.md → Phase 2 → "Admin
+    Panel" → "Reset password".
   - **Not started**: the new Welcome/tier routing page itself
     (Bulk/Settings/Both cards + lock icons — this is also where the
     Operations-picking experience now moved off the sidebar is headed,

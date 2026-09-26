@@ -3662,6 +3662,7 @@
         <td><input type="checkbox" class="admin-flag-checkbox" ${u.is_admin ? "checked" : ""} /></td>
         <td>
           <button type="button" class="tiny-btn admin-save-btn">Save</button>
+          <button type="button" class="tiny-btn admin-reset-btn" data-user-id="${escapeHtml(u.id)}">Reset password</button>
           <button type="button" class="tiny-btn admin-remove-btn" ${isSelf ? `disabled title="You can't remove your own account."` : ""}>Remove</button>
         </td>
       </tr>
@@ -3868,6 +3869,35 @@
           const u = adminPanel.users.find((x) => x.email === email);
           if (u) { u.tier = tier; u.is_admin = isAdmin; }
           clearBtnBusy(btn);
+        } catch (e) {
+          clearBtnBusy(btn);
+          usersErr.textContent = e.message;
+        }
+      });
+    });
+    /* No self-service "forgot password" flow exists — direct request
+       ("1 e koro" — build the admin-resets-it-manually option, not a
+       self-service emailed reset link, since total user is only 25 real
+       accounts). A plain window.prompt() for the new password matches
+       this section's existing risk tolerance (Remove already uses
+       window.confirm) rather than a new modal component for one field. */
+    $all(".admin-reset-btn").forEach((btn) => {
+      const row = btn.closest("tr");
+      btn.addEventListener("click", async () => {
+        usersErr.textContent = "";
+        const email = row.dataset.email;
+        const userId = btn.dataset.userId;
+        const password = window.prompt(`New password for ${email}:`);
+        if (password === null) return;
+        if (password.length < 6) {
+          usersErr.textContent = "Password must be at least 6 characters.";
+          return;
+        }
+        setBtnBusy(btn);
+        try {
+          await adminUsersFetch("reset_password", { userId, email, password });
+          clearBtnBusy(btn);
+          showToast(`Password reset for ${email}.`);
         } catch (e) {
           clearBtnBusy(btn);
           usersErr.textContent = e.message;

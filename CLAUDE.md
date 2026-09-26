@@ -833,8 +833,8 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 825 checks as
-of that addition — this number drifts with every change, so treat it as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 829 checks as
+of the Reset password addition (2026-09-26) — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
@@ -4824,7 +4824,7 @@ right there too, in the same `if (savedTool)` branch that restores
 `setup.toolToken` — fire-and-forget, same as both sign-in call sites,
 correcting the sidebar once the async check resolves.
 
-Confirmed by a new suite, `tests/admin-panel.test.js` (25 checks): both
+Confirmed by a new suite, `tests/admin-panel.test.js` (31 checks): both
 nav items are invisible to a non-admin; an admin sees both, Users
 listed before Audit Log; the Admin section survives a hard refresh
 (the bug above, reproduced and fixed the same day); Manage Users is
@@ -4839,6 +4839,51 @@ afterward; creating a user calls the Edge Function with the real form
 values, not a direct auth write; removing another account confirms
 first, then calls the Edge Function with that account's real id and
 email.
+
+**Reset password (2026-09-26)** — asked directly ("accha keu password
+vule gele ki korbe?" — what if someone forgets their password), and
+this app has no self-service "forgot password" flow at all (no email
+delivery infra, no reset-link landing page). Two options were weighed:
+Supabase's built-in `resetPasswordForEmail()` (needs SMTP configured on
+the project plus a new reset-link landing page in this app), or an
+admin resetting it manually from the panel already built here. The
+user's own call — "1 e koro. total user hobe 25 jon" (do option 1;
+total user count will be 25) — picked the admin-does-it-manually route,
+consistent with "beshi complex korbo na" and the small, entirely
+internal-QA user base.
+
+A fourth action on the `admin-users` Edge Function,
+**`reset_password`**: re-checks `is_admin` the same way `create`/
+`delete` already do, then `auth.admin.updateUserById(userId, {
+password })` — the same Admin API family as `create`. Logs
+`admin_password_reset` (a fourth event type added to `audit_log`'s own
+CHECK constraint, migration
+`widen_audit_log_event_type_for_password_reset`, alongside the three
+`admin_user_create`/`admin_user_delete`/`admin_access_change` kinds
+already there). No self-lockout guard is needed here the way `delete`
+has one — an admin resetting their own password is a completely normal
+thing to do, unlike deleting their own account.
+
+**The client side is a plain `window.prompt()`**, not a new modal
+component for one field — matches this section's own existing risk
+tolerance (Remove already uses `window.confirm`) rather than building
+`pwFieldMarkup()`'s show/hide toggle into a fourth surface for what is,
+in practice, an admin typing a password once and telling the affected
+person out of band (Slack/WhatsApp). A **"Reset password"** `.tiny-btn`
+sits between Save and Remove in each Manage Users row
+(`adminUserRowHtml()`); its click handler (`wireAdminManageUsersEvents()`)
+prompts for the new password, checks it's at least 6 characters
+client-side (the same floor Supabase Auth itself enforces — the Edge
+Function checks it too, server-side, since a client check alone is
+only a UI convenience), calls `adminUsersFetch("reset_password", ...)`,
+and confirms success via the app's existing `showToast()` — a one-off
+"did this work" confirmation, not persistent row state, so it didn't
+need a new UI element the way the table's own tier/admin columns did.
+
+Confirmed by test (`tests/admin-panel.test.js`, block G): the prompt
+names the account being reset; the real call carries that account's
+real user id, email and the typed password; a success toast confirms
+it; no page errors.
 
 ### What's not built yet
 

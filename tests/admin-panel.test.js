@@ -47,7 +47,7 @@ async function mockAdminBackend(page, { isAdmin }) {
     }
     return route.fulfill({ status: 201, contentType: "application/json", body: "[]" });
   });
-  const calls = { create: null, delete: null };
+  const calls = { create: null, delete: null, reset_password: null };
   await page.route("**/functions/v1/admin-users", async (route) => {
     const body = route.request().postDataJSON();
     if (body.action === "list") {
@@ -59,6 +59,10 @@ async function mockAdminBackend(page, { isAdmin }) {
     }
     if (body.action === "delete") {
       calls.delete = body;
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+    }
+    if (body.action === "reset_password") {
+      calls.reset_password = body;
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
     }
     return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "unknown action" }) });
@@ -274,6 +278,41 @@ async function signInForReal(page, email) {
     check("F Admin section still visible after a hard refresh",
       (await page.locator('.op-item:has-text("Users")').count()) === 1);
     check("F no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  {
+    // G — Reset password (2026-09-26, direct request: "1 e koro" — the
+    // admin-resets-it-manually option, not a self-service emailed reset
+    // link, since total user is only 25 real accounts). A plain
+    // window.prompt() for the new password, same risk tolerance as
+    // Remove's own window.confirm.
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    let promptMessage = null;
+    page.on("dialog", (d) => {
+      promptMessage = d.message();
+      d.accept("newpassword123");
+    });
+    await page.goto(PAGE);
+    await signIn(page);
+    await mockAuthOk(page);
+    const { calls } = await mockAdminBackend(page, { isAdmin: true });
+
+    await signInForReal(page, "mahmudur@shomvob.com");
+    await page.click('.op-item:has-text("Users")');
+    await page.waitForSelector(".preview-table");
+
+    await page.click('tr[data-email="tamjida@shomvob.com"] .admin-reset-btn');
+    await page.waitForTimeout(400);
+
+    check("G the prompt names the account being reset", promptMessage && promptMessage.includes("tamjida@shomvob.com"), promptMessage);
+    check("G the reset_password call carries the real user id, email and new password",
+      calls.reset_password && calls.reset_password.userId === "u2" && calls.reset_password.email === "tamjida@shomvob.com" &&
+      calls.reset_password.password === "newpassword123",
+      JSON.stringify(calls.reset_password));
+    check("G a success toast confirms the reset", (await page.textContent("#toast")).includes("tamjida@shomvob.com"));
+    check("G no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
