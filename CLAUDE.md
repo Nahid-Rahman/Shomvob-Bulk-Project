@@ -833,8 +833,8 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 853 checks as
-of the Audit Log pagination/Settings Group column addition (2026-09-26) — this number drifts with every change, so treat it as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 863 checks as
+of Tiered Access's real enforcement + lock icons addition (2026-09-26) — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
@@ -4065,11 +4065,10 @@ auth flow. **Company Setup's own sign-in also satisfies this gate**,
 and vice versa — both just set the same `setup.toolToken`, so signing
 in from either side unlocks the other for the rest of that session.
 
-**Tier itself isn't enforced yet — this step only requires *a* real
-sign-in**, same as Company Setup's step one always has. Nothing here
-reads `my_tier()` yet; that's the next step, along with the new
-Welcome/tier routing page and Admin Panel — deliberately deferred, see
-`TODO.md`.
+**Tier itself wasn't enforced at the time this step shipped — this step
+only required *a* real sign-in**, same as Company Setup's step one
+always had. Real enforcement followed the next day — see "Tiered
+Access — real enforcement + lock icons" below.
 
 **A real, foreseeable side effect, confirmed acceptable rather than
 silently patched around:** `hasUnsavedWork()` already treated a bare
@@ -4098,6 +4097,90 @@ visitor would the first time, going straight through on every
 subsequent operation switch after that. `appearance.test.js`'s own
 single operation visit (needed for a file-input dark-theme check)
 got the same fix. Full 9-suite run (787 checks) green.
+
+### Tiered Access — real enforcement + lock icons (2026-09-26)
+
+Direct instruction, given as "do 2 and 3 together, they're related"
+against a punch list of remaining Welcome/tier-page work proposed the
+same conversation (2: actually enforce `my_tier()`; 3: lock-icon UI).
+**The Welcome/tier routing page itself is still not built** — that's a
+separate, still-open item (`TODO.md`'s own "last piece of the
+originally-dictated journey") — so rather than wait on that page's own
+design pass, this retrofits the same enforcement + lock-icon idea onto
+today's real nav: a real tier of `"company"` locks the sidebar's whole
+Operations list, a real tier of `"bulk"` locks Company Setup, `"both"`
+(or the tier not yet resolved) locks neither. When the new page is
+eventually built, this same `myTier` state and `checkMyTier()` call are
+what it will read too — nothing here is throwaway.
+
+**`checkMyTier()`/`myTier`/`refreshMyTier()` mirror `checkIsAdmin()`/
+`isAdminUser`/`refreshAdminNav()` exactly** — same RPC-call shape
+(`POST {SUPABASE_URL}/rest/v1/rpc/my_tier`), same "never cached beyond
+this session's own nav rendering, re-checked live" discipline. One
+deliberate difference: `checkMyTier()` **fails open** to `"both"` on a
+network hiccup, where `checkIsAdmin()` fails closed to `false` — this
+is a client-side nav convenience, not the real security boundary (RLS
++ each RPC's own SQL policy is), so the worst case here is a lock icon
+that should show doesn't, never an unauthorized real write. Called
+from the same three sites `refreshAdminNav()` already is (both real
+sign-in success handlers, plus `init()`'s session-restore branch), and
+reset to `null` on the same real sign-out.
+
+**Disabled + a small pill, not hidden outright** — the same shape
+Coming-soon operations already used (`op.status === "soon"`), reusing
+`.pill-soon`'s own styling for a "Locked" pill rather than a new class,
+since the visual language is identical. A locked button also carries a
+`title` naming why, same pattern as Admin Panel's own disabled
+self-Remove button. This is exactly the TODO.md-dictated behaviour
+("Whatever a given user's tier doesn't include gets a lock icon
+instead of being hidden outright"), just living on today's nav instead
+of the still-unbuilt page.
+
+**Real enforcement, not just a disabled button** — `goToOperation()`
+(the one gate both the sidebar and the Dashboard's op-cards already
+route through) now also refuses a `"company"`-tier account outright,
+independent of whether the click even could have reached it, and shows
+a toast naming why. `wirePopstate()` (Back/Forward) gets the identical
+check for both directions — a stale history entry from before an
+account was retiered could otherwise land directly on a page the
+current tier no longer allows, the same class of gap this app's own
+Back/Forward already guarded against for a stale signed-out session
+(above).
+
+**The Dashboard's own sticky-bar note is tier-aware too** — it used to
+claim "Operations and Company Setup are unlocked for this session"
+unconditionally the moment `setup.toolToken` was set; left unconditional,
+that line would now sit directly under a visibly locked, greyed-out
+Operations list contradicting itself. Reworded per-tier
+(`"bulk"`/`"company"`/`"both"`), matching whichever half is actually
+locked.
+
+**A real race, caught by this file's own test before it ever shipped**
+(`tests/tiered-access.test.js`, blocks E/F): `refreshMyTier()`'s RPC
+call and the Dashboard's own render both fire synchronously right
+after sign-in, so the note's tier-aware text (set once, at render
+time, inside `wireWelcomeEvents()`) could easily be built from a still-
+`null` `myTier` — the ordinary case, not a rare one — and then never
+correct itself, since only `renderSidebar()` re-ran once the RPC
+actually resolved. Exactly the "background check resolves after the
+page already rendered, and nothing reapplies it" shape
+`dashboardStats`'s own fix already guards against, just not yet copied
+here. Fixed the same way: `refreshMyTier()` also re-renders
+`#mainContent` (`welcomeTemplate()` + `wireWelcomeEvents()`) when
+`currentOp === "welcome"` at the moment it resolves.
+
+**Test mocking, proactively added everywhere a real sign-in can
+happen** — same discipline this project already holds itself to for
+every new backend call introduced by this feature (`audit_log`,
+`is_admin()`, now `my_tier()`): `tests/lib.js`'s shared
+`mockToolSignIn()` (used by all five generator suites plus
+`back-navigation.test.js`) now defaults `my_tier()` to `"both"`, same
+as `company-setup.test.js`'s `mockSupabaseOk()` and
+`admin-panel.test.js`'s `mockAdminBackend()`. `tiered-access.test.js`
+gained its own `mockTier(page, tier)` helper and two new blocks (E/F)
+confirming both lock directions, the Locked pill, the enabled sibling
+staying enabled, the toast-backed real enforcement, and the sticky
+bar's own reworded note — full 11-suite run green throughout.
 
 ### Dashboard redesign — step 2 of the Tiered Access journey (2026-09-25)
 

@@ -117,11 +117,16 @@ async function signIn(page) {
 
 /* Tiered Access (2026-09-25) — every operation now needs a real tool
    sign-in first, the same account/endpoint Company Setup's own step
-   one always used. Mocks the same two calls that flow touches (a fake
-   Supabase token, and the audit_log write that sign-in now fires) —
-   none of these five suites otherwise mock any network call at all,
-   since the five generators are 100% client-side. Call once per fresh
-   page, before the first operation navigation. */
+   one always used. Mocks the calls that flow touches (a fake Supabase
+   token, the audit_log write that sign-in now fires, and — since
+   2026-09-26 — the my_tier() RPC refreshMyTier() fires the same way
+   refreshAdminNav()'s own is_admin() call already did) — none of these
+   five suites otherwise mock any network call at all, since the five
+   generators are 100% client-side. Defaults to "both" (fully
+   unlocked) so these suites' own operation navigation is unaffected by
+   real tier enforcement unless a test deliberately overrides this
+   route with a narrower tier. Call once per fresh page, before the
+   first operation navigation. */
 async function mockToolSignIn(page) {
   await page.route("**/auth/v1/token**", (route) =>
     route.fulfill({
@@ -131,6 +136,7 @@ async function mockToolSignIn(page) {
     })
   );
   await page.route("**/rest/v1/audit_log**", (route) => route.fulfill({ status: 201, contentType: "application/json", body: "[]" }));
+  await page.route("**/rest/v1/rpc/my_tier", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '"both"' }));
 }
 
 /* Clicks the target operation's sidebar item — signing in first if this

@@ -85,6 +85,12 @@ async function mockSupabaseOk(page) {
      that specifically want the admin view register their own override
      after this one, same LIFO-override pattern used throughout this file. */
   await page.route("**/rest/v1/rpc/is_admin", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "false" }));
+  /* Tiered Access real enforcement (2026-09-26) — refreshMyTier() fires
+     on the same real sign-in, same reasoning as is_admin just above.
+     Default "both" (fully unlocked) so this suite's own Operations/
+     Company Setup navigation is unaffected unless a test deliberately
+     overrides this route with a narrower tier. */
+  await page.route("**/rest/v1/rpc/my_tier", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '"both"' }));
 }
 function mockSupabaseFail(page) {
   return page.route("**/auth/v1/token**", (route) =>

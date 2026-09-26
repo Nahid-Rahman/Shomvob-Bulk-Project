@@ -168,12 +168,22 @@ or added more).
     `reset_password` action, `auth.admin.updateUserById`) rather than a
     self-service emailed reset link — see CLAUDE.md → Phase 2 → "Admin
     Panel" → "Reset password".
+  - ✅ **`my_tier()` now actually enforced, plus lock icons** (2026-09-26,
+    direct instruction: "2 ar 3 kore felo, duita related" — do these two
+    together) — see CLAUDE.md → Phase 2 → "Tiered Access — real
+    enforcement + lock icons". A real "company" tier locks the sidebar's
+    Operations list, a real "bulk" tier locks Company Setup — disabled +
+    a small "Locked" pill, not hidden outright, real enforcement in
+    `goToOperation()`/`wirePopstate()` too, not just the disabled button.
+    Retrofitted onto today's real nav rather than waiting on the page
+    below, since that page will read this same `myTier` state once built.
   - **Not started**: the new Welcome/tier routing page itself
     (Bulk/Settings/Both cards + lock icons — this is also where the
     Operations-picking experience now moved off the sidebar is headed,
     and where Company Setup's own step-one sign-in form is meant to
-    move to), and actually reading `my_tier()` to enforce anything.
-    **This is the last piece of the originally-dictated journey left.**
+    move to). **This is the last piece of the originally-dictated
+    journey left** — enforcement itself is done (above), what's missing
+    now is purely the dedicated landing page.
 
   **Whoever picks this up next**: don't restart planning from scratch —
   every numbered decision above is confirmed, not an open question. Ask

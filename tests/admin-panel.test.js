@@ -39,6 +39,11 @@ async function mockAdminBackend(page, { isAdmin, auditRows }) {
   await page.route("**/rest/v1/rpc/is_admin", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: String(isAdmin) })
   );
+  /* Real tier enforcement (2026-09-26) — refreshMyTier() fires on the
+     same real sign-in refreshAdminNav() already did. Default "both"
+     (unlocked) since these blocks are testing the Admin Panel, not
+     Operations/Company Setup access. */
+  await page.route("**/rest/v1/rpc/my_tier", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '"both"' }));
   await page.route("**/rest/v1/audit_log**", (route) => {
     if (route.request().method() === "GET") {
       return route.fulfill({

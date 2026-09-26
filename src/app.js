@@ -361,13 +361,26 @@
      Company Setup and the Dashboard itself are untouched by this — only
      the five generators are newly gated, per the journey dictated in
      TODO.md ("Bulk... needs it too now, since access-tiering has to
-     apply everywhere"). Tier itself isn't enforced yet (that's the next
-     step) — this step only requires *a* real sign-in, same as Company
-     Setup's own step one already did. */
+     apply everywhere").
+
+     **Tier itself is now enforced too, 2026-09-26** — not just a real
+     sign-in. A real tier of "company" (no Bulk access) is refused here
+     even though the sidebar's own disabled button already stops a click
+     from reaching this function in the normal case — this is the actual
+     enforcement, the disabled button is only the UI courtesy, same
+     "client-side check is a convenience, the real gate lives one layer
+     deeper" shape `checkMyTier()`'s own comment above holds itself to.
+     `myTier === null` (not yet resolved) is treated as unlocked, same as
+     the sidebar's own default — a person is never blocked by a check
+     that simply hasn't finished yet. */
   function goToOperation(opId) {
     if (!setup.toolToken) {
       pendingOperation = opId;
       navigateTo("operations_gate");
+      return;
+    }
+    if (myTier === "company") {
+      showToast("Your account's access level doesn't include Bulk Operations.", true);
       return;
     }
     navigateTo(opId);
@@ -410,6 +423,18 @@
        pendingOperation handling. */
     $(".sidebar").style.display = setup.toolToken ? "" : "none";
 
+    /* Tiered Access, real enforcement (2026-09-26) — a real tier of
+       "company" locks Operations, a real tier of "bulk" locks Company
+       Setup; "both" (or myTier not yet resolved) locks neither. Same
+       "disabled + a small pill naming why, not hidden outright" shape
+       Coming-soon operations already use below — a lock icon here is
+       exactly the TODO.md-dictated behaviour ("Whatever a given user's
+       tier doesn't include gets a lock icon instead of being hidden
+       outright"), just retrofitted onto today's real nav rather than
+       the still-unbuilt Welcome/tier page. */
+    const bulkLocked = myTier === "company";
+    const companyLocked = myTier === "bulk";
+
     const nav = $("#opNav");
     nav.innerHTML = "";
     OPERATIONS.forEach((op) => {
@@ -417,9 +442,14 @@
       btn.className = "op-item";
       btn.type = "button";
       btn.setAttribute("aria-current", String(op.id === currentOp));
-      if (op.status === "soon") btn.disabled = true;
-      btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span>${op.status === "soon" ? '<span class="pill-soon">Soon</span>' : ""}`;
-      if (op.status !== "soon") {
+      const locked = op.status !== "soon" && bulkLocked;
+      if (op.status === "soon" || locked) btn.disabled = true;
+      if (locked) btn.title = "Your account's access level doesn't include Bulk Operations.";
+      let pill = "";
+      if (op.status === "soon") pill = '<span class="pill-soon">Soon</span>';
+      else if (locked) pill = '<span class="pill-soon">Locked</span>';
+      btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span>${pill}`;
+      if (op.status !== "soon" && !locked) {
         btn.addEventListener("click", () => {
           if (isBulkRunActive()) return;
           goToOperation(op.id);
@@ -435,11 +465,17 @@
       btn.className = "op-item";
       btn.type = "button";
       btn.setAttribute("aria-current", String(op.id === currentOp));
-      btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span>`;
-      btn.addEventListener("click", () => {
-        if (isBulkRunActive()) return;
-        navigateTo(op.id);
-      });
+      if (companyLocked) {
+        btn.disabled = true;
+        btn.title = "Your account's access level doesn't include Company Setup.";
+      }
+      btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span>${companyLocked ? '<span class="pill-soon">Locked</span>' : ""}`;
+      if (!companyLocked) {
+        btn.addEventListener("click", () => {
+          if (isBulkRunActive()) return;
+          navigateTo(op.id);
+        });
+      }
       setupNav.appendChild(btn);
     });
 
@@ -3160,6 +3196,55 @@
     renderSidebar();
   }
 
+  /* Tiered Access — real enforcement, 2026-09-26 (TODO.md's own journey,
+     steps 2-3: "actually reading my_tier() to enforce anything"). The
+     Welcome/tier routing page itself isn't built yet (that still needs
+     its own design pass); this retrofits the same enforcement + lock-icon
+     idea onto today's real nav — Operations locked out when the real
+     tier is "company" only, Company Setup locked out when it's "bulk"
+     only — rather than waiting on that page first. Same shape as
+     isAdminUser/checkIsAdmin() above: `my_tier()` is checked live via
+     RPC, never cached as a stored flag beyond this session's own nav
+     rendering. */
+  async function checkMyTier() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/my_tier`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` },
+        body: "{}",
+      });
+      /* Fails open to "both" on a network hiccup, unlike checkIsAdmin()'s
+         own fail-closed-to-false — this is a client-side nav convenience,
+         not the real security boundary (RLS + is_admin()/my_tier()'s own
+         SQL policies are), so the worst case here is a lock icon that
+         should be showing isn't, not an unauthorized real write. */
+      if (!res.ok) return "both";
+      return await res.json();
+    } catch (e) {
+      return "both";
+    }
+  }
+  let myTier = null; // null until a real sign-in resolves it — "bulk" | "company" | "both"
+  async function refreshMyTier() {
+    myTier = setup.toolToken ? await checkMyTier() : null;
+    renderSidebar();
+    /* A real, confirmed race, caught by this file's own test
+       (tiered-access.test.js, blocks E/F) before it ever shipped: the
+       Dashboard's own sticky-bar note is tier-aware text set once at
+       render time (wireWelcomeEvents(), below) — if this RPC hadn't
+       resolved yet when that render happened (the ordinary case,
+       since this call and renderMain() both fire synchronously right
+       after a real sign-in), the note was stuck showing the generic
+       "both unlocked" wording forever after, the exact "background
+       check resolves after the page already rendered, and nothing
+       reapplies it" shape Dashboard's own dashboardStats already
+       guards against the same way. */
+    if (currentOp === "welcome") {
+      $("#mainContent").innerHTML = welcomeTemplate();
+      wireWelcomeEvents();
+    }
+  }
+
   /* Everything computed client-side from one fetch of the real rows —
      no separate aggregation backend, same "no backend beyond what's
      strictly needed" instinct as the rest of this app. `limit=2000` is
@@ -3363,7 +3448,19 @@
     const note = $("#welcomeBarNote");
     const loginBtn = $("#welcomeLoginBtn");
     if (setup.toolToken) {
-      note.textContent = `Signed in as ${setup.toolEmail} — Operations and Company Setup are unlocked for this session.`;
+      /* Tier-aware wording, 2026-09-26 — this line used to claim both
+         were unlocked unconditionally, which went actively wrong the
+         moment real tier enforcement (above) could lock either one:
+         a "company"-tier account would see every Operation greyed out
+         with a Locked pill in the sidebar, directly under a banner
+         still insisting Operations were unlocked. */
+      if (myTier === "bulk") {
+        note.textContent = `Signed in as ${setup.toolEmail} — Operations are unlocked for this session (your account's access doesn't include Company Setup).`;
+      } else if (myTier === "company") {
+        note.textContent = `Signed in as ${setup.toolEmail} — Company Setup is unlocked for this session (your account's access doesn't include Operations).`;
+      } else {
+        note.textContent = `Signed in as ${setup.toolEmail} — Operations and Company Setup are unlocked for this session.`;
+      }
       loginBtn.style.display = "none";
     } else {
       note.textContent = "Real Bulk Forge sign-in unlocks Operations and Company Setup for the rest of this session.";
@@ -3442,6 +3539,7 @@
         saveToolSession(data.expires_at ? data.expires_at * 1000 : Date.now() + 3600 * 1000);
         logAudit("login", `${email} signed in`, { environment: setup.env });
         refreshAdminNav();
+        refreshMyTier();
         const target = pendingOperation || "welcome";
         pendingOperation = null;
         /* replace: true — signing in completes the gate rather than
@@ -5026,6 +5124,7 @@
         clearLastSetupSession();
         clearToolSession();
         isAdminUser = false;
+        myTier = null;
         renderSetupBody();
         /* Mirrors the sign-in fix above — without this, #gatedNav would
            keep showing Operations as unlocked after a real tool
@@ -5127,6 +5226,7 @@
         saveToolSession(data.expires_at ? data.expires_at * 1000 : Date.now() + 3600 * 1000);
         logAudit("login", `${email} signed in`);
         refreshAdminNav();
+        refreshMyTier();
         renderSetupBody();
         /* Also reveals the sidebar's Operations section (2026-09-25,
            #gatedNav) immediately — without this, a visitor who signs in
@@ -11561,6 +11661,15 @@
       if (OPERATIONS.some((o) => o.id === opId) && !setup.toolToken) {
         pendingOperation = opId;
         currentOp = "operations_gate";
+      } else if (OPERATIONS.some((o) => o.id === opId) && myTier === "company") {
+        /* Same real tier enforcement as goToOperation() (2026-09-26) —
+           a history entry from before the account was retiered down to
+           "company" could otherwise land directly on a Bulk operation's
+           page, the exact class of gap this app's own Back/Forward
+           already guards against for a stale signed-in session above. */
+        currentOp = "welcome";
+      } else if (opId === "company_setup" && myTier === "bulk") {
+        currentOp = "welcome";
       } else {
         currentOp = opId;
       }
@@ -11598,8 +11707,12 @@
          a genuine admin and the sidebar's whole "ADMIN" section
          silently disappeared on every reload. Fire-and-forget here too,
          same as the sign-in call sites — it re-renders the sidebar
-         itself once the async check resolves. */
+         itself once the async check resolves. Same reasoning covers
+         myTier (2026-09-26) — a restored session skipped this the same
+         way, so a locked-out operation would have shown unlocked until
+         some unrelated click happened to re-render the sidebar. */
       refreshAdminNav();
+      refreshMyTier();
     }
     /* Establishes the first history entry — every later page change
        (navigateTo()) pushes on top of this one, so Back eventually
