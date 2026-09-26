@@ -5102,7 +5102,15 @@ Confirmed by test (`tests/admin-panel.test.js`, block C, extended):
 the modal appears naming the real email and the real tier/admin
 change; Got it closes it. Verified visually in both themes.
 
-### What's not built yet
+**The `.section-num` "1" badge dropped from Manage Users and Create
+new user, same day** ("ei 1 uthay dao. lagtese na to" — remove this
+1, it doesn't look right): that badge exists so Company Setup's own
+multi-section module pages can number several sections in sequence
+("1 Company Profile", "2 Bank Info", …) — a single, standalone section
+numbered "1" with no "2" anywhere on the page never had a reason to
+carry one. Both `<h2 class="section-title">` headers dropped the
+`<span class="section-num">1</span>` — plain text titles now, matching
+what a single-section page actually is.
 
 Nothing — every module in every `SETTINGS_GROUPS` group (including both
 of Schedule Management's) now has a real handler; per-day/per-slot

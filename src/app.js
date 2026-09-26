@@ -3877,7 +3877,7 @@
   function adminManageUsersBodyHtml() {
     return `
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Manage Users</h2></div>
+        <div class="section-head"><h2 class="section-title">Manage Users</h2></div>
         <div class="preview-table-wrap">
           <table class="preview-table admin-users-table">
             <thead><tr><th>Email</th><th>Last signed in</th><th>Bulk Operations</th><th>Company Operations</th><th>Admin</th><th></th></tr></thead>
@@ -3892,7 +3892,7 @@
   function adminCreateUserBodyHtml() {
     return `
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Create new user</h2></div>
+        <div class="section-head"><h2 class="section-title">Create new user</h2></div>
         <p class="section-note">Creates a real Bulk Forge sign-in — same account used everywhere in this app.</p>
         <div class="field-row">
           <div class="field">
