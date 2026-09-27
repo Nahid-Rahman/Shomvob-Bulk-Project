@@ -547,12 +547,23 @@
        oversized video treatment (below) — reset here the same way, so
        it can never leak onto another has-media page (an operation's own
        video rail is tuned for a tall scrolling form beside a modest
-       rail, not this page's bigger, vertically-centred one). */
-    root.classList.remove("rickroll-layout");
+       rail, not this page's bigger, vertically-centred one). welcome-wide
+       is reset the same way — only the Welcome branch below turns it
+       back on. */
+    root.classList.remove("rickroll-layout", "welcome-wide");
 
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
+      /* Its own, wider-than-.wide column (2026-09-27, direct feedback
+         against a real 1920px-wide screenshot: "eto jayga khoroch
+         korte koshto lagtese" — too much space left unused, even at
+         Company Setup's own 1100px .wide). A distinct class, not a
+         change to .wide itself — company-setup.test.js asserts an
+         exact 1100px width for that one, and this page's own zigzag
+         rows/meme column want more room than a form-field column
+         does anyway. */
       root.classList.remove("has-media", "wide");
+      root.classList.add("welcome-wide");
       root.innerHTML = welcomeTemplate();
       wireWelcomeEvents();
       $("#welcomeBar").style.display = "flex";

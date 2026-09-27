@@ -399,11 +399,20 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
   flex-shrink: 0;
 }
 .main-inner.wide + .app-footer { max-width: 1100px; }
+.main-inner.welcome-wide + .app-footer { max-width: 1320px; }
 
 /* Company Setup only — its field-rows, textareas and tab strip actually
    use the extra room; the five generators keep the narrower, more
    readable 760px column they were designed at. */
 .main-inner.wide { max-width: 1100px; }
+
+/* Welcome page only (2026-09-27) — wider still than .wide, a distinct
+   class rather than raising .wide itself (company-setup.test.js asserts
+   an exact 1100px width for that one). Prose still reads at a normal
+   line length (.welcome-lede keeps its own 58ch cap), the extra room
+   goes to the zigzag rows/meme column and the Scope checklist's own
+   two-up field-row breathing more instead. */
+.main-inner.welcome-wide { max-width: 1320px; }
 
 /* Company Setup read noticeably lighter than the rest of the app at the
    shared classes' default sizes — bumped here, scoped to .wide so the
@@ -1353,9 +1362,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    for why. */
 .welcome-headline {
   text-align: center;
-  font-size: 30px;
+  font-size: 32px;
+  font-weight: 700;
   letter-spacing: -0.02em;
   margin: 4px 0 20px;
+  color: var(--accent-strong);
 }
 
 /* Sticky so the 3-step recap stays visible while reading through
@@ -1373,16 +1384,20 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* Reason's copy sits left of its meme; Offer's (.welcome-row-reverse)
-   mirrors it via a plain column-order flip, not a second grid — same
-   two-column ratio as the old .welcome-hero this replaces. */
+   mirrors it via a plain column-order flip, not a second grid. Meme
+   column widened to 380px (was 296px) once the page itself went wider
+   (2026-09-27, .welcome-wide above) — .welcome-lede's own 58ch cap
+   means the text column doesn't grow past a comfortable reading width
+   on its own, so a bigger meme is what actually uses the extra room
+   without leaving an awkward gap between the two. */
 .welcome-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 296px;
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 26px;
   align-items: start;
   margin: 24px 0;
 }
-.welcome-row-reverse { grid-template-columns: 296px minmax(0, 1fr); }
+.welcome-row-reverse { grid-template-columns: 380px minmax(0, 1fr); }
 .welcome-row-reverse .meme { order: -1; }
 .welcome-copy { min-width: 0; }
 

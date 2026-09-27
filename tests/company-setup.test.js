@@ -675,18 +675,28 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.close();
   }
 
-  /* ---------- L. Company Setup gets the wider column, nothing else does ---------- */
+  /* ---------- L. Company Setup and Welcome each get their own wide column ---------- */
   {
+    /* Welcome got its own, even wider column the same day as this test
+       was updated (2026-09-27, direct feedback against a real 1920px
+       screenshot: "eto jayga khoroch korte koshto lagtese" — too much
+       space left unused even at Company Setup's own 1100px .wide). That
+       makes Welcome wider than Company Setup now, the exact reverse of
+       what this block used to assert — checked against the two known,
+       fixed pixel values (.wide's 1100, .welcome-wide's 1320) rather
+       than "whichever one happens to be the narrow baseline," since
+       neither one is the narrow baseline any more. */
     const page = await browser.newContext({ viewport: { width: 1440, height: 900 } }).then((c) => c.newPage());
     await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     const dashboardWidth = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
+    check("L Welcome gets its own 1320px column", dashboardWidth === 1320, String(dashboardWidth));
     await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; }); // see gotoSetup()'s own comment
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForTimeout(60);
     const setupWidth = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
-    check("L Company Setup is wider than the default column", setupWidth > dashboardWidth, `${setupWidth} vs ${dashboardWidth}`);
+    check("L Company Setup gets its own 1100px column", setupWidth === 1100, String(setupWidth));
     /* Still not really signed in (this block never submits step one), so
        the Company Setup nav click above already re-ran renderSidebar()
        and re-hid the sidebar on its own real (unauthenticated) state —
@@ -696,7 +706,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click('.op-item:has-text("Welcome")');
     await page.waitForTimeout(60);
     const backToDashboard = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
-    check("L the wider column doesn't leak onto the page after it", backToDashboard === dashboardWidth, `${backToDashboard} vs ${dashboardWidth}`);
+    check("L Welcome's own wide column doesn't drift after visiting Company Setup", backToDashboard === dashboardWidth, `${backToDashboard} vs ${dashboardWidth}`);
     await page.close();
   }
 

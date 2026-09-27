@@ -222,6 +222,36 @@ here comes from existing tokens) and by a direct scroll-position check
 that `.how-row-sticky` really does stay pinned at `top: 0` rather than
 just looking plausible in a static screenshot.
 
+**Given its own, wider-still column and a coloured headline the same
+day, on direct feedback against a real 1920px-wide screenshot** ("eto
+jayga tomar khoroch korte koshto lagtese" — are you finding it hard to
+spend that much space — plus a request to make the headline text
+"aesthetic," in Shomvob's own brand colour): even Company Setup's own
+1100px `.wide` still left wide gutters on a real, wide monitor, so
+Welcome gets a genuinely distinct, wider class — `.welcome-wide`
+(1320px) — rather than a raised `.wide` itself, since
+`company-setup.test.js` asserts an exact 1100px width for that one and
+raising it would have been a silent, unrelated regression for every
+other page that reuses it. `.welcome-row`'s meme column grew alongside
+it (296px → 380px) — `.welcome-lede`'s own 58ch reading-width cap means
+the text column doesn't get uncomfortably wide on its own screen no
+matter how wide the page is, so a bigger meme (not longer prose lines)
+is what actually uses the extra room without leaving an odd gap between
+the two. `.welcome-headline` is now `var(--accent-strong)` — the one
+brand green, plain and solid rather than a gradient/glow treatment,
+matching this app's own restraint about decorative chrome (see "Colour
+pass" under Phase 2, and the per-module icon's own "large decorative
+mark" cautionary tale) rather than reaching for something flashier.
+
+**This flipped which page is "the wide one" for the first time** —
+Welcome's new 1320px is now wider than Company Setup's 1100px, the
+exact reverse of what `company-setup.test.js`'s own "L" block used to
+assert ("Company Setup gets the wider column, nothing else does").
+Fixed by asserting both pages' own known, fixed pixel widths (1100 /
+1320) directly rather than a relative "wider than X" comparison that
+assumed one of them was still the narrow baseline — neither is, any
+more.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,
