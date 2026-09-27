@@ -3505,7 +3505,7 @@
         <span class="how-step"><b>3</b> Hit Generate. That's it.</span>
       </div>
 
-      <div class="welcome-row">
+      <div class="section welcome-row">
         <div class="welcome-copy">
           <span class="welcome-badge">Dear certified lazy</span>
           <p class="welcome-lede">
@@ -3533,7 +3533,7 @@
         </figure>
       </div>
 
-      <div class="welcome-row welcome-row-reverse">
+      <div class="section welcome-row welcome-row-reverse">
         <figure class="meme" aria-label="Hackerman, from Kung Fury — this whole page runs on hacker-movie logic">
           <img class="meme-img" src="assets/hackerman.gif" alt="Hackerman" loading="lazy" />
         </figure>

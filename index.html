@@ -1393,47 +1393,52 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: var(--canvas);
+  /* Found live, 2026-09-27, from a screenshot with page content visibly
+     peeking through the sticky bar while scrolling: this referenced
+     var(--canvas), a token that was never actually defined anywhere in
+     this file (the real page-background variable is --bg) — an invalid
+     custom property falls back to the property's own initial value,
+     which for `background` is fully transparent, not "no background
+     rule at all." So this bar had no opaque backing the entire time. */
+  background: var(--bg);
   padding: 10px 0;
   margin-top: 0;
 }
 
-/* Reason's copy sits left of its meme; Offer's (.welcome-row-reverse)
-   mirrors it via a plain column-order flip, not a second grid.
+/* Reason and Offer are each their own .section card now (2026-09-27,
+   direct feedback against a screenshot with both problems circled at
+   once): they used to be bare rows with no border, reading as one
+   continuous block instead of two distinct sections the way Scope/"By
+   the numbers"/"So far, for real" already did below them — and since
+   those three are plain .section elements (full .main-inner width),
+   while Reason/Offer were a separately fit-content-sized, centred grid
+   (this file's own previous fix for the *text-vs-meme* gap, further
+   down), the two kinds of section didn't share the same left/right
+   edges either. Making Reason/Offer plain .section elements too fixes
+   both at once — same card chrome, same automatic full width, no
+   special sizing rule of their own left to drift out of sync.
 
-   Found live, 2026-09-27, from a screenshot with the gap itself
-   circled: a "1fr" text column stretches to fill whatever width is
-   left in the row, but .welcome-lede's own text sits at its own
-   capped 58ch width *inside* that track and doesn't fill it, so the
-   leftover track space showed up as a dead gap between the text and
-   the meme in Reason's row, and between the text and the row's own
-   right edge in Offer's (mirrored) row. A first attempt capped the
-   whole row at a guessed 980px instead — better, but the text column
-   (`minmax(0,1fr)` inside that 980px) still didn't match 58ch's own
-   *actual* rendered width exactly, leaving a smaller residual gap.
-
-   Fixed properly by giving the text column `minmax(0, 58ch)` directly
-   — the same unit .welcome-lede's own cap already uses, so the track
-   is never wider than the text actually is — and sizing the row itself
-   to `width: fit-content` instead of guessing a pixel max-width, so the
-   row hugs exactly `58ch + gap + meme`, no matter what either turns out
-   to render as. `max-width: 100%` is the only safety net left, so a
-   viewport narrower than that natural width still shrinks it rather
-   than overflowing. */
+   The text-column-content-vs-track gap this file already fixed once
+   (`minmax(0, 58ch)` instead of `minmax(0, 1fr)`) still applies, but
+   the *meme* column is `1fr` again now that the row is full .section
+   width — on a wide screen that's genuinely more room than a meme
+   should stretch to fill, so the meme itself stays capped at a modest
+   max-width and is centred *within* that leftover column
+   (`justify-self: center` below) instead of either stretching huge or
+   pinning to the row's own outer edge. */
 .welcome-row {
   display: grid;
-  grid-template-columns: minmax(0, 58ch) 340px;
+  grid-template-columns: minmax(0, 58ch) 1fr;
   gap: 26px;
   align-items: start;
-  width: fit-content;
-  max-width: 100%;
-  margin: 24px auto;
 }
-.welcome-row-reverse { grid-template-columns: 340px minmax(0, 58ch); }
+.welcome-row-reverse { grid-template-columns: 1fr minmax(0, 58ch); }
 .welcome-row-reverse .meme { order: -1; }
 .welcome-copy { min-width: 0; }
-
-.welcome-scope { margin: 24px 0; }
+.welcome-row .meme { justify-self: center; width: 100%; max-width: 340px; }
+/* .welcome-scope needs no margin rule of its own any more — plain
+   .section spacing now that it's the same kind of card as everything
+   else on this page. */
 .scope-list { margin: 8px 0 0; padding-left: 18px; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
 .scope-list li { margin-bottom: 6px; }
 .scope-list li:last-child { margin-bottom: 0; }
@@ -1898,10 +1903,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
   .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
-  /* Stacked to one column, so there's no second track to fit-content
-     around any more — back to a plain full-width block. */
-  .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; width: 100%; }
+  .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; }
   .welcome-row-reverse .meme { order: 0; }
+  .welcome-row .meme { max-width: 100%; }
   .welcome-headline { font-size: 23px; }
   .field-grid-3, .field-grid-2 { grid-template-columns: 1fr; }
   .shift-times { margin-left: 0; width: 100%; }
@@ -6746,7 +6750,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <span class="how-step"><b>3</b> Hit Generate. That's it.</span>
       </div>
 
-      <div class="welcome-row">
+      <div class="section welcome-row">
         <div class="welcome-copy">
           <span class="welcome-badge">Dear certified lazy</span>
           <p class="welcome-lede">
@@ -6774,7 +6778,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         </figure>
       </div>
 
-      <div class="welcome-row welcome-row-reverse">
+      <div class="section welcome-row welcome-row-reverse">
         <figure class="meme" aria-label="Hackerman, from Kung Fury — this whole page runs on hacker-movie logic">
           <img class="meme-img" src="assets/hackerman.gif" alt="Hackerman" loading="lazy" />
         </figure>

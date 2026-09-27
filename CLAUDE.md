@@ -280,6 +280,61 @@ inheriting the desktop rule's sizing intent by accident. Confirmed with
 a real screenshot at 390px — the whole page still stacks and fills the
 viewport correctly.
 
+**Four more issues, all marked directly on screenshots and batched into
+one fix on purpose** ("aro dei then ekebare koro" — mark more, then do
+them all at once), the same day:
+
+1. **Reason/Offer's own left/right edges didn't line up with Scope/"By
+   the numbers"/"So far, for real" below them.** The three lower
+   sections are plain `.section` cards (full `.main-inner` width); Reason
+   and Offer were a separately `width: fit-content`-sized, centred grid
+   (this file's own prior alignment fix, above) — two different sizing
+   rules on the same page, so their edges drifted apart the moment the
+   page itself got wide enough for the difference to show.
+2. **Reason and Offer didn't read as their own distinct sections at
+   all**, unlike the three below them — no border, no card, just a bare
+   row, so the two blurred into one continuous block.
+3. **The sticky how-row visibly overlapped page content while
+   scrolling** — page content peeking through on every side of the
+   pills, not just a z-index issue. Debugged directly (a real
+   `getBoundingClientRect()` + `getComputedStyle()` check, not guessed):
+   `.how-row-sticky`'s `background: var(--canvas)` computed to fully
+   transparent, because **`--canvas` was never actually defined
+   anywhere in this file** — the real page-background token is `--bg`.
+   An invalid custom property doesn't fall back to "no rule"; it falls
+   back to the property's own initial value, which for `background` is
+   transparent — so this bar had no opaque backing at all, the entire
+   time it existed. Fixed by pointing it at the token that's actually
+   defined.
+4. **The meme should sit centred within its section's own width**, not
+   pinned to one edge with dead space beside it.
+
+Items 1 and 2 turned out to share one root fix: **Reason and Offer are
+now plain `.section` elements too** (`<div class="section welcome-row">`
+alongside the existing `.welcome-row` grid classes), the exact same
+card Scope/"By the numbers"/"So far, for real" already are — same
+border, background and full `.main-inner` width automatically, no
+special sizing rule of Reason/Offer's own left to drift out of sync.
+The `width: fit-content` centring trick this file documented as *the*
+fix for the earlier text-vs-meme gap bug is gone — once the row is a
+full-width `.section`, the text column would leave the same dead gap
+beside it all over again unless something else absorbs the extra room,
+which is exactly item 4: the meme column changed from a fixed `340px`
+back to `1fr` (so it takes whatever's left in the now-full-width
+section), but the meme *itself* stays capped at `max-width: 340px` and
+is centred inside that leftover space (`justify-self: center`) rather
+than stretching to fill it or pinning to the row's outer edge. The
+text column's own `minmax(0, 58ch)` sizing (unchanged from the prior
+fix) still means the text never leaves a gap on *its* side either way.
+
+Confirmed by Playwright screenshot in both light and dark at 1920px —
+all five sections now share identical left/right edges, Reason/Offer
+read as clearly separate bordered cards, the meme sits centred with
+room on both sides rather than jammed against one, and the sticky
+how-row's background is solid (`rgb(247, 250, 248)` in light —
+confirmed via `getComputedStyle`, not just eyeballed) with zero page
+content visible through it while scrolled.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,
