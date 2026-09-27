@@ -232,16 +232,12 @@ Welcome gets a genuinely distinct, wider class — `.welcome-wide`
 (1320px) — rather than a raised `.wide` itself, since
 `company-setup.test.js` asserts an exact 1100px width for that one and
 raising it would have been a silent, unrelated regression for every
-other page that reuses it. `.welcome-row`'s meme column grew alongside
-it (296px → 380px) — `.welcome-lede`'s own 58ch reading-width cap means
-the text column doesn't get uncomfortably wide on its own screen no
-matter how wide the page is, so a bigger meme (not longer prose lines)
-is what actually uses the extra room without leaving an odd gap between
-the two. `.welcome-headline` is now `var(--accent-strong)` — the one
-brand green, plain and solid rather than a gradient/glow treatment,
-matching this app's own restraint about decorative chrome (see "Colour
-pass" under Phase 2, and the per-module icon's own "large decorative
-mark" cautionary tale) rather than reaching for something flashier.
+other page that reuses it. `.welcome-headline` is now
+`var(--accent-strong)` — the one brand green, plain and solid rather
+than a gradient/glow treatment, matching this app's own restraint about
+decorative chrome (see "Colour pass" under Phase 2, and the per-module
+icon's own "large decorative mark" cautionary tale) rather than
+reaching for something flashier.
 
 **This flipped which page is "the wide one" for the first time** —
 Welcome's new 1320px is now wider than Company Setup's 1100px, the
@@ -251,6 +247,38 @@ Fixed by asserting both pages' own known, fixed pixel widths (1100 /
 1320) directly rather than a relative "wider than X" comparison that
 assumed one of them was still the narrow baseline — neither is, any
 more.
+
+**A real, confirmed layout bug in the zigzag rows, found the same day
+from a follow-up screenshot with the gap itself circled** ("ki kora
+lagbe bujhso alignment e?"): widening the page exposed a dead gap
+between the Reason row's text and its meme, and an even bigger one
+between the Offer row's text and the row's own right edge. This
+session's own first attempt at the wider column had guessed that
+growing `.welcome-row`'s meme column (296px → 380px) would use the
+freed-up space — **that reasoning was wrong, and said so once the
+actual bug was found**: a `minmax(0, 1fr)` text column stretches to
+fill whatever width the row has left over, but `.welcome-lede`'s own
+text sits at its own capped 58ch width *inside* that track and doesn't
+fill it — the leftover track space is exactly the dead gap in the
+screenshot, and it has nothing to do with the meme column's own size
+either way. Fixed properly by giving the text column `minmax(0, 58ch)`
+directly — the same unit the text's own cap already uses, so the track
+is never bigger than the text actually is — and sizing `.welcome-row`
+itself to `width: fit-content` (with `max-width: 100%` as the only
+safety net, so a narrower viewport still shrinks it rather than
+overflowing) instead of guessing a pixel max-width for the row. Verified
+directly: a real bounding-box measurement of `.welcome-copy` and its own
+`.welcome-lede` now returns the exact same width in both rows, meaning
+zero leftover track space either side of the meme. The mobile
+breakpoint's own single-column override (`.welcome-row,
+.welcome-row-reverse { grid-template-columns: 1fr; }`) picked up an
+explicit `width: 100%` alongside it — `fit-content` on a lone `1fr`
+track (no second, definitely-sized track to size against) doesn't
+mean the same thing as it does with two fixed-unit tracks, so the
+stacked mobile layout needed its own explicit full-width rather than
+inheriting the desktop rule's sizing intent by accident. Confirmed with
+a real screenshot at 390px — the whole page still stacks and fills the
+viewport correctly.
 
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"

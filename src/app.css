@@ -1384,20 +1384,37 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* Reason's copy sits left of its meme; Offer's (.welcome-row-reverse)
-   mirrors it via a plain column-order flip, not a second grid. Meme
-   column widened to 380px (was 296px) once the page itself went wider
-   (2026-09-27, .welcome-wide above) — .welcome-lede's own 58ch cap
-   means the text column doesn't grow past a comfortable reading width
-   on its own, so a bigger meme is what actually uses the extra room
-   without leaving an awkward gap between the two. */
+   mirrors it via a plain column-order flip, not a second grid.
+
+   Found live, 2026-09-27, from a screenshot with the gap itself
+   circled: a "1fr" text column stretches to fill whatever width is
+   left in the row, but .welcome-lede's own text sits at its own
+   capped 58ch width *inside* that track and doesn't fill it, so the
+   leftover track space showed up as a dead gap between the text and
+   the meme in Reason's row, and between the text and the row's own
+   right edge in Offer's (mirrored) row. A first attempt capped the
+   whole row at a guessed 980px instead — better, but the text column
+   (`minmax(0,1fr)` inside that 980px) still didn't match 58ch's own
+   *actual* rendered width exactly, leaving a smaller residual gap.
+
+   Fixed properly by giving the text column `minmax(0, 58ch)` directly
+   — the same unit .welcome-lede's own cap already uses, so the track
+   is never wider than the text actually is — and sizing the row itself
+   to `width: fit-content` instead of guessing a pixel max-width, so the
+   row hugs exactly `58ch + gap + meme`, no matter what either turns out
+   to render as. `max-width: 100%` is the only safety net left, so a
+   viewport narrower than that natural width still shrinks it rather
+   than overflowing. */
 .welcome-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 58ch) 340px;
   gap: 26px;
   align-items: start;
-  margin: 24px 0;
+  width: fit-content;
+  max-width: 100%;
+  margin: 24px auto;
 }
-.welcome-row-reverse { grid-template-columns: 380px minmax(0, 1fr); }
+.welcome-row-reverse { grid-template-columns: 340px minmax(0, 58ch); }
 .welcome-row-reverse .meme { order: -1; }
 .welcome-copy { min-width: 0; }
 
@@ -1866,7 +1883,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
   .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
-  .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; }
+  /* Stacked to one column, so there's no second track to fit-content
+     around any more — back to a plain full-width block. */
+  .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; width: 100%; }
   .welcome-row-reverse .meme { order: 0; }
   .welcome-headline { font-size: 23px; }
   .field-grid-3, .field-grid-2 { grid-template-columns: 1fr; }
