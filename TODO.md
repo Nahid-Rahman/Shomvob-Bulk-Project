@@ -186,15 +186,58 @@ or added more).
     `goToOperation()`/`wirePopstate()` too, not just the disabled button.
     Retrofitted onto today's real nav rather than waiting on the page
     below, since that page will read this same `myTier` state once built.
+  - ✅ **The pre-signin Welcome page was fully rewritten through
+    discussion, then batch-fixed twice from marked-up screenshots**
+    (2026-09-27) — see CLAUDE.md → "Operations — all 5 built" for the
+    rename note, and → "Welcome page rewritten through discussion..."
+    (Phase 2 section) for the full build/fix history. Summary for
+    whoever picks this up next:
+    - Three written sections, no literal headers — **Reason** ("Dear
+      certified lazy"), **Offer** ("Your prayers, answered (mostly)"),
+      **Scope** ("The fine print") — laid out as a zigzag (copy+meme,
+      mirrored) with Scope full-width and meme-less on purpose. Text:meme
+      columns are a deliberate 70:30 split.
+    - A real, public **"So far, for real"** stat section (files
+      generated, settings automated, time saved — all three real,
+      pulled from `audit_log` via two narrow, `anon`-safe SQL RPCs:
+      `public.public_generate_counts()` and
+      `public.public_settings_save_count()`, both already applied to the
+      live Supabase project) sits below the existing static "By the
+      numbers" estimate.
+    - Headline is "Welcome to Shomvob Bulk Forge!" with the sidebar's own
+      Lazy logo tile beside it; the how-row is plain (not sticky — this
+      was tried, then explicitly reversed the same day).
+    - **Two real, non-obvious CSS bugs were found and fixed along the
+      way** (both documented in full in CLAUDE.md, worth reading before
+      touching this page's layout again): (1) a "So far, for real"-driven
+      fetch fires unconditionally on page load, before any test's
+      `page.route()` mock registered *after* `page.goto()` can catch it
+      — every test file's own `page.goto(PAGE)` call now has a
+      `mockPublicStats(page)` immediately before it, not after,
+      (`tests/lib.js`). (2) `.welcome-bar`'s own `align-items: stretch`
+      never actually wins the cascade against a later, equal-specificity
+      `.action-bar` rule — worked around locally (an explicit width on
+      `.welcome-bar-actions`, fixed button widths) rather than fixed at
+      the root, since fixing the cascade itself would also change
+      `.welcome-bar-note`'s own layout, never reported as broken.
+    - **Left open, on purpose**: Reason's own meme is still a plain,
+      labelled placeholder (`.meme-placeholder`) — no real image chosen
+      for that slot yet, don't invent one. **"By the numbers"'s own
+      content was explicitly left untouched** — "apatoto thak, ami
+      chinta kore guchay dibo ki ki rakhba" (leave it for now, I'll work
+      out what belongs there myself) — don't redesign it without being
+      asked again specifically.
   - **Not started**: the new post-login **Dashboard** page itself
     (renamed from "Welcome/tier routing page," 2026-09-27 — see the
     naming note on step 5 above; the pre-signin landing keeps the name
-    "Welcome" instead) — Bulk/Settings/Both cards + lock icons, this is
-    also where the Operations-picking experience now moved off the
-    sidebar is headed, and where Company Setup's own step-one sign-in
-    form is meant to move to. **This is the last piece of the
-    originally-dictated journey left** — enforcement itself is done
-    (above), what's missing now is purely the dedicated landing page.
+    "Welcome" instead, and is now fully rebuilt per the bullet just
+    above — don't confuse the two) — Bulk/Settings/Both cards + lock
+    icons, this is also where the Operations-picking experience now
+    moved off the sidebar is headed, and where Company Setup's own
+    step-one sign-in form is meant to move to. **This is the last piece
+    of the originally-dictated journey left** — enforcement itself is
+    done (above), what's missing now is purely the dedicated landing
+    page.
 
   **Whoever picks this up next**: don't restart planning from scratch —
   every numbered decision above is confirmed, not an open question. Ask
@@ -202,4 +245,8 @@ or added more).
   also the build order — this is being done step by step on purpose.
   **As of 2026-09-27, the user has said they'll guide this build
   directly, one step at a time** — wait for their concrete instruction
-  rather than starting the full page unprompted.
+  rather than starting the full page unprompted. **Same discipline now
+  also confirmed explicitly for the Welcome page's own screenshot-review
+  process** — wait until the user says they're done listing issues
+  before fixing any of them, even if an earlier one already looks
+  obviously fixable; this was corrected once already the same day.
