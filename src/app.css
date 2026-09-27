@@ -1744,6 +1744,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .rickroll-frame { max-height: calc(100vh - 160px); }
 @media (max-width: 1100px) {
   .rickroll-col { align-self: auto; display: block; }
+  /* A real bug, found live on a mobile screenshot audit (2026-09-27):
+     `.rickroll-layout`'s own unconditional 2-column split (three
+     classes) outranks the shared shell's own single-column mobile
+     collapse (`.main-inner.has-media`, two classes) on specificity
+     alone, regardless of which rule comes later in the file — so this
+     page never actually collapsed to one column under 1100px the way
+     every other operation's video rail already does, and the whole
+     joke read as two cramped, barely-legible columns on a phone width
+     instead. Matching the shared rule's own selector exactly (three
+     classes here too) is what lets normal cascade order decide, same
+     as the two rules just above it already rely on. */
+  .main-inner.has-media.rickroll-layout { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Scroll still works, the browser's own scrollbar chrome doesn't show
@@ -1934,6 +1946,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .field-grid-3, .field-grid-2 { grid-template-columns: 1fr; }
   .shift-times { margin-left: 0; width: 100%; }
   .shift-times input[type="time"] { flex: 1; min-width: 0; }
+  /* A real bug, found live on a mobile screenshot audit (2026-09-27):
+     .appearance-float's own `position: fixed` (top/right corner) is
+     harmless on desktop, where nothing ever scrolls under that corner,
+     but the sidebar stacking above the main content here makes the page
+     one long scroll — so this pill stayed glued to the viewport corner
+     and drifted over whatever content happened to scroll underneath it
+     (the Welcome page's own meme placeholder, confirmed by screenshot).
+     Dropped back into normal document flow instead of floating, so it
+     scrolls away with the sidebar it already sits directly after in the
+     markup — same "stack it instead of fighting for the same space"
+     instinct as every other side-by-side layout in this pass. */
+  .appearance-float { position: static; align-self: center; margin: 14px 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -118,6 +118,104 @@ visually consistent — reuse the existing `.section`, `.field`, `.chip`,
 `.dept-card`, `.seg`, `.tally`, `.preview-table` patterns rather than
 inventing new component styles per operation.
 
+## Responsive design (2026-09-27)
+
+**Every new UI built from here on must be checked at a real mobile
+width, not just assumed to reflow correctly** — direct, standing
+instruction, given right after a mobile audit turned up two real bugs
+that had been invisible until that point: "ekhon theke jai e korbo
+amra responsiveness korbo" (from now on, whatever we build, we'll do
+responsiveness), "kisu kisu khetre pasha pashi problem hole upor nich
+korba" (if side-by-side causes a problem in some cases, stack it
+top-to-bottom instead). This is now a durable rule for this codebase,
+not a one-off fix — the same weight as the architecture decisions
+above.
+
+**`src/part1.html` had no `<meta name="viewport">` tag at all, found
+live when asked directly "amader pura application ta ki responsive?"**
+(is our whole application responsive?). This is the one prerequisite
+every other responsive fix in this app depends on: without it, a real
+mobile browser renders the page at a virtual ~980px desktop-width
+viewport and zooms the whole thing out to fit the screen, so **none of
+this app's own `@media` breakpoints (1100px/900px/860px/759px/640px,
+already scattered through `app.css` for the sidebar collapse, Company
+Setup's wide column, the Welcome page's zigzag rows, theme-pool grids,
+etc.) had ever actually been able to fire on a real device** — they
+were all silently inert. Added `<meta charset="utf-8">` +
+`<meta name="viewport" content="width=device-width, initial-scale=1">`
+to the very top of `src/part1.html` (there is no explicit `<head>`
+anywhere in this file, same as the favicon/title before it — the
+browser infers one). Zero effect on desktop rendering; the only thing
+this changes is that mobile browsers now actually honour the CSS pixel
+widths this app's own breakpoints were already written against.
+
+**Two real, previously-invisible bugs surfaced the moment the
+breakpoints actually started firing**, both found by screenshotting
+the app end-to-end at a real phone width (390×844) rather than
+guessing:
+
+1. **`.appearance-float`'s `position: fixed` pill drifted over
+   scrolling content on mobile.** Harmless on desktop, where the
+   sidebar is always its own independent `height: 100vh` column and
+   nothing ever scrolls under that top-right corner — but the existing
+   `@media (max-width: 860px)` rule already stacks the sidebar above
+   the main content into one long page scroll, so this pill stayed
+   glued to the viewport corner and drifted over whatever content
+   happened to scroll underneath it (confirmed via screenshot: it sat
+   directly on top of the Welcome page's own meme placeholder mid-
+   scroll). Fixed by dropping it back into normal document flow at this
+   same breakpoint — `.appearance-float { position: static; align-
+   self: center; margin: 14px 0; }` — so it now renders in its own
+   real DOM position (right after `</aside>`, before `<main>`) and
+   scrolls away with the sidebar it already sits next to in the
+   markup, rather than fighting for the same visual space as whatever
+   is currently scrolled into view. The desktop fixed-pill behaviour
+   (deliberately "always visible", see "Sidebar branding" → the
+   Appearance picker's own history) is completely untouched above this
+   breakpoint.
+2. **The Rickroll page's own 2-column split never collapsed to one
+   column under 1100px, despite CLAUDE.md's own prior claim that it
+   did** (see "The Rickroll" section below — "All three reset to the
+   ordinary single-column mobile behaviour under 1100px" was true for
+   two of the three overrides, not this one). Root cause: CSS
+   specificity, not source order — `.main-inner.has-media.rickroll-
+   layout` (three classes, defined unconditionally) always outranks
+   `.main-inner.has-media` (two classes, the shared shell's own
+   mobile-collapse rule, defined inside `@media (max-width: 1100px)`)
+   regardless of which one appears later in the stylesheet, since a
+   media query grants no extra specificity of its own — so the
+   Rickroll page's own 2-column grid silently never yielded to the
+   shared collapse, and rendered as two cramped, barely-legible
+   columns on a phone width instead of the single readable column
+   every other operation's video rail already gets. Fixed by adding a
+   matching three-class override, `.main-inner.has-media.rickroll-
+   layout { grid-template-columns: minmax(0, 1fr); }`, inside the same
+   `@media (max-width: 1100px)` block that already resets
+   `.rickroll-col` — equal specificity now, so normal source-order
+   cascade decides, the same way the two rules right above it already
+   rely on. **Worth remembering for any future page-specific override
+   class layered on top of a shared responsive class**: a mobile
+   override must match or exceed the specificity of whatever it's
+   meant to override, or it can silently never apply — exactly this
+   shape, just not yet caught, is a real risk anywhere else in this
+   app that follows the same "shared shell class + a page-specific
+   modifier class" pattern.
+
+Confirmed by Playwright screenshot at 390×844 across the Welcome page,
+Employee Add, Admin Panel (Manage Users + Audit Log), Company Setup
+(group grid + a module tab) and the Rickroll page, both before and
+after each fix — full 11-suite run green throughout, since neither
+fix touches any element ids/classes any existing test asserts on.
+
+**Wide data tables (Manage Users, Audit Log) are deliberately left as
+horizontal-scroll on mobile, not redesigned into a stacked card-per-row
+layout** — `.preview-table-wrap`'s existing `overflow-x: auto` already
+makes them usable (scrollable) rather than clipped or broken, and a
+full per-row card redesign is a much larger, separate task than this
+audit's own scope. Revisit only if a real mobile Admin Panel workflow
+turns out to need it — this app's own primary users are QA engineers,
+most likely working from a desktop in practice.
+
 ## Operations — all 5 built
 
 The app opens on a **Welcome page**, not on an operation: a deliberately
