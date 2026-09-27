@@ -63,24 +63,30 @@ or added more).
      since access-tiering has to apply everywhere, not only Company
      Setup. This is a real change from today's design, where the five
      generators need no real login at all, only the joke gate.
-  5. After logging in: a **Welcome page**, showing **Bulk**, **Settings**,
-     or **Both** depending on the signed-in user's real access tier —
-     optionally broken down further as an expandable tree. Whatever a
-     given user's tier doesn't include gets a **lock icon** instead of
-     being hidden outright.
+  5. After logging in: a **Dashboard page** (renamed from this step's
+     original "Welcome page" — 2026-09-27, direct instruction: the
+     pre-signin joke-gate landing is "Welcome," the page a real
+     `mahmudur@shomvob.com`-style sign-in lands on is "Dashboard," so
+     the two don't collide in conversation any more — see CLAUDE.md →
+     "Operations — all 5 built" for the pre-signin rename), showing
+     **Bulk**, **Settings**, or **Both** depending on the signed-in
+     user's real access tier — optionally broken down further as an
+     expandable tree. Whatever a given user's tier doesn't include gets
+     a **lock icon** instead of being hidden outright.
   6. Picking Bulk goes to the five generators as they exist today.
      Picking Settings asks for the same company admin credentials
      Company Setup already asks for today — unchanged from the current
-     two-step flow, just reached from this new Welcome page instead of
+     two-step flow, just reached from this new Dashboard instead of
      directly.
   7. **Admin login/panel — proposed by Claude, confirmed directly
      (2026-09-25)**: no separate admin login at all. The one real tool
      sign-in (already built, already gates Company Setup) is the same
      login for everyone; "admin" is just a flag on that same account
      (`user_access.is_admin`, replacing today's standalone `admins`
-     table — same mechanism Dashboard's `is_admin()` already uses,
-     just widened to also carry each user's tier). An admin sees one
-     extra card on the new Welcome/tier page (step 5): **Admin Panel**.
+     table — same mechanism the pre-signin Welcome page's `is_admin()`
+     check already uses, just widened to also carry each user's tier).
+     An admin sees one extra card on the new Dashboard (step 5):
+     **Admin Panel**.
      Admin Panel v1 scope, also confirmed: view the audit log, and
      change an existing real tool user's tier/admin flag. **Adding or
      removing a real Supabase user stays the current Claude+SQL manual
@@ -180,15 +186,20 @@ or added more).
     `goToOperation()`/`wirePopstate()` too, not just the disabled button.
     Retrofitted onto today's real nav rather than waiting on the page
     below, since that page will read this same `myTier` state once built.
-  - **Not started**: the new Welcome/tier routing page itself
-    (Bulk/Settings/Both cards + lock icons — this is also where the
-    Operations-picking experience now moved off the sidebar is headed,
-    and where Company Setup's own step-one sign-in form is meant to
-    move to). **This is the last piece of the originally-dictated
-    journey left** — enforcement itself is done (above), what's missing
-    now is purely the dedicated landing page.
+  - **Not started**: the new post-login **Dashboard** page itself
+    (renamed from "Welcome/tier routing page," 2026-09-27 — see the
+    naming note on step 5 above; the pre-signin landing keeps the name
+    "Welcome" instead) — Bulk/Settings/Both cards + lock icons, this is
+    also where the Operations-picking experience now moved off the
+    sidebar is headed, and where Company Setup's own step-one sign-in
+    form is meant to move to. **This is the last piece of the
+    originally-dictated journey left** — enforcement itself is done
+    (above), what's missing now is purely the dedicated landing page.
 
   **Whoever picks this up next**: don't restart planning from scratch —
   every numbered decision above is confirmed, not an open question. Ask
   the user what to tackle next rather than assuming the order above is
   also the build order — this is being done step by step on purpose.
+  **As of 2026-09-27, the user has said they'll guide this build
+  directly, one step at a time** — wait for their concrete instruction
+  rather than starting the full page unprompted.
