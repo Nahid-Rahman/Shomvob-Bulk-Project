@@ -24,7 +24,7 @@
  * check those before changing the test.
  */
 const { chromium } = require("playwright");
-const { PAGE, makeChecker, report, signIn, watchPageErrors } = require("./lib");
+const { PAGE, makeChecker, report, signIn, watchPageErrors, mockPublicStats } = require("./lib");
 
 const { check, state } = makeChecker();
 
@@ -57,6 +57,7 @@ function mockTier(page, tier) {
     // A — the Dashboard itself needs no real sign-in, and Operations stays hidden in the sidebar until one happens
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
 
@@ -71,6 +72,7 @@ function mockTier(page, tier) {
     // B — clicking the sticky Sign in button opens the real gate; a wrong password is refused and stays on it
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthFail(page);
@@ -92,6 +94,7 @@ function mockTier(page, tier) {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     let auditBody = null;
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -133,6 +136,7 @@ function mockTier(page, tier) {
     // is skipped straight to step two, since setup.toolToken is already set.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -159,6 +163,7 @@ function mockTier(page, tier) {
     // the disabled button).
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -185,6 +190,7 @@ function mockTier(page, tier) {
     // F — a real "bulk" tier locks Company Setup the same way
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);

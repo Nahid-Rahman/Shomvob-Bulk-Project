@@ -7,7 +7,7 @@
  * Every check maps to a rule in SPEC.md. Read SPEC.md before changing one.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, generate, ymd, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
+const { PAGE, loadSheetJs, loadAppData, normalizeRow, makeChecker, report, freshDownloads, generate, ymd, signIn, mockToolSignIn, goToOp, watchPageErrors, mockPublicStats } = require("./lib");
 
 const XLSX = loadSheetJs();
 const DATA = loadAppData([
@@ -32,6 +32,7 @@ DATA.DEFAULT_ASSET_TYPES.forEach((t) =>
    gone each time too (2026-09-25) — mockToolSignIn()/goToOp() here,
    not just once, since there's no single page this state survives on. */
 async function gotoAssets(page) {
+  await mockPublicStats(page);
   await page.goto(PAGE);
   await signIn(page);
   await mockToolSignIn(page);

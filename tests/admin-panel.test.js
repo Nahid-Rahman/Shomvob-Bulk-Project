@@ -14,7 +14,7 @@
  * there before changing the test.
  */
 const { chromium } = require("playwright");
-const { PAGE, makeChecker, report, signIn, watchPageErrors } = require("./lib");
+const { PAGE, makeChecker, report, signIn, watchPageErrors, mockPublicStats } = require("./lib");
 
 const { check, state } = makeChecker();
 
@@ -99,6 +99,7 @@ async function signInForReal(page, email) {
     // A — a signed-in non-admin never sees the Admin nav item at all
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -116,6 +117,7 @@ async function signInForReal(page, email) {
     // default, and each page shows the real data it's meant to
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -167,6 +169,7 @@ async function signInForReal(page, email) {
     // to user_access (no Edge Function involved) and logs the change
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -216,6 +219,7 @@ async function signInForReal(page, email) {
     // the real fields, not a direct auth write from the client
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -254,6 +258,7 @@ async function signInForReal(page, email) {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     page.on("dialog", (d) => d.accept());
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -282,6 +287,7 @@ async function signInForReal(page, email) {
     // section silently disappeared on every reload.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -313,6 +319,7 @@ async function signInForReal(page, email) {
       promptMessage = d.message();
       d.accept("newpassword123");
     });
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -341,6 +348,7 @@ async function signInForReal(page, email) {
     // already-loaded rows.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
@@ -395,6 +403,7 @@ async function signInForReal(page, email) {
     // moddhe etao ekta column e dekhao er pashe").
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);

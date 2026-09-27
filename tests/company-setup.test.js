@@ -17,7 +17,7 @@
  * before changing the test.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadAppData, makeChecker, report, signIn, watchPageErrors } = require("./lib");
+const { PAGE, loadAppData, makeChecker, report, signIn, watchPageErrors, mockPublicStats } = require("./lib");
 
 const { check, state } = makeChecker();
 const { BUSY_MESSAGES } = loadAppData(["BUSY_MESSAGES"]);
@@ -45,6 +45,7 @@ const { ROSTER_COLORS } = loadAppData(["ROSTER_COLORS"]);
    caller reaching this form some other way would. Not a real user path;
    remove this the same day step one actually moves. */
 async function gotoSetup(page) {
+  await mockPublicStats(page);
   await page.goto(PAGE);
   await signIn(page);
   await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; });
@@ -677,6 +678,7 @@ async function toGrid(page, companyName = "Hogwarts") {
   /* ---------- L. Company Setup gets the wider column, nothing else does ---------- */
   {
     const page = await browser.newContext({ viewport: { width: 1440, height: 900 } }).then((c) => c.newPage());
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     const dashboardWidth = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
@@ -2399,6 +2401,7 @@ async function toGrid(page, companyName = "Hogwarts") {
         return e.defaultPrevented;
       });
 
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     check("AQ reload is NOT guarded before Company Setup is even opened", !(await unloadArmed()));
@@ -2430,6 +2433,7 @@ async function toGrid(page, companyName = "Hogwarts") {
   {
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; }); // see gotoSetup()'s own comment

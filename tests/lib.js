@@ -139,6 +139,24 @@ async function mockToolSignIn(page) {
   await page.route("**/rest/v1/rpc/my_tier", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '"both"' }));
 }
 
+/* The Welcome page's real, public "So far, for real" stat (2026-09-27)
+   fires this RPC unconditionally, the instant the page renders — before
+   any sign-in, before any click, as part of the very first script
+   execution. That's earlier than a real request to `page.goto()` ever
+   returns (confirmed directly: a `page.route()` registered right after
+   `await page.goto(PAGE)` is already too late — the real request has
+   gone out and come back by then), so unlike every other Supabase call
+   in this app (all triggered by a later, explicit user action, giving
+   `page.route()` plenty of time to be registered first), this one must
+   be mocked *before* `page.goto(PAGE)`, not after. Call this
+   immediately before every `page.goto(PAGE)` in every suite — inserted
+   at all 31 call sites across every test file for exactly this reason. */
+async function mockPublicStats(page) {
+  await page.route("**/rest/v1/rpc/public_generate_counts", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" })
+  );
+}
+
 /* Clicks the target operation's sidebar item — signing in first if this
    page hasn't yet, since the whole sidebar (not just Operations) is
    hidden entirely until a real tool sign-in has happened (2026-09-25,
@@ -215,4 +233,4 @@ function ymd(s) {
   return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
 }
 
-module.exports = { REPO, PAGE, DOWNLOADS, loadSheetJs, loadAppData, normalizeRow, makeChecker, watchPageErrors, report, freshDownloads, signIn, mockToolSignIn, goToOp, generate, toMin, ymd };
+module.exports = { REPO, PAGE, DOWNLOADS, loadSheetJs, loadAppData, normalizeRow, makeChecker, watchPageErrors, report, freshDownloads, signIn, mockToolSignIn, mockPublicStats, goToOp, generate, toMin, ymd };

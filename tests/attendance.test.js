@@ -5,7 +5,7 @@
  * spec changed — check SPEC.md before "fixing" the test.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, toMin, ymd, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
+const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, toMin, ymd, signIn, mockToolSignIn, goToOp, watchPageErrors, mockPublicStats } = require("./lib");
 
 const XLSX = loadSheetJs();
 const { check, state } = makeChecker();
@@ -16,6 +16,7 @@ const HEADER = ["Employee ID*", "Date*", "In Time*", "Out Time*"];
    gone each time too (2026-09-25) — mockToolSignIn()/goToOp() here,
    not just once, since there's no single page this state survives on. */
 async function gotoAttendance(page) {
+  await mockPublicStats(page);
   await page.goto(PAGE);
   await signIn(page);
   await mockToolSignIn(page);

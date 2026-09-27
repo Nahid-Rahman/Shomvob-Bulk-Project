@@ -5,7 +5,7 @@
  * catch anything that breaks it while a later operation is being added.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
+const { PAGE, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn, mockToolSignIn, goToOp, watchPageErrors, mockPublicStats } = require("./lib");
 
 const XLSX = loadSheetJs();
 const { check, state } = makeChecker();
@@ -16,6 +16,7 @@ const { check, state } = makeChecker();
   const page = await browser.newContext({ acceptDownloads: true }).then((c) => c.newPage());
   const pageErrors = watchPageErrors(page);
 
+  await mockPublicStats(page);
   await page.goto(PAGE);
 
   /* the gate carries the branding too */

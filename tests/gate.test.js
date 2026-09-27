@@ -7,7 +7,7 @@
  * before changing the test.
  */
 const { chromium } = require("playwright");
-const { PAGE, loadAppData, makeChecker, report, watchPageErrors } = require("./lib");
+const { PAGE, loadAppData, makeChecker, report, watchPageErrors, mockPublicStats } = require("./lib");
 
 const { check, state } = makeChecker();
 const { DEMO_LOGIN } = loadAppData(["DEMO_LOGIN"]);
@@ -16,6 +16,7 @@ const { DEMO_LOGIN } = loadAppData(["DEMO_LOGIN"]);
   const browser = await chromium.launch();
   const page = await browser.newContext().then((c) => c.newPage());
   const errs = watchPageErrors(page);
+  await mockPublicStats(page);
   await page.goto(PAGE);
 
   /* Same show/hide toggle as Company Setup's password fields — added here

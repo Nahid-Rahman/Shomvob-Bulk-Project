@@ -11,7 +11,7 @@
 const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
-const { PAGE, DOWNLOADS, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
+const { PAGE, DOWNLOADS, loadSheetJs, makeChecker, report, freshDownloads, generate, signIn, mockToolSignIn, goToOp, watchPageErrors, mockPublicStats } = require("./lib");
 
 const XLSX = loadSheetJs();
 const { check, state } = makeChecker();
@@ -73,6 +73,7 @@ function writeFixture(file, rows, header, sheet) {
   const page = await browser.newContext({ acceptDownloads: true }).then((c) => c.newPage());
   const pageErrors = watchPageErrors(page);
 
+  await mockPublicStats(page);
   await page.goto(PAGE);
   await signIn(page);
   await mockToolSignIn(page);

@@ -10,7 +10,7 @@
  * test about the switch working.
  */
 const { chromium } = require("playwright");
-const { PAGE, makeChecker, report, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
+const { PAGE, makeChecker, report, signIn, mockToolSignIn, goToOp, watchPageErrors, mockPublicStats } = require("./lib");
 
 const { check, state } = makeChecker();
 
@@ -41,6 +41,7 @@ const isLight = (v) => v > 180;
     const errs = watchPageErrors(page);
     const tag = `OS ${scheme}:`;
 
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
 
@@ -90,6 +91,7 @@ const isLight = (v) => v > 180;
      the theme rather than the UA default. */
   const ctx = await browser.newContext({ colorScheme: "light" });
   const page = await ctx.newPage();
+  await mockPublicStats(page);
   await page.goto(PAGE);
   await page.evaluate(() => localStorage.setItem("bulkforge-appearance", "dark"));
   await page.reload();

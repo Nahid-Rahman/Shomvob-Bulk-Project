@@ -143,7 +143,84 @@ copy ("Dear certified lazy" / "This one is for you.") already reads as a
 welcome, not a dashboard, so nothing there needed touching. **"Dashboard"
 is now free to mean the real post-login page**, once it's built — that
 page doesn't exist yet and this rename doesn't build it, it only clears
-the name for it.
+the name for it. (Same day, `TODO.md`'s own step 5 was updated to
+match — the post-login routing page it dictates is called "Dashboard"
+there now too, not "Welcome page.")
+
+**Welcome page copy is being redesigned through discussion, not handed
+over as a finished spec (2026-09-27)** — worked through structure first:
+**Problem statement → Offer → Scope** (what's automated vs. what still
+needs a human, echoing the Rickroll's own "no, but" honesty) as the
+three written sections, confirmed before any copy was drafted. The exact
+wording for all three is still being written; don't assume the current
+`welcomeTemplate()` copy ("Dear certified lazy" / "This one is for you.")
+is final.
+
+**"So far, for real" — a genuinely public, real (not estimated) usage
+stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
+section was always explicit that its numbers are a static *estimate*,
+not real usage — asked directly where a *real* number should live, and
+confirmed: on the Welcome page itself, public, no sign-in needed, not
+folded into "Team activity" (which stays admin-only, with per-company
+detail this new one deliberately doesn't carry).
+
+The catch: the Welcome page renders before any real sign-in has
+happened, so this can't reuse `audit_log`'s existing admin-gated
+SELECT policy (`audit_log_select_admins`) — that table's real rows
+carry `company_name`/`user_email`, which must stay private. Solved with
+a narrow new SQL function, `public.public_generate_counts()`
+(`SECURITY DEFINER`, same shape as `is_admin()`/`my_tier()`), which
+returns *only* a `{module_id, count}` tally of `bulk_generate` events —
+no name, no email, no timestamp — and is granted `EXECUTE` to `anon` as
+well as `authenticated`, unlike every other function in this project.
+`audit_log`'s own real SELECT policy is untouched; this is a second,
+narrower read path onto the same table, not a widening of the first
+one. Confirmed end-to-end with a real, unauthenticated `curl` call
+(anon key only, no bearer token from any real session) before any
+client code was written — returns exactly the aggregate shape, nothing
+sensitive.
+
+`loadPublicGenerateStats()`/`publicGenerateStatsHtml()` (`app.js`) reuse
+the exact same `OPERATION_CELL_ESTIMATE`/`WELCOME_SECONDS_PER_CELL` cost
+math `summarizeAuditRows()`/`welcomeChartsHtml()` already use — a real
+count multiplied by the same per-operation cell estimate, not a fresh
+number invented for this. Fires unconditionally in `wireWelcomeEvents()`
+(no `setup.toolToken` check, unlike the admin-only fetch right next to
+it) and re-renders `#mainContent` directly when it resolves, same
+`currentOp !== "welcome"` guard against a stale response landing on a
+page the visitor has since left.
+
+**A real, confirmed test-infrastructure problem, found and fixed before
+this ever reached a committed test.** Every other Supabase call in this
+app fires from an explicit, later user action (a click), which gives a
+Playwright test plenty of time to call `page.route()` after
+`page.goto(PAGE)` and still intercept it — the established pattern
+`mockToolSignIn()` already relies on. This fetch is different: it fires
+the instant the page's own inline `<script>` runs, before Playwright's
+`page.goto()` even resolves. Verified directly with a throwaway script
+(not committed): a `page.route()` for this exact URL, registered
+*right after* `await page.goto(PAGE)`, was already too late — the real
+request had gone out to the live Supabase project and come back with a
+`200` before `goto()` returned control to the test. Left unmocked, every
+one of this suite's ~150 `page.goto(PAGE)` calls across all 11 files
+would have hit real, live infrastructure on every run — exactly what
+`company-setup.test.js`'s own "mocks every network call... rather than
+touching the real Supabase project" discipline exists to prevent.
+
+Fixed by moving the mock *before* the navigation instead of after:
+`mockPublicStats(page)` (`tests/lib.js`) registers the route, and is now
+called immediately before all 31 real `page.goto(PAGE)` call sites
+across every test file (most of them inside a handful of shared helpers
+— `gotoAttendance()`, `gotoAssets()`, `gotoSetup()`/`toGrid()` — so this
+touched far fewer places than 31 individual edits). Confirmed by a
+second throwaway script that a route registered this way reliably wins:
+fed it a deliberately implausible mocked count (999999) and confirmed it
+rendered, proving the mock — not a live response — is what the page
+actually shows in tests. **Worth remembering for any future feature that
+fires a real network call unconditionally on page load, rather than
+from a click**: it needs mocking *before* `page.goto()`, not after, and
+that's the one call-timing exception to how every other mock in this
+suite is set up.
 
 Two things about it worth keeping:
 

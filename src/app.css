@@ -1391,6 +1391,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    tiles, not 3 — a modifier rather than a second component, since
    .stat-tile/.stat-value/.stat-label are otherwise identical. */
 .stat-row-4 { grid-template-columns: repeat(4, 1fr); }
+/* Welcome page's public "So far, for real" stat (2026-09-27) has 2 —
+   same modifier shape as .stat-row-4 above. */
+.stat-row-2 { grid-template-columns: repeat(2, 1fr); }
 
 /* Simple horizontal bar lists (bulk generates by operation, settings
    saves by company) — plain CSS, no chart library, matching this app's
@@ -1795,7 +1798,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .main { height: auto; overflow: visible; }
   .main-scroll { overflow: visible; }
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
-  .stat-row, .stat-row-4 { grid-template-columns: 1fr; }
+  .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
   .welcome-hero { grid-template-columns: 1fr; }
   .welcome-title { font-size: 27px; }

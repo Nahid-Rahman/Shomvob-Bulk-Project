@@ -1406,6 +1406,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    tiles, not 3 — a modifier rather than a second component, since
    .stat-tile/.stat-value/.stat-label are otherwise identical. */
 .stat-row-4 { grid-template-columns: repeat(4, 1fr); }
+/* Welcome page's public "So far, for real" stat (2026-09-27) has 2 —
+   same modifier shape as .stat-row-4 above. */
+.stat-row-2 { grid-template-columns: repeat(2, 1fr); }
 
 /* Simple horizontal bar lists (bulk generates by operation, settings
    saves by company) — plain CSS, no chart library, matching this app's
@@ -1810,7 +1813,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .main { height: auto; overflow: visible; }
   .main-scroll { overflow: visible; }
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
-  .stat-row, .stat-row-4 { grid-template-columns: 1fr; }
+  .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
   .welcome-hero { grid-template-columns: 1fr; }
   .welcome-title { font-size: 27px; }
@@ -6540,6 +6543,82 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     `;
   }
 
+  /* ---------- Welcome page's real, public "time saved so far" stat (2026-09-27) ----------
+
+     Unlike "Team activity" above, this needs no sign-in at all — it's
+     meant to be the first real (not estimated) number a brand-new
+     visitor sees, right on the Welcome page, before the joke gate has
+     even been cleared for real. That only works because it reads from
+     a narrow, purpose-built RPC (`public.public_generate_counts()`,
+     SECURITY DEFINER, granted to `anon`) rather than the real
+     `audit_log` table directly — that table's own SELECT policy stays
+     admin-only (`audit_log_select_admins`), untouched; this RPC returns
+     nothing but a `{module_id, count}` tally of `bulk_generate` events,
+     no company name, no user email, no timestamp — so exposing it
+     publicly costs nothing "Team activity" above wasn't already
+     designed to protect. Same "reuse the existing cost math, don't
+     invent a fresh number" discipline as `welcomeChartsHtml()`'s own
+     estimate and Team Activity's own tile: `OPERATION_CELL_ESTIMATE` /
+     `WELCOME_SECONDS_PER_CELL` are the only two numbers either one is
+     built from, just fed by real counts here instead of a static guess. */
+  const publicGenerateStats = { status: "idle", totalFiles: 0, savedHours: 0, savedMins: 0, byOperation: {} };
+  // status: "idle" | "checking" | "ready" | "error"
+
+  async function loadPublicGenerateStats() {
+    publicGenerateStats.status = "checking";
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/public_generate_counts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        body: "{}",
+      });
+      if (!res.ok) throw new Error("Couldn't load real usage.");
+      const rows = await res.json();
+      let totalFiles = 0;
+      let totalSeconds = 0;
+      const byOperation = {};
+      for (const row of rows) {
+        totalFiles += row.cnt;
+        totalSeconds += (OPERATION_CELL_ESTIMATE[row.module_id] || 0) * WELCOME_SECONDS_PER_CELL * row.cnt;
+        const op = OPERATIONS.find((o) => o.id === row.module_id);
+        byOperation[op ? op.label : row.module_id] = row.cnt;
+      }
+      publicGenerateStats.totalFiles = totalFiles;
+      publicGenerateStats.savedHours = Math.floor(totalSeconds / 3600);
+      publicGenerateStats.savedMins = Math.round((totalSeconds % 3600) / 60);
+      publicGenerateStats.byOperation = byOperation;
+      publicGenerateStats.status = "ready";
+    } catch (e) {
+      publicGenerateStats.status = "error";
+    }
+  }
+
+  function publicGenerateStatsHtml() {
+    if (publicGenerateStats.status === "idle" || publicGenerateStats.status === "checking") {
+      return `
+        <div class="section">
+          <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>So far, for real</h2></div>
+          <p class="section-note">Checking…</p>
+        </div>
+      `;
+    }
+    if (publicGenerateStats.status === "error") return "";
+    const s = publicGenerateStats;
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>So far, for real</h2></div>
+        <p class="section-note">Actual usage, pulled straight from this tool's own activity log — no sign-in needed to see it.</p>
+        <div class="stat-row stat-row-2">
+          <div class="stat-tile"><span class="stat-value">${s.totalFiles}</span><span class="stat-label">real bulk files generated</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">estimated typing time that saved, at five seconds a cell</span></div>
+        </div>
+        <div class="field-row" style="margin-top:6px; align-items:flex-start;">
+          <div class="field"><label>By operation</label>${barListHtml(s.byOperation)}</div>
+        </div>
+      </div>
+    `;
+  }
+
   /* Dashboard redesign (2026-09-25), driven directly, screenshot by
      screenshot: the operation-card grid ("What it can do") and the old
      3-tile hero stat row both leave this page — the cards move to the
@@ -6572,6 +6651,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       </div>
 
       ${welcomeChartsHtml()}
+
+      ${publicGenerateStatsHtml()}
 
       ${dashboardStatsHtml()}
 
@@ -6631,6 +6712,18 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
        already started reading the page by the time this resolves. */
     if (dashboardStats.status === "idle" && setup.toolToken) {
       loadDashboardStats().then(() => {
+        if (currentOp !== "welcome") return;
+        const root = $("#mainContent");
+        root.innerHTML = welcomeTemplate();
+        wireWelcomeEvents();
+      });
+    }
+
+    /* Fires once, unconditionally — no toolToken check, unlike the
+       admin-only fetch above, since this one is meant to work before
+       any real sign-in at all. */
+    if (publicGenerateStats.status === "idle") {
+      loadPublicGenerateStats().then(() => {
         if (currentOp !== "welcome") return;
         const root = $("#mainContent");
         root.innerHTML = welcomeTemplate();

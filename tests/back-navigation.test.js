@@ -12,7 +12,7 @@
  * before changing the test.
  */
 const { chromium } = require("playwright");
-const { PAGE, makeChecker, report, signIn, mockToolSignIn, goToOp, watchPageErrors } = require("./lib");
+const { PAGE, makeChecker, report, signIn, mockToolSignIn, goToOp, watchPageErrors, mockPublicStats } = require("./lib");
 
 const { check, state } = makeChecker();
 
@@ -23,6 +23,7 @@ const { check, state } = makeChecker();
     // A — Back/Forward moves between real pages, not just to the joke gate or nowhere
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockToolSignIn(page);
@@ -51,6 +52,7 @@ const { check, state } = makeChecker();
     // whatever page was open before the gate interrupted it
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockToolSignIn(page);
@@ -83,6 +85,7 @@ const { check, state } = makeChecker();
     // gate check just because an old history entry predates the sign-out
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
+    await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockToolSignIn(page);
