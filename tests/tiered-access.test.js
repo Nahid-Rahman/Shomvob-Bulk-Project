@@ -61,7 +61,7 @@ function mockTier(page, tier) {
     await page.goto(PAGE);
     await signIn(page);
 
-    check("A Dashboard itself needs no real sign-in", await page.isVisible(".welcome-title"));
+    check("A Dashboard itself needs no real sign-in", await page.isVisible(".welcome-headline"));
     check("A the whole sidebar is hidden pre-signin", !(await page.isVisible(".sidebar")));
     check("A the sticky Sign in button is there instead", await page.isVisible("#welcomeLoginBtn"));
     check("A no page errors", errs.length === 0, errs.join(" | "));

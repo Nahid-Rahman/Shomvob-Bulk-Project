@@ -1347,15 +1347,67 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 /* ---- Welcome page ---- */
 
-/* text on the left, the joke on the right; stacks on narrow screens */
-.welcome-hero {
+/* Rewrite (2026-09-27): a big centered headline, a sticky how-row, then
+   a zigzag of Reason/Offer (copy + meme, mirrored) and a full-width,
+   meme-less Scope section — see app.js's own note on welcomeTemplate()
+   for why. */
+.welcome-headline {
+  text-align: center;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  margin: 4px 0 20px;
+}
+
+/* Sticky so the 3-step recap stays visible while reading through
+   Reason/Offer/Scope below it — a normal flex/inline-flex row, just
+   pinned to the top of .main-scroll (its nearest scrolling ancestor)
+   once it would otherwise scroll out of view. Needs its own background
+   once stuck, or page content would show through underneath it. */
+.how-row-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--canvas);
+  padding: 10px 0;
+  margin-top: 0;
+}
+
+/* Reason's copy sits left of its meme; Offer's (.welcome-row-reverse)
+   mirrors it via a plain column-order flip, not a second grid — same
+   two-column ratio as the old .welcome-hero this replaces. */
+.welcome-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 296px;
   gap: 26px;
   align-items: start;
-  margin-bottom: 24px;
+  margin: 24px 0;
 }
-.welcome-intro { min-width: 0; }
+.welcome-row-reverse { grid-template-columns: 296px minmax(0, 1fr); }
+.welcome-row-reverse .meme { order: -1; }
+.welcome-copy { min-width: 0; }
+
+.welcome-scope { margin: 24px 0; }
+.scope-list { margin: 8px 0 0; padding-left: 18px; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+.scope-list li { margin-bottom: 6px; }
+.scope-list li:last-child { margin-bottom: 0; }
+
+/* A placeholder for a meme that hasn't been picked yet — same footprint
+   as .meme-img (a real image) so the layout doesn't jump once one is
+   chosen, but unmistakably a placeholder, not finished art. */
+.meme-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  aspect-ratio: 4 / 3;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-faint);
+}
+.meme-placeholder-mark { font-size: 28px; }
+.meme-placeholder-text { font-size: 11.5px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
 
 .welcome-badge {
   display: inline-block;
@@ -1371,7 +1423,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin-bottom: 16px;
 }
 
-.welcome-title { font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; }
 .welcome-lede {
   margin-top: 12px;
   max-width: 58ch;
@@ -1800,8 +1851,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
   .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
-  .welcome-hero { grid-template-columns: 1fr; }
-  .welcome-title { font-size: 27px; }
+  .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; }
+  .welcome-row-reverse .meme { order: 0; }
+  .welcome-headline { font-size: 23px; }
   .field-grid-3, .field-grid-2 { grid-template-columns: 1fr; }
   .shift-times { margin-left: 0; width: 100%; }
   .shift-times input[type="time"] { flex: 1; min-width: 0; }

@@ -65,7 +65,7 @@ const { check, state } = makeChecker();
   check("the Lazy stamp is there", (await page.textContent(".brand-stamp")).trim() === "Lazy");
 
   /* the app opens on the dashboard, so pick the operation first */
-  check("app opens on the dashboard", await page.isVisible(".welcome-title"));
+  check("app opens on the dashboard", await page.isVisible(".welcome-headline"));
   /* Tiered Access (2026-09-25) — the first operation click on a fresh
      page now needs a real (mocked) tool sign-in; every switch after
      this one on this same page goes straight through. */
@@ -168,7 +168,7 @@ const { check, state } = makeChecker();
   const hops = [
     ["Employee Attendance Add", "#idModeSeg"],
     ["Assets Add", "#assetCount"],
-    ["Welcome", ".welcome-hero"],
+    ["Welcome", ".welcome-row"],
     ["Employee Add", "#countInput"],
   ];
   let landedAtTop = true;
@@ -181,7 +181,7 @@ const { check, state } = makeChecker();
   check("switching operations lands at the top", landedAtTop);
 
   await page.click('.op-item:has-text("Welcome")');
-  await page.waitForSelector(".welcome-hero");
+  await page.waitForSelector(".welcome-row");
   await scrollTo(500);
   await page.click('.op-item:has-text("Assets Add")');
   await page.waitForSelector("#assetCount");

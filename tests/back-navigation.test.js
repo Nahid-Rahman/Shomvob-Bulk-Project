@@ -57,7 +57,7 @@ const { check, state } = makeChecker();
     await signIn(page);
     await mockToolSignIn(page);
 
-    check("B starts on the Dashboard", await page.isVisible(".welcome-title"));
+    check("B starts on the Dashboard", await page.isVisible(".welcome-headline"));
     // sidebar is hidden pre-signin -- go through the sticky bar's own gate
     await page.click("#welcomeLoginBtn");
     await page.waitForSelector("#opGateEmail");
@@ -65,7 +65,7 @@ const { check, state } = makeChecker();
     await page.fill("#opGatePass", "whatever");
     await page.click("#opGateSignInBtn");
     await page.waitForSelector(".sidebar");
-    check("B sign-in with no pending operation lands back on the Dashboard", await page.isVisible(".welcome-title"));
+    check("B sign-in with no pending operation lands back on the Dashboard", await page.isVisible(".welcome-headline"));
 
     await page.click('.op-item:has-text("Employee Add")');
     await page.waitForSelector("#countInput");
@@ -73,7 +73,7 @@ const { check, state } = makeChecker();
     await page.goBack();
     await page.waitForTimeout(200);
     check("B Back skips the (replaced) gate entry and lands on the Dashboard directly",
-      await page.isVisible(".welcome-title") && (await page.locator("#opGateSignInBtn").count()) === 0);
+      await page.isVisible(".welcome-headline") && (await page.locator("#opGateSignInBtn").count()) === 0);
     check("B no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }

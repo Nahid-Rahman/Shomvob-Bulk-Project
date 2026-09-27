@@ -3464,35 +3464,120 @@
     `;
   }
 
-  /* Dashboard redesign (2026-09-25), driven directly, screenshot by
-     screenshot: the operation-card grid ("What it can do") and the old
-     3-tile hero stat row both leave this page — the cards move to the
-     still-unbuilt Welcome/tier routing page (TODO.md), and the tiles are
-     replaced by welcomeChartsHtml()'s own public charts below. The meme
-     becomes a real GIF (see app.css's own note on that reversal) rather
-     than the old drawn spreadsheet. */
+  /* Welcome page rewrite (2026-09-27), worked out through discussion
+     before any copy was drafted — see CLAUDE.md's own note on this.
+     Three written sections, none of them carrying a literal header
+     (confirmed directly: no "Problem Statement"/"Offer"/"Scope" labels
+     anywhere on the page, just a short badge in the same voice as the
+     original "Dear certified lazy") —
+
+       Reason  (badge "Dear certified lazy")   — why this exists
+       Offer   (badge "Your prayers, answered (mostly)") — what it does
+       Scope   (badge "The fine print")        — what's automated vs. not
+
+     laid out as a deliberate zigzag: Reason's copy sits left of a meme,
+     Offer's copy sits right of one (mirrored, via .welcome-row-reverse),
+     and Scope is full-width with no meme at all — confirmed directly,
+     since a third meme in a row would flatten the pattern into
+     wallpaper, and Scope's own honest, sobering tone reads better set
+     apart rather than folded into the same rhythm as the other two.
+     The Hackerman GIF (already licensed for this exact purpose, see
+     app.css's own note below) is Offer's meme; Reason's is a plain
+     placeholder — a real image for that slot hasn't been picked yet. */
   function welcomeTemplate() {
     return `
-      <div class="welcome-hero">
-        <div class="welcome-intro">
-          <span class="welcome-badge">Dear certified lazy</span>
-          <h1 class="welcome-title">This one is for you.</h1>
-          <p class="welcome-lede">
-            Bulk Forge exists for people who cannot face typing out 300
-            employees' worth of data by hand. Which is to say:
-            <em>everyone</em>. QA needs test data, and nobody wants to spend
-            an afternoon filling 4,200 cells to get some. So now you don't.
-          </p>
-          <div class="how-row">
-            <span class="how-step"><b>1</b> Sign in for real</span>
-            <span class="how-step"><b>2</b> Pick Bulk or Settings</span>
-            <span class="how-step"><b>3</b> Hit Generate. That's it.</span>
-          </div>
-        </div>
+      <h1 class="welcome-headline">Welcome to Shomvob Bulk Forge</h1>
 
+      <div class="how-row how-row-sticky">
+        <span class="how-step"><b>1</b> Sign in for real</span>
+        <span class="how-step"><b>2</b> Pick Bulk or Settings</span>
+        <span class="how-step"><b>3</b> Hit Generate. That's it.</span>
+      </div>
+
+      <div class="welcome-row">
+        <div class="welcome-copy">
+          <span class="welcome-badge">Dear certified lazy</span>
+          <p class="welcome-lede">
+            Here's what actually happens: a dev needs test data, so they
+            either beg QA to make it, or grumble their way through three
+            fake employees themselves. Nobody spins up their own company
+            for this — everyone quietly works out of the same one or two
+            shared accounts, because properly setting one up (departments,
+            leave policies, payroll, the works) takes about two to
+            two-and-a-half hours, even with AI doing half the typing.
+            Nobody has two hours.
+          </p>
+          <p class="welcome-lede">
+            So everyone shares. And everyone tweaks. Someone renames a
+            department, someone else deletes a leave type "just for a
+            second," a third person's attendance policy quietly
+            duplicates itself. Data stops making sense, tests start
+            failing for reasons nobody can explain, and the API gets
+            blamed for it.
+          </p>
+        </div>
+        <figure class="meme meme-placeholder" aria-label="Placeholder — a real image for this spot hasn't been picked yet">
+          <span class="meme-placeholder-mark">🖼️</span>
+          <span class="meme-placeholder-text">meme placeholder</span>
+        </figure>
+      </div>
+
+      <div class="welcome-row welcome-row-reverse">
         <figure class="meme" aria-label="Hackerman, from Kung Fury — this whole page runs on hacker-movie logic">
           <img class="meme-img" src="assets/hackerman.gif" alt="Hackerman" loading="lazy" />
         </figure>
+        <div class="welcome-copy">
+          <span class="welcome-badge">Your prayers, answered (mostly)</span>
+          <p class="welcome-lede">
+            Bulk Forge exists so nobody has to share a company ever again
+            — spin up your own, fully configured, in one click, and go be
+            gloriously, productively lazy on your own turf.
+          </p>
+          <p class="welcome-lede">
+            It does this two ways. <b>Bulk</b> generates the data itself
+            — employees, attendance, leave balances, payroll fields,
+            assets — following the same rules real data follows (weighted
+            joining dates, real holiday calendars, sensible
+            department/designation pairing, the works). Grab that
+            company's own template, paste the generated rows in, upload —
+            done. And you never have to write the same fifteen-line
+            ChatGPT prompt to fake this data again either — every
+            instruction anyone's ever had to hand-feed an AI for this is
+            already built in here.
+          </p>
+          <p class="welcome-lede">
+            <b>Settings</b> does the other half: instead of clicking
+            through twenty-odd setup screens by hand for two-plus hours,
+            "Run defaults" configures an entire fresh company —
+            departments, leave, payroll, the works — in one run. Your own
+            company, sanity intact, in the time it takes to make coffee.
+          </p>
+        </div>
+      </div>
+
+      <div class="section welcome-scope">
+        <span class="welcome-badge">The fine print</span>
+        <p class="welcome-lede">Let's be honest about what "one click" actually means here.</p>
+        <div class="field-row" style="margin-top:14px; align-items:flex-start;">
+          <div class="field">
+            <label>✅ Automated</label>
+            <ul class="scope-list">
+              <li>Every random detail follows the real rules — weighted joining dates, real BD holidays, no duplicate emails/phones/IDs, names paired with sensible departments and genders</li>
+              <li>The file matches that company's real upload template exactly — right sheet name, right headers, no guessing</li>
+              <li>An entire fresh company — departments, leave, payroll, the works — configured in one "Run defaults" click, instead of two-plus hours of clicking through screens</li>
+            </ul>
+          </div>
+          <div class="field">
+            <label>🤚 Still you</label>
+            <ul class="scope-list">
+              <li>Downloading that company's template and pasting the generated rows in</li>
+              <li>Actually clicking Upload — we generate the file, we don't push it anywhere ourselves</li>
+              <li>Deciding what you're actually testing — how many rows, what date range, which departments — the tool fills in the blanks, it doesn't pick your test strategy</li>
+              <li>Giving the file a once-over before trusting it with anything past QA</li>
+            </ul>
+          </div>
+        </div>
+        <p class="welcome-lede" style="margin-top:14px">So yes, one click. Just not zero clicks. We're a bulk forge, not a mind reader.</p>
       </div>
 
       ${welcomeChartsHtml()}

@@ -147,14 +147,80 @@ the name for it. (Same day, `TODO.md`'s own step 5 was updated to
 match — the post-login routing page it dictates is called "Dashboard"
 there now too, not "Welcome page.")
 
-**Welcome page copy is being redesigned through discussion, not handed
-over as a finished spec (2026-09-27)** — worked through structure first:
-**Problem statement → Offer → Scope** (what's automated vs. what still
-needs a human, echoing the Rickroll's own "no, but" honesty) as the
-three written sections, confirmed before any copy was drafted. The exact
-wording for all three is still being written; don't assume the current
-`welcomeTemplate()` copy ("Dear certified lazy" / "This one is for you.")
-is final.
+**Welcome page rewritten through discussion, not handed over as a
+finished spec, then built (2026-09-27)** — structure was worked out and
+confirmed *before* any copy was drafted: three written sections, none
+carrying a literal header (confirmed directly — no "Problem
+Statement"/"Offer"/"Scope" label anywhere on the page, just a short
+badge in the same voice as the original "Dear certified lazy"):
+
+- **Reason** (badge "Dear certified lazy", moved down from the old
+  hero) — *why* this exists. Not the generic "QA needs test data" the
+  page used to open with — the real, richer reason, given directly:
+  devs don't prepare their own test data (they beg QA or hack together
+  a few fake employees), and almost nobody spins up their own company
+  for testing — properly configuring one by hand (departments, leave,
+  payroll) takes ~2–2.5 hours even with AI helping, so everyone just
+  shares one or two accounts instead, and constantly tweaking a shared
+  company breaks its own data sanity (a renamed department here, a
+  deleted leave type there) until tests fail for reasons nobody can
+  explain.
+- **Offer** (badge "Your prayers, answered (mostly)") — what it
+  actually does, in two halves: **Bulk** generates the QA-ready files
+  themselves (mentions the real workflow explicitly — download that
+  company's own template, paste the generated rows in, upload; also
+  that every "prompt-engineer ChatGPT for fake HR data" trick anyone's
+  ever used is already built in here, so nobody has to write that
+  prompt again) and **Settings** ("Run defaults" configuring a whole
+  fresh company in one run instead of two-plus hours of manual clicks)
+  — directly closing the two pains named in Reason.
+- **Scope** (badge "The fine print") — deliberately honest about what
+  "one click" doesn't mean: a plain two-column checklist (✅ Automated
+  vs. 🤚 Still you — you still download the template, still click
+  Upload yourself, still decide what you're actually testing), closing
+  on "So yes, one click. Just not zero clicks. We're a bulk forge, not
+  a mind reader" — same "no, but" honesty as the Rickroll.
+
+**Laid out as a deliberate zigzag, not three stacked blocks**: Reason's
+copy sits left of a meme, Offer's sits right of one (`.welcome-row` /
+its mirrored `.welcome-row-reverse` modifier — a column-order flip, not
+a second grid), and Scope is full-width with **no meme at all** —
+confirmed directly rather than assumed, since a third meme in a row
+would flatten the zigzag into wallpaper, and Scope's own sobering,
+honest tone reads better set apart from the other two's rhythm. The
+existing Hackerman GIF (already licensed for exactly this use, see this
+file's own note on that reversal) is reused as Offer's meme; Reason's
+own meme is a plain, unmistakable placeholder (`.meme-placeholder`,
+dashed border, "🖼️ meme placeholder") — no real image chosen for that
+slot yet, thought about and deferred rather than guessed at.
+
+A big, centered **"Welcome to Shomvob Bulk Forge"** headline
+(`.welcome-headline`) now opens the page — the old `.welcome-title`
+h1 ("This one is for you.") is gone outright, not kept alongside it.
+The 3-step how-row is now **sticky** (`.how-row-sticky`, `position:
+sticky; top: 0`, its own opaque background so scrolling content
+doesn't show through underneath it) — confirmed directly, so the
+"Sign in → Pick → Generate" steps stay visible while reading through
+Reason/Offer/Scope rather than scrolling away with the old hero.
+"By the numbers" and "So far, for real" (above) keep their existing
+order, now sitting after Scope rather than right under the hero —
+Scope's own "what's automated" claim reads better followed immediately
+by *how much* that saves (the estimate) and then *how much it's
+actually saved* (the real number), a deliberate estimate-then-real
+progression.
+
+Every test selector that depended on the old markup was updated, not
+worked around: `.welcome-hero` → `.welcome-row` (`employee.test.js`),
+`.welcome-title` → `.welcome-headline` (`employee.test.js`,
+`back-navigation.test.js`, `tiered-access.test.js`) — both were used
+purely as "did the Welcome page render" readiness checks, so the
+rename is a like-for-like swap, not a loosened assertion. Confirmed by
+Playwright screenshot in both light and dark (zigzag rows, the
+placeholder box, the Scope checklist card, and the sticky how-row
+mid-scroll all render correctly with no new hex values — every colour
+here comes from existing tokens) and by a direct scroll-position check
+that `.how-row-sticky` really does stay pinned at `top: 0` rather than
+just looking plausible in a static screenshot.
 
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
