@@ -3510,7 +3510,7 @@
       </div>
 
       <div class="how-row">
-        <span class="how-step"><b>1</b> Sign in for real</span>
+        <span class="how-step"><b>1</b> Sign in to Bulk Forge</span>
         <span class="how-step"><b>2</b> Pick Bulk or Settings</span>
         <span class="how-step"><b>3</b> Hit Generate. That's it.</span>
       </div>

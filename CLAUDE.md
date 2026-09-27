@@ -500,6 +500,17 @@ from a click**: it needs mocking *before* `page.goto()`, not after, and
 that's the one call-timing exception to how every other mock in this
 suite is set up.
 
+**Two more small fixes the same day, from a fresh screenshot after
+syncing to a second machine** — the batched pass above (item 7) renamed
+the sticky bar's own button "Sign In for Real" → "Sign In to Bulk
+Forge", but the how-row's own step 1 label ("Sign in for real") was
+never updated to match, so the two disagreed on-screen. `.how-row`
+also had no `justify-content`, so it read left-aligned under the
+already-centred headline above it — inconsistent with `.welcome-
+headline-row`'s own `justify-content: center`. Both fixed together:
+`.how-row` gets `justify-content: center`; step 1's text now reads
+"Sign in to Bulk Forge", byte-for-byte matching the button.
+
 Two things about it worth keeping:
 
 - **All UI copy is English**, with a dry, lightly self-deprecating tone
