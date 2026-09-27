@@ -473,7 +473,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#setupSignInBtn");
     await page.waitForTimeout(150);
 
-    await page.click('.op-item:has-text("Dashboard")');
+    await page.click('.op-item:has-text("Welcome")');
     await page.waitForTimeout(100);
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForTimeout(100);
@@ -691,7 +691,7 @@ async function toGrid(page, companyName = "Hogwarts") {
        force it visible again for this second navigation, same reason as
        above. */
     await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; });
-    await page.click('.op-item:has-text("Dashboard")');
+    await page.click('.op-item:has-text("Welcome")');
     await page.waitForTimeout(60);
     const backToDashboard = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
     check("L the wider column doesn't leak onto the page after it", backToDashboard === dashboardWidth, `${backToDashboard} vs ${dashboardWidth}`);
@@ -3593,7 +3593,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     const errs = watchPageErrors(page);
     await toGrid(page); // mockSupabaseOk()'s own default: is_admin -> false
 
-    await page.click('.op-item:has-text("Dashboard")');
+    await page.click('.op-item:has-text("Welcome")');
     await page.waitForTimeout(300); // give the background admin-check a chance to resolve either way
     const text = await page.textContent("#mainContent");
     check("BR no Team activity section for a non-admin", text.includes("Team activity") === false);
@@ -3628,7 +3628,7 @@ async function toGrid(page, companyName = "Hogwarts") {
       });
     });
 
-    await page.click('.op-item:has-text("Dashboard")');
+    await page.click('.op-item:has-text("Welcome")');
     await page.waitForFunction(() => document.querySelector("#mainContent")?.textContent.includes("Team activity"), { timeout: 5000 });
     const text = await page.textContent("#mainContent");
 

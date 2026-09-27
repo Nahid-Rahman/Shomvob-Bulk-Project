@@ -393,7 +393,7 @@
     homeBtn.className = "op-item";
     homeBtn.type = "button";
     homeBtn.setAttribute("aria-current", String(currentOp === "welcome"));
-    homeBtn.innerHTML = `<span class="op-item-label">${opIcon("welcome")}Dashboard</span>`;
+    homeBtn.innerHTML = `<span class="op-item-label">${opIcon("welcome")}Welcome</span>`;
     homeBtn.addEventListener("click", () => {
       if (isBulkRunActive()) return;
       navigateTo("welcome");

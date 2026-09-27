@@ -167,7 +167,7 @@ const { check, state } = makeChecker();
   const hops = [
     ["Employee Attendance Add", "#idModeSeg"],
     ["Assets Add", "#assetCount"],
-    ["Dashboard", ".welcome-hero"],
+    ["Welcome", ".welcome-hero"],
     ["Employee Add", "#countInput"],
   ];
   let landedAtTop = true;
@@ -179,12 +179,12 @@ const { check, state } = makeChecker();
   }
   check("switching operations lands at the top", landedAtTop);
 
-  await page.click('.op-item:has-text("Dashboard")');
+  await page.click('.op-item:has-text("Welcome")');
   await page.waitForSelector(".welcome-hero");
   await scrollTo(500);
   await page.click('.op-item:has-text("Assets Add")');
   await page.waitForSelector("#assetCount");
-  check("leaving a scrolled Dashboard lands at the top", (await scrollNow()) === 0, String(await scrollNow()));
+  check("leaving a scrolled Welcome page lands at the top", (await scrollNow()) === 0, String(await scrollNow()));
 
   await page.click('.op-item:has-text("Employee Add")');
   await page.waitForSelector("#countInput");

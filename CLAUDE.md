@@ -120,13 +120,30 @@ inventing new component styles per operation.
 
 ## Operations — all 5 built
 
-The app opens on a **Dashboard**, not on an operation: a deliberately
+The app opens on a **Welcome page**, not on an operation: a deliberately
 tongue-in-cheek landing view ("this exists for people who cannot face
 typing 4,200 cells — i.e. everyone") with a two-panel meme, three stat
 tiles and a clickable card per operation. It is `currentOp === "welcome"`,
 rendered by `welcomeTemplate()`, with the action bar hidden; its sidebar
 entry lives in `#homeNav`, above the "Operations" label, and is wired in
 `renderSidebar()`.
+
+**Renamed from "Dashboard" to "Welcome" in the sidebar, 2026-09-27** —
+direct request: both this pre-signin landing page and whatever a signed-
+in visitor sees afterward (today, the same page again — the real
+post-login destination, TODO.md's still-unbuilt "Welcome/tier routing
+page," doesn't exist yet) were being called "Dashboard" in conversation,
+which is confusing once that second page actually gets built. The fix is
+scoped to naming only: the sidebar label (`renderSidebar()`, `#homeNav`)
+now reads "Welcome" instead of "Dashboard," and every test selector that
+clicked `.op-item:has-text("Dashboard")` was updated to match
+(`employee.test.js`, `company-setup.test.js`). `currentOp === "welcome"`
+itself was already named right and needed no change. The page's own body
+copy ("Dear certified lazy" / "This one is for you.") already reads as a
+welcome, not a dashboard, so nothing there needed touching. **"Dashboard"
+is now free to mean the real post-login page**, once it's built — that
+page doesn't exist yet and this rename doesn't build it, it only clears
+the name for it.
 
 Two things about it worth keeping:
 
