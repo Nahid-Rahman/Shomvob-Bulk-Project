@@ -3761,7 +3761,6 @@
   function rickrollTemplate() {
     return `
       <div class="page-head">
-        <span class="page-eyebrow">Dear certified lazy</span>
         <h1 class="page-title">LMAO you lazy!</h1>
         <p class="page-desc">
           Did you really think it would be this easy? No — it'll make your
@@ -3771,7 +3770,7 @@
         </p>
       </div>
       <div class="setup-actions">
-        <button type="button" class="tiny-btn" id="rickrollBackBtn">Login to Bulk Forge</button>
+        <button type="button" class="generate-btn" id="rickrollBackBtn">Login to Bulk Forge</button>
       </div>
     `;
   }

@@ -1740,6 +1740,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    keeps its existing size. */
 .rickroll-layout .page-title { font-size: 40px; }
 .rickroll-layout .page-desc { font-size: 16.5px; }
+/* The "Login to Bulk Forge" exit button, made big and confident like
+   the Dashboard's own sticky-bar CTA (`.welcome-bar-btn`) — direct
+   feedback ("button ta aro boro ar shundor koro main page er moto").
+   Sized directly rather than by also applying `.welcome-bar-btn`
+   itself: that class's own `flex: 0 1 300px` is written for
+   `.welcome-bar-actions`, a *row* flex container, where flex-basis
+   sets width — `.setup-actions` here is a *column* flex container, so
+   the same flex-basis would set a 300px height instead. */
+.rickroll-layout #rickrollBackBtn { padding: 14px 28px; font-size: 15.5px; min-height: 52px; }
 .rickroll-col { align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
 .rickroll-frame { max-height: calc(100vh - 160px); }
 @media (max-width: 1100px) {

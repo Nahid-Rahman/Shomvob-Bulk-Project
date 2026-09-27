@@ -5112,8 +5112,28 @@ lazy" eyebrow — confirmed this is original copy from when this page
 was first built (2026-09-25), not something the next day's Welcome-
 page rewrite introduced; the two pages independently landing on the
 same phrase (both riffing on the login gate's own "certified lazy"
-joke) is a coincidence worth resolving with the user if it reads as a
-real duplicate, not yet changed as of this entry.
+joke) is a coincidence flagged back to the user rather than assumed.
+
+**Resolved the same day, direct follow-up: the eyebrow is gone, and
+the exit button now reads as a real CTA.** "dear certified lazy ta
+baad diba. ar button ta aro boro ar shundor koro main page er moto" —
+drop the eyebrow, and make the button bigger and nicer, like the main
+(Dashboard) page's own button. The `<span class="page-eyebrow">`
+line is deleted outright from `rickrollTemplate()` — nothing else on
+this page reads it, so there was nothing to reflow around. `#rickroll
+BackBtn` swaps `.tiny-btn` (dashed border, muted, the app's generic
+low-emphasis style) for `.generate-btn` (the real green CTA colour
+every "Generate"/"Sign in" button in this app already uses), plus a
+scoped size bump — `.rickroll-layout #rickrollBackBtn { padding: 14px
+28px; font-size: 15.5px; min-height: 52px }` — matching the
+Dashboard's own sticky-bar buttons' presence. **Deliberately not also
+given the `.welcome-bar-btn` class itself**, even though that's the
+literal class those sticky-bar buttons carry: `.welcome-bar-btn`'s own
+`flex: 0 1 300px` is written for `.welcome-bar-actions`, a *row* flex
+container, where flex-basis sets width — `.setup-actions` here (this
+button's real parent) is a *column* flex container, where the same
+flex-basis would set a 300px height instead. Sized directly rather
+than risk that mismatch.
 
 ### Real browser Back/Forward (2026-09-25)
 
