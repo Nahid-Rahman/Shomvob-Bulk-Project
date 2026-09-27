@@ -1733,6 +1733,13 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    centred flex column, so the copy sits vertically centred against the
    video's own full height instead. */
 .main-inner.has-media.rickroll-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+/* "LMAO you lazy!" and its body copy read too modest next to the
+   video filling the whole right column — direct request, scoped to
+   this page only via .rickroll-layout so every other page's own
+   .page-title/.page-desc (Company Setup modules, Admin Panel, etc.)
+   keeps its existing size. */
+.rickroll-layout .page-title { font-size: 40px; }
+.rickroll-layout .page-desc { font-size: 16.5px; }
 .rickroll-col { align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
 .rickroll-frame { max-height: calc(100vh - 160px); }
 @media (max-width: 1100px) {

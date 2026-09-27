@@ -5000,6 +5000,23 @@ real sign-in in this app does, with `pendingOperation` cleared first so
 a successful sign-in lands on the Dashboard rather than jumping
 somewhere unrelated.
 
+**Title and body copy sized up, 2026-09-27** — direct feedback, on a
+screenshot the day after syncing to a second machine ("LMAO you lazy!
+ta aro boro font e dao. ar nicher lekha ta ar olpo ektu boro"): next to
+the video filling the whole right column, the plain shared
+`.page-title`/`.page-desc` sizes (26px/14.5px, the same as every other
+page-head in this app) read too modest. Scoped to `.rickroll-layout
+.page-title { font-size: 40px }` / `.rickroll-layout .page-desc {
+font-size: 16.5px }` — this page only, so Company Setup modules/Admin
+Panel/every other page-head keeps its existing size. The same
+screenshot also asked "eta kottheke ashlo?" about the "Dear certified
+lazy" eyebrow — confirmed this is original copy from when this page
+was first built (2026-09-25), not something the next day's Welcome-
+page rewrite introduced; the two pages independently landing on the
+same phrase (both riffing on the login gate's own "certified lazy"
+joke) is a coincidence worth resolving with the user if it reads as a
+real duplicate, not yet changed as of this entry.
+
 ### Real browser Back/Forward (2026-09-25)
 
 Direct request: "amader proper back function nai. kono page e gele je
