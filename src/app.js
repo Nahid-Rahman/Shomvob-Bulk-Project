@@ -3417,19 +3417,24 @@
      estimate and Team Activity's own tile: `OPERATION_CELL_ESTIMATE` /
      `WELCOME_SECONDS_PER_CELL` are the only two numbers either one is
      built from, just fed by real counts here instead of a static guess. */
-  const publicGenerateStats = { status: "idle", totalFiles: 0, savedHours: 0, savedMins: 0, byOperation: {} };
+  const publicGenerateStats = { status: "idle", totalFiles: 0, savedHours: 0, savedMins: 0, byOperation: {}, settingsAutomated: 0 };
   // status: "idle" | "checking" | "ready" | "error"
 
   async function loadPublicGenerateStats() {
     publicGenerateStats.status = "checking";
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/public_generate_counts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
-        body: "{}",
-      });
-      if (!res.ok) throw new Error("Couldn't load real usage.");
-      const rows = await res.json();
+      const anonHeaders = { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
+      const [countsRes, settingsRes] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/rpc/public_generate_counts`, { method: "POST", headers: anonHeaders, body: "{}" }),
+        /* Same narrow, name-and-company-free shape as public_generate_counts()
+           above — a bare count, nothing else — added 2026-09-27 so "So far,
+           for real" can name how many settings modules got automated too,
+           not just how many bulk files got generated. */
+        fetch(`${SUPABASE_URL}/rest/v1/rpc/public_settings_save_count`, { method: "POST", headers: anonHeaders, body: "{}" }),
+      ]);
+      if (!countsRes.ok || !settingsRes.ok) throw new Error("Couldn't load real usage.");
+      const rows = await countsRes.json();
+      const settingsAutomated = await settingsRes.json();
       let totalFiles = 0;
       let totalSeconds = 0;
       const byOperation = {};
@@ -3443,6 +3448,7 @@
       publicGenerateStats.savedHours = Math.floor(totalSeconds / 3600);
       publicGenerateStats.savedMins = Math.round((totalSeconds % 3600) / 60);
       publicGenerateStats.byOperation = byOperation;
+      publicGenerateStats.settingsAutomated = settingsAutomated;
       publicGenerateStats.status = "ready";
     } catch (e) {
       publicGenerateStats.status = "error";
@@ -3464,8 +3470,9 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>So far, for real</h2></div>
         <p class="section-note">Actual usage, pulled straight from this tool's own activity log — no sign-in needed to see it.</p>
-        <div class="stat-row stat-row-2">
+        <div class="stat-row">
           <div class="stat-tile"><span class="stat-value">${s.totalFiles}</span><span class="stat-label">real bulk files generated</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.settingsAutomated}</span><span class="stat-label">settings modules automated into real companies</span></div>
           <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">estimated typing time that saved, at five seconds a cell</span></div>
         </div>
         <div class="field-row" style="margin-top:6px; align-items:flex-start;">
@@ -3497,9 +3504,12 @@
      placeholder — a real image for that slot hasn't been picked yet. */
   function welcomeTemplate() {
     return `
-      <h1 class="welcome-headline">Welcome to Shomvob Bulk Forge</h1>
+      <div class="welcome-headline-row">
+        <img class="welcome-headline-logo" src="__SHOMVOB_LOGO_LAZY__" alt="Shomvob HR" />
+        <h1 class="welcome-headline">Welcome to Shomvob Bulk Forge!</h1>
+      </div>
 
-      <div class="how-row how-row-sticky">
+      <div class="how-row">
         <span class="how-step"><b>1</b> Sign in for real</span>
         <span class="how-step"><b>2</b> Pick Bulk or Settings</span>
         <span class="how-step"><b>3</b> Hit Generate. That's it.</span>

@@ -834,9 +834,37 @@ input.invalid { border-color: var(--danger); }
    colour. */
 .welcome-bar { flex-direction: column; align-items: stretch; gap: 12px; }
 .welcome-bar-note { font-size: 13px; }
-.welcome-bar-actions { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+/* max-width + margin:auto, not reliance on the parent's own
+   align-items (2026-09-27) — found live while chasing this exact
+   wrapping bug: `.welcome-bar`'s own `align-items: stretch` never
+   actually wins the cascade (a later `.action-bar { align-items:
+   center }` rule, equal specificity, wins by source order), so this
+   element's width was really being resolved against an undefined
+   "auto" cross-size the whole time — which is also why two
+   `flex-grow: 1` children inside it degenerated into each wrapping
+   onto its own row instead of sizing predictably side by side. Giving
+   this element its own explicit width sidesteps that cascade bug
+   entirely rather than fixing the bug itself (which would also change
+   how `.welcome-bar-note` lays out, untouched and not reported broken). */
+.welcome-bar-actions { display: flex; align-items: stretch; gap: 10px; flex-wrap: nowrap; max-width: 610px; margin: 0 auto; }
 .welcome-bar-btn {
-  flex: 1 1 220px;
+  /* flex-grow is 0, not 1, as of 2026-09-27 — found live while fixing a
+     one-line-text request: `.welcome-bar`'s own `align-items: stretch`
+     never actually applies (a later `.action-bar { align-items: center
+     }` rule, equal specificity, wins by source order), so
+     `.welcome-bar-actions` sizes to fit-content, not the full bar
+     width. A `flex-grow: 1` child inside an auto-width flex container
+     has no definite space to grow into, and this degenerates into each
+     button wrapping onto its own row instead of sitting side by side —
+     not a text-wrap problem, a container-width problem. Fixed by not
+     growing at all: a fixed 300px basis (up from 220px — "Auto setup
+     company and bulk data" needs ~225px of actual text plus 40px of
+     side padding to hold one line) renders both buttons at a
+     predictable, equal, side-by-side size regardless of the
+     align-items bug, which is left alone rather than "corrected" —
+     the centred pair this bug produces is the actual look already
+     confirmed, not a design defect in its own right. */
+  flex: 0 1 300px;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 52px; text-align: center; line-height: 1.3;
   padding: 11px 20px; border-radius: var(--radius-sm);
@@ -1356,38 +1384,23 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 /* ---- Welcome page ---- */
 
-/* Rewrite (2026-09-27): a big centered headline, a sticky how-row, then
-   a zigzag of Reason/Offer (copy + meme, mirrored) and a full-width,
+/* Rewrite (2026-09-27): a big centered headline, a how-row, then a
+   zigzag of Reason/Offer (copy + meme, mirrored) and a full-width,
    meme-less Scope section — see app.js's own note on welcomeTemplate()
    for why. */
+.welcome-headline-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 4px 0 20px; }
+/* Same white-tile treatment as .brand-logo-wrap (sidebar/login) — the
+   source PNG has a baked-in white ground, not real transparency, so it
+   needs a white backing to read as a tile rather than a stray white
+   box, on both light and dark. Smaller than the sidebar's own 92px —
+   this sits beside a headline, not alone in a corner. */
+.welcome-headline-logo { display: block; width: 40px; height: auto; padding: 6px; border-radius: var(--radius-sm); background: #ffffff; border: 1px solid var(--border); }
 .welcome-headline {
   text-align: center;
   font-size: 32px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  margin: 4px 0 20px;
   color: var(--accent-strong);
-}
-
-/* Sticky so the 3-step recap stays visible while reading through
-   Reason/Offer/Scope below it — a normal flex/inline-flex row, just
-   pinned to the top of .main-scroll (its nearest scrolling ancestor)
-   once it would otherwise scroll out of view. Needs its own background
-   once stuck, or page content would show through underneath it. */
-.how-row-sticky {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  /* Found live, 2026-09-27, from a screenshot with page content visibly
-     peeking through the sticky bar while scrolling: this referenced
-     var(--canvas), a token that was never actually defined anywhere in
-     this file (the real page-background variable is --bg) — an invalid
-     custom property falls back to the property's own initial value,
-     which for `background` is fully transparent, not "no background
-     rule at all." So this bar had no opaque backing the entire time. */
-  background: var(--bg);
-  padding: 10px 0;
-  margin-top: 0;
 }
 
 /* Reason and Offer are each their own .section card now (2026-09-27,
@@ -1403,24 +1416,31 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    both at once — same card chrome, same automatic full width, no
    special sizing rule of their own left to drift out of sync.
 
-   The text-column-content-vs-track gap this file already fixed once
-   (`minmax(0, 58ch)` instead of `minmax(0, 1fr)`) still applies, but
-   the *meme* column is `1fr` again now that the row is full .section
-   width — on a wide screen that's genuinely more room than a meme
-   should stretch to fill, so the meme itself stays capped at a modest
-   max-width and is centred *within* that leftover column
-   (`justify-self: center` below) instead of either stretching huge or
-   pinning to the row's own outer edge. */
+   Columns are a 70:30 split (2026-09-27, direct instruction — "70-30
+   rakhba, lowest 65-35" — text should visibly dominate the row, the
+   meme is the smaller, supporting half), not the ch-based text column
+   this file used right after making Reason/Offer full .section cards:
+   at a 70:30 fr split the text column is wider than .welcome-lede's
+   own 58ch cap almost everywhere, so that cap is lifted specifically
+   inside these two rows (`.welcome-row .welcome-lede` below) — letting
+   the text really fill 70% of the row is the point of asking for a
+   ratio at all, and a 58ch cap fighting it would just reintroduce the
+   exact dead-gap bug this file already fixed once elsewhere. The meme
+   is centred both horizontally (`justify-self`) and vertically
+   (`align-self`) within its own 30% column — direct follow-up once
+   Offer's own taller card (three paragraphs) left Hackerman pinned to
+   the top of a much taller card instead of sitting in its middle. */
 .welcome-row {
   display: grid;
-  grid-template-columns: minmax(0, 58ch) 1fr;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
   gap: 26px;
   align-items: start;
 }
-.welcome-row-reverse { grid-template-columns: 1fr minmax(0, 58ch); }
+.welcome-row-reverse { grid-template-columns: minmax(0, 3fr) minmax(0, 7fr); }
 .welcome-row-reverse .meme { order: -1; }
 .welcome-copy { min-width: 0; }
-.welcome-row .meme { justify-self: center; width: 100%; max-width: 340px; }
+.welcome-row .welcome-lede { max-width: none; }
+.welcome-row .meme { justify-self: center; align-self: center; width: 100%; max-width: 340px; }
 /* .welcome-scope needs no margin rule of its own any more — plain
    .section spacing now that it's the same kind of card as everything
    else on this page. */
@@ -1461,11 +1481,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .welcome-lede {
+  /* Full-contrast --text, not --text-muted (2026-09-27, direct
+     request: "font weight ba arektu uzzol kora jay?") — this is the
+     page's own main pitch, not a secondary detail, so it shouldn't
+     read at the same muted weight as a caption. Scoped to this one
+     class rather than a blanket page-wide bump, so section-note/
+     stat-label (genuinely secondary text elsewhere on this page) keep
+     the hierarchy that muted color exists for. */
   margin-top: 12px;
   max-width: 58ch;
   font-size: 15px;
   line-height: 1.65;
-  color: var(--text-muted);
+  color: var(--text);
 }
 .welcome-lede em { color: var(--text); font-style: normal; font-weight: 600; }
 
@@ -1611,11 +1638,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .op-card:hover .op-card-go { color: var(--accent); }
 
 .welcome-foot {
+  /* Found live, 2026-09-27, from a screenshot with the misalignment
+     itself arrowed: this had its own 62ch cap, so it wrapped narrower
+     than every .section card above it and never lined up with them —
+     removed so it spans the same width as everything else on the page. */
   margin-top: 26px;
   font-size: 12.5px;
   line-height: 1.65;
   color: var(--text-faint);
-  max-width: 62ch;
 }
 
 /* ---- Discard confirmation ---- */
@@ -1892,6 +1922,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .welcome-row-reverse .meme { order: 0; }
   .welcome-row .meme { max-width: 100%; }
   .welcome-headline { font-size: 23px; }
+  .welcome-bar-actions { flex-wrap: wrap; max-width: 100%; }
+  .welcome-bar-btn { flex-basis: 100%; }
   .field-grid-3, .field-grid-2 { grid-template-columns: 1fr; }
   .shift-times { margin-left: 0; width: 100%; }
   .shift-times input[type="time"] { flex: 1; min-width: 0; }

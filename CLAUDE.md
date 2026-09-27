@@ -335,6 +335,105 @@ how-row's background is solid (`rgb(247, 250, 248)` in light —
 confirmed via `getComputedStyle`, not just eyeballed) with zero page
 content visible through it while scrolled.
 
+**A dozen more items, marked directly on screenshots one at a time —
+confirmed to hold all of them until told to build, then batched into
+one pass (2026-09-27)**: "ekhono issue ase, ami bola sesh hobar por
+korte bolbo then korba" — more issues exist, I'll say when I'm done
+listing them, then you build — after this session had once started
+building before the list was finished. Waited for "okay ano tomar tai
+thik ase... apatoto egula fix koro" before touching any code.
+
+1. **The 3-step how-row is no longer sticky** — reversed the same
+   feature this file documented adding a few sections above, on direct
+   instruction ("ei 3 ta ekhono sticky") once it read as more trouble
+   than it was worth in practice. `how-row-sticky` and its own CSS block
+   (`position:sticky`, the `--canvas`/`--bg` fix above) are deleted
+   outright, not disabled — nothing references either any more.
+2. **The Hackerman meme is now centred vertically, not just
+   horizontally, within Offer's own (taller) card** — `align-self:
+   center` added alongside the existing `justify-self: center`; the text
+   column keeps its own top-aligned `align-self: start` (inherited from
+   the row's `align-items: start`), so only the meme moves, not the
+   prose beside it. Verified directly: a bounding-box measurement of the
+   meme against its own card returns an identical gap above and below
+   (89.9375px each).
+3. **"Welcome to Shomvob Bulk Forge!"** — an exclamation mark added, and
+   the sidebar/login card's own "Lazy" logo tile
+   (`__SHOMVOB_LOGO_LAZY__`, already built for the favicon, see "Sidebar
+   branding" above) now sits beside the headline in a small white tile
+   (`.welcome-headline-logo`, the same "white ground needs a white
+   backing on dark theme too" reasoning `.brand-logo-wrap` already holds
+   itself to, just smaller — 40px, not 92px). Confirmed the build-time
+   `__SHOMVOB_LOGO_LAZY__` token substitution works from inside an
+   `app.js` template literal, not just `part1.html` directly — `build.py`
+   replaces tokens on the final assembled string, after `app.js` is
+   already embedded in it, so this was never actually scoped to one file.
+4. **"So far, for real" gets a third real stat**: how many settings
+   modules got automated into real companies, alongside the existing
+   file count and time-saved tiles. Backed by a second narrow public
+   RPC, `public.public_settings_save_count()` — same shape and same
+   `anon`-safe reasoning as `public_generate_counts()` above, just a
+   bare count of `settings_save` events instead of a per-module tally,
+   since nothing more granular was asked for here. `.stat-row`'s own
+   plain 3-column default (no modifier needed) fit this without any new
+   CSS.
+5. **`.welcome-foot`'s own `max-width: 62ch` is gone** — found live from
+   a screenshot with the misalignment itself arrowed: every `.section`
+   card above it spans the full page width, but this one line wrapped
+   narrower than all of them and never lined up on the right edge.
+6. **Reason/Offer's text:meme ratio is now a deliberate 70:30**, not the
+   ad-hoc `minmax(0, 58ch)`-vs-`1fr` split this file settled on earlier
+   the same day — direct instruction ("70-30 rakhba, lowest 65-35"),
+   after the earlier split visually read closer to an even 50/50 (a
+   large, mostly-empty meme *column* even though the meme *image* itself
+   stayed modestly sized within it). `grid-template-columns: minmax(0,
+   7fr) minmax(0, 3fr)` (mirrored for Offer) replaces the ch-based
+   column; `.welcome-lede`'s own 58ch reading-width cap is lifted
+   specifically inside these two rows (`.welcome-row .welcome-lede {
+   max-width: none }`) so the text genuinely fills its 70% share instead
+   of leaving the exact dead-gap bug this file already fixed once
+   elsewhere, just reappearing at a different ratio.
+7. **Both sticky-bar buttons renamed** — "Auto setup my company & bulk
+   upload" → "Auto setup company and bulk data", "Sign In for Real" →
+   "Sign In to Bulk Forge" — and, once shortened, asked to both read on
+   one line at equal height/weight ("jayga to asei" — there's room).
+   **A real, multi-layered CSS bug surfaced while chasing this, not a
+   simple text-wrap fix**: `.welcome-bar`'s own `align-items: stretch`
+   never actually wins the cascade — a later `.action-bar { align-items:
+   center }` rule, equal specificity (one class each), wins by source
+   order — so `.welcome-bar-actions` has always sized to fit-content,
+   never the full bar width. A `flex-grow: 1` button inside that
+   auto-width container has no definite space to grow into, which
+   degenerated into each button wrapping onto its *own row* the moment
+   its flex-basis grew past whatever the ambiguous auto-width happened
+   to resolve to — not the original, simpler symptom (text wrapping
+   inside one button) it first looked like. Fixed without touching the
+   cascade bug itself (which would also change how `.welcome-bar-note`
+   lays out, never reported broken, so left alone): `.welcome-bar-actions`
+   got its own explicit `max-width: 610px; margin: 0 auto` and
+   `flex-wrap: nowrap`, and each button a fixed `flex: 0 1 300px` (grow
+   0, not 1) — a size big enough to hold "Auto setup company and bulk
+   data" on one line (it measures ~225px of actual text plus 40px of
+   side padding) without depending on how much space an ambiguous parent
+   width offers to grow into. Mobile gets `flex-wrap: wrap` and
+   `flex-basis: 100%` back, so the pair still stacks sensibly on a
+   narrow screen instead of overflowing at a fixed 300px each.
+8. **`.welcome-lede`'s colour is `var(--text)` now, not
+   `var(--text-muted)`** — direct request ("font weight ba arektu uzzol
+   kora jay?"), scoped to this one class rather than a page-wide bump so
+   genuinely secondary text elsewhere (`.section-note`, `.stat-label`)
+   keeps the hierarchy that muted colour exists for in the first place.
+
+**"By the numbers" was explicitly left alone** ("apatoto thak, ami
+chinta kore guchay dibo ki ki rakhba" — leave it for now, I'll work out
+what belongs there myself) — don't touch its content without being
+asked again specifically.
+
+Confirmed by Playwright screenshot in both themes, at both 1920px and a
+390px mobile width, plus direct bounding-box/computed-style checks for
+the meme centring and the button sizing (not just eyeballed) — full
+11-suite run green throughout.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,
