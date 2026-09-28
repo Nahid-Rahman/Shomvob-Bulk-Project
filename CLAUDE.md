@@ -5839,6 +5839,26 @@ and where `hasUnsavedWork()`/`wireUnloadGuard()` will need extending —
 build it alongside whichever module is first to actually loop, not
 speculatively before then.
 
+## The Hackerman meme is now the user's own face (2026-09-28)
+
+`assets/hackerman.gif` (the Tenor download, Dashboard redesign round
+one, above) is gone — replaced with `assets/hackerman.mp4`, direct
+instruction ("ami nijer face boshaisi" — I put my own face on it): the
+user's own edit of the same Kung Fury clip, his own face composited in.
+This drops the second-hand-licensing question that GIF always carried
+("a real meme image would be someone else's to licence") entirely —
+it's the user's own footage now, for his own internal tool.
+
+`<video loop muted playsinline autoplay>` replaces the old `<img>` in
+`welcomeTemplate()`'s Offer section — the exact same treatment every
+other clip in this app already gets (the login gate's cat, the five
+operation media rails, the Rickroll). `.meme-img`'s own CSS
+(display/width/border/radius/shadow) is generic enough that neither the
+markup swap nor the format change needed a single rule touched. Still a
+plain relative-path asset, not inlined — same "too big for a data URI"
+reasoning as `assets/lazy_cat.mp4`, though the new clip (~1.4MB) is
+smaller than the GIF it replaced (~2.9MB).
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route

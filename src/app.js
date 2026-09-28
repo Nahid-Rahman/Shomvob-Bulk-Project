@@ -3571,9 +3571,10 @@
      since a third meme in a row would flatten the pattern into
      wallpaper, and Scope's own honest, sobering tone reads better set
      apart rather than folded into the same rhythm as the other two.
-     The Hackerman GIF (already licensed for this exact purpose, see
-     app.css's own note below) is Offer's meme; Reason's is a plain
-     placeholder — a real image for that slot hasn't been picked yet. */
+     The Hackerman clip (already licensed for this exact purpose, see
+     app.css's own note below — now the user's own face composited into
+     it, 2026-09-28) is Offer's meme; Reason's is a plain placeholder —
+     a real image for that slot hasn't been picked yet. */
   function welcomeTemplate() {
     return `
       <div class="welcome-headline-row">
@@ -3617,7 +3618,7 @@
 
       <div class="section welcome-row welcome-row-reverse">
         <figure class="meme" aria-label="Hackerman, from Kung Fury — this whole page runs on hacker-movie logic">
-          <img class="meme-img" src="assets/hackerman.gif" alt="Hackerman" loading="lazy" />
+          <video class="meme-img" src="assets/hackerman.mp4" loop muted playsinline autoplay></video>
         </figure>
         <div class="welcome-copy">
           <span class="welcome-badge">Your prayers, answered (mostly)</span>

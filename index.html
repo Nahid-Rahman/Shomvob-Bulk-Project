@@ -1606,16 +1606,27 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-weight: 700;
 }
 
-/* The meme (2026-09-25, Dashboard redesign): a real Hackerman GIF
-   (assets/hackerman.gif, downloaded from Tenor at the user's own direct
+/* The meme (2026-09-25, Dashboard redesign): originally a real
+   Hackerman GIF (downloaded from Tenor at the user's own direct
    instruction) — reverses the original "drawn rather than fetched"
    decision below this app held for its whole life, on the reasoning
    that a real meme image is someone else's to licence. That reasoning
    stands for anything published to a stranger; this is the user's own
    internal QA tool, and the call to use a real meme here was made
-   directly, not defaulted into. Not inlined — the file is ~2.9MB,
-   the same "too big for a data URI" reasoning as assets/lazy_cat.mp4,
-   kept as a plain relative-path asset instead. */
+   directly, not defaulted into.
+
+   Replaced with a real video, 2026-09-28, direct instruction ("ami
+   nijer face boshaisi" — I put my own face on it): assets/hackerman.mp4
+   is now the user's own clip, the Tenor GIF composited with his own
+   face, so the second-hand-licensing question above doesn't even apply
+   any more — his own footage, his own tool. `<video loop muted
+   playsinline autoplay>` replaces the `<img>`, the same treatment every
+   other clip in this app already gets (the login gate's cat, the five
+   operation rails, the Rickroll). `.meme-img`'s own styling is generic
+   enough (display/width/border/radius/shadow) that neither the markup
+   swap nor the format change needed a single rule touched. Not
+   inlined — same "too big for a data URI" reasoning as
+   assets/lazy_cat.mp4, kept as a plain relative-path asset instead. */
 .meme { margin: 0; }
 .meme-img {
   display: block;
@@ -6956,9 +6967,10 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      since a third meme in a row would flatten the pattern into
      wallpaper, and Scope's own honest, sobering tone reads better set
      apart rather than folded into the same rhythm as the other two.
-     The Hackerman GIF (already licensed for this exact purpose, see
-     app.css's own note below) is Offer's meme; Reason's is a plain
-     placeholder — a real image for that slot hasn't been picked yet. */
+     The Hackerman clip (already licensed for this exact purpose, see
+     app.css's own note below — now the user's own face composited into
+     it, 2026-09-28) is Offer's meme; Reason's is a plain placeholder —
+     a real image for that slot hasn't been picked yet. */
   function welcomeTemplate() {
     return `
       <div class="welcome-headline-row">
@@ -7002,7 +7014,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
       <div class="section welcome-row welcome-row-reverse">
         <figure class="meme" aria-label="Hackerman, from Kung Fury — this whole page runs on hacker-movie logic">
-          <img class="meme-img" src="assets/hackerman.gif" alt="Hackerman" loading="lazy" />
+          <video class="meme-img" src="assets/hackerman.mp4" loop muted playsinline autoplay></video>
         </figure>
         <div class="welcome-copy">
           <span class="welcome-badge">Your prayers, answered (mostly)</span>

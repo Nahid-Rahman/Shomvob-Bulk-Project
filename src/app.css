@@ -1589,16 +1589,27 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-weight: 700;
 }
 
-/* The meme (2026-09-25, Dashboard redesign): a real Hackerman GIF
-   (assets/hackerman.gif, downloaded from Tenor at the user's own direct
+/* The meme (2026-09-25, Dashboard redesign): originally a real
+   Hackerman GIF (downloaded from Tenor at the user's own direct
    instruction) — reverses the original "drawn rather than fetched"
    decision below this app held for its whole life, on the reasoning
    that a real meme image is someone else's to licence. That reasoning
    stands for anything published to a stranger; this is the user's own
    internal QA tool, and the call to use a real meme here was made
-   directly, not defaulted into. Not inlined — the file is ~2.9MB,
-   the same "too big for a data URI" reasoning as assets/lazy_cat.mp4,
-   kept as a plain relative-path asset instead. */
+   directly, not defaulted into.
+
+   Replaced with a real video, 2026-09-28, direct instruction ("ami
+   nijer face boshaisi" — I put my own face on it): assets/hackerman.mp4
+   is now the user's own clip, the Tenor GIF composited with his own
+   face, so the second-hand-licensing question above doesn't even apply
+   any more — his own footage, his own tool. `<video loop muted
+   playsinline autoplay>` replaces the `<img>`, the same treatment every
+   other clip in this app already gets (the login gate's cat, the five
+   operation rails, the Rickroll). `.meme-img`'s own styling is generic
+   enough (display/width/border/radius/shadow) that neither the markup
+   swap nor the format change needed a single rule touched. Not
+   inlined — same "too big for a data URI" reasoning as
+   assets/lazy_cat.mp4, kept as a plain relative-path asset instead. */
 .meme { margin: 0; }
 .meme-img {
   display: block;
