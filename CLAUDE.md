@@ -596,6 +596,59 @@ sourced from live data, and the section reads as two clear halves
 rather than three cramped ones. Full 11-suite run green throughout —
 no test referenced the removed columns' own text.
 
+**Revised a second time the same day** — a real ordering bug, then a
+real framing fix, both direct feedback:
+
+1. **Row-order mismatch, flagged with two crossing arrows on a
+   screenshot** ("eta ekhono make sense kortese na"): "What it does"
+   listed items in `OPERATIONS`'/`SETTINGS_GROUPS`' own declared
+   order, while `barListHtml()` always sorts its own rows descending
+   by value — so the two columns showed the same 5-and-6 items in two
+   *different* orders (Assets Add sat last on the left but first/
+   biggest on the right), reading as if the labels and bars didn't
+   correspond at all. Fixed first by sorting "What it does" the
+   identical descending-by-minutes way the bar list already sorts
+   itself, so row 1 of one column is always row 1 of the other.
+2. **The per-group Settings bars themselves didn't hold up, flagged
+   right after** ("settings e merge kore dekhabo venge na dekhe...
+   2-3 min er jonno khub ekta impact bujha jay na" — show it merged,
+   not broken out; 2-3 minutes a group doesn't read as impactful on
+   its own). Settings' own 6 bars (2/2/3/9/19/32 min) are gone,
+   replaced by one merged `.stat-tile` — the same 67-minute total,
+   just not sliced into pieces small enough to each look trivial. The
+   "What it does" Settings list went back to `SETTINGS_GROUPS`' own
+   declared order — there's no longer a second bar list on the right
+   for it to stay row-aligned with, so the sort from fix 1 has nothing
+   left to correspond to on this side.
+3. **Bulk's own metric changed too, second half of the same message**
+   ("per 50 entry er jonno kottuk data bachtese bulk e ota dekhao" —
+   show how much is saved per 50 entries, for Bulk). The old
+   full-batch totals (`OPERATION_CELL_ESTIMATE`, each operation's own
+   max — up to Assets Add's 5,000-row ceiling, 2,917 min) are gone
+   from this chart specifically (the constant itself is untouched,
+   still used by "Team activity"'s real estimated-time-saved tile) —
+   replaced by a new `OPERATION_CELLS_PER_ENTRY` (`app-data.js`, cells
+   per single row: Employee Add 14, Attendance Add 4, Leave Balance
+   Add 1 — only "Already Used Leave" is actually written per row —
+   Payroll Custom Field Add 8, Assets Add 7, each read straight off
+   the matching `OPERATION_BLURBS` cost line) x a fixed 50 entries x
+   the same `WELCOME_SECONDS_PER_CELL` rate. A fixed basis instead of
+   each operation's own max batch size is the same yardstick for all
+   five, rather than a number dominated by whichever operation happens
+   to allow the biggest batch — this also reorders the bar list
+   itself (Employee Add 58 min now leads, not Assets Add), a direct
+   consequence of the metric change, not a separate fix. Bulk stays
+   its own bar list, unlike Settings — 5 genuinely different-shaped
+   operations read fine side by side; 6 nearly-equal small numbers
+   didn't.
+
+Confirmed by Playwright screenshot in both light and dark: the Bulk
+bar list now ranges 4–58 min (was 46–2,917) and both "What it does"
+columns line up row-for-row with their own "Time saved" side where one
+still exists; the Settings stat tile reads `~67 min` with no new hex
+values (`.stat-tile`/`.stat-value`/`.stat-label`, reused as-is from
+"So far, for real"'s own tiles). Full 11-suite run green throughout.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,

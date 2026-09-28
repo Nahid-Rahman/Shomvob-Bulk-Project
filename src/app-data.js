@@ -504,6 +504,30 @@ const SETTINGS_GROUP_TIME_ESTIMATE = {
   payroll: 19,
 };
 
+/* Bulk's own per-50-entries time-saved metric (2026-09-28, "By the
+   numbers" revision #2) — replaces OPERATION_CELL_ESTIMATE's own
+   full-batch total for this one chart, direct feedback: the full-batch
+   numbers (up to 2,917 min, from Assets Add's own 5,000-row ceiling)
+   made the five operations impossible to compare, since each
+   operation's own max batch size differs wildly and has nothing to do
+   with how much *faster* generating actually is per unit of work — a
+   fixed "per 50 entries" basis is the same yardstick for all five.
+   Cells per single row/entry, read straight off each operation's own
+   OPERATION_BLURBS cost line: Employee Add 14 (14 columns), Attendance
+   Add 4 (Employee ID/Date/In/Out — the ~13,000-cell blurb is ~3,300
+   attendance rows x 4), Leave Balance Add 1 (only "Already Used Leave"
+   is written per row, the rest is carried through untouched), Payroll
+   Custom Field Add 8 (8 custom fields per employee), Assets Add 7 (7
+   columns). Multiplied by a fixed 50 entries and the same
+   WELCOME_SECONDS_PER_CELL rate everything else on this page uses. */
+const OPERATION_CELLS_PER_ENTRY = {
+  employee_add: 14,
+  attendance_add: 4,
+  leave_balance_add: 1,
+  payroll_field_add: 8,
+  assets_add: 7,
+};
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },

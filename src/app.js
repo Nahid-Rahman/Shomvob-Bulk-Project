@@ -3363,20 +3363,42 @@
      lined up row-to-row, reading as if the labels and bars didn't
      correspond at all. Fixed by sorting "What it does" the identical
      descending-by-minutes way the bar list already sorts itself, so row
-     1 of one column is always row 1 of the other. */
+     1 of one column is always row 1 of the other.
+
+     Revised again the same day, direct feedback ("settings e merge
+     kore dekhabo venge na dekhe... 2-3 min er jonno khub ekta impact
+     bujha jay na" — show Settings merged, not broken out; 2-3 minutes
+     a group doesn't read as impactful on its own): Settings' own 6
+     per-group bars (2/2/3/9/19/32 min) are gone, replaced by one
+     merged stat tile — the same total, just not sliced small enough to
+     look trivial. The "What it does" Settings list keeps its own
+     SETTINGS_GROUPS declared order now, not a descending-by-minutes
+     sort — there's no longer a second bar list on the right for it to
+     stay row-aligned with, so the sort that fixed the crossing-arrows
+     bug above has nothing left to correspond to on this side.
+
+     Bulk's own metric changed at the same time, second half of the
+     same request ("per 50 entry er jonno kottuk data bachtese bulk e
+     ota dekhao"): full-batch totals (OPERATION_CELL_ESTIMATE, each
+     operation's own max — up to Assets Add's 5,000-row ceiling) are
+     gone from this chart, replaced by a fixed "per 50 entries" basis
+     (OPERATION_CELLS_PER_ENTRY x 50 x WELCOME_SECONDS_PER_CELL) — the
+     same yardstick for all five, rather than a number dominated by
+     whichever operation happens to allow the biggest batch. Bulk stays
+     its own bar list, unlike Settings — 5 genuinely different-shaped
+     operations read fine side by side; 6 nearly-equal small numbers
+     didn't. */
   function welcomeChartsHtml() {
-    const bulkMinutes = {};
+    const bulkMinutesPer50 = {};
     OPERATIONS.forEach((op) => {
-      const cells = OPERATION_CELL_ESTIMATE[op.id] || 0;
-      bulkMinutes[op.label] = Math.round((cells * WELCOME_SECONDS_PER_CELL) / 60);
+      const perEntry = OPERATION_CELLS_PER_ENTRY[op.id] || 0;
+      bulkMinutesPer50[op.label] = Math.round((perEntry * 50 * WELCOME_SECONDS_PER_CELL) / 60);
     });
-    const settingsMinutes = {};
-    SETTINGS_GROUPS.forEach((g) => {
-      settingsMinutes[g.label] = SETTINGS_GROUP_TIME_ESTIMATE[g.id] || 0;
-    });
-    const byMinutesDesc = (counts) => Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([label]) => label);
-    const bulkWhatItDoes = byMinutesDesc(bulkMinutes);
-    const settingsWhatItDoes = byMinutesDesc(settingsMinutes);
+    const settingsTotalMinutes = SETTINGS_GROUPS.reduce((sum, g) => sum + (SETTINGS_GROUP_TIME_ESTIMATE[g.id] || 0), 0);
+    const bulkWhatItDoes = Object.entries(bulkMinutesPer50)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label]) => label);
+    const settingsWhatItDoes = SETTINGS_GROUPS.map((g) => g.label);
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>By the numbers</h2></div>
@@ -3391,10 +3413,13 @@
           </div>
           <div class="field">
             <label>Time saved, at a real per-task estimate</label>
-            <p class="section-note" style="margin:8px 0 4px">Bulk, in minutes</p>
-            ${barListHtml(bulkMinutes)}
-            <p class="section-note" style="margin:12px 0 4px">Settings, in minutes</p>
-            ${barListHtml(settingsMinutes)}
+            <p class="section-note" style="margin:8px 0 4px">Bulk, minutes saved per 50 entries</p>
+            ${barListHtml(bulkMinutesPer50)}
+            <p class="section-note" style="margin:12px 0 4px">Settings, running every default once</p>
+            <div class="stat-tile" style="margin-top:4px">
+              <span class="stat-value">~${settingsTotalMinutes} min</span>
+              <span class="stat-label">Across all 6 groups — Company Profile, Locations, Departments, Attendance Policy, Leave Types, Payroll and the rest — configured by hand instead of in one click.</span>
+            </div>
           </div>
         </div>
       </div>
