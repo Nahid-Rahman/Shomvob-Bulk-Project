@@ -6691,10 +6691,19 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      shared axis). "Built from scratch vs. filled into an export" is
      gone outright — the point of this section was never chart count,
      and a 3rd chart just for that distinction reintroduced exactly the
-     "onek khet ar complex" complaint that started this rebuild. */
+     "onek khet ar complex" complaint that started this rebuild.
+
+     Row order fixed 2026-09-28 — a real bug, flagged with two crossing
+     arrows on a screenshot: "What it does" listed items in OPERATIONS'/
+     SETTINGS_GROUPS' own declared order, while barListHtml() always
+     sorts its own rows descending by value, so the two columns showed
+     the same 5-and-6 items in two *different* orders (e.g. Assets Add
+     was 5th/last on the left but 1st/biggest on the right) — nothing
+     lined up row-to-row, reading as if the labels and bars didn't
+     correspond at all. Fixed by sorting "What it does" the identical
+     descending-by-minutes way the bar list already sorts itself, so row
+     1 of one column is always row 1 of the other. */
   function welcomeChartsHtml() {
-    const bulkWhatItDoes = OPERATIONS.map((op) => op.label);
-    const settingsWhatItDoes = SETTINGS_GROUPS.map((g) => g.label);
     const bulkMinutes = {};
     OPERATIONS.forEach((op) => {
       const cells = OPERATION_CELL_ESTIMATE[op.id] || 0;
@@ -6704,6 +6713,9 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     SETTINGS_GROUPS.forEach((g) => {
       settingsMinutes[g.label] = SETTINGS_GROUP_TIME_ESTIMATE[g.id] || 0;
     });
+    const byMinutesDesc = (counts) => Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([label]) => label);
+    const bulkWhatItDoes = byMinutesDesc(bulkMinutes);
+    const settingsWhatItDoes = byMinutesDesc(settingsMinutes);
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>By the numbers</h2></div>
