@@ -484,49 +484,43 @@ const OPERATION_CELL_ESTIMATE = {
   assets_add: 35000, // 7 columns x up to 5,000 rows
 };
 
-/* "So far, for real"'s Settings-side counterpart to OPERATION_CELL_ESTIMATE
-   above (2026-09-28, Welcome page's "By the numbers" simplification) —
-   in minutes directly, not cells x a rate, since a settings module isn't
-   measured in cells at all. The user's own dictated estimate, not a
-   guess: per-module manual time (a real admin-screen field count and
-   whether it loops a real bulk create, e.g. Designation's 5 departments
-   x ~3.5 designations each) summed per SETTINGS_GROUPS group. Two of
-   Payroll's 11 modules (Overtime, Attendance Bonus) weren't given an
-   explicit number and are folded into a reasonable estimate alongside
-   the ones that were, flagged as such rather than silently guessed —
-   see CLAUDE.md's own note on this section for the full per-module math. */
-const SETTINGS_GROUP_TIME_ESTIMATE = {
-  company: 32,
-  employee: 2,
-  attendance: 2,
-  schedule: 3,
-  leave: 9,
-  payroll: 19,
+/* "By the numbers"' real per-task time comparison (2026-09-28, revision
+   #3) — replaces both SETTINGS_GROUP_TIME_ESTIMATE and the per-50-
+   entries OPERATION_CELLS_PER_ENTRY math from revision #2. Those were
+   both derived numbers (a field count times a seconds-per-cell rate);
+   this session's own feedback was that the derived numbers "didn't
+   convey impact to a normal user," so they're gone outright, replaced
+   by the user's own dictated real-world estimates — manual typing,
+   typing with AI's help, and Bulk Forge — confirmed one operation at a
+   time, not computed from any formula. Manual/AI are `[low, high]`
+   minute ranges (a single-value operation just repeats the same number
+   twice, e.g. `[80, 80]`) so `minutesMid()`/`formatMinRange()` below
+   can both display the real range and compute a real midpoint for the
+   combined total, from the one source of truth. Bulk Forge is always a
+   single number — a QA engineer's own click-to-file time, not a range. */
+const OPERATION_TIME_COMPARISON = {
+  employee_add: { manual: [75, 80], ai: [10, 10], bulkForge: 1 },
+  attendance_add: { manual: [80, 80], ai: [15, 15], bulkForge: 2 },
+  leave_balance_add: { manual: [5, 10], ai: [5, 5], bulkForge: 2 },
+  assets_add: { manual: [60, 65], ai: [5, 7], bulkForge: 1 },
+  payroll_field_add: { manual: [20, 20], ai: [5, 5], bulkForge: 1 },
 };
 
-/* Bulk's own per-50-entries time-saved metric (2026-09-28, "By the
-   numbers" revision #2) — replaces OPERATION_CELL_ESTIMATE's own
-   full-batch total for this one chart, direct feedback: the full-batch
-   numbers (up to 2,917 min, from Assets Add's own 5,000-row ceiling)
-   made the five operations impossible to compare, since each
-   operation's own max batch size differs wildly and has nothing to do
-   with how much *faster* generating actually is per unit of work — a
-   fixed "per 50 entries" basis is the same yardstick for all five.
-   Cells per single row/entry, read straight off each operation's own
-   OPERATION_BLURBS cost line: Employee Add 14 (14 columns), Attendance
-   Add 4 (Employee ID/Date/In/Out — the ~13,000-cell blurb is ~3,300
-   attendance rows x 4), Leave Balance Add 1 (only "Already Used Leave"
-   is written per row, the rest is carried through untouched), Payroll
-   Custom Field Add 8 (8 custom fields per employee), Assets Add 7 (7
-   columns). Multiplied by a fixed 50 entries and the same
-   WELCOME_SECONDS_PER_CELL rate everything else on this page uses. */
-const OPERATION_CELLS_PER_ENTRY = {
-  employee_add: 14,
-  attendance_add: 4,
-  leave_balance_add: 1,
-  payroll_field_add: 8,
-  assets_add: 7,
-};
+/* Settings has no AI figure — AI can't click through a company's own
+   admin screens for you, only Company Setup's "Run defaults" can — so
+   this is a plain manual-vs-Bulk-Forge pair, not a 3-way comparison
+   like the Bulk operations above. Both dictated directly, same as the
+   table above; not derived from SETTINGS_GROUP_TIME_ESTIMATE's old
+   per-group breakdown (32+2+2+3+9+19=67), which this replaces outright. */
+const SETTINGS_TIME_COMPARISON = { manual: 37, bulkForge: 1 };
+
+/* The fixed display order for the Bulk side of "By the numbers" — Employee
+   Add, Attendance Add, Leave Balance Add, Assets Add, Payroll Custom
+   Field Add — direct instruction, not OPERATIONS' own declared order
+   (which has Payroll before Assets). Scoped to this one section only;
+   OPERATIONS itself drives the sidebar and stays untouched, so
+   reordering this display never touches Operations nav order. */
+const WELCOME_OPERATION_ORDER = ["employee_add", "attendance_add", "leave_balance_add", "assets_add", "payroll_field_add"];
 
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },

@@ -1448,24 +1448,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .scope-list li { margin-bottom: 6px; }
 .scope-list li:last-child { margin-bottom: 0; }
 
-/* A placeholder for a meme that hasn't been picked yet — same footprint
-   as .meme-img (a real image) so the layout doesn't jump once one is
-   chosen, but unmistakably a placeholder, not finished art. */
-.meme-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  aspect-ratio: 4 / 3;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--text-faint);
-}
-.meme-placeholder-mark { font-size: 28px; }
-.meme-placeholder-text { font-size: 11.5px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
-
 .welcome-badge {
   display: inline-block;
   font-family: var(--font-mono);
@@ -1565,6 +1547,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 .numbers-settings-box p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-muted); }
 .numbers-settings-row .stat-tile { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+/* The Settings stat tile's own Bulk Forge line (2026-09-28) — the
+   before/after pairing the Bulk table now has, just as a second line
+   under the big "By hand" number rather than a 3rd table column, since
+   Settings only ever has the one comparison (no "with AI" figure). */
+.numbers-bulkforge-line { margin: 8px 0 0; font-size: 12.5px; color: var(--accent-strong); font-weight: 600; }
 
 .how-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 22px; }
 .how-step {
@@ -1607,9 +1594,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    other clip in this app already gets (the login gate's cat, the five
    operation rails, the Rickroll). `.meme-img`'s own styling is generic
    enough (display/width/border/radius/shadow) that neither the markup
-   swap nor the format change needed a single rule touched. Not
-   inlined — same "too big for a data URI" reasoning as
-   assets/lazy_cat.mp4, kept as a plain relative-path asset instead. */
+   swap nor the format change needed a single rule touched.
+
+   Reason's own meme slot — a plain dashed-border placeholder for its
+   whole life — got filled the same day: assets/crying_cat_ok.mp4, a
+   real Tenor clip (crying cat, thumbs up, "OK" text), the user's own
+   link. Same `.meme-img`/`<video>` treatment, `.meme-placeholder` and
+   its two child classes are deleted outright rather than left dead,
+   since nothing else in this app reused that "hasn't been picked yet"
+   shape.
+
+   Neither clip is inlined — same "too big for a data URI" reasoning as
+   assets/lazy_cat.mp4, kept as plain relative-path assets instead. */
 .meme { margin: 0; }
 .meme-img {
   display: block;

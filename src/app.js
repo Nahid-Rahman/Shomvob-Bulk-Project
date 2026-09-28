@@ -3335,69 +3335,84 @@
   }
 
   /* Dashboard's public "By the numbers" charts (2026-09-25 redesign),
-     simplified 2026-09-28 — direct feedback against a screenshot: the
-     original 3-column version had "Cells per operation" and "Minutes
-     saved per operation" as two separate bar charts that were nearly
-     impossible to tell apart, since minutes is just cells x a fixed
-     rate — same ranking, same relative bar lengths, just a different
-     unit. Rebuilt as two columns instead of three: "What it does" (a
-     plain list, no bars — the 5 Bulk operations and the 6 real Settings
-     groups, reusing OPERATIONS/SETTINGS_GROUPS directly rather than a
-     duplicated string list) and "Time saved" (real minutes, Bulk and
-     Settings each as their own bar list rather than one shared scale —
-     Bulk's own minutes run into the thousands (a whole file's worth of
-     manual typing) while a single Settings group's is tens of minutes
-     (clicking through admin screens), a ~100x gap that would make every
-     Settings bar an invisible sliver next to Bulk's if forced onto one
-     shared axis). "Built from scratch vs. filled into an export" is
-     gone outright — the point of this section was never chart count,
-     and a 3rd chart just for that distinction reintroduced exactly the
-     "onek khet ar complex" complaint that started this rebuild.
+     rebuilt a third time 2026-09-28 — the most important feedback of
+     that whole day's pass: revision #2's per-50-entries bar chart
+     (58/33/29/17/4 min, derived from a cells x seconds-per-cell
+     formula) still "didn't convey impact to a normal user." Asked
+     directly for an idea, not just a fix — the recommendation that
+     landed was a before/after comparison, and once that meant real
+     numbers rather than a formula, the user dictated them himself,
+     operation by operation, exactly this project's own "confirm rules,
+     never assume" discipline: how long 50 entries actually takes fully
+     by hand, how long with AI's help, and how long with Bulk Forge.
+     `OPERATION_TIME_COMPARISON`/`SETTINGS_TIME_COMPARISON`/
+     `WELCOME_OPERATION_ORDER` (`app-data.js`) hold these — see that
+     file's own comment for the full dictation. `minutesMid()`/
+     `formatMinRange()`/`formatHoursMinutes()` below are the shared
+     helpers that turn a `[low, high]` range into both its own display
+     text and a real number for the combined section's math, from one
+     source rather than two.
 
-     Row order fixed 2026-09-28 — a real bug, flagged with two crossing
-     arrows on a screenshot: "What it does" listed items in OPERATIONS'/
-     SETTINGS_GROUPS' own declared order, while barListHtml() always
-     sorts its own rows descending by value, so the two columns showed
-     the same 5-and-6 items in two *different* orders (e.g. Assets Add
-     was 5th/last on the left but 1st/biggest on the right) — nothing
-     lined up row-to-row, reading as if the labels and bars didn't
-     correspond at all. Fixed by sorting "What it does" the identical
-     descending-by-minutes way the bar list already sorts itself, so row
-     1 of one column is always row 1 of the other.
+     The Bulk list is a real 3-column table now (`.preview-table`,
+     reused as-is — Admin Panel's/Leave Balance's/Payroll's own
+     component, not a new one), not a bar chart — a bar's only real job
+     is ranking, and ranking was never the point here; the actual
+     numbers themselves (a Bulk Forge column reading "1 min" next to a
+     "By hand" column reading "75–80 min") are what a normal user can
+     actually feel. Row order is a fixed, dictated sequence
+     (`WELCOME_OPERATION_ORDER`) — Employee Add, Attendance Add, Leave
+     Balance Add, Assets Add, Payroll Custom Field Add — not sorted by
+     any value, on both the "What it does" list and the table, so the
+     two always agree without needing the descending-by-value sort
+     revision #2 built (and this revision deletes).
 
-     Revised again the same day, direct feedback ("settings e merge
-     kore dekhabo venge na dekhe... 2-3 min er jonno khub ekta impact
-     bujha jay na" — show Settings merged, not broken out; 2-3 minutes
-     a group doesn't read as impactful on its own): Settings' own 6
-     per-group bars (2/2/3/9/19/32 min) are gone, replaced by one
-     merged stat tile — the same total, just not sliced small enough to
-     look trivial. The "What it does" Settings list keeps its own
-     SETTINGS_GROUPS declared order now, not a descending-by-minutes
-     sort — there's no longer a second bar list on the right for it to
-     stay row-aligned with, so the sort that fixed the crossing-arrows
-     bug above has nothing left to correspond to on this side.
+     Settings gets the identical before/after shape, just 2 columns
+     instead of 3 — AI can't click through a company's own admin
+     screens, so there's no "with AI" figure for it. Its old merged
+     `~67 min` stat tile (the sum of 6 per-group estimates) is replaced
+     by a flat, directly dictated `37 min` — "eta 37 min koro 67 er
+     jaygay" — with `.stat-value`'s own "min" capitalised to "Min" the
+     same message asked for ("Min er M boro haat er dao"), and a new
+     line under it naming the Bulk Forge side too ("Run defaults
+     instead: ~1 min"), so Settings reads as the same real comparison
+     the Bulk side now does rather than a single number with nothing to
+     measure it against.
 
-     Bulk's own metric changed at the same time, second half of the
-     same request ("per 50 entry er jonno kottuk data bachtese bulk e
-     ota dekhao"): full-batch totals (OPERATION_CELL_ESTIMATE, each
-     operation's own max — up to Assets Add's 5,000-row ceiling) are
-     gone from this chart, replaced by a fixed "per 50 entries" basis
-     (OPERATION_CELLS_PER_ENTRY x 50 x WELCOME_SECONDS_PER_CELL) — the
-     same yardstick for all five, rather than a number dominated by
-     whichever operation happens to allow the biggest batch. Bulk stays
-     its own bar list, unlike Settings — 5 genuinely different-shaped
-     operations read fine side by side; 6 nearly-equal small numbers
-     didn't. */
+     A brand-new second section, "Add it all up," is the direct answer
+     to a follow-up ask: run 50 of each Bulk operation plus one Settings
+     "Run defaults," what's the real combined gap? Computed live from
+     the same dictated numbers above (range midpoints, real minutes,
+     not a fresh guess) rather than the "der-arai ghonta" (1.5–2.5
+     hours) figure the user had been estimating by feel — confirmed
+     directly once the real math came out noticeably higher than that
+     estimate. Two totals, not one, since "vs AI" and "vs fully manual"
+     are genuinely different claims: vs fully manual includes Settings
+     (nobody's typing through 20 admin screens with AI's help either),
+     vs AI is Bulk-only (the one place AI genuinely competes). */
+  function minutesMid(range) {
+    return (range[0] + range[1]) / 2;
+  }
+  function formatMinRange(range) {
+    return range[0] === range[1] ? `${range[0]} min` : `${range[0]}–${range[1]} min`;
+  }
+  function formatHoursMinutes(totalMinutes) {
+    const rounded = Math.round(totalMinutes);
+    const h = Math.floor(rounded / 60);
+    const m = rounded % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m} min`;
+  }
   function welcomeChartsHtml() {
-    const bulkMinutesPer50 = {};
-    OPERATIONS.forEach((op) => {
-      const perEntry = OPERATION_CELLS_PER_ENTRY[op.id] || 0;
-      bulkMinutesPer50[op.label] = Math.round((perEntry * 50 * WELCOME_SECONDS_PER_CELL) / 60);
-    });
-    const settingsTotalMinutes = SETTINGS_GROUPS.reduce((sum, g) => sum + (SETTINGS_GROUP_TIME_ESTIMATE[g.id] || 0), 0);
-    const bulkWhatItDoes = Object.entries(bulkMinutesPer50)
-      .sort((a, b) => b[1] - a[1])
-      .map(([label]) => label);
+    const rows = WELCOME_OPERATION_ORDER.map((id) => ({
+      id,
+      label: OPERATIONS.find((o) => o.id === id).label,
+      ...OPERATION_TIME_COMPARISON[id],
+    }));
+    const manualTotalAll = rows.reduce((sum, r) => sum + minutesMid(r.manual), 0) + SETTINGS_TIME_COMPARISON.manual;
+    const bulkForgeTotalAll = rows.reduce((sum, r) => sum + r.bulkForge, 0) + SETTINGS_TIME_COMPARISON.bulkForge;
+    const vsManualSaved = manualTotalAll - bulkForgeTotalAll;
+    const aiTotalOps = rows.reduce((sum, r) => sum + minutesMid(r.ai), 0);
+    const bulkForgeTotalOps = rows.reduce((sum, r) => sum + r.bulkForge, 0);
+    const vsAiSaved = aiTotalOps - bulkForgeTotalOps;
     const settingsGroupNames = SETTINGS_GROUPS.map((g) => g.label.replace(/ Settings$/, "")).join(", ");
     return `
       <div class="section">
@@ -3407,12 +3422,29 @@
           <div class="field">
             <label>What it does</label>
             <p class="section-note" style="margin:8px 0 4px">Bulk</p>
-            <ul class="scope-list">${bulkWhatItDoes.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>
+            <ul class="scope-list">${rows.map((r) => `<li>${escapeHtml(r.label)}</li>`).join("")}</ul>
           </div>
           <div class="field">
-            <label>Time saved, at a real per-task estimate</label>
-            <p class="section-note" style="margin:8px 0 4px">Bulk, minutes saved per 50 entries</p>
-            ${barListHtml(bulkMinutesPer50)}
+            <label>Time saved, at a real per-task estimate (50 entries)</label>
+            <div class="preview-table-wrap" style="margin-top:8px">
+              <table class="preview-table">
+                <thead><tr>
+                  <th>Operation</th><th class="num">By hand</th><th class="num">With AI</th><th class="num">Bulk Forge</th>
+                </tr></thead>
+                <tbody>
+                  ${rows
+                    .map(
+                      (r) => `<tr>
+                    <td>${escapeHtml(r.label)}</td>
+                    <td class="num">${formatMinRange(r.manual)}</td>
+                    <td class="num">${formatMinRange(r.ai)}</td>
+                    <td class="num strong">${r.bulkForge} min</td>
+                  </tr>`
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
         <div class="field-row numbers-settings-row" style="margin-top:18px;">
@@ -3425,9 +3457,24 @@
           <div>
             <p class="section-note" style="margin:0 0 6px">Settings, running every default once</p>
             <div class="stat-tile">
-              <span class="stat-value">~${settingsTotalMinutes} min</span>
-              <span class="stat-label">Across all 6 groups — Company Profile, Locations, Departments, Attendance Policy, Leave Types, Payroll and the rest — configured by hand instead of in one click.</span>
+              <span class="stat-value">~${SETTINGS_TIME_COMPARISON.manual} Min</span>
+              <span class="stat-label">By hand, across all 6 groups — Company Profile, Locations, Departments, Attendance Policy, Leave Types, Payroll and the rest.</span>
+              <p class="numbers-bulkforge-line">Run defaults instead: <b>~${SETTINGS_TIME_COMPARISON.bulkForge} min</b></p>
             </div>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>Add it all up</h2></div>
+        <p class="section-note">50 of each Bulk operation above, plus one Settings "Run defaults" — the real combined gap.</p>
+        <div class="stat-row stat-row-2" style="margin-top:8px">
+          <div class="stat-tile">
+            <span class="stat-value">${formatHoursMinutes(vsManualSaved)}</span>
+            <span class="stat-label">saved versus doing every bit of it by hand — Bulk and Settings both</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value">${formatHoursMinutes(vsAiSaved)}</span>
+            <span class="stat-label">saved versus using AI to help type it — Bulk operations only, since AI can't click through Settings for you</span>
           </div>
         </div>
       </div>
@@ -3489,7 +3536,7 @@
      estimate and Team Activity's own tile: `OPERATION_CELL_ESTIMATE` /
      `WELCOME_SECONDS_PER_CELL` are the only two numbers either one is
      built from, just fed by real counts here instead of a static guess. */
-  const publicGenerateStats = { status: "idle", totalFiles: 0, savedHours: 0, savedMins: 0, byOperation: {}, settingsAutomated: 0 };
+  const publicGenerateStats = { status: "idle", totalFiles: 0, savedHours: 0, savedMins: 0, settingsAutomated: 0 };
   // status: "idle" | "checking" | "ready" | "error"
 
   async function loadPublicGenerateStats() {
@@ -3509,17 +3556,13 @@
       const settingsAutomated = await settingsRes.json();
       let totalFiles = 0;
       let totalSeconds = 0;
-      const byOperation = {};
       for (const row of rows) {
         totalFiles += row.cnt;
         totalSeconds += (OPERATION_CELL_ESTIMATE[row.module_id] || 0) * WELCOME_SECONDS_PER_CELL * row.cnt;
-        const op = OPERATIONS.find((o) => o.id === row.module_id);
-        byOperation[op ? op.label : row.module_id] = row.cnt;
       }
       publicGenerateStats.totalFiles = totalFiles;
       publicGenerateStats.savedHours = Math.floor(totalSeconds / 3600);
       publicGenerateStats.savedMins = Math.round((totalSeconds % 3600) / 60);
-      publicGenerateStats.byOperation = byOperation;
       publicGenerateStats.settingsAutomated = settingsAutomated;
       publicGenerateStats.status = "ready";
     } catch (e) {
@@ -3527,6 +3570,10 @@
     }
   }
 
+  /* The "By operation" breakdown (a per-operation bar list under the 3
+     stat tiles) is gone, 2026-09-28 — direct instruction, boxed on a
+     screenshot with nothing else said about it. `byOperation` is no
+     longer collected above either, since nothing else reads it. */
   function publicGenerateStatsHtml() {
     if (publicGenerateStats.status === "idle" || publicGenerateStats.status === "checking") {
       return `
@@ -3547,9 +3594,6 @@
           <div class="stat-tile"><span class="stat-value">${s.settingsAutomated}</span><span class="stat-label">settings modules automated into real companies</span></div>
           <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">estimated typing time that saved, at five seconds a cell</span></div>
         </div>
-        <div class="field-row" style="margin-top:6px; align-items:flex-start;">
-          <div class="field"><label>By operation</label>${barListHtml(s.byOperation)}</div>
-        </div>
       </div>
     `;
   }
@@ -3563,7 +3607,7 @@
 
        Reason  (badge "Dear certified lazy")   — why this exists
        Offer   (badge "Your prayers, answered (mostly)") — what it does
-       Scope   (badge "The fine print")        — what's automated vs. not
+       Scope   (badge "Not actually magic")    — what's automated vs. not
 
      laid out as a deliberate zigzag: Reason's copy sits left of a meme,
      Offer's copy sits right of one (mirrored, via .welcome-row-reverse),
@@ -3573,8 +3617,20 @@
      apart rather than folded into the same rhythm as the other two.
      The Hackerman clip (already licensed for this exact purpose, see
      app.css's own note below — now the user's own face composited into
-     it, 2026-09-28) is Offer's meme; Reason's is a plain placeholder —
-     a real image for that slot hasn't been picked yet. */
+     it, 2026-09-28) is Offer's meme; Reason's own slot — a plain
+     dashed-border placeholder for its whole life until now — is filled
+     the same day, direct instruction, with a real Tenor clip (a crying
+     cat giving a thumbs up, "OK" text and all — the user's own link).
+
+     Scope's badge was "The fine print" until the same day too — direct
+     feedback that it read too formal next to the other two's dry,
+     wry voice ("beshi formal lagtese, funny kisu koro baki gular
+     moto"). "Not actually magic" is Claude's own pick, not dictated —
+     picked to echo the section's own closing line ("So yes, one click.
+     Just not zero clicks. We're a bulk forge, not a mind reader."),
+     the same "propose options, land on one" latitude past creative
+     calls in this app have had (the 15th theme pool, "Friends," picked
+     freely the same way). */
   function welcomeTemplate() {
     return `
       <div class="welcome-headline-row">
@@ -3610,9 +3666,8 @@
             blamed for it.
           </p>
         </div>
-        <figure class="meme meme-placeholder" aria-label="Placeholder — a real image for this spot hasn't been picked yet">
-          <span class="meme-placeholder-mark">🖼️</span>
-          <span class="meme-placeholder-text">meme placeholder</span>
+        <figure class="meme" aria-label="A crying cat giving a thumbs up anyway — the exact energy of debugging someone else's broken shared company">
+          <video class="meme-img" src="assets/crying_cat_ok.mp4" loop muted playsinline autoplay></video>
         </figure>
       </div>
 
@@ -3650,7 +3705,7 @@
       </div>
 
       <div class="section welcome-scope">
-        <span class="welcome-badge">The fine print</span>
+        <span class="welcome-badge">Not actually magic</span>
         <p class="welcome-lede">Let's be honest about what "one click" actually means here.</p>
         <div class="field-row" style="margin-top:14px; align-items:flex-start;">
           <div class="field">

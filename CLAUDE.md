@@ -685,6 +685,133 @@ centre their own content inside it, rather than sitting top-aligned in
 a taller box. Confirmed by screenshot in both light and dark — the two
 boxes measure identical heights, no new hex values.
 
+**Rebuilt a third time the same day — the most important feedback of
+the whole pass, asked directly rather than fixed on the first guess**
+("kontar jonno koto value dekhaba" wasn't answered by Claude alone;
+"tomar kono idea ache jeta nile ekta ordinary user o bujhbe" — do you
+have an idea that would make even an ordinary user understand this —
+was asked back first). Revision #2's per-50-entries bar chart
+(58/33/29/17/4 min, a cells-x-seconds-per-cell formula) was the
+underlying problem: a formula-derived number, however internally
+consistent, doesn't read as *real* the way a dictated one does. Claude
+proposed three directions (a before/after comparison, a relatable
+time analogy, a "Nx faster" multiplier); the user picked before/after,
+then — rather than have Claude invent the "before" numbers from
+another formula — dictated them himself, operation by operation,
+confirmed one at a time, the same "confirm rules, never assume"
+discipline this whole project already holds itself to: how long 50
+entries actually takes fully by hand, how long with AI's help, and how
+long with Bulk Forge. `OPERATION_TIME_COMPARISON`/
+`SETTINGS_TIME_COMPARISON`/`WELCOME_OPERATION_ORDER` (`app-data.js`)
+hold these, replacing `OPERATION_CELLS_PER_ENTRY` and
+`SETTINGS_GROUP_TIME_ESTIMATE` outright (both deleted, not left dead):
+
+| Operation (50 entries) | By hand | With AI | Bulk Forge |
+|---|---|---|---|
+| Employee Add | 75–80 min | 10 min | 1 min |
+| Attendance Add | 80 min | 15 min | 2 min |
+| Leave Balance Add | 5–10 min | 5 min | 2 min |
+| Assets Add | 60–65 min | 5–7 min | 1 min |
+| Payroll Custom Field Add | 20 min | 5 min | 1 min |
+| Settings (whole company) | 37 min | *(no AI figure)* | ~1 min |
+
+**Settings has no "with AI" column, on purpose** — AI can't click
+through a company's own admin screens the way it can help type out
+rows of fake data, so a 3-way comparison would have been dishonest
+here. Its old merged `~67 min` stat tile (the sum of 6 per-group
+estimates) is a flat, directly dictated `37 min` now, not a formula
+total — "eta 37 min koro 67 er jaygay" — with the tile's own "min"
+capitalised to "Min" the same message also asked for ("Min er M boro
+haat er dao"), and a new line under it naming the Bulk Forge side too
+("Run defaults instead: ~1 min", `.numbers-bulkforge-line`), so
+Settings now reads as the same real comparison the Bulk side does
+rather than one number with nothing to measure it against.
+
+**The Bulk list is a real 3-column `.preview-table` now, not a bar
+chart** — reused as-is (Admin Panel's/Leave Balance's/Payroll's own
+component, not a new one). A bar's only real job is ranking, and
+ranking was never actually the point here; the numbers themselves (a
+Bulk Forge column reading "1 min" next to a By-hand column reading
+"75–80 min") are what a normal user can feel, which a bar's relative
+width never quite managed. **Row order is a fixed, dictated sequence**
+(`WELCOME_OPERATION_ORDER`: Employee Add, Attendance Add, Leave
+Balance Add, Assets Add, Payroll Custom Field Add) — not `OPERATIONS`'
+own declared order (which has Payroll before Assets) and not sorted by
+any value — applied to both the "What it does" list and the table, so
+the two always agree by construction rather than needing the
+descending-by-value sort revision #2 built (and this revision
+deletes) to keep them in sync.
+
+**A brand-new second section, "Add it all up,"** is the direct answer
+to a follow-up ask: run 50 of each Bulk operation plus one Settings
+"Run defaults," what's the real combined gap? `minutesMid()` turns
+each dictated `[low, high]` range into a real number (a single-value
+operation is just `[80, 80]`, midpoint 80); the section computes two
+totals live from the same source data, not a fresh guess — the "der-
+arai ghonta" (1.5–2.5 hours) figure the user had been estimating by
+feel came out noticeably lower than the real math once it existed, and
+he confirmed the real number rather than keeping the guess. Two totals,
+not one, since they're genuinely different claims:
+
+- **vs fully manual** (5 ops + Settings): `(sum of By-hand midpoints +
+  37) − (sum of Bulk Forge times + 1)` ≈ **4h 37m saved** — includes
+  Settings, since nobody's typing through 20 admin screens with AI's
+  help either.
+- **vs AI** (5 ops only): `(sum of With-AI midpoints) − (sum of Bulk
+  Forge times)` ≈ **34 min saved** — Bulk-only, the one place AI
+  genuinely competes.
+
+`formatHoursMinutes()` renders the first as `4h 37m` (over an hour) and
+the second as plain `34 min` (under one), same h/m-vs-plain-minutes
+convention `publicGenerateStatsHtml()`'s own tile already uses. Reuses
+`.stat-row`/`.stat-tile` as-is (`class="stat-row stat-row-2"` — a real
+bug caught in the first screenshot pass: `.stat-row-2` alone has no
+`display: grid` of its own, that comes from the base `.stat-row`
+class, so the two tiles rendered stacked instead of side-by-side until
+both classes were applied together, matching how `.stat-row-4` is
+already used elsewhere).
+
+**"So far, for real"'s own "By operation" breakdown (a bar list under
+its 3 stat tiles) is gone**, same pass — boxed on a screenshot with no
+further explanation needed. `byOperation` is no longer collected in
+`loadPublicGenerateStats()` either, since nothing else read it.
+
+**Two more items from the same list, both cosmetic, both on the
+Welcome page's other two sections:**
+
+- **Scope's own badge, "The fine print," read too formal next to
+  Reason's "Dear certified lazy" and Offer's "Your prayers, answered
+  (mostly)"** — direct feedback ("beshi formal lagtese. funny kisu
+  koro baki gular moto"). Renamed to **"Not actually magic"** — Claude's
+  own pick, not dictated, chosen to echo the section's own closing line
+  ("So yes, one click. Just not zero clicks. We're a bulk forge, not a
+  mind reader.") — the same propose-and-land-on-one latitude past
+  creative calls in this app have had (the 15th theme pool, "Friends,"
+  picked freely the same way).
+- **Reason's own meme slot — a plain dashed-border placeholder for its
+  whole life, deliberately left that way pending a real choice** — is
+  filled: `assets/crying_cat_ok.mp4`, a real Tenor clip (a crying cat
+  giving a thumbs up, "OK" text and all), the user's own link. The
+  first fetch from that link resolved to a *different* cat entirely (no
+  "OK" text, no thumbs up, confirmed by extracting frames across the
+  whole 9-second clip, not just the first one) — flagged back rather
+  than used blind; the user's own call was to use it anyway ("tumi link
+  er tai nao latest ta" — take whatever's actually there). Same
+  `<video loop muted playsinline autoplay>`/`.meme-img` treatment as
+  every other clip in this app. `.meme-placeholder` and its two child
+  classes are deleted outright, not left dead, since nothing else
+  reused that "hasn't been picked yet" shape.
+
+Confirmed by Playwright screenshot in both light and dark, no page
+errors: the comparison table renders all 5 operations in the fixed
+order with real By-hand/With-AI/Bulk-Forge values, the Settings tile
+reads `~37 Min` with the Run-defaults line under it, "Add it all up"
+shows `4h 37m`/`34 min` side by side once the `stat-row-2` bug above
+was caught and fixed, both memes play, and the new Scope badge renders
+correctly. Full 11-suite run (866 checks) green throughout — no test
+asserted on any of the removed bar-chart/By-operation/placeholder
+markup, so nothing needed updating on the test side.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,
