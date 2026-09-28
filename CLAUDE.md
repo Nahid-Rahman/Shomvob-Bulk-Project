@@ -853,6 +853,29 @@ visibly tinted panel with two full-contrast `.stat-tile`s sitting on
 top of it — no new hex values in either theme. Full 11-suite run green
 throughout, including the corrected "BS" assertions above.
 
+**"Add it all up"'s own "vs AI" figure got a 5th revision, same day**
+("eta 55 Min koro. ar Hour Min er H and M boro haat er koro" — make
+this 55 Min, and capitalise the H/M in Hour/Min). Two changes:
+
+- `formatHoursMinutes()`'s own output capitalised — `"4h 37m"` →
+  `"4H 37M"`, `"34 min"` → the same function's under-an-hour branch,
+  now `"N Min"` not `"N min"` — matching the Settings tile's own
+  `~37 Min` capitalisation from the message before this one.
+- **The "vs AI" figure is now a flat, directly dictated `55`**
+  (`WELCOME_VS_AI_SAVED_MIN`, `app-data.js`), not the live `AI total −
+  Bulk Forge total` computation (`34`) the table's own per-operation
+  numbers produce. Asked directly rather than assumed which one to
+  change: revise an operation's own AI estimate so the math produces
+  55, or just set the shown figure directly — the user's own call was
+  the second. The "vs fully manual" figure right next to it
+  (`vsManualSaved`) is untouched, still a real live computation from
+  the same per-operation table — only this one figure is now fixed,
+  and the code says so directly rather than leaving a future reader to
+  wonder why the table's own numbers don't sum to what's shown.
+
+Confirmed by screenshot: the box now reads `4H 37M` / `55 Min` side by
+side. Full 11-suite run green — no test referenced either exact string.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,

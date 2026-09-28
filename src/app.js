@@ -3418,7 +3418,7 @@
     const rounded = Math.round(totalMinutes);
     const h = Math.floor(rounded / 60);
     const m = rounded % 60;
-    return h > 0 ? `${h}h ${m}m` : `${m} min`;
+    return h > 0 ? `${h}H ${m}M` : `${m} Min`;
   }
   function welcomeChartsHtml() {
     const rows = WELCOME_OPERATION_ORDER.map((id) => ({
@@ -3429,9 +3429,6 @@
     const manualTotalAll = rows.reduce((sum, r) => sum + minutesMid(r.manual), 0) + SETTINGS_TIME_COMPARISON.manual;
     const bulkForgeTotalAll = rows.reduce((sum, r) => sum + r.bulkForge, 0) + SETTINGS_TIME_COMPARISON.bulkForge;
     const vsManualSaved = manualTotalAll - bulkForgeTotalAll;
-    const aiTotalOps = rows.reduce((sum, r) => sum + minutesMid(r.ai), 0);
-    const bulkForgeTotalOps = rows.reduce((sum, r) => sum + r.bulkForge, 0);
-    const vsAiSaved = aiTotalOps - bulkForgeTotalOps;
     const settingsGroupNames = SETTINGS_GROUPS.map((g) => g.label.replace(/ Settings$/, "")).join(", ");
     return `
       <div class="section">
@@ -3474,7 +3471,7 @@
               <span class="stat-label">Saved versus doing every bit of it by hand — Bulk and Settings both</span>
             </div>
             <div class="stat-tile">
-              <span class="stat-value">${formatHoursMinutes(vsAiSaved)}</span>
+              <span class="stat-value">${formatHoursMinutes(WELCOME_VS_AI_SAVED_MIN)}</span>
               <span class="stat-label">Saved versus using AI to help type it — Bulk operations only, since AI can't click through Settings for you</span>
             </div>
           </div>

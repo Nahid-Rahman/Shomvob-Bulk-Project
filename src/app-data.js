@@ -522,6 +522,15 @@ const SETTINGS_TIME_COMPARISON = { manual: 37, bulkForge: 1 };
    reordering this display never touches Operations nav order. */
 const WELCOME_OPERATION_ORDER = ["employee_add", "attendance_add", "leave_balance_add", "assets_add", "payroll_field_add"];
 
+/* "Add it all up"'s own "vs AI" saved figure (2026-09-28) — a flat,
+   directly dictated value ("eta 55 Min koro"), not computed from the
+   per-operation `ai` figures above the way it was on the first pass
+   (that math gave 34 min; the user's own call was to set the shown
+   figure directly rather than revise any operation's own AI number to
+   make the math produce 55). The "vs fully manual" figure right next
+   to it stays a real live computation — only this one is fixed. */
+const WELCOME_VS_AI_SAVED_MIN = 55;
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },
