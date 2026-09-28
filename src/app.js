@@ -3408,15 +3408,23 @@
             <label>What it does</label>
             <p class="section-note" style="margin:8px 0 4px">Bulk</p>
             <ul class="scope-list">${bulkWhatItDoes.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>
-            <p class="section-note" style="margin:12px 0 4px">Settings</p>
-            <ul class="scope-list"><li>Company's Settings Setup — ${escapeHtml(settingsGroupNames)}</li></ul>
           </div>
           <div class="field">
             <label>Time saved, at a real per-task estimate</label>
             <p class="section-note" style="margin:8px 0 4px">Bulk, minutes saved per 50 entries</p>
             ${barListHtml(bulkMinutesPer50)}
-            <p class="section-note" style="margin:12px 0 4px">Settings, running every default once</p>
-            <div class="stat-tile" style="margin-top:4px">
+          </div>
+        </div>
+        <div class="field-row numbers-settings-row" style="margin-top:18px;">
+          <div>
+            <p class="section-note" style="margin:0 0 6px">Settings</p>
+            <div class="numbers-settings-box">
+              <p>Company's Settings Setup — ${escapeHtml(settingsGroupNames)}</p>
+            </div>
+          </div>
+          <div>
+            <p class="section-note" style="margin:0 0 6px">Settings, running every default once</p>
+            <div class="stat-tile">
               <span class="stat-value">~${settingsTotalMinutes} min</span>
               <span class="stat-label">Across all 6 groups — Company Profile, Locations, Departments, Attendance Policy, Leave Types, Payroll and the rest — configured by hand instead of in one click.</span>
             </div>

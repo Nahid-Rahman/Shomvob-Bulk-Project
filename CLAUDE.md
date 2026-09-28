@@ -655,13 +655,35 @@ this a combined name): naming Settings' own time as one merged stat
 (above) but still listing its 6 groups one bullet each on the left was
 half-finished — the same "merge it, don't show it broken up" reasoning
 from the fix above, just not yet carried over to this side. The 6-item
-`<ul>` is now a single line, `"A whole company's setup — Company,
-Employee, Attendance, Schedule Management, Leave, Payroll"` — each
-group's own label with a trailing " Settings" trimmed off
-(`.replace(/ Settings$/, "")`), read live from `SETTINGS_GROUPS` same
-as before, not a hardcoded string. Bulk's own 5-item list is untouched
-— it wasn't the one boxed, and 5 genuinely distinct operations read
-fine itemized the way 6 nearly-equal Settings groups didn't.
+`<ul>` is now a single line, read live from `SETTINGS_GROUPS` (each
+group's own label with a trailing " Settings" trimmed off,
+`.replace(/ Settings$/, "")`), not a hardcoded string — renamed once
+more the same day, direct instruction ("Company's Settings Setup ei
+name dao"), to the line's current wording, `"Company's Settings Setup
+— Company, Employee, Attendance, Schedule Management, Leave,
+Payroll"`. Bulk's own 5-item list is untouched — it wasn't the one
+boxed, and 5 genuinely distinct operations read fine itemized the way
+6 nearly-equal Settings groups didn't.
+
+**That combined line then needed real alignment against the stat tile
+beside it, not just approximate spacing** — a follow-up screenshot
+boxed both the Settings line and its neighbouring `~67 min` tile
+together, with an arrow pointing up: "lekha ta majh align koro daan
+pash er date er sathe. lagle data te jemon ekta alada shade e diso ota
+dao" (centre this text against the data on the right; give it a
+similar shaded box too, if needed). The Settings row is now its own
+`.field-row` (`numbers-settings-row`), separate from the Bulk row
+above it — splitting what was one shared two-column `.field` (Bulk
+then Settings stacked inside each column) into two independent grid
+rows was the actual fix, not a manual margin guess: a CSS Grid row
+always sizes both its cells to the tallest one, so the left
+`.numbers-settings-box` (new — same border/background/radius as
+`.stat-tile`, the "shade" asked for) and the right `.stat-tile`
+genuinely share one height, and both use `flex; align-items:center` (`
+justify-content:center` for the tile's own value+label stack) to
+centre their own content inside it, rather than sitting top-aligned in
+a taller box. Confirmed by screenshot in both light and dark — the two
+boxes measure identical heights, no new hex values.
 
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"

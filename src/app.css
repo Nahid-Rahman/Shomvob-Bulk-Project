@@ -1544,6 +1544,28 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--text-faint);
 }
 
+/* "By the numbers"' Settings row (2026-09-28) — its own 2-column grid
+   row, separate from the Bulk row above it, so the left "Company's
+   Settings Setup" line and the right ~N min .stat-tile share exactly
+   the same row height (a CSS Grid row always sizes to its tallest
+   cell) and both centre their own content inside that shared height —
+   direct feedback against a screenshot ("lekha ta majh align koro daan
+   pash er date er sathe... alada shade e dio" — centre the text against
+   the right side's box, give it a similar shaded box too). */
+.numbers-settings-row { align-items: stretch; }
+.numbers-settings-row > div { display: flex; flex-direction: column; }
+.numbers-settings-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px;
+}
+.numbers-settings-box p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-muted); }
+.numbers-settings-row .stat-tile { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+
 .how-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 22px; }
 .how-step {
   display: inline-flex;
