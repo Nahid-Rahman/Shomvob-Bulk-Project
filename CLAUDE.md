@@ -609,6 +609,20 @@ headline-row`'s own `justify-content: center`. Both fixed together:
 `.how-row` gets `justify-content: center`; step 1's text now reads
 "Sign in to Bulk Forge", byte-for-byte matching the button.
 
+**Logo bigger, Reason's own opening line reworded, 2026-09-28** — two
+more direct asks against a screenshot with the logo circled: it read too
+small next to the big headline, and "Here's what actually happens: a
+dev needs test data..." read as an oddly formal preamble rather than a
+natural hook. `.welcome-headline-logo` grew from 40px to 56px (padding
+8px, was 6px, so the white tile still frames it proportionally).
+Reworded, after weighing two directions and picking the wrier one:
+"Nobody wants to prep their own test data. Ever. A dev needs some, so
+they beg QA to make it, or grumble their way through three fake
+employees themselves." — drops the "Here's what actually happens:"
+framing device entirely rather than softening it, landing the same
+"nobody actually does this" point as its own punchy opening beat
+instead of a stated premise.
+
 Two things about it worth keeping:
 
 - **All UI copy is English**, with a dry, lightly self-deprecating tone

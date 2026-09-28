@@ -1394,7 +1394,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    needs a white backing to read as a tile rather than a stray white
    box, on both light and dark. Smaller than the sidebar's own 92px —
    this sits beside a headline, not alone in a corner. */
-.welcome-headline-logo { display: block; width: 40px; height: auto; padding: 6px; border-radius: var(--radius-sm); background: #ffffff; border: 1px solid var(--border); }
+.welcome-headline-logo { display: block; width: 56px; height: auto; padding: 8px; border-radius: var(--radius-sm); background: #ffffff; border: 1px solid var(--border); }
 .welcome-headline {
   text-align: center;
   font-size: 32px;

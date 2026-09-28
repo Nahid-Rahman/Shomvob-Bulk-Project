@@ -3519,9 +3519,9 @@
         <div class="welcome-copy">
           <span class="welcome-badge">Dear certified lazy</span>
           <p class="welcome-lede">
-            Here's what actually happens: a dev needs test data, so they
-            either beg QA to make it, or grumble their way through three
-            fake employees themselves. Nobody spins up their own company
+            Nobody wants to prep their own test data. Ever. A dev needs
+            some, so they beg QA to make it, or grumble their way through
+            three fake employees themselves. Nobody spins up their own company
             for this — everyone quietly works out of the same one or two
             shared accounts, because properly setting one up (departments,
             leave policies, payroll, the works) takes about two to
