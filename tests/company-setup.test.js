@@ -3649,9 +3649,9 @@ async function toGrid(page, companyName = "Hogwarts") {
     check("BS shows the admin-only label", text.includes("admin only"));
     const tiles = await page.locator(".stat-row-4 .stat-tile").allTextContents();
     check("BS 4 real stat tiles render (not the default 3)", tiles.length === 4);
-    check("BS total logins tile is 3", tiles[0].startsWith("3") && tiles[0].includes("tool sign-ins"));
-    check("BS total settings saved tile is 3", tiles[1].startsWith("3") && tiles[1].includes("settings saved"));
-    check("BS total bulk generated tile is 3", tiles[2].startsWith("3") && tiles[2].includes("bulk files generated"));
+    check("BS total logins tile is 3", tiles[0].startsWith("3") && tiles[0].includes("Tool sign-ins"));
+    check("BS total settings saved tile is 3", tiles[1].startsWith("3") && tiles[1].includes("Settings saved"));
+    check("BS total bulk generated tile is 3", tiles[2].startsWith("3") && tiles[2].includes("Bulk files generated"));
     // 2 employee_add (4200 cells each) + 1 assets_add (35000 cells) = 43,400 cells x 5s = 217,000s = 60h 16m 40s -> 60h 17m rounded
     check("BS estimated time-saved tile matches the real math", text.includes("60h 17m"));
     check("BS operation breakdown names both real operations", text.includes("Employee Add") && text.includes("Assets Add"));

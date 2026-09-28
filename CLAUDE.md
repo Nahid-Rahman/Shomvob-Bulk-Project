@@ -812,6 +812,47 @@ correctly. Full 11-suite run (866 checks) green throughout — no test
 asserted on any of the removed bar-chart/By-operation/placeholder
 markup, so nothing needed updating on the test side.
 
+**Every stat-label description across the whole app was still
+lowercase-first, boxed with 5 arrows on a follow-up screenshot** ("shob
+boro haat er diye shuru korba" — start all of them with a capital
+letter): all 10 `.stat-label` spans in `app.js` — "Add it all up"'s own
+2, "So far, for real"'s 3, and "Team activity"'s 4 (not visible in that
+screenshot, admin-only, but the same class everywhere it appears) — now
+read "Saved versus…"/"Real bulk files generated"/"Tool sign-ins"/etc.
+`company-setup.test.js`'s own "BS" block asserted the old lowercase
+text verbatim (`.includes("tool sign-ins")` etc.) and had to be updated
+to match — a real, caught-before-push regression, not a style-only
+change with no test impact.
+
+**Revised a 4th time minutes later, same day, two more direct
+corrections against the very next screenshot.** First: "table tai pura
+section e hobe. otai shundor lagtese" (the table alone will be the
+whole section, that's what looks nicest) — the "What it does" bullet
+list is gone outright (the table's own Operation column already names
+every row) and Settings' own separate 2-column row (the "Company's
+Settings Setup" box + its own `~37 Min` stat tile) is folded into the
+*same* table as a final row — "Settings (whole company)" with a `—` in
+the With-AI column, since AI can't click through admin screens. The
+6-group breakdown that used to live in that box is now a plain caption
+under the table instead. Second: "ekhon ekdom alada section banaiso
+keno? eta ei section er moddhei just alada shade e dekhate bolsi" (why
+a whole separate section here — I said to show it inside this same
+section, just in a different shade) — "Add it all up" was never meant
+to be its own `.section` card, the way revision #3 had just built it.
+`.numbers-addup-box` (`app.css`) is the "different shade" instead — a
+`var(--accent-soft)`-tinted panel sitting *inside* "By the numbers",
+not a second bordered card, with `.stat-tile`'s own white/dark surface
+reading as a real card-on-tint contrast against it, no changes needed
+there. The whole section is one `.section` again, the same way it was
+before revision #2 ever split it into two.
+
+Confirmed by a second Playwright screenshot pass, both themes: one
+`.preview-table` now holds all 6 rows (5 Bulk + Settings), the caption
+line names all 6 Settings groups, and `.numbers-addup-box` renders as a
+visibly tinted panel with two full-contrast `.stat-tile`s sitting on
+top of it — no new hex values in either theme. Full 11-suite run green
+throughout, including the corrected "BS" assertions above.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,

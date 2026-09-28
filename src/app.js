@@ -3388,7 +3388,26 @@
      estimate. Two totals, not one, since "vs AI" and "vs fully manual"
      are genuinely different claims: vs fully manual includes Settings
      (nobody's typing through 20 admin screens with AI's help either),
-     vs AI is Bulk-only (the one place AI genuinely competes). */
+     vs AI is Bulk-only (the one place AI genuinely competes).
+
+     Revised a 4th time minutes later, same day, two more direct
+     corrections against the very next screenshot: (1) "table tai pura
+     section e hobe. otai shundor lagtese" — the "What it does" bullet
+     list is gone outright and Settings' own separate 2-column row (the
+     "Company's Settings Setup" box + its own `~37 Min` stat tile) is
+     gone too, both folded into the *one* table as its final row — the
+     table's Operation column already names every row, so the bullet
+     list was pure duplication, and Settings reads as "Settings (whole
+     company)" with a `—` in the With-AI column rather than a whole
+     second layout just for one more row. The 6-group breakdown that
+     used to live in that box is now a plain caption under the table
+     instead of a box of its own. (2) "ekhon ekdom alada section
+     banaiso keno? eta ei section er moddhei just alada shade e
+     dekhate bolsi" — "Add it all up" was never meant to be its own
+     `.section` card; it's `.numbers-addup-box` now, a tinted panel
+     *inside* the same "By the numbers" card (see app.css's own note on
+     that class), so the whole thing is one section again, the same way
+     it was before revision #2 ever split it into two. */
   function minutesMid(range) {
     return (range[0] + range[1]) / 2;
   }
@@ -3418,63 +3437,46 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>By the numbers</h2></div>
         <p class="section-note">Static facts about what this tool actually covers — nothing here needs a real sign-in.</p>
-        <div class="field-row" style="margin-top:6px; align-items:flex-start;">
-          <div class="field">
-            <label>What it does</label>
-            <p class="section-note" style="margin:8px 0 4px">Bulk</p>
-            <ul class="scope-list">${rows.map((r) => `<li>${escapeHtml(r.label)}</li>`).join("")}</ul>
-          </div>
-          <div class="field">
-            <label>Time saved, at a real per-task estimate (50 entries)</label>
-            <div class="preview-table-wrap" style="margin-top:8px">
-              <table class="preview-table">
-                <thead><tr>
-                  <th>Operation</th><th class="num">By hand</th><th class="num">With AI</th><th class="num">Bulk Forge</th>
-                </tr></thead>
-                <tbody>
-                  ${rows
-                    .map(
-                      (r) => `<tr>
-                    <td>${escapeHtml(r.label)}</td>
-                    <td class="num">${formatMinRange(r.manual)}</td>
-                    <td class="num">${formatMinRange(r.ai)}</td>
-                    <td class="num strong">${r.bulkForge} min</td>
-                  </tr>`
-                    )
-                    .join("")}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        <label style="margin-top:6px; display:block">Time saved, at a real per-task estimate</label>
+        <div class="preview-table-wrap" style="margin-top:8px">
+          <table class="preview-table">
+            <thead><tr>
+              <th>Operation</th><th class="num">By hand</th><th class="num">With AI</th><th class="num">Bulk Forge</th>
+            </tr></thead>
+            <tbody>
+              ${rows
+                .map(
+                  (r) => `<tr>
+                <td>${escapeHtml(r.label)} <span class="faint">(50 entries)</span></td>
+                <td class="num">${formatMinRange(r.manual)}</td>
+                <td class="num">${formatMinRange(r.ai)}</td>
+                <td class="num strong">${r.bulkForge} min</td>
+              </tr>`
+                )
+                .join("")}
+              <tr>
+                <td>Settings <span class="faint">(whole company)</span></td>
+                <td class="num">${SETTINGS_TIME_COMPARISON.manual} min</td>
+                <td class="num faint">—</td>
+                <td class="num strong">${SETTINGS_TIME_COMPARISON.bulkForge} min</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div class="field-row numbers-settings-row" style="margin-top:18px;">
-          <div>
-            <p class="section-note" style="margin:0 0 6px">Settings</p>
-            <div class="numbers-settings-box">
-              <p>Company's Settings Setup — ${escapeHtml(settingsGroupNames)}</p>
-            </div>
-          </div>
-          <div>
-            <p class="section-note" style="margin:0 0 6px">Settings, running every default once</p>
+        <p class="section-note" style="margin-top:8px">Settings covers all 6 groups in one "Run defaults" click — ${escapeHtml(settingsGroupNames)}. AI can't click through those admin screens for you, so there's no "With AI" figure for that row.</p>
+
+        <div class="numbers-addup-box">
+          <p class="numbers-addup-title">Add it all up</p>
+          <p class="section-note">50 of each Bulk operation above, plus one Settings "Run defaults" — the real combined gap.</p>
+          <div class="stat-row stat-row-2" style="margin-top:8px">
             <div class="stat-tile">
-              <span class="stat-value">~${SETTINGS_TIME_COMPARISON.manual} Min</span>
-              <span class="stat-label">By hand, across all 6 groups — Company Profile, Locations, Departments, Attendance Policy, Leave Types, Payroll and the rest.</span>
-              <p class="numbers-bulkforge-line">Run defaults instead: <b>~${SETTINGS_TIME_COMPARISON.bulkForge} min</b></p>
+              <span class="stat-value">${formatHoursMinutes(vsManualSaved)}</span>
+              <span class="stat-label">Saved versus doing every bit of it by hand — Bulk and Settings both</span>
             </div>
-          </div>
-        </div>
-      </div>
-      <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>Add it all up</h2></div>
-        <p class="section-note">50 of each Bulk operation above, plus one Settings "Run defaults" — the real combined gap.</p>
-        <div class="stat-row stat-row-2" style="margin-top:8px">
-          <div class="stat-tile">
-            <span class="stat-value">${formatHoursMinutes(vsManualSaved)}</span>
-            <span class="stat-label">saved versus doing every bit of it by hand — Bulk and Settings both</span>
-          </div>
-          <div class="stat-tile">
-            <span class="stat-value">${formatHoursMinutes(vsAiSaved)}</span>
-            <span class="stat-label">saved versus using AI to help type it — Bulk operations only, since AI can't click through Settings for you</span>
+            <div class="stat-tile">
+              <span class="stat-value">${formatHoursMinutes(vsAiSaved)}</span>
+              <span class="stat-label">Saved versus using AI to help type it — Bulk operations only, since AI can't click through Settings for you</span>
+            </div>
           </div>
         </div>
       </div>
@@ -3505,10 +3507,10 @@
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>Team activity <span style="font-weight:400; font-size:11.5px; color:var(--text-faint)">— admin only</span></h2></div>
         <p class="section-note">Real usage across the team, pulled straight from this tool's own activity log.</p>
         <div class="stat-row stat-row-4">
-          <div class="stat-tile"><span class="stat-value">${s.totalLogins}</span><span class="stat-label">tool sign-ins</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.totalSettingsSaved}</span><span class="stat-label">settings saved into real companies</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.totalBulkGenerated}</span><span class="stat-label">bulk files generated</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">estimated time those bulk files saved, at five seconds a cell</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalLogins}</span><span class="stat-label">Tool sign-ins</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalSettingsSaved}</span><span class="stat-label">Settings saved into real companies</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalBulkGenerated}</span><span class="stat-label">Bulk files generated</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">Estimated time those bulk files saved, at five seconds a cell</span></div>
         </div>
         <div class="field-row" style="margin-top:6px; align-items:flex-start;">
           <div class="field"><label>Bulk generates by operation</label>${barListHtml(s.bulkByOperation)}</div>
@@ -3590,9 +3592,9 @@
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>So far, for real</h2></div>
         <p class="section-note">Actual usage, pulled straight from this tool's own activity log — no sign-in needed to see it.</p>
         <div class="stat-row">
-          <div class="stat-tile"><span class="stat-value">${s.totalFiles}</span><span class="stat-label">real bulk files generated</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.settingsAutomated}</span><span class="stat-label">settings modules automated into real companies</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">estimated typing time that saved, at five seconds a cell</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalFiles}</span><span class="stat-label">Real bulk files generated</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.settingsAutomated}</span><span class="stat-label">Settings modules automated into real companies</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">Estimated typing time that saved, at five seconds a cell</span></div>
         </div>
       </div>
     `;
