@@ -6,6 +6,32 @@ here instead of only saying it out loud, and delete it once it's done
 (pull the latest before checking — another machine may have finished it,
 or added more).
 
+- **Welcome page confirmed 100% done, 2026-09-28** — every open item
+  the "Not started" bullet below used to list against the pre-signin
+  page is closed; see CLAUDE.md's own long revision history under
+  "Welcome page rewritten through discussion..." and "'By the
+  numbers' got asked about again..." for the full detail up through
+  its 5th revision (real dictated before/after numbers, one unified
+  table + Settings row, "Add it all up" folded into the same section
+  as a tinted panel, capitalised stat labels/units). **Next up: the
+  post-login Dashboard page itself** — see the "Not started" bullet
+  further down; the user will guide this step by step, don't start
+  unprompted.
+- **A 2-page CXO impact report, requested by the user's lead
+  (2026-09-28), not started** — "amar lead ekta report chaise 2 page
+  er jekhane ami amar kaj er impact and etar jonno ki ki upokar
+  pacchi ki ki help hobe shob include kore dite bolse jeta CXO der
+  dekhabe... graph diye bujhano lagbe... 2 page max" (my lead wants a
+  2-page report covering my work's impact and what benefits it's
+  providing, to show the CXOs, with graphs — strict 2-page max).
+  Explicitly **deferred until after the Dashboard is built** — "Report
+  check to pore korbo aro" (I'll go through the report requirements
+  later). Whoever picks this up: don't start drafting without the
+  user's own concrete brief on what impact numbers/graphs to include —
+  this app's own real data (`audit_log`, the Welcome page's "So far,
+  for real"/"By the numbers" sections) is the obvious source, but
+  which figures matter to a CXO audience is a business call, not an
+  engineering one — ask rather than assume.
 - Report validation
 - Lead feedback, relayed directly (2026-09-24) — three related asks,
   **all need a real backend + database**, a genuine architecture change
