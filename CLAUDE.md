@@ -649,6 +649,20 @@ still exists; the Settings stat tile reads `~67 min` with no new hex
 values (`.stat-tile`/`.stat-value`/`.stat-label`, reused as-is from
 "So far, for real"'s own tiles). Full 11-suite run green throughout.
 
+**The Settings "What it does" list was still 6 separate bullets, boxed
+on a follow-up screenshot** ("eitar ekta combined name dao" — give
+this a combined name): naming Settings' own time as one merged stat
+(above) but still listing its 6 groups one bullet each on the left was
+half-finished — the same "merge it, don't show it broken up" reasoning
+from the fix above, just not yet carried over to this side. The 6-item
+`<ul>` is now a single line, `"A whole company's setup — Company,
+Employee, Attendance, Schedule Management, Leave, Payroll"` — each
+group's own label with a trailing " Settings" trimmed off
+(`.replace(/ Settings$/, "")`), read live from `SETTINGS_GROUPS` same
+as before, not a hardcoded string. Bulk's own 5-item list is untouched
+— it wasn't the one boxed, and 5 genuinely distinct operations read
+fine itemized the way 6 nearly-equal Settings groups didn't.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,

@@ -3398,7 +3398,7 @@
     const bulkWhatItDoes = Object.entries(bulkMinutesPer50)
       .sort((a, b) => b[1] - a[1])
       .map(([label]) => label);
-    const settingsWhatItDoes = SETTINGS_GROUPS.map((g) => g.label);
+    const settingsGroupNames = SETTINGS_GROUPS.map((g) => g.label.replace(/ Settings$/, "")).join(", ");
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>By the numbers</h2></div>
@@ -3409,7 +3409,7 @@
             <p class="section-note" style="margin:8px 0 4px">Bulk</p>
             <ul class="scope-list">${bulkWhatItDoes.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>
             <p class="section-note" style="margin:12px 0 4px">Settings</p>
-            <ul class="scope-list">${settingsWhatItDoes.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>
+            <ul class="scope-list"><li>A whole company's setup — ${escapeHtml(settingsGroupNames)}</li></ul>
           </div>
           <div class="field">
             <label>Time saved, at a real per-task estimate</label>
