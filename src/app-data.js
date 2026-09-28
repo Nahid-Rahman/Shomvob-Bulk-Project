@@ -484,6 +484,26 @@ const OPERATION_CELL_ESTIMATE = {
   assets_add: 35000, // 7 columns x up to 5,000 rows
 };
 
+/* "So far, for real"'s Settings-side counterpart to OPERATION_CELL_ESTIMATE
+   above (2026-09-28, Welcome page's "By the numbers" simplification) —
+   in minutes directly, not cells x a rate, since a settings module isn't
+   measured in cells at all. The user's own dictated estimate, not a
+   guess: per-module manual time (a real admin-screen field count and
+   whether it loops a real bulk create, e.g. Designation's 5 departments
+   x ~3.5 designations each) summed per SETTINGS_GROUPS group. Two of
+   Payroll's 11 modules (Overtime, Attendance Bonus) weren't given an
+   explicit number and are folded into a reasonable estimate alongside
+   the ones that were, flagged as such rather than silently guessed —
+   see CLAUDE.md's own note on this section for the full per-module math. */
+const SETTINGS_GROUP_TIME_ESTIMATE = {
+  company: 32,
+  employee: 2,
+  attendance: 2,
+  schedule: 3,
+  leave: 9,
+  payroll: 19,
+};
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },

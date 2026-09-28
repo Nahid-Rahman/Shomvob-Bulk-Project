@@ -532,6 +532,70 @@ Confirmed by Playwright screenshot in both themes, at both 1920px and a
 the meme centring and the button sizing (not just eyeballed) — full
 11-suite run green throughout.
 
+**"By the numbers" got asked about again the next day, revised into a
+real redesign, not just left as noted — direct feedback against a
+screenshot: "ei section ta onek khet ar complex lagtese."** The actual
+cause, worked out through discussion rather than guessed at: **"Cells
+per operation" and "Minutes saved per operation" were two separate bar
+charts showing the same ranking twice** — minutes is just cells x a
+fixed rate (`WELCOME_SECONDS_PER_CELL`), so the two lists were always
+going to have identical relative bar lengths, just different units,
+which read as confusing duplication rather than two distinct facts.
+
+Rebuilt as two columns instead of three, once the user proposed the
+actual shape directly: **"What it does"** (a plain bulleted list, no
+bars — the 5 Bulk operations and the 6 real `SETTINGS_GROUPS` groups,
+read live from `OPERATIONS`/`SETTINGS_GROUPS` rather than a duplicated
+string list) and **"Time saved"** (real minutes — Bulk and Settings
+each as their *own* `barListHtml()` call, not one shared scale).
+**Deliberately not one combined chart**, flagged directly before
+building: Bulk's own minutes run into the thousands (a whole file's
+worth of manual typing) while a single Settings group's is tens of
+minutes (clicking through admin screens) — a ~100x gap that would make
+every Settings bar an invisible sliver next to Bulk's on one shared
+axis. "Built from scratch vs. filled into an export" (the old 3rd
+column) is gone outright, not folded in — it was never load-bearing to
+either the original complaint or the new shape, and a 3rd chart just
+for that distinction would have reintroduced the same "onek khet"
+problem this rebuild exists to fix.
+
+**A new number needed for this: how much a Settings group saves,
+which nothing in this app had ever estimated before** (only Bulk's
+per-operation cells-to-seconds math existed). The user dictated real,
+considered per-module estimates rather than have Claude guess a
+business number — the same "confirm rules, never assume" discipline
+this whole project holds itself to — based on each real admin screen's
+actual field count and whether it loops a real bulk create:
+
+| Settings group | Real basis | Minutes |
+|---|---|---|
+| Company Settings | Profile 3–4min + Bank Info 3min + Locations 3min + 5 departments x 1min + (5 x ~3.5 designations) x 1min | 32 |
+| Employee Settings | Custom Fields 1min + Required Documents 1min (neither has a real bulk default, so one of each) | 2 |
+| Attendance Settings | Attendance Policy 2min | 2 |
+| Schedule Management | Roster + Roster Pattern combined | 3 |
+| Leave Settings | 3 leave types x 2min + Leave Policy 2min + Holiday Calendar 1min | 9 |
+| Payroll Settings | General 2 + Salary (Components/Configure) 3–4 + Deduction (Late Arrival/Absent) 1–3 + Bonus (Types/Policy) 4 + Custom Addition/Deduction 3 + Tax 1 | 19 |
+
+`SETTINGS_GROUP_TIME_ESTIMATE` (`app-data.js`) holds these, mirroring
+`OPERATION_CELL_ESTIMATE`'s own shape. **Two of Payroll's 11 modules —
+Overtime and Attendance Bonus — were never given an explicit number in
+the dictation**; folded into Payroll's own 19-minute total as a
+judgment-call estimate (~2min, ~1.5min) consistent with the granularity
+of everything else in that row, flagged back to the user rather than
+silently absorbed — revisit if a real number for either surfaces later.
+Total across all 6 groups (~67 min) lines up plausibly against the
+Reason section's own already-confirmed "two to two-and-a-half hours"
+figure for the *whole* company (Bulk's own manual-typing time filling
+the rest of that range) — a sanity check, not a claim the two numbers
+were derived from each other.
+
+Confirmed by a fresh Playwright screenshot at 1440px: both bar lists
+render at readable, proportional widths within their own scale, the
+list column shows all 5 Bulk operations and 6 Settings groups correctly
+sourced from live data, and the section reads as two clear halves
+rather than three cramped ones. Full 11-suite run green throughout —
+no test referenced the removed columns' own text.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,

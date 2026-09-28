@@ -3334,29 +3334,56 @@
       .join("")}</div>`;
   }
 
-  /* Dashboard's public "By the numbers" charts (2026-09-25 redesign) —
-     unlike "Team activity" below, these need no sign-in and no network
-     call at all: every number here is static data this file already
-     ships (OPERATION_CELL_ESTIMATE, the same figures the old 3-tile
-     stat row and each op-card's own "by hand" cost line already showed).
-     Reuses barListHtml() as-is rather than a second bar component. */
+  /* Dashboard's public "By the numbers" charts (2026-09-25 redesign),
+     simplified 2026-09-28 — direct feedback against a screenshot: the
+     original 3-column version had "Cells per operation" and "Minutes
+     saved per operation" as two separate bar charts that were nearly
+     impossible to tell apart, since minutes is just cells x a fixed
+     rate — same ranking, same relative bar lengths, just a different
+     unit. Rebuilt as two columns instead of three: "What it does" (a
+     plain list, no bars — the 5 Bulk operations and the 6 real Settings
+     groups, reusing OPERATIONS/SETTINGS_GROUPS directly rather than a
+     duplicated string list) and "Time saved" (real minutes, Bulk and
+     Settings each as their own bar list rather than one shared scale —
+     Bulk's own minutes run into the thousands (a whole file's worth of
+     manual typing) while a single Settings group's is tens of minutes
+     (clicking through admin screens), a ~100x gap that would make every
+     Settings bar an invisible sliver next to Bulk's if forced onto one
+     shared axis). "Built from scratch vs. filled into an export" is
+     gone outright — the point of this section was never chart count,
+     and a 3rd chart just for that distinction reintroduced exactly the
+     "onek khet ar complex" complaint that started this rebuild. */
   function welcomeChartsHtml() {
-    const cellCounts = {};
-    const minuteCounts = {};
+    const bulkWhatItDoes = OPERATIONS.map((op) => op.label);
+    const settingsWhatItDoes = SETTINGS_GROUPS.map((g) => g.label);
+    const bulkMinutes = {};
     OPERATIONS.forEach((op) => {
       const cells = OPERATION_CELL_ESTIMATE[op.id] || 0;
-      cellCounts[op.label] = cells;
-      minuteCounts[op.label] = Math.round((cells * WELCOME_SECONDS_PER_CELL) / 60);
+      bulkMinutes[op.label] = Math.round((cells * WELCOME_SECONDS_PER_CELL) / 60);
     });
-    const shapeCounts = { "Build from scratch": 3, "Fill an existing export": 2 };
+    const settingsMinutes = {};
+    SETTINGS_GROUPS.forEach((g) => {
+      settingsMinutes[g.label] = SETTINGS_GROUP_TIME_ESTIMATE[g.id] || 0;
+    });
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>By the numbers</h2></div>
-        <p class="section-note">Static facts about the five operations themselves — nothing here needs a real sign-in.</p>
-        <div class="field-row field-row-3">
-          <div class="field"><label>Cells per operation, by hand</label>${barListHtml(cellCounts)}</div>
-          <div class="field"><label>Minutes saved per operation, at five seconds a cell</label>${barListHtml(minuteCounts)}</div>
-          <div class="field"><label>Built from scratch vs. filled into an export</label>${barListHtml(shapeCounts)}</div>
+        <p class="section-note">Static facts about what this tool actually covers — nothing here needs a real sign-in.</p>
+        <div class="field-row" style="margin-top:6px; align-items:flex-start;">
+          <div class="field">
+            <label>What it does</label>
+            <p class="section-note" style="margin:8px 0 4px">Bulk</p>
+            <ul class="scope-list">${bulkWhatItDoes.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>
+            <p class="section-note" style="margin:12px 0 4px">Settings</p>
+            <ul class="scope-list">${settingsWhatItDoes.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>
+          </div>
+          <div class="field">
+            <label>Time saved, at a real per-task estimate</label>
+            <p class="section-note" style="margin:8px 0 4px">Bulk, in minutes</p>
+            ${barListHtml(bulkMinutes)}
+            <p class="section-note" style="margin:12px 0 4px">Settings, in minutes</p>
+            ${barListHtml(settingsMinutes)}
+          </div>
         </div>
       </div>
     `;
