@@ -183,9 +183,15 @@ function mockTier(page, tier) {
     check("E Company Setup stays enabled", !(await page.locator('.op-item:has-text("Company Setup")').isDisabled()));
     /* A real sign-in now lands on the Dashboard, not the Welcome page
        (2026-09-29) — #welcomeBarNote is Welcome-page-only UI, so this
-       check needs the visitor to have actually navigated there first,
-       same as a signed-in visitor genuinely revisiting it would. */
-    await page.click('.op-item:has-text("Welcome")');
+       check needs the visitor to have actually navigated there first.
+       Welcome's own sidebar item is gone as of the same day ("login
+       korar por welcome page ta ar dekhano uchit na" — showing the
+       public landing page to someone already signed in was a real
+       loophole) — Back reaches the exact same page a real signed-in
+       visitor could still land on this way: the history here is just
+       [welcome (from init()), dashboard (replaces the gate's own entry
+       on a successful sign-in)], so one goBack() returns to Welcome. */
+    await page.goBack();
     await page.waitForSelector("#welcomeBarNote");
     check("E the sticky bar's own note reflects the real tier", (await page.textContent("#welcomeBarNote")).includes("Company Setup is unlocked") && (await page.textContent("#welcomeBarNote")).includes("doesn't include Operations"));
     check("E no page errors", errs.length === 0, errs.join(" | "));
@@ -213,9 +219,8 @@ function mockTier(page, tier) {
 
     check("F Company Setup is disabled", await page.locator('.op-item:has-text("Company Setup")').isDisabled());
     check("F Operations stay enabled", !(await page.locator('.op-item:has-text("Employee Add")').isDisabled()));
-    /* Same as block E above — a real sign-in lands on the Dashboard now,
-       so #welcomeBarNote needs an explicit visit to the Welcome page. */
-    await page.click('.op-item:has-text("Welcome")');
+    // Same as block E above — Back reaches the Welcome page's own note.
+    await page.goBack();
     await page.waitForSelector("#welcomeBarNote");
     check("F the sticky bar's own note reflects the real tier", (await page.textContent("#welcomeBarNote")).includes("Operations are unlocked") && (await page.textContent("#welcomeBarNote")).includes("doesn't include Company Setup"));
 

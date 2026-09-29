@@ -269,6 +269,23 @@ or added more).
     the bottom. **This closes the originally-dictated journey** — every
     numbered step above is now done. `tests/dashboard.test.js` (22
     checks) covers it; full 12-suite run (888 checks) green.
+  - ✅ **Dashboard iterated further the same/next day** — the plain data
+    table became a real donut + two axis bar charts (each with its own
+    independent time-range filter, not one shared filter), the old
+    Real usage table is gone entirely, and two more real bugs got
+    fixed along the way (a wrong "Time saved" calculation, a clipped
+    bar-chart label). See CLAUDE.md's own "Dashboard charts: fix
+    clipped labels..." entries for the full detail.
+  - ✅ **"What we offer" renamed to "What we offer & FAQ" and made
+    real, 2026-09-29** — a card now opens a real page naming that
+    operation's actual column-by-column generation logic (Settings is
+    one combined card, not six), reachable from its own sidebar item
+    too. Same day, the sidebar's own "Welcome" item was removed
+    outright — a real loophole, direct feedback ("login korar por
+    welcome page ta ar dekhano uchit na. o to login korei felse" —
+    the public landing page shouldn't be revisitable once already
+    signed in). See CLAUDE.md → "'What we offer & FAQ'" for the full
+    build; `tests/faq.test.js` (20 checks) covers it.
 
   **Whoever picks this up next**: don't restart planning from scratch —
   every numbered decision above is confirmed, not an open question. Ask

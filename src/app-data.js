@@ -464,6 +464,99 @@ const OPERATION_BLURBS = {
   }
 };
 
+/* "What we offer & FAQ" (2026-09-29) — direct request: a card here now
+   opens a real explanation page naming every column's actual generation
+   rule, not just the existing blurb/cost line. Content is a plain-
+   English restatement of each operation's own confirmed spec
+   (SPEC.md/CLAUDE.md) — nothing here is guessed, same discipline as the
+   generators themselves. Settings gets one combined entry, not six
+   (one per SETTINGS_GROUPS group) — direct instruction ("ei section e
+   settings combined ekta dilei hobe, shob gula venge venge deyar
+   dorkar nai"), since it's one coherent thing to explain (real writes
+   into a real company) rather than 20+ modules' worth of field-by-field
+   detail. */
+const FAQ_TOPICS = [
+  {
+    id: "employee_add",
+    category: "bulk",
+    label: "Employee Add",
+    intro: "Builds a ready-to-upload employee file from scratch — every column filled with realistic, internally consistent test data.",
+    columns: [
+      { name: "Employee ID*", rule: "PREFIX0001, sequential, always starting at 0001." },
+      { name: "Biometric ID", rule: "PREFIX + B + the same sequence number as Employee ID (e.g. PREFIXB0001)." },
+      { name: "First Name* / Last Name*", rule: "Drawn from whichever name source(s) you picked — the default Bangla pool, or a character theme (Game of Thrones, Marvel, Squid Game, etc.). Names don't repeat within a run, up to 300 employees." },
+      { name: "Employment Type*", rule: "Randomly Permanent, In Probation or Intern. Part Time and Contract are deliberately excluded." },
+      { name: "Probation Period (Months)*", rule: "0 for Permanent employees; a random 3–6 months for the other two types." },
+      { name: "Joining Date*", rule: "Weighted so it reads like a real, growing company: about 60% land in the previous year, 25% in the current year, and 15% two years ago. Never a future date." },
+      { name: "Gross Salary*", rule: "A random amount between ৳20,000 and ৳150,000, always a multiple of ৳500." },
+      { name: "Email", rule: "firstname.lastname.xxxxx@yopmail.com, lowercase — the xxxxx is a random tag generated once per Generate click, so two separate files never collide on the same email." },
+      { name: "Phone*", rule: "880 + 1 + a real operator digit (3–9) + 8 more digits = 13 digits total, never repeated within the file." },
+      { name: "Gender*", rule: "Matches whichever name was picked for that row — never mismatched." },
+      { name: "Date of Birth*", rule: "Gives the employee an age between 18 and 45 as of their Joining Date, and always falls before that Joining Date." },
+      { name: "Department Name* / Designation Name*", rule: "One department picked at random from what you configured, then one designation from that department's own list — never a designation that belongs to a different department." },
+    ],
+  },
+  {
+    id: "attendance_add",
+    category: "bulk",
+    label: "Employee Attendance Add",
+    intro: "Fills in real attendance rows for a date range. Only Employee ID, Date, In Time and Out Time exist as columns, so everything else — lateness, absence, overtime — is expressed through how those four are set, never as an extra column.",
+    columns: [
+      { name: "Employee ID*", rule: "One of the IDs you pasted, generated or uploaded — never invented." },
+      { name: "Date*", rule: "Every day in your chosen range that actually produces a row (see “absent employees” below)." },
+      { name: "In Time* / Out Time*", rule: "Together, these carry everything: an ordinary day jitters a few minutes either side of the shift; lateness pushes In Time past the end of the grace period; overtime pushes Out Time later, never by less than 45 minutes; an early check-out pulls Out Time 15–60 minutes earlier instead. Overtime and an early check-out never happen on the same row." },
+      { name: "Absent employees, weekends, holidays", rule: "Get no row at all that day — not a blank one. The one exception is a weekend/holiday with overtime turned on, where the whole row becomes that day's overtime span (floored at 2 hours, matching the real importer's own minimum-duration rule)." },
+      { name: "A shift that crosses midnight", rule: "Still just one row, dated by the day it started — Out Time reading earlier than In Time is expected and correct for these." },
+    ],
+  },
+  {
+    id: "leave_balance_add",
+    category: "bulk",
+    label: "Leave Balance Add",
+    intro: "The odd one out: nothing here is invented from scratch. You upload the system's own export, and every column except one is carried through exactly as it came in.",
+    columns: [
+      { name: "Employee ID, Employee Name, Leave Type Name, Total Allocated, Earned Leave", rule: "Read straight from your uploaded file and written back byte-for-byte — including whatever leave types your company actually has configured, real names and all." },
+      { name: "Already Used Leave", rule: "The only column this tool actually fills in. Always a half-step (0.5) value, strictly less than Total Allocated + Earned Leave, scaled by how far into the calendar year today is — a file generated in January shows little leave used, one generated in October shows much more. A row that already carries a value only ever comes back bigger, never smaller; a row already at its own ceiling is left exactly as it came in." },
+    ],
+  },
+  {
+    id: "payroll_field_add",
+    category: "bulk",
+    label: "Payroll Custom Field Add",
+    intro: "Fills in your company's own custom-field export — the same “don't invent, fill what's blank” idea as Leave Balance Add.",
+    columns: [
+      { name: "Employee ID, Employee Name", rule: "Carried through from your uploaded file, untouched." },
+      { name: "Every custom field column after them", rule: "Whatever your company actually named them — typos and all, never corrected — and however many there are. Each column's own header already says whether it's an addition (+) or a deduction (-); the value written is always positive, since the sign lives in the header, not the number." },
+      { name: "Coverage", rule: "A percentage you choose, applied per cell, not per employee — so at anything under 100% some employees legitimately come out with every field left at zero, which is expected, not a bug." },
+      { name: "Already-filled cells", rule: "Never touched. Re-running this on a partly-filled file can't undo earlier work." },
+    ],
+  },
+  {
+    id: "assets_add",
+    category: "bulk",
+    label: "Assets Add",
+    intro: "Builds a ready-to-upload asset file from scratch, matching the real template's own seven columns.",
+    columns: [
+      { name: "Asset Image", rule: "Always left blank — a fake placeholder URL would only create a broken image link in the real system." },
+      { name: "Asset Code*", rule: "PREFIX0001, sequential and unique across the whole file." },
+      { name: "Asset Name* / Asset Type* / Asset Description", rule: "Name and Description are always paired so they agree with each other; Asset Type is a free category picked independently of both — the real template's own example rows deliberately mismatch type and name (a monitor typed as “Printers”), which is how we know it's meant to be free-form, not derived." },
+      { name: "Assigned Employee ID / Assigned Date", rule: "Both optional. About 70–80% of assets end up assigned to a real employee ID from your list, each with a real assignment date from within the last year. The rest leave both columns blank — never one filled with the other left empty." },
+    ],
+  },
+  {
+    id: "settings",
+    category: "settings",
+    label: "Settings",
+    intro: "Different from the five operations above — Settings doesn't hand you a file to upload by hand. It signs in as a real company, with the credentials you provide, and writes configuration directly into that company through Shomvob's own real API — departments, leave types, payroll rules, and everything else a fresh company needs before anyone can actually use it.",
+    prose: [
+      "It covers six real settings groups — Company, Employee, Attendance, Schedule Management, Leave and Payroll — each with its own set of modules, mirroring the real admin panel's own structure exactly.",
+      "Most modules generate a realistic, ready-to-save value on their own (a bank, a leave type, a payroll cycle) — every field stays editable before you save, so you can hand-tweak anything the generated value doesn't fit.",
+      "Real dependencies are checked live against the actual connected company, never assumed: a Designation needs a Department to exist first, a Leave Policy needs a Leave Type, and so on. If something's missing, the module names exactly what and gives you a one-click shortcut to fix it — nothing fails silently.",
+      "“Run defaults” is the shortcut worth knowing about: one click sets up a whole company's worth of sensible defaults — departments, a leave policy, a payroll cycle and more — instead of the roughly 2–2.5 hours it takes to click through all of this by hand.",
+    ],
+  },
+];
+
 /* Five seconds a cell is generous for someone typing carefully from a
    spec — the constant welcomeChartsHtml()'s own "minutes saved" chart
    and Team activity's "estimated time saved" tile both multiply by. */

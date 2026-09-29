@@ -173,8 +173,9 @@ async function signInToDashboard(page) {
   }
 
   {
-    // E — the "what we offer" strip lists every real Bulk operation and
-    // Settings group, and sits after the real-usage charts, not before it.
+    // E — the "what we offer & FAQ" strip lists every real Bulk operation
+    // plus one combined Settings card (not one per settings group), and
+    // sits after the real-usage charts, not before it.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await mockPublicStats(page);
@@ -185,7 +186,7 @@ async function signInToDashboard(page) {
 
     await signInToDashboard(page);
     await page.waitForSelector(".dashboard-service-card");
-    check("E lists all 5 Bulk operations + 6 Settings groups", (await page.locator(".dashboard-service-card").count()) === 11);
+    check("E lists 5 Bulk operations + 1 combined Settings card (6 total)", (await page.locator(".dashboard-service-card").count()) === 6);
     const order = await page.evaluate(() => {
       const usage = document.querySelector(".dashboard-chart-row");
       const strip = document.querySelector(".dashboard-service-strip");

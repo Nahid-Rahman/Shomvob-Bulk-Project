@@ -360,6 +360,15 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
 .logout-btn svg { flex-shrink: 0; opacity: 0.8; }
 .sidebar-note { display: block; }
 
+/* "What we offer & FAQ"'s own sidebar item (2026-09-29) — deliberately
+   NOT inside `.op-nav`'s own scrollable list ("shob gula option er
+   niche, logout er upore, alada vabe thakbe" — below every option,
+   above Log out, on its own): a sibling between `.op-nav` and
+   `.sidebar-foot` stays pinned in view regardless of scroll position
+   within Operations/Setup/Admin, the same way Log out itself already
+   does, rather than scrolling away with the rest of the nav list. */
+.op-nav-faq { padding: 10px 12px; border-top: 1px solid var(--sidebar-border); flex-shrink: 0; }
+
 .sidebar-foot {
   padding: 14px 22px 18px;
   border-top: 1px solid var(--sidebar-border);
@@ -1586,12 +1595,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin-top: 2px;
 }
 
-/* The "what we offer" strip at the very bottom (2026-09-29) — a
-   compact, low-emphasis horizontal scroll, deliberately smaller than
-   `.op-card`'s own full-size cards, matching the real Shomvob HR
-   dashboard's own "Quick Links" strip the user pointed at as a
-   reference (small cards, sitting last on the page). */
-.dashboard-service-strip { display: flex; gap: 10px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; }
+/* The "what we offer & FAQ" strip at the very bottom (2026-09-29) — a
+   compact, low-emphasis card row, deliberately smaller than `.op-card`'s
+   own full-size cards, matching the real Shomvob HR dashboard's own
+   "Quick Links" strip the user pointed at as a reference. Wraps rather
+   than horizontal-scrolls now that it's down to 6 cards (5 operations +
+   one combined Settings, not 11) — a wrap reads better than a scrollbar
+   once everything fits in 2 short rows. Each card is a real `<button>`
+   now, not a `<div>` — clicking one opens that topic's own real
+   explanation page (`openFaqTopic()`), so it needs to read and behave
+   like an actual control, not a static label. */
+.dashboard-service-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .dashboard-service-card {
   flex: 0 0 auto;
   min-width: 150px;
@@ -1601,10 +1615,23 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 3px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+.dashboard-service-card:hover { border-color: var(--accent); }
 .dashboard-service-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
 .dashboard-service-note { font-size: 11px; color: var(--text-faint); }
+
+/* The dedicated FAQ page's own card grid (2026-09-29) — the same cards
+   as the Dashboard's strip, just bigger and roomier since this is the
+   page's whole content rather than one low-emphasis section at the
+   bottom of a busier page. */
+.faq-index-grid .dashboard-service-card { min-width: 220px; flex: 1 1 220px; padding: 16px; gap: 6px; }
+.faq-index-grid .dashboard-service-title { font-size: 14px; }
+.faq-index-grid .dashboard-service-note { font-size: 12px; }
 
 /* Real usage's three charts (2026-09-29) — mocked up first on a design
    canvas and confirmed directly before building. A donut for Bulk runs
@@ -1641,16 +1668,35 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .dashboard-chart-desc p { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 .dashboard-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .dashboard-chart-title { font-size: 13px; font-weight: 600; color: var(--text); }
-.dashboard-chart-range { font-size: 12px; padding: 4px 8px; }
+/* A fixed width, not auto — a real bug, found live on a screenshot with
+   the wrapped title circled: a bare `<select>` sizes itself off its
+   widest OPTION text ("Last 6 months"), not the currently shown value
+   ("All time"), so it claimed far more of `.dashboard-chart-head`'s row
+   than it needed and squeezed the title onto two lines. */
+.dashboard-chart-range { font-size: 12px; padding: 4px 8px; width: 128px; flex-shrink: 0; }
 
-.dashboard-donut-body { display: flex; align-items: center; gap: 16px; margin-top: 10px; }
-.dashboard-donut-total { font-size: 22px; font-weight: 700; color: var(--text); }
-.dashboard-donut-total-label { font-size: 10.5px; color: var(--text-faint); }
-.dashboard-donut-legend { display: flex; flex-direction: column; gap: 7px; flex-grow: 1; min-width: 0; }
-.dashboard-donut-legend-row { display: flex; align-items: center; gap: 7px; font-size: 12px; }
-.dashboard-donut-swatch { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
-.dashboard-donut-legend-label { color: var(--text); flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-donut-legend-pct { color: var(--text-faint); width: 34px; text-align: right; flex-shrink: 0; }
+/* Sized up and the legend un-stretched (2026-09-29 revision, direct
+   feedback: "eta aro boro koro" — make this bigger) — the donut used
+   to sit small inside `.dashboard-chart-main`'s own narrow 380px
+   column; now that column is 75% of the card (see the ratio fix
+   above), a small fixed-size donut left a lot of unused width, and
+   `.dashboard-donut-legend-label`'s own `flex-grow: 1` stretched to
+   fill exactly that leftover space — dragging each row's percentage
+   far away from its own label instead of sitting right next to it.
+   Fixed both at once: the donut itself is bigger (130px → 190px, the
+   underlying SVG viewBox/circle math is untouched — only the render
+   size changed), and the legend no longer stretches to fill the
+   column at all — each row is its own natural width, percentage
+   immediately after its label with a small fixed gap, rather than a
+   column-aligned table reaching across the whole card. */
+.dashboard-donut-body { display: flex; align-items: center; gap: 20px; margin-top: 10px; }
+.dashboard-donut-total { font-size: 28px; font-weight: 700; color: var(--text); }
+.dashboard-donut-total-label { font-size: 11.5px; color: var(--text-faint); }
+.dashboard-donut-legend { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dashboard-donut-legend-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.dashboard-donut-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.dashboard-donut-legend-label { color: var(--text); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-donut-legend-pct { color: var(--text-faint); flex-shrink: 0; }
 
 /* The label row is `auto`, not a fixed 24px — a real bug, found live on
    a screenshot with the cut-off text circled: a two-word category name

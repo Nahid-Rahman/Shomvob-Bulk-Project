@@ -1681,7 +1681,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Twelve suites (`dashboard.test.js` added 2026-09-29), 894 checks as
+Thirteen suites (`faq.test.js` added 2026-09-29), 915 checks as
 of that addition — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
@@ -6470,6 +6470,168 @@ the "roughly a dozen more spots" of unguarded
 `waitForTimeout`-before-an-"already"-check races this file already
 flags as a known, pre-existing risk (2026-09-19, above) — not
 something this session's work caused.
+
+**Three more small revisions the same day, each from a follow-up
+screenshot, none needing a test change:**
+
+1. **The donut got bigger and its legend un-stretched** ("eta aro boro
+   koro" — make this bigger): the donut sat small inside
+   `.dashboard-chart-main`'s new 75%-wide column, and
+   `.dashboard-donut-legend-label`'s own `flex-grow: 1` stretched to
+   fill the leftover width — dragging each row's percentage far away
+   from its own label instead of sitting next to it. Fixed both at
+   once: the SVG render size grew 130px → 190px (the underlying
+   viewBox/circle math untouched), and the legend stopped stretching
+   at all — each row is now its own natural width, percentage
+   immediately after the label.
+2. **A bare `<select>` sizes off its widest OPTION, not its current
+   value** — found live, a screenshot with the wrapped "Entries
+   created, by operation" title circled: `.dashboard-chart-range` had
+   no explicit width, so it claimed as much room as "Last 6 months"
+   needed even while showing "All time," squeezing the title next to
+   it onto two lines. Fixed with a fixed `width: 128px`.
+3. **"Estimated impact so far" moved above all three charts**, direct
+   request — a pure markup reorder in `dashboardUsageHtml()`, no CSS
+   change needed since both blocks already carry their own
+   `margin-top`.
+
+## "What we offer & FAQ" — real per-operation documentation (2026-09-29)
+
+Two related asks in the same message, handled together since one made
+the other's own scope decision obvious. First: the Dashboard's existing
+low-emphasis "What we offer" strip (2026-09-25, kept from the old
+operation-card grid) should open something real on click — "click
+korle amra new ekta page banabo. okhane every single logic amra ja
+kortesi otar explanation thakbe. Like Employee Bulk upload e gele,
+every column er logic ta and amra ki kortesi eta diba" (clicking should
+open a new page explaining every single thing we actually do — for
+Employee Add, every column's own logic). Second, in the same message:
+the strip's own Settings breakdown should collapse to one combined
+card, not the six it had one per `SETTINGS_GROUPS` group — "ei section
+e settings combined ekta dilei hobe, shob gula venge venge deyar
+dorkar nai" (one combined entry is enough here, no need to break it
+into pieces).
+
+**Content is a plain-English restatement of each operation's own
+already-confirmed spec (`SPEC.md`/`CLAUDE.md`), not new business
+rules** — `FAQ_TOPICS` (`app-data.js`) holds one entry per Bulk
+operation (a real `columns: [{name, rule}]` table, matching the exact
+column names and confirmed rules this file and `SPEC.md` already
+document — Employee ID's `PREFIX0001` sequencing, Joining Date's
+60/25/15 year-weighting, Leave Balance's half-step/ceiling/only-
+increases rule, and so on) plus one combined `settings` entry with
+plain prose instead of a table (the six real groups, "every field
+stays editable," dependencies checked live and named rather than
+failing silently, and the "Run defaults" shortcut) — deliberately not
+one entry per settings module, matching the "combined, not broken up"
+instruction directly. Nothing here was guessed; the same "confirm
+rules, never assume" discipline the generators themselves are held to.
+
+**One page, two states, not a second content system.** `faqTemplate()`
+shows either the 6-card index (`faqIndexBodyHtml()`) or one topic's own
+detail view (`faqDetailBodyHtml()`), switched by a module-level
+`faqTopic` variable — `null` for the index. **Not tracked in browser
+history** — landing on the FAQ page itself is a real top-level
+`navigateTo("faq")`, but switching between topics once there is a
+plain re-render, the same "internal drill-down, no History API
+involvement" shape Company Setup's own group-grid-to-tab drill-down
+already uses; a detail view's own `#faqBackLink` returns to the index
+the same way Company Setup's "← Back to Company Setup" link does.
+`openFaqTopic(id)` is the one shared entry point both the Dashboard's
+own strip and the dedicated FAQ page's identical cards call — clicking
+either navigates or re-renders as appropriate, so there's exactly one
+place this decision is made, not two copies of it.
+
+**`faqCardsHtml()` replaces the old 11-item strip with `FAQ_TOPICS`'s
+own 6** — 5 Bulk operations plus the one combined Settings card,
+reusing `OPERATION_BLURBS`' own cost line for the operations' notes
+(Settings gets none, since there's no single "N cells" figure for it).
+Cards are real `<button>` elements now, not `<div>`s — a card that
+opens a page needs to behave like a control, not a static label, the
+same accessibility discipline this app already holds itself to
+elsewhere. `.dashboard-service-strip` switched from horizontal-scroll
+to wrap, now that 6 cards fit in two short rows without needing a
+scrollbar at all. The dedicated FAQ page reuses the exact same strip
+markup at a larger size (`.faq-index-grid`, a modifier class) rather
+than a second card component.
+
+**The sidebar gets its own, deliberately separate "What we offer &
+FAQ" item** — direct placement instruction ("side menu te shob gula
+option er niche, logout er upore, alada vabe thakbe" — below every
+option, above Log out, on its own): `#faqNav` is a sibling of `.op-nav`
+itself, not nested inside its scrollable list, sitting between it and
+`.sidebar-foot` — pinned in view regardless of scroll position within
+Operations/Setup/Admin, the same way Log out itself already is, rather
+than scrolling away with the rest of the nav. No tier/admin gate —
+this is documentation, not a real write, so any signed-in visitor can
+open it.
+
+### The Welcome nav item is gone — a real, confirmed loophole (2026-09-29)
+
+Same message, a third item: "ar ekta loophole ase. login korar por
+welcome page ta ar dekhano uchit na. o to login korei felse" (there's
+also a loophole — the Welcome page shouldn't be shown after logging
+in, since they've already signed in). Confirmed directly before
+touching anything, since this touches a deliberate 2026-09-29 design
+decision (a *separate* "Dashboard" sidebar item was added specifically
+so several existing tests could still click "Welcome" by its exact
+label and check the real pre-signin page's own content) — the fix
+removes only the *sidebar button*, not the underlying page: an
+unauthenticated visitor still lands on the real Welcome page first
+(`currentOp`'s own initial value is untouched), since the whole
+sidebar stays hidden until a real sign-in happens anyway. What's
+removed is the path that let an *already signed-in* visitor navigate
+back to that same public, "please sign in" marketing page from the
+sidebar — a genuine loophole, not a feature.
+
+**Reachable by Back, not gone outright — confirmed acceptable, not a
+gap.** Browser Back/Forward is a separate mechanism from the sidebar
+(`wirePopstate()`), deliberately untouched by this fix — a signed-in
+visitor who arrived via Welcome -> the operations gate -> Dashboard can
+still hit Back and land on that same Welcome page, exactly as a real
+browser's own history already allows for any page. Only the *sidebar's
+own* button, the loophole actually named, is removed; chasing the
+Back-button path too would be scope beyond what was asked, and this
+app's own Back/Forward feature was built to behave like a real
+browser's, not to second-guess it.
+
+**Real test fallout, all fixed the same way — Back, not a new button.**
+Seven `.op-item:has-text("Welcome")` clicks across three files needed
+a different path once that button no longer exists:
+
+- Two (`company-setup.test.js`'s own "state survives navigating away"
+  check, `employee.test.js`'s own scroll-reset `hops` array + a
+  standalone scroll check) only ever used Welcome as *some other page*
+  to navigate to and back — replaced with "Dashboard," the same kind of
+  page switch, since neither test cared about Welcome's own content.
+- Five genuinely needed to reach Welcome's own content while already
+  signed in (`company-setup.test.js`'s own "L" — the page's 1320px
+  column doesn't drift after a detour — and "BR"/"BS" — the admin-only
+  "Team activity" section; `tiered-access.test.js`'s own "E"/"F" —
+  `#welcomeBarNote`'s tier-aware wording). Each of these flows' own
+  browser history is exactly `[welcome (from init()'s own
+  replaceState), <wherever the test navigated next> (pushed)]` — a
+  single `page.goBack()` reliably lands back on the same Welcome page
+  a real signed-in visitor could still reach this exact way, with
+  `setup.toolToken` untouched throughout (Back doesn't clear app
+  state), so every one of these checks still exercises the real
+  feature it always did.
+
+Confirmed by a real Playwright screenshot pass: "Welcome" is genuinely
+absent from every `.op-item` nav label (`Dashboard` still present),
+"What we offer & FAQ" sits correctly between the nav list and Log out,
+the Employee Add detail page renders a real rule table in both light
+and dark, the Settings detail page renders prose with no table, and a
+390px mobile pass shows zero horizontal overflow on the card grid. A
+new suite, `tests/faq.test.js` (20 checks): the 6-card index (never
+11), a real column-rule table for Employee Add naming its actual
+`PREFIX0001`/joining-date-weighting rules, the combined Settings card's
+prose (no table) naming the real six groups and "Run defaults," the
+Dashboard's own strip opening the identical FAQ topic (not a second
+content path), Back returning to the index, and the sidebar item's own
+position. Full 13-suite run green (915 checks) — including the five
+Back-based rewrites above, all still passing exactly what they always
+tested.
 
 ## Adding a sixth operation
 

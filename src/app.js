@@ -9,6 +9,12 @@
      gate below interrupted it, so a successful sign-in lands exactly
      where the visitor meant to go rather than back on the Dashboard. */
   let pendingOperation = null;
+  /* "What we offer & FAQ" (2026-09-29) — which topic's explanation is
+     showing, `null` for the card index itself. Not tracked in browser
+     history, same as Company Setup's own internal drill-down (group
+     grid -> a module tab) — a plain "<- Back to overview" link inside
+     the detail view, not a second History API entry per topic. */
+  let faqTopic = null;
   /* A Set, not a single key, 2026-09-19 (direct request: for a big batch,
      mixing more than one theme means less cycling within any one small
      pool before a numeric suffix has to appear). At least one theme is
@@ -411,16 +417,16 @@
     });
     home.appendChild(dashBtn);
 
-    const homeBtn = document.createElement("button");
-    homeBtn.className = "op-item";
-    homeBtn.type = "button";
-    homeBtn.setAttribute("aria-current", String(currentOp === "welcome"));
-    homeBtn.innerHTML = `<span class="op-item-label">${opIcon("welcome")}Welcome</span>`;
-    homeBtn.addEventListener("click", () => {
-      if (isBulkRunActive()) return;
-      navigateTo("welcome");
-    });
-    home.appendChild(homeBtn);
+    /* The "Welcome" nav item that used to sit here is gone (2026-09-29,
+       direct feedback: "login korar por welcome page ta ar dekhano
+       uchit na. o to login korei felse" — showing the public, not-yet-
+       signed-in landing page to someone who's already signed in is a
+       real loophole, not a feature). This ONLY removes the sidebar
+       button — an unauthenticated visitor still lands on the real
+       Welcome page first (currentOp's own initial value, above), since
+       the whole sidebar stays hidden until a real sign-in happens
+       anyway. Once signed in, "Dashboard" (above) is the only top-level
+       landing page reachable from the nav. */
 
     /* Tiered Access, continued (2026-09-25, round two — direct
        follow-up correction): the whole sidebar hides pre-signin now, not
@@ -528,6 +534,26 @@
         adminNav.appendChild(btn);
       });
     }
+
+    /* "What we offer & FAQ" (2026-09-29) — its own sidebar item, below
+       every other section, right above Log out ("shob gula option er
+       niche, logout er upore, alada vabe thakbe" — below all the
+       options, above Log out, on its own). No tier/admin gate: this is
+       documentation, not a real write, so any signed-in visitor can
+       open it. */
+    const faqNav = $("#faqNav");
+    faqNav.innerHTML = "";
+    const faqBtn = document.createElement("button");
+    faqBtn.className = "op-item";
+    faqBtn.type = "button";
+    faqBtn.setAttribute("aria-current", String(currentOp === "faq"));
+    faqBtn.innerHTML = `<span class="op-item-label">${opIcon("faq")}What we offer & FAQ</span>`;
+    faqBtn.addEventListener("click", () => {
+      if (isBulkRunActive()) return;
+      if (currentOp !== "faq") faqTopic = null;
+      navigateTo("faq");
+    });
+    faqNav.appendChild(faqBtn);
   }
 
   /* Wraps an operation's form in the two-column shell when that operation
@@ -643,6 +669,14 @@
       wireAdminAuditEvents();
       return;
     }
+    if (currentOp === "faq") {
+      $("#actionBar").style.display = "none";
+      root.classList.remove("has-media", "welcome-wide");
+      root.classList.add("wide");
+      root.innerHTML = faqTemplate();
+      wireFaqEvents();
+      return;
+    }
     if (currentOp === "attendance_add") {
       $("#actionBar").style.display = "flex";
       paintOperation(root, attendanceTemplate(), "attendance_add");
@@ -721,6 +755,7 @@
     company_setup: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
     admin_users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     admin_audit: '<path d="M9 2h6l4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v4h4"/><path d="M8 12h8M8 16h8M8 8h3"/>',
+    faq: '<circle cx="12" cy="12" r="9.5"/><path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   };
 
   function opIcon(id) {
@@ -3479,8 +3514,8 @@
     });
     return `
       <div class="dashboard-donut-body">
-        <div style="position:relative;width:130px;height:130px;flex-shrink:0">
-          <svg width="130" height="130" viewBox="0 0 220 220">
+        <div style="position:relative;width:190px;height:190px;flex-shrink:0">
+          <svg width="190" height="190" viewBox="0 0 220 220">
             <circle cx="110" cy="110" r="70" fill="none" stroke="var(--surface-2)" stroke-width="34"></circle>
             ${slices
               .map(
@@ -4199,6 +4234,12 @@
         <div class="section-head"><h2 class="section-title">Real usage</h2></div>
         <p class="section-note">Pulled straight from this tool's own activity log — each chart below has its own time-range filter.</p>
 
+        <div class="numbers-addup-box">
+          <p class="numbers-addup-title">Estimated impact so far</p>
+          <p class="section-note">Bulk operations only, all time — real entries created, scaled against the same per-task estimate "By the numbers" uses. Settings isn't included, since it has no "with AI" baseline.</p>
+          ${impactBodyHtml}
+        </div>
+
         <div class="dashboard-chart-row">
           ${charts
             .map(
@@ -4216,36 +4257,129 @@
             )
             .join("")}
         </div>
+      </div>
+    `;
+  }
 
-        <div class="numbers-addup-box">
-          <p class="numbers-addup-title">Estimated impact so far</p>
-          <p class="section-note">Bulk operations only, all time — real entries created, scaled against the same per-task estimate "By the numbers" uses. Settings isn't included, since it has no "with AI" baseline.</p>
-          ${impactBodyHtml}
+  /* "What we offer & FAQ" (renamed 2026-09-29, direct request) — the
+     same low-emphasis card strip, now reusing FAQ_TOPICS directly
+     (6 cards: 5 Bulk operations + 1 combined Settings, not 11) so a
+     click opens that topic's own real explanation page
+     (openFaqTopic()) instead of doing nothing. OPERATION_BLURBS/
+     SETTINGS_GROUPS are still kept for the reasons the 2026-09-25
+     Dashboard redesign's own note already gives — FAQ_TOPICS reuses
+     OPERATION_BLURBS' own cost line directly, rather than duplicating
+     it. */
+  function faqCardsHtml() {
+    return FAQ_TOPICS.map((t) => {
+      const note = t.category === "bulk" ? (OPERATION_BLURBS[t.id] || {}).cost || "" : "";
+      return `<button type="button" class="dashboard-service-card" data-faq-id="${t.id}">
+        <span class="dashboard-service-title">${escapeHtml(t.label)}</span>
+        ${note ? `<span class="dashboard-service-note">${escapeHtml(note)}</span>` : ""}
+      </button>`;
+    }).join("");
+  }
+
+  function wireFaqCardClicks() {
+    $all(".dashboard-service-card").forEach((btn) => {
+      btn.addEventListener("click", () => openFaqTopic(btn.dataset.faqId));
+    });
+  }
+
+  /* Opens a topic's real explanation from wherever it was clicked — the
+     Dashboard's own card strip, or the dedicated FAQ page's identical
+     cards. Not tracked in browser history (see `faqTopic`'s own note,
+     above) — landing on the FAQ page for the first time is a real
+     top-level navigation (`navigateTo`), but switching topics once
+     already there is a plain re-render, the same "internal drill-down,
+     no History API involvement" shape Company Setup's own tabs use. */
+  function openFaqTopic(id) {
+    faqTopic = id;
+    if (currentOp === "faq") {
+      const root = $("#mainContent");
+      root.innerHTML = faqTemplate();
+      wireFaqEvents();
+    } else {
+      navigateTo("faq");
+    }
+  }
+
+  function dashboardServiceStripHtml() {
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">What we offer &amp; FAQ</h2></div>
+        <p class="section-note">Everything Bulk Forge covers — click one to see exactly what it does.</p>
+        <div class="dashboard-service-strip">
+          ${faqCardsHtml()}
         </div>
       </div>
     `;
   }
 
-  /* The low-emphasis "what we offer" strip — reuses OPERATION_BLURBS/
-     SETTINGS_GROUPS directly (both kept specifically for this reuse
-     since the 2026-09-25 Dashboard redesign removed the old operation-
-     card grid — see that section's own note), a compact list rather
-     than the old grid's own full-size cards, sitting last on the page
-     the same way the real Shomvob dashboard's own "Quick Links" does. */
-  function dashboardServiceStripHtml() {
-    const items = [
-      ...OPERATIONS.map((op) => ({ label: op.label, note: (OPERATION_BLURBS[op.id] || {}).cost || "" })),
-      ...SETTINGS_GROUPS.map((g) => ({ label: g.label, note: "" })),
-    ];
+  /* The dedicated "What we offer & FAQ" page, reached from its own
+     sidebar item (below every other section, above Log out) — the same
+     card set as the Dashboard's own strip, just as the page's whole
+     content rather than one low-emphasis section at the bottom.
+     `faqTopic` decides whether this shows the card index or one
+     topic's own detail view. */
+  function faqTemplate() {
+    const topic = FAQ_TOPICS.find((t) => t.id === faqTopic);
+    return `
+      <div class="page-head">
+        <h1 class="page-title">What we offer &amp; FAQ</h1>
+        <p class="page-desc">${topic ? "Exactly what this one does, column by column." : "Every operation and the Settings side, explained — pick one to see exactly what it does."}</p>
+      </div>
+      <div class="main-inner">
+        ${topic ? faqDetailBodyHtml(topic) : faqIndexBodyHtml()}
+      </div>
+    `;
+  }
+
+  function faqIndexBodyHtml() {
     return `
       <div class="section">
-        <div class="section-head"><h2 class="section-title">What we offer</h2></div>
-        <p class="section-note">Everything Bulk Forge covers, at a glance.</p>
-        <div class="dashboard-service-strip">
-          ${items.map((it) => `<div class="dashboard-service-card"><span class="dashboard-service-title">${escapeHtml(it.label)}</span>${it.note ? `<span class="dashboard-service-note">${escapeHtml(it.note)}</span>` : ""}</div>`).join("")}
+        <div class="dashboard-service-strip faq-index-grid">
+          ${faqCardsHtml()}
         </div>
       </div>
     `;
+  }
+
+  function faqDetailBodyHtml(topic) {
+    const body = topic.columns
+      ? `
+        <div class="preview-table-wrap" style="margin-top:14px">
+          <table class="preview-table">
+            <thead><tr><th>Column</th><th>What we do</th></tr></thead>
+            <tbody>
+              ${topic.columns.map((c) => `<tr><td class="strong">${escapeHtml(c.name)}</td><td>${escapeHtml(c.rule)}</td></tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      `
+      : `<div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">${(topic.prose || []).map((p) => `<p class="section-note" style="font-size:13.5px">${escapeHtml(p)}</p>`).join("")}</div>`;
+    return `
+      <div class="section">
+        <a href="#" id="faqBackLink" style="display:inline-block;font-size:13px">&larr; Back to What we offer &amp; FAQ</a>
+        <h2 class="section-title" style="margin-top:10px">${escapeHtml(topic.label)}</h2>
+        <p class="section-note">${escapeHtml(topic.intro)}</p>
+        ${body}
+      </div>
+    `;
+  }
+
+  function wireFaqEvents() {
+    wireFaqCardClicks();
+    const back = $("#faqBackLink");
+    if (back) {
+      back.addEventListener("click", (e) => {
+        e.preventDefault();
+        faqTopic = null;
+        const root = $("#mainContent");
+        root.innerHTML = faqTemplate();
+        wireFaqEvents();
+      });
+    }
   }
 
   function dashboardTemplate() {
@@ -4272,6 +4406,7 @@
         else if (target === "settings") navigateTo("company_setup");
       });
     });
+    wireFaqCardClicks();
     const rerenderDashboard = () => {
       if (currentOp !== "dashboard") return;
       const root = $("#mainContent");
