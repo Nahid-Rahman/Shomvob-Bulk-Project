@@ -6,6 +6,23 @@ here instead of only saying it out loud, and delete it once it's done
 (pull the latest before checking — another machine may have finished it,
 or added more).
 
+- **Session paused here, 2026-09-29 (end of day)** — "ami guide korbo.
+  tumi apatoto to do list update kore rakho... tumi git e shob update
+  kore rakho" (I'll guide the next steps myself; for now just keep this
+  list updated and make sure everything's pushed to git). Everything up
+  to and including this point is committed and pushed to `main`
+  (already live at the production URL) — nothing local, nothing
+  uncommitted. Two items are queued, both explicitly waiting on the
+  user's own direct guidance before any more code changes, not
+  something to start unprompted from a guess:
+  1. **A "What we offer & FAQ" polish pass** — "ektu FAQ ta ghoshamaja
+     kore" (polish the FAQ page up a bit). No specific issues named
+     yet — wait for the user to point at what to change (same
+     discipline as every other UI pass in this app) rather than
+     guessing at what "polish" means.
+  2. **The CXO report** (bullet right below) — still needs the user's
+     own concrete brief on which real numbers/graphs matter to that
+     audience before any drafting starts.
 - **Welcome page confirmed 100% done, 2026-09-28** — every open item
   the "Not started" bullet below used to list against the pre-signin
   page is closed; see CLAUDE.md's own long revision history under
