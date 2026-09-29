@@ -6658,6 +6658,23 @@ vertical stack rather than a coincidental fit. Full 13-suite run
 stayed green — nothing here touched a test-visible selector or class,
 only rendered pixel sizes.
 
+**"What we offer & FAQ"'s own card strip became a real 3-column grid
+the same day, direct feedback against a screenshot** ("3 ta 3 ta kore
+equally shundor kore vaag kore dao" — split these evenly, 3 by 3): the
+original `flex-wrap` sized each card to its own content, so 6 cards
+landed 4-then-2 with mismatched widths rather than two clean rows.
+`.dashboard-service-strip` is `display: grid; grid-template-columns:
+repeat(3, 1fr)` now, on both the Dashboard's own compact strip and the
+dedicated FAQ page's bigger `.faq-index-grid` variant — one shared
+class, so the fix landed in both places at once rather than needing a
+second copy. Collapses to a single column at the existing mobile
+breakpoint, same as every other grid in this app. Confirmed by a real
+bounding-box check in both places: all 6 cards measure identical
+widths, the first three share one `top` and the last three share
+another (a true 2×3 grid), and mobile still stacks to 1 column with no
+overflow. Full 13-suite run green — no test asserted on the strip's
+own layout shape, only its card count and labels.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route

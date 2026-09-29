@@ -1613,19 +1613,19 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* The "what we offer & FAQ" strip at the very bottom (2026-09-29) — a
-   compact, low-emphasis card row, deliberately smaller than `.op-card`'s
+   compact, low-emphasis card grid, deliberately smaller than `.op-card`'s
    own full-size cards, matching the real Shomvob HR dashboard's own
-   "Quick Links" strip the user pointed at as a reference. Wraps rather
-   than horizontal-scrolls now that it's down to 6 cards (5 operations +
-   one combined Settings, not 11) — a wrap reads better than a scrollbar
-   once everything fits in 2 short rows. Each card is a real `<button>`
-   now, not a `<div>` — clicking one opens that topic's own real
-   explanation page (`openFaqTopic()`), so it needs to read and behave
-   like an actual control, not a static label. */
-.dashboard-service-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+   "Quick Links" strip the user pointed at as a reference. A real 3-column
+   grid, not a flex-wrap (revised same day, direct feedback: "3 ta 3 ta
+   kore equally shundor kore vaag kore dao" — split these evenly, 3 by 3)
+   — flex-wrap sized each card to its own content, so 6 cards landed
+   4-then-2 with mismatched widths; a grid gives exactly 2 even rows of 3
+   equal-width cards regardless of how long any one label is. Each card
+   is a real `<button>` now, not a `<div>` — clicking one opens that
+   topic's own real explanation page (`openFaqTopic()`), so it needs to
+   read and behave like an actual control, not a static label. */
+.dashboard-service-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
 .dashboard-service-card {
-  flex: 0 0 auto;
-  min-width: 150px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
@@ -1645,8 +1645,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* The dedicated FAQ page's own card grid (2026-09-29) — the same cards
    as the Dashboard's strip, just bigger and roomier since this is the
    page's whole content rather than one low-emphasis section at the
-   bottom of a busier page. */
-.faq-index-grid .dashboard-service-card { min-width: 220px; flex: 1 1 220px; padding: 16px; gap: 6px; }
+   bottom of a busier page. Still the same 3-column grid underneath. */
+.faq-index-grid .dashboard-service-card { padding: 16px; gap: 6px; }
 .faq-index-grid .dashboard-service-title { font-size: 14px; }
 .faq-index-grid .dashboard-service-note { font-size: 12px; }
 
@@ -2169,6 +2169,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
      Same standing instruction as every other side-by-side element in
      this app — stack it top-to-bottom under this breakpoint instead. */
   .dashboard-donut-body { flex-direction: column; align-items: center; text-align: center; }
+  .dashboard-service-strip { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
   .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; }
   .welcome-row-reverse .meme { order: 0; }
