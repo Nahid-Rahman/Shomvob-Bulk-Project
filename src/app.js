@@ -554,6 +554,32 @@
       navigateTo("faq");
     });
     faqNav.appendChild(faqBtn);
+
+    /* The sidebar's own "Signed in as" card (2026-09-29) — direct
+       request, modelled on a real reference screenshot's own sidebar-
+       footer card (there, "Download our mobile app"; here, who's
+       signed in) — replaces the Dashboard page-head's own "Signed in
+       as..." line, which is gone now that this lives here instead.
+       Email only for now, a deliberate first step — "amra jodi shobar
+       jonno ekta user name dite pari aro valo hoy. apatoto mail diye
+       design koro then user name er concept e ashtesi" (it'd be nicer
+       if everyone had a real username; design with email for now, the
+       username idea comes next). */
+    const userCard = $("#sidebarUserCard");
+    if (setup.toolToken && setup.toolEmail) {
+      const initial = setup.toolEmail.trim().charAt(0).toUpperCase() || "?";
+      userCard.innerHTML = `
+        <div class="sidebar-user-card">
+          <span class="sidebar-user-avatar">${escapeHtml(initial)}</span>
+          <span class="sidebar-user-info">
+            <span class="sidebar-user-caption">Signed in as</span>
+            <span class="sidebar-user-email">${escapeHtml(setup.toolEmail)}</span>
+          </span>
+        </div>
+      `;
+    } else {
+      userCard.innerHTML = "";
+    }
   }
 
   /* Wraps an operation's form in the two-column shell when that operation
@@ -4383,11 +4409,12 @@
   }
 
   function dashboardTemplate() {
+    /* No page-head any more (2026-09-29, direct request: "upore
+       dashboard ta uthay diba... ei part ta shoray diba" — remove the
+       "Dashboard" heading and the "Signed in as..." line above it) —
+       who's signed in now lives in the sidebar's own user card
+       instead (see renderSidebar()), not repeated here too. */
     return `
-      <div class="page-head">
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-desc">Signed in as ${escapeHtml(setup.toolEmail || "")} — pick where to go, or see the real impact so far.</p>
-      </div>
       <div class="section">
         <div class="section-head"><h2 class="section-title">Get started</h2></div>
         ${dashboardBulkSettingsRowHtml()}

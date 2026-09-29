@@ -393,6 +393,45 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
   color: var(--sidebar-text-muted);
 }
 
+/* The sidebar's own "Signed in as" card (2026-09-29) — modelled on a
+   real reference screenshot's own sidebar-footer card, sitting right
+   above Log out the same way that reference's own card sat above its
+   Log in/Sign up buttons. Replaces the Dashboard page-head's own
+   "Signed in as..." line, removed the same day. */
+.sidebar-user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--sidebar-active);
+  border: 1px solid var(--sidebar-border);
+}
+.sidebar-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.sidebar-user-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sidebar-user-caption { font-size: 10.5px; color: var(--sidebar-text-muted); }
+.sidebar-user-email {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sidebar-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---- Main ---- */
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 /* A real sticky footer, not a fixed negative-margin pull-up (found live
@@ -2269,6 +2308,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     </nav>
     <div id="faqNav" class="op-nav-faq"></div>
     <div class="sidebar-foot">
+      <div id="sidebarUserCard"></div>
       <button type="button" class="logout-btn" id="logoutBtn" title="Clears everything on the page and shows the login again">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -4248,6 +4288,32 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       navigateTo("faq");
     });
     faqNav.appendChild(faqBtn);
+
+    /* The sidebar's own "Signed in as" card (2026-09-29) — direct
+       request, modelled on a real reference screenshot's own sidebar-
+       footer card (there, "Download our mobile app"; here, who's
+       signed in) — replaces the Dashboard page-head's own "Signed in
+       as..." line, which is gone now that this lives here instead.
+       Email only for now, a deliberate first step — "amra jodi shobar
+       jonno ekta user name dite pari aro valo hoy. apatoto mail diye
+       design koro then user name er concept e ashtesi" (it'd be nicer
+       if everyone had a real username; design with email for now, the
+       username idea comes next). */
+    const userCard = $("#sidebarUserCard");
+    if (setup.toolToken && setup.toolEmail) {
+      const initial = setup.toolEmail.trim().charAt(0).toUpperCase() || "?";
+      userCard.innerHTML = `
+        <div class="sidebar-user-card">
+          <span class="sidebar-user-avatar">${escapeHtml(initial)}</span>
+          <span class="sidebar-user-info">
+            <span class="sidebar-user-caption">Signed in as</span>
+            <span class="sidebar-user-email">${escapeHtml(setup.toolEmail)}</span>
+          </span>
+        </div>
+      `;
+    } else {
+      userCard.innerHTML = "";
+    }
   }
 
   /* Wraps an operation's form in the two-column shell when that operation
@@ -8077,11 +8143,12 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function dashboardTemplate() {
+    /* No page-head any more (2026-09-29, direct request: "upore
+       dashboard ta uthay diba... ei part ta shoray diba" — remove the
+       "Dashboard" heading and the "Signed in as..." line above it) —
+       who's signed in now lives in the sidebar's own user card
+       instead (see renderSidebar()), not repeated here too. */
     return `
-      <div class="page-head">
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-desc">Signed in as ${escapeHtml(setup.toolEmail || "")} — pick where to go, or see the real impact so far.</p>
-      </div>
       <div class="section">
         <div class="section-head"><h2 class="section-title">Get started</h2></div>
         ${dashboardBulkSettingsRowHtml()}

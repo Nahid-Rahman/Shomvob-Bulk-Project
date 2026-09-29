@@ -6686,6 +6686,41 @@ read by `faqCardsHtml()` ahead of the bulk-only cost-line lookup
 any future topic can use the same way, not something special-cased
 just for Settings.
 
+**The Dashboard's own page-head is gone, replaced by a sidebar "Signed
+in as" card, direct request the same day** ("upore dashboard ta uthay
+diba. ar 'Signed in as...' ei part ta shoray diba. and side panel e
+[a reference screenshot] ei screenshot er moto user er chotto ekta part
+rakho je Signed in as then user" — remove the "Dashboard" heading and
+the "Signed in as..." line above it; put a small "Signed in as [user]"
+card in the sidebar instead, modelled on a real reference screenshot's
+own sidebar-footer card). `dashboardTemplate()`'s `.page-head` (the
+`<h1>Dashboard</h1>` + "Signed in as {email} — pick where to go..."
+paragraph) is deleted outright — nothing else on the page read it.
+
+`#sidebarUserCard` is a new sibling inside `.sidebar-foot`, right above
+Log out, the same position the reference screenshot's own card held
+above its Log in/Sign up buttons — rendered at the end of
+`renderSidebar()` (so it updates on every sign-in/sign-out alongside
+everything else that section already does), showing a single-letter
+avatar (the email's own first character, uppercased) plus "Signed in
+as" + the real `setup.toolEmail`, or nothing at all when signed out.
+
+**Email only, on purpose — a named first step, not the finished
+idea**: "amra jodi shobar jonno ekta user name dite pari aro valo hoy.
+apatoto mail diye design koro then user name er concept e ashtesi" (it
+would be nicer if everyone had a real display name; design with email
+for now, the username idea comes next) — flagged here so a future
+session doesn't mistake the email-based avatar/label for the final
+design; revisit once real usernames exist for the 25-or-so real
+accounts this app has.
+
+Confirmed by a real Playwright check: `#mainContent` on the Dashboard
+now has no `.page-head`/`.page-title`/`.page-desc` at all and its text
+no longer includes "pick where to go," and `#sidebarUserCard`'s own
+card renders the real signed-in email with a matching avatar letter,
+sitting before Log out in document order. Full 13-suite run green — no
+test asserted on the removed page-head text.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route
