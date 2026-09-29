@@ -1565,6 +1565,64 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 .numbers-addup-title { margin: 0 0 4px; font-weight: 600; font-size: 14px; }
 
+/* The post-login Dashboard's own routing cards (2026-09-29) — Bulk and
+   Settings, tier-aware. A plain button, not `.op-card` (that stays
+   reserved for the "what we offer" strip below, and for the still-
+   unbuilt tier page's own numbered-card reuse, per its own CLAUDE.md
+   note). `.dashboard-locked-pill` is its own small class rather than
+   reusing `.pill-soon` — that one's colours (`--sidebar-text-muted`,
+   a translucent white fill) are tuned for the sidebar's own fixed-dark
+   background, not a light/dark-aware main-content card. */
+.dashboard-route-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px; }
+.dashboard-route-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px;
+  font-family: inherit;
+}
+.dashboard-route-card:not(:disabled):hover { border-color: var(--accent); }
+.dashboard-route-card:disabled { cursor: not-allowed; opacity: 0.6; }
+.dashboard-route-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.dashboard-route-desc { font-size: 12.5px; color: var(--text-muted); }
+.dashboard-locked-pill {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+/* The "what we offer" strip at the very bottom (2026-09-29) — a
+   compact, low-emphasis horizontal scroll, deliberately smaller than
+   `.op-card`'s own full-size cards, matching the real Shomvob HR
+   dashboard's own "Quick Links" strip the user pointed at as a
+   reference (small cards, sitting last on the page). */
+.dashboard-service-strip { display: flex; gap: 10px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; }
+.dashboard-service-card {
+  flex: 0 0 auto;
+  min-width: 150px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dashboard-service-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.dashboard-service-note { font-size: 11px; color: var(--text-faint); }
+
 .how-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 22px; }
 .how-step {
   display: inline-flex;
@@ -1986,6 +2044,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .main-scroll { overflow: visible; }
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
   .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
+  .dashboard-route-row { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
   .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; }
   .welcome-row-reverse .meme { order: 0; }
@@ -2741,6 +2800,22 @@ const WELCOME_OPERATION_ORDER = ["employee_add", "attendance_add", "leave_balanc
    make the math produce 55). The "vs fully manual" figure right next
    to it stays a real live computation — only this one is fixed. */
 const WELCOME_VS_AI_SAVED_MIN = 55;
+
+/* The post-login Dashboard's own time-range filter (2026-09-29) — a
+   fixed, dictated list, "This week / This month / Last 3 months / Last
+   6 months," plus "All time" as the default (not in the user's own
+   list — added and confirmed directly, since a brand-new/light-usage
+   account would otherwise open on an empty-looking "This week"). Each
+   is a rolling window from now, not a calendar boundary — simpler, and
+   avoids "this week" meaning something different depending on what day
+   it is. `days: null` means no lower bound at all. */
+const DASHBOARD_RANGES = [
+  { id: "all", label: "All time", days: null },
+  { id: "week", label: "This week", days: 7 },
+  { id: "month", label: "This month", days: 30 },
+  { id: "3months", label: "Last 3 months", days: 90 },
+  { id: "6months", label: "Last 6 months", days: 180 },
+];
 
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
@@ -3779,6 +3854,28 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   function renderSidebar() {
     const home = $("#homeNav");
     home.innerHTML = "";
+    /* The real post-login Dashboard (2026-09-29) — a second, separate
+       sidebar item, not a repurposing of the existing Welcome one
+       below. That button is only ever visible/clickable once signed in
+       anyway (the whole .sidebar hides otherwise), which made
+       repointing it tempting — but several existing tests click it by
+       its exact label ("Welcome") expecting the actual pre-signin-style
+       page (.welcome-row etc.) to render, to check unrelated things
+       like scroll-reset behaviour. Adding this as its own item keeps
+       that page reachable exactly as before, with zero risk to those
+       checks, rather than repurposing a button whose label a handful
+       of tests already depend on. */
+    const dashBtn = document.createElement("button");
+    dashBtn.className = "op-item";
+    dashBtn.type = "button";
+    dashBtn.setAttribute("aria-current", String(currentOp === "dashboard"));
+    dashBtn.innerHTML = `<span class="op-item-label">${opIcon("dashboard")}Dashboard</span>`;
+    dashBtn.addEventListener("click", () => {
+      if (isBulkRunActive()) return;
+      navigateTo("dashboard");
+    });
+    home.appendChild(dashBtn);
+
     const homeBtn = document.createElement("button");
     homeBtn.className = "op-item";
     homeBtn.type = "button";
@@ -3959,6 +4056,17 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       $("#welcomeBar").style.display = "flex";
       return;
     }
+    if (currentOp === "dashboard") {
+      $("#actionBar").style.display = "none";
+      /* Same wider 1100px column Company Setup/Admin Panel already use
+         — this page has a data table and card rows, not a short
+         field-form, so the default 760px column would read cramped. */
+      root.classList.remove("has-media", "welcome-wide");
+      root.classList.add("wide");
+      root.innerHTML = dashboardTemplate();
+      wireDashboardEvents();
+      return;
+    }
     if (currentOp === "operations_gate") {
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media", "wide");
@@ -4069,6 +4177,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      assets. */
   const OP_ICONS = {
     welcome: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
+    dashboard: '<rect x="3.5" y="10" width="4" height="10.5" rx="1"/><rect x="10" y="5" width="4" height="15.5" rx="1"/><rect x="16.5" y="13.5" width="4" height="7" rx="1"/>',
     employee_add: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     attendance_add: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 1.9"/>',
     leave_balance_add: '<rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M8 2.5v4M16 2.5v4M3 10.5h18"/><path d="M8 15h.01M12 15h.01M16 15h.01M8 18.5h.01M12 18.5h.01"/>',
@@ -6570,6 +6679,64 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   const dashboardStats = { status: "idle", summary: null, error: "" };
   // status: "idle" | "checking" | "not_admin" | "ready" | "error"
 
+  /* The post-login Dashboard's own real usage stats (2026-09-29) —
+     unlike dashboardStats above, this is *not* admin-gated: reaching
+     the Dashboard at all already requires a real sign-in ("dashboard
+     kintu only for signed user" — direct confirmation that no
+     additional admin check belongs on top of that). Two new, narrow
+     SQL functions (dashboard_bulk_stats/dashboard_settings_save_count,
+     granted to `authenticated` only, never `anon`) return aggregated
+     counts with no company_name/user_email attached — the same
+     anon-safe-aggregate discipline `public_generate_counts()` already
+     holds itself to, just scoped one step tighter since this data only
+     needs to exist for someone who's actually signed in. */
+  const dashboardRealStats = { status: "idle", range: "all", byOperation: {}, settingsSaveCount: 0 };
+  // status: "idle" | "checking" | "ready" | "error"
+
+  async function loadDashboardRealStats(rangeId) {
+    dashboardRealStats.status = "checking";
+    dashboardRealStats.range = rangeId;
+    const range = DASHBOARD_RANGES.find((r) => r.id === rangeId) || DASHBOARD_RANGES[0];
+    const sinceTs = range.days ? new Date(Date.now() - range.days * 24 * 3600 * 1000).toISOString() : "1970-01-01T00:00:00Z";
+    try {
+      const headers = { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` };
+      const [bulkRes, settingsRes] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/rpc/dashboard_bulk_stats`, { method: "POST", headers, body: JSON.stringify({ since_ts: sinceTs }) }),
+        fetch(`${SUPABASE_URL}/rest/v1/rpc/dashboard_settings_save_count`, { method: "POST", headers, body: JSON.stringify({ since_ts: sinceTs }) }),
+      ]);
+      if (!bulkRes.ok || !settingsRes.ok) throw new Error("Couldn't load real usage.");
+      const bulkRows = await bulkRes.json();
+      const settingsCount = await settingsRes.json();
+      const byOperation = {};
+      for (const row of bulkRows) byOperation[row.module_id] = { count: Number(row.generate_count), entries: Number(row.total_entries) };
+      dashboardRealStats.byOperation = byOperation;
+      dashboardRealStats.settingsSaveCount = Number(settingsCount) || 0;
+      dashboardRealStats.status = "ready";
+    } catch (e) {
+      dashboardRealStats.status = "error";
+    }
+  }
+
+  /* Turns one operation's real (count, entries) into real Manual/AI/
+     Bulk-Forge minutes, scaled from OPERATION_TIME_COMPARISON's own
+     per-50-entries basis (the same dictated numbers "By the numbers"
+     already uses) — real usage is whatever count actually happened,
+     not a fixed 50. Zero entries (nothing generated yet, or no data
+     for this range) correctly zeroes out every figure rather than
+     dividing by zero. */
+  function realStatsForOperation(id) {
+    const s = dashboardRealStats.byOperation[id] || { count: 0, entries: 0 };
+    const basis = OPERATION_TIME_COMPARISON[id];
+    const scale = s.entries / 50;
+    return {
+      count: s.count,
+      entries: s.entries,
+      manual: basis ? minutesMid(basis.manual) * scale : 0,
+      ai: basis ? minutesMid(basis.ai) * scale : 0,
+      bulkForge: basis ? basis.bulkForge * scale : 0,
+    };
+  }
+
   async function checkIsAdmin() {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/is_admin`, {
@@ -7253,7 +7420,12 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         logAudit("login", `${email} signed in`, { environment: setup.env });
         refreshAdminNav();
         refreshMyTier();
-        const target = pendingOperation || "welcome";
+        /* Lands on the real Dashboard now (2026-09-29), not the pre-signin
+           Welcome page — a real sign-in with no specific operation
+           requested means "just take me in," and the Dashboard is what
+           "in" now means. Welcome stays reachable afterward from its own
+           sidebar item, unchanged. */
+        const target = pendingOperation || "dashboard";
         pendingOperation = null;
         /* replace: true — signing in completes the gate rather than
            adding a new step, so Back from the target operation returns
@@ -7265,6 +7437,190 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         err.textContent = e.message;
       }
     });
+  }
+
+  /* ---------- The real post-login Dashboard (2026-09-29) ----------
+
+     TODO.md's own last remaining Tiered Access step, built through
+     discussion before any code — same discipline as the Welcome page's
+     own build. Confirmed content, in order: the Bulk/Settings routing
+     (already-confirmed spec, lock icons for whatever the signed-in
+     user's real tier excludes), real per-operation usage (bulk runs,
+     entries created, time saved — all from dashboard_bulk_stats()),
+     a combined total plus a 3-way Manual/AI/Bulk-Forge comparison
+     (explicitly labelled "Estimated" — the per-entry basis is still
+     the dictated OPERATION_TIME_COMPARISON figures, not a measured
+     rate, scaled by a real count doesn't make it a measured total),
+     a Settings row that's deliberately just a count and no time figure
+     ("settings choto jinish. protita alada kore dekhale beshi value
+     create ba difference bujha jabe na" — Settings is a small thing,
+     showing each one's own difference separately wouldn't read as
+     meaningful), and a low-emphasis "what we offer" service-card strip
+     at the very bottom — mirrors the real Shomvob HR dashboard's own
+     "Quick Links" section the user pointed at as a layout reference,
+     both in shape and in sitting last, not in the middle. */
+  function dashboardBulkSettingsRowHtml() {
+    const bulkLocked = myTier === "company";
+    const settingsLocked = myTier === "bulk";
+    const card = (id, title, desc, locked) => `
+      <button type="button" class="dashboard-route-card" data-target="${id}" ${locked ? "disabled" : ""} title="${locked ? "Your account's access level doesn't include this" : ""}">
+        <span class="dashboard-route-title">${title}</span>
+        <span class="dashboard-route-desc">${desc}</span>
+        ${locked ? `<span class="dashboard-locked-pill">Locked</span>` : ""}
+      </button>`;
+    return `
+      <div class="dashboard-route-row">
+        ${card("bulk", "Bulk", "Generate QA-ready files for any of the 5 operations", bulkLocked)}
+        ${card("settings", "Settings", "Configure departments, leave, payroll and the rest for a real company", settingsLocked)}
+      </div>
+    `;
+  }
+
+  function dashboardUsageHtml() {
+    const rangeOptions = DASHBOARD_RANGES.map(
+      (r) => `<option value="${r.id}" ${r.id === dashboardRealStats.range ? "selected" : ""}>${r.label}</option>`
+    ).join("");
+    if (dashboardRealStats.status === "checking" || dashboardRealStats.status === "idle") {
+      return `
+        <div class="section">
+          <div class="section-head"><h2 class="section-title">Real usage</h2></div>
+          <p class="section-note">Checking…</p>
+        </div>
+      `;
+    }
+    if (dashboardRealStats.status === "error") {
+      return `
+        <div class="section">
+          <div class="section-head"><h2 class="section-title">Real usage</h2></div>
+          <p class="error-text">Couldn't load real usage — try refreshing.</p>
+        </div>
+      `;
+    }
+    const rows = WELCOME_OPERATION_ORDER.map((id) => ({
+      id,
+      label: OPERATIONS.find((o) => o.id === id).label,
+      ...realStatsForOperation(id),
+    }));
+    const totalManual = rows.reduce((s, r) => s + r.manual, 0);
+    const totalAi = rows.reduce((s, r) => s + r.ai, 0);
+    const totalBulkForge = rows.reduce((s, r) => s + r.bulkForge, 0);
+    const pctVsManual = totalManual > 0 ? Math.round((1 - totalBulkForge / totalManual) * 100) : 0;
+    const pctVsAi = totalAi > 0 ? Math.round((1 - totalBulkForge / totalAi) * 100) : 0;
+    return `
+      <div class="section">
+        <div class="section-head">
+          <h2 class="section-title">Real usage</h2>
+          <select id="dashRangeSelect">${rangeOptions}</select>
+        </div>
+        <p class="section-note">Pulled straight from this tool's own activity log.</p>
+        <div class="preview-table-wrap" style="margin-top:8px">
+          <table class="preview-table">
+            <thead><tr>
+              <th>Operation</th><th class="num">Bulk runs</th><th class="num">Entries created</th><th class="num">Time saved</th>
+            </tr></thead>
+            <tbody>
+              ${rows
+                .map(
+                  (r) => `<tr>
+                <td>${escapeHtml(r.label)}</td>
+                <td class="num">${r.count}</td>
+                <td class="num">${r.entries}</td>
+                <td class="num strong">${formatHoursMinutes(r.bulkForge)}</td>
+              </tr>`
+                )
+                .join("")}
+              <tr>
+                <td>Settings <span class="faint">(count only — see note below)</span></td>
+                <td class="num" colspan="2">${dashboardRealStats.settingsSaveCount} real saves</td>
+                <td class="num faint">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="section-note" style="margin-top:8px">Settings is a small thing per save — showing each one's own time difference wouldn't read as meaningful, so it's just a real count here.</p>
+
+        <div class="numbers-addup-box">
+          <p class="numbers-addup-title">Estimated impact so far</p>
+          <p class="section-note">Bulk operations only — real entries created, scaled against the same per-task estimate "By the numbers" uses. Settings isn't included, since it has no "with AI" baseline.</p>
+          <div class="stat-row stat-row-2" style="margin-top:8px">
+            <div class="stat-tile">
+              <span class="stat-value">${formatHoursMinutes(totalBulkForge > 0 || totalManual > 0 ? totalManual - totalBulkForge : 0)}</span>
+              <span class="stat-label">Estimated time saved versus doing it all by hand${totalManual > 0 ? ` (~${pctVsManual}%)` : ""}</span>
+            </div>
+            <div class="stat-tile">
+              <span class="stat-value">${formatHoursMinutes(totalAi > 0 || totalBulkForge > 0 ? totalAi - totalBulkForge : 0)}</span>
+              <span class="stat-label">Estimated time saved versus using AI to help${totalAi > 0 ? ` (~${pctVsAi}%)` : ""}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* The low-emphasis "what we offer" strip — reuses OPERATION_BLURBS/
+     SETTINGS_GROUPS directly (both kept specifically for this reuse
+     since the 2026-09-25 Dashboard redesign removed the old operation-
+     card grid — see that section's own note), a compact list rather
+     than the old grid's own full-size cards, sitting last on the page
+     the same way the real Shomvob dashboard's own "Quick Links" does. */
+  function dashboardServiceStripHtml() {
+    const items = [
+      ...OPERATIONS.map((op) => ({ label: op.label, note: (OPERATION_BLURBS[op.id] || {}).cost || "" })),
+      ...SETTINGS_GROUPS.map((g) => ({ label: g.label, note: "" })),
+    ];
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">What we offer</h2></div>
+        <p class="section-note">Everything Bulk Forge covers, at a glance.</p>
+        <div class="dashboard-service-strip">
+          ${items.map((it) => `<div class="dashboard-service-card"><span class="dashboard-service-title">${escapeHtml(it.label)}</span>${it.note ? `<span class="dashboard-service-note">${escapeHtml(it.note)}</span>` : ""}</div>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function dashboardTemplate() {
+    return `
+      <div class="page-head">
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-desc">Signed in as ${escapeHtml(setup.toolEmail || "")} — pick where to go, or see the real impact so far.</p>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">Get started</h2></div>
+        ${dashboardBulkSettingsRowHtml()}
+      </div>
+      ${dashboardUsageHtml()}
+      ${dashboardServiceStripHtml()}
+    `;
+  }
+
+  function wireDashboardEvents() {
+    $all(".dashboard-route-card").forEach((btn) => {
+      if (btn.disabled) return;
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.target;
+        if (target === "bulk") goToOperation(OPERATIONS[0].id);
+        else if (target === "settings") navigateTo("company_setup");
+      });
+    });
+    const rangeSelect = $("#dashRangeSelect");
+    if (rangeSelect) {
+      rangeSelect.addEventListener("change", async () => {
+        await loadDashboardRealStats(rangeSelect.value);
+        if (currentOp !== "dashboard") return;
+        const root = $("#mainContent");
+        root.innerHTML = dashboardTemplate();
+        wireDashboardEvents();
+      });
+    }
+    if (dashboardRealStats.status === "idle") {
+      loadDashboardRealStats(dashboardRealStats.range).then(() => {
+        if (currentOp !== "dashboard") return;
+        const root = $("#mainContent");
+        root.innerHTML = dashboardTemplate();
+        wireDashboardEvents();
+      });
+    }
   }
 
   /* The Dashboard's joke "Auto setup my company & bulk upload" button
@@ -15431,10 +15787,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
            a history entry from before the account was retiered down to
            "company" could otherwise land directly on a Bulk operation's
            page, the exact class of gap this app's own Back/Forward
-           already guards against for a stale signed-in session above. */
-        currentOp = "welcome";
+           already guards against for a stale signed-in session above.
+           Falls back to "dashboard", not "welcome" — both branches here
+           only ever fire once myTier is resolved, which only happens
+           signed in, so the real Dashboard is the correct landing spot
+           now (2026-09-29), the same as every other "just signed in,
+           no specific place requested" case in this file. */
+        currentOp = "dashboard";
       } else if (opId === "company_setup" && myTier === "bulk") {
-        currentOp = "welcome";
+        currentOp = "dashboard";
       } else {
         currentOp = opId;
       }

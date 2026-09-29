@@ -13,10 +13,13 @@ or added more).
   numbers' got asked about again..." for the full detail up through
   its 5th revision (real dictated before/after numbers, one unified
   table + Settings row, "Add it all up" folded into the same section
-  as a tinted panel, capitalised stat labels/units). **Next up: the
-  post-login Dashboard page itself** — see the "Not started" bullet
-  further down; the user will guide this step by step, don't start
-  unprompted.
+  as a tinted panel, capitalised stat labels/units).
+- ✅ **Post-login Dashboard page built 2026-09-29** — the last piece of
+  the Tiered Access journey; see the ✅ bullet further down and
+  CLAUDE.md → "The post-login Dashboard" for the full build. **Nothing
+  from the originally-dictated Tiered Access journey is outstanding
+  any more.** Next up is the CXO report below, once the user's ready
+  for it.
 - **A 2-page CXO impact report, requested by the user's lead
   (2026-09-28), not started** — "amar lead ekta report chaise 2 page
   er jekhane ami amar kaj er impact and etar jonno ki ki upokar
@@ -253,17 +256,19 @@ or added more).
       chinta kore guchay dibo ki ki rakhba" (leave it for now, I'll work
       out what belongs there myself) — don't redesign it without being
       asked again specifically.
-  - **Not started**: the new post-login **Dashboard** page itself
-    (renamed from "Welcome/tier routing page," 2026-09-27 — see the
-    naming note on step 5 above; the pre-signin landing keeps the name
-    "Welcome" instead, and is now fully rebuilt per the bullet just
-    above — don't confuse the two) — Bulk/Settings/Both cards + lock
-    icons, this is also where the Operations-picking experience now
-    moved off the sidebar is headed, and where Company Setup's own
-    step-one sign-in form is meant to move to. **This is the last piece
-    of the originally-dictated journey left** — enforcement itself is
-    done (above), what's missing now is purely the dedicated landing
-    page.
+  - ✅ **Built 2026-09-29**: the new post-login **Dashboard** page
+    itself (renamed from "Welcome/tier routing page," 2026-09-27 — see
+    the naming note on step 5 above; the pre-signin landing keeps the
+    name "Welcome" instead — don't confuse the two). See CLAUDE.md →
+    "The post-login Dashboard" for the full build: Bulk/Settings
+    routing cards with lock icons ("Both" turned out to mean "neither
+    locked," not a literal third card), a real per-operation usage
+    table (`entry_count`-powered, see the bullet right above this one),
+    an "Estimated impact so far" comparison, a This week/month/3-6
+    months/All-time filter, and a low-emphasis "what we offer" strip at
+    the bottom. **This closes the originally-dictated journey** — every
+    numbered step above is now done. `tests/dashboard.test.js` (22
+    checks) covers it; full 12-suite run (888 checks) green.
 
   **Whoever picks this up next**: don't restart planning from scratch —
   every numbered decision above is confirmed, not an open question. Ask

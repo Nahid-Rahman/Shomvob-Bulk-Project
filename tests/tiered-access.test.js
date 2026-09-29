@@ -181,6 +181,12 @@ function mockTier(page, tier) {
     check("E every Operation is disabled", await page.locator('.op-item:has-text("Employee Add")').isDisabled());
     check("E a Locked pill names why", (await page.locator('.op-item:has-text("Employee Add") .pill-soon').textContent()).trim() === "Locked");
     check("E Company Setup stays enabled", !(await page.locator('.op-item:has-text("Company Setup")').isDisabled()));
+    /* A real sign-in now lands on the Dashboard, not the Welcome page
+       (2026-09-29) — #welcomeBarNote is Welcome-page-only UI, so this
+       check needs the visitor to have actually navigated there first,
+       same as a signed-in visitor genuinely revisiting it would. */
+    await page.click('.op-item:has-text("Welcome")');
+    await page.waitForSelector("#welcomeBarNote");
     check("E the sticky bar's own note reflects the real tier", (await page.textContent("#welcomeBarNote")).includes("Company Setup is unlocked") && (await page.textContent("#welcomeBarNote")).includes("doesn't include Operations"));
     check("E no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
@@ -207,6 +213,10 @@ function mockTier(page, tier) {
 
     check("F Company Setup is disabled", await page.locator('.op-item:has-text("Company Setup")').isDisabled());
     check("F Operations stay enabled", !(await page.locator('.op-item:has-text("Employee Add")').isDisabled()));
+    /* Same as block E above — a real sign-in lands on the Dashboard now,
+       so #welcomeBarNote needs an explicit visit to the Welcome page. */
+    await page.click('.op-item:has-text("Welcome")');
+    await page.waitForSelector("#welcomeBarNote");
     check("F the sticky bar's own note reflects the real tier", (await page.textContent("#welcomeBarNote")).includes("Operations are unlocked") && (await page.textContent("#welcomeBarNote")).includes("doesn't include Company Setup"));
 
     // Picking an operation still works directly (this tier includes Bulk).

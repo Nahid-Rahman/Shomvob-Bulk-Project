@@ -137,6 +137,14 @@ async function mockToolSignIn(page) {
   );
   await page.route("**/rest/v1/audit_log**", (route) => route.fulfill({ status: 201, contentType: "application/json", body: "[]" }));
   await page.route("**/rest/v1/rpc/my_tier", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '"both"' }));
+  /* The real post-login Dashboard (2026-09-29) fetches these the
+     instant it's reached — mocked here, not just in dashboard's own
+     test file, since a real sign-in with no pending operation now
+     lands there directly, so any suite that signs in at all can end up
+     on this page. Empty/zero defaults; a test that actually cares about
+     real numbers overrides these routes itself. */
+  await page.route("**/rest/v1/rpc/dashboard_bulk_stats", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await page.route("**/rest/v1/rpc/dashboard_settings_save_count", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "0" }));
 }
 
 /* The Welcome page's real, public "So far, for real" stat (2026-09-27)

@@ -531,6 +531,22 @@ const WELCOME_OPERATION_ORDER = ["employee_add", "attendance_add", "leave_balanc
    to it stays a real live computation — only this one is fixed. */
 const WELCOME_VS_AI_SAVED_MIN = 55;
 
+/* The post-login Dashboard's own time-range filter (2026-09-29) — a
+   fixed, dictated list, "This week / This month / Last 3 months / Last
+   6 months," plus "All time" as the default (not in the user's own
+   list — added and confirmed directly, since a brand-new/light-usage
+   account would otherwise open on an empty-looking "This week"). Each
+   is a rolling window from now, not a calendar boundary — simpler, and
+   avoids "this week" meaning something different depending on what day
+   it is. `days: null` means no lower bound at all. */
+const DASHBOARD_RANGES = [
+  { id: "all", label: "All time", days: null },
+  { id: "week", label: "This week", days: 7 },
+  { id: "month", label: "This month", days: 30 },
+  { id: "3months", label: "Last 3 months", days: 90 },
+  { id: "6months", label: "Last 6 months", days: 180 },
+];
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },

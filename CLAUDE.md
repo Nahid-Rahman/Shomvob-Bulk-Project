@@ -1681,8 +1681,8 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 866 checks as
-of the Manage Users success-modal addition (2026-09-26) — this number drifts with every change, so treat it as
+Twelve suites (`dashboard.test.js` added 2026-09-29), 888 checks as
+of that addition — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
@@ -6100,6 +6100,123 @@ audit_log payload shape, so nothing needed updating.
 
 **Not yet built**: the Dashboard page itself (the layout/filter/graph
 work this column exists to feed) — next.
+
+## The post-login Dashboard (2026-09-29)
+
+TODO.md's own last remaining Tiered Access step, built the same day as
+`entry_count` above (which this page exists to consume) — content
+confirmed through discussion before any code, same discipline as the
+Welcome page's own build. **A real Shomvob HR admin screenshot was the
+starting reference** ("emon kichu graph rakhbo" — I'll keep some graphs
+like this), then narrowed down message by message into exactly what's
+built:
+
+- **Get started** — two routing cards, **Bulk** and **Settings**
+  (TODO.md's own "Bulk/Settings/Both" spec re-read correctly once
+  actually building it: "Both" was never a literal third card, it's
+  the tier value that leaves *neither* card locked — a `"company"`
+  tier locks Bulk, a `"bulk"` tier locks Settings, `"both"`/unresolved
+  locks neither). Reuses the same disabled+`title`+small pill shape
+  the sidebar's own Locked pills already established, in a new
+  `.dashboard-locked-pill` class rather than reusing `.pill-soon`
+  itself — that one's colours are tuned for the sidebar's own fixed-
+  dark background, not a light/dark-aware main-content card. Clicking
+  Bulk goes to the first real operation; clicking Settings goes
+  straight to Company Setup.
+- **Real usage** — a `.preview-table`, one row per Bulk operation
+  (real bulk-run count, real entries created, real time saved) plus a
+  final Settings row that's deliberately just a count with no time
+  figure — direct instruction, confirmed after flagging the real
+  design gap first (there was no reliable per-module manual-time
+  figure left to compute a real Settings time-saved number from, since
+  the dictated `37 min` total was always "the whole company in one
+  Run defaults click," not a per-individual-save rate): "settings choto
+  jinish. protita alada kore dekhale beshi value create ba difference
+  bujha jabe na" — Settings is a small thing, showing each save's own
+  difference separately wouldn't read as meaningful. A **This week /
+  This month / Last 3 months / Last 6 months / All time** filter sits
+  above the table — "All time" is the default, added on top of the
+  user's own four (confirmed directly: a light-usage account would
+  otherwise open on an empty-looking "This week"). Each option is a
+  rolling window from now, not a calendar boundary, computed client-
+  side and sent as a `since_ts` parameter.
+- **Estimated impact so far** — `.numbers-addup-box`, reused as-is from
+  "By the numbers" — two totals, vs-fully-manual and vs-AI, Bulk
+  operations only (Settings has no "with AI" baseline, same reasoning
+  as the Welcome page's own comparison). Explicitly labelled
+  **"Estimated"**, not a plain number — the per-entry basis scaling a
+  real count up is still the dictated `OPERATION_TIME_COMPARISON`
+  figures, not a measured rate, so a real count multiplied by an
+  estimate is still an estimate, and the page says so rather than
+  letting a real-sounding number imply otherwise.
+- **What we offer** — a low-emphasis, horizontally-scrolling strip at
+  the very bottom, reusing `OPERATION_BLURBS`/`SETTINGS_GROUPS`
+  directly (both kept specifically for this reuse when the old
+  operation-card grid was removed from the Welcome page, 2026-09-25 —
+  see that section's own note). Confirmed position directly ("service
+  cards gula koi dekhabo? majha majhi?" — where do the service cards
+  go, in the middle?) against the same real Shomvob screenshot's own
+  "Quick Links" section, which sits last, not in the middle — so this
+  does too, not because a middle placement was wrong on its own merits,
+  but because the reference the whole page was modelled on put it last.
+
+**No admin gate on top of any of this** — confirmed directly ("signed
+user. cz dashboard kintu only for signed user. welcome is open for
+all"): reaching the Dashboard at all already requires a real sign-in,
+so a second, narrower admin check on top would be redundant — unlike
+"Team activity" (Welcome page, admin-only), which needed its own gate
+specifically because the *Welcome page itself* stays reachable by
+anyone past the joke gate.
+
+**Two new, narrow SQL functions power the real numbers** —
+`dashboard_bulk_stats(since_ts)` (returns `{module_id, generate_count,
+total_entries}` grouped and summed from `audit_log`) and
+`dashboard_settings_save_count(since_ts)` — both `SECURITY DEFINER`,
+granted `EXECUTE` to `authenticated` only, never `anon`, and both
+return only aggregated counts, no `company_name`/`user_email` — the
+same anon-safe-aggregate discipline `public_generate_counts()` already
+holds itself to, just scoped one notch tighter since this data only
+ever needs to exist for someone who's actually signed in. Applied
+directly via the Supabase SQL Editor, same as `entry_count` above —
+this session's own connected Supabase MCP account still didn't have
+access to the Shomvob SQA project.
+
+**A real sign-in with no pending operation now lands on `"dashboard"`,
+not `"welcome"`** — `wireOperationsGateEvents()`'s own `pendingOperation
+|| "welcome"` fallback is the one place this was decided, changed to
+`|| "dashboard"`; the same two `myTier`-mismatch corrections inside
+`wirePopstate()` (a stale Bulk/Settings history entry from before a
+retiering) fall back the same way now, since both only ever fire once
+signed in. **The sidebar gets a second, separate nav item, "Dashboard,"
+above "Welcome"** — not a repurposing of the existing Welcome button,
+even though that button is only ever visible/clickable once signed in
+anyway (the whole `.sidebar` hides otherwise, which made repointing it
+tempting): several existing tests click it by its exact label
+("Welcome") expecting the real pre-signin-style page (`.welcome-row`
+etc.) to render, to check unrelated things like scroll-reset behaviour.
+Adding a second item keeps that page reachable exactly as before, with
+zero risk to those checks. `opIcon("dashboard")` is a new hand-drawn
+bar-chart glyph, same hand as every other `OP_ICONS` entry.
+
+**Real fallout from this routing change, all fixed the same day**:
+`tiered-access.test.js`'s blocks E/F checked `#welcomeBarNote`
+(Welcome-page-only UI) immediately after a sign-in that no longer lands
+there — both now click the sidebar's "Welcome" item first, since a
+signed-in visitor genuinely revisiting that page and seeing its
+tier-aware note is still exactly what those blocks are testing, just
+one click later than before. `back-navigation.test.js`'s block B
+checked `.welcome-headline` for the same reason — now checks
+`.dashboard-route-row`, the new page's own stable first-paint marker.
+Confirmed by a full 11-suite run green (866 checks) before adding a
+12th suite, `tests/dashboard.test.js` (22 checks): both routing cards
+enabled for a `"both"` tier and correctly locked/routing for
+`"company"`/`"bulk"` tiers, real per-operation numbers rendering from
+mocked `dashboard_bulk_stats()` rows, the Settings row showing a plain
+count with no time figure, the impact box's own "Estimated" label, the
+time-range filter defaulting to "All time" and sending a real
+`since_ts` that actually changes when switched, and the service strip
+listing all 11 real items (5 operations + 6 groups) after the usage
+section, not before it.
 
 ## Adding a sixth operation
 

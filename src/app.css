@@ -1548,6 +1548,64 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 .numbers-addup-title { margin: 0 0 4px; font-weight: 600; font-size: 14px; }
 
+/* The post-login Dashboard's own routing cards (2026-09-29) — Bulk and
+   Settings, tier-aware. A plain button, not `.op-card` (that stays
+   reserved for the "what we offer" strip below, and for the still-
+   unbuilt tier page's own numbered-card reuse, per its own CLAUDE.md
+   note). `.dashboard-locked-pill` is its own small class rather than
+   reusing `.pill-soon` — that one's colours (`--sidebar-text-muted`,
+   a translucent white fill) are tuned for the sidebar's own fixed-dark
+   background, not a light/dark-aware main-content card. */
+.dashboard-route-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px; }
+.dashboard-route-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px;
+  font-family: inherit;
+}
+.dashboard-route-card:not(:disabled):hover { border-color: var(--accent); }
+.dashboard-route-card:disabled { cursor: not-allowed; opacity: 0.6; }
+.dashboard-route-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.dashboard-route-desc { font-size: 12.5px; color: var(--text-muted); }
+.dashboard-locked-pill {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+/* The "what we offer" strip at the very bottom (2026-09-29) — a
+   compact, low-emphasis horizontal scroll, deliberately smaller than
+   `.op-card`'s own full-size cards, matching the real Shomvob HR
+   dashboard's own "Quick Links" strip the user pointed at as a
+   reference (small cards, sitting last on the page). */
+.dashboard-service-strip { display: flex; gap: 10px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; }
+.dashboard-service-card {
+  flex: 0 0 auto;
+  min-width: 150px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dashboard-service-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.dashboard-service-note { font-size: 11px; color: var(--text-faint); }
+
 .how-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 22px; }
 .how-step {
   display: inline-flex;
@@ -1969,6 +2027,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .main-scroll { overflow: visible; }
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
   .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
+  .dashboard-route-row { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
   .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; }
   .welcome-row-reverse .meme { order: 0; }
