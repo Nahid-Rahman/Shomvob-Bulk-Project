@@ -3525,7 +3525,7 @@
           </svg>
           <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
             <span class="dashboard-donut-total">${total}</span>
-            <span class="dashboard-donut-total-label">total runs</span>
+            <span class="dashboard-donut-total-label">Total runs</span>
           </div>
         </div>
         <div class="dashboard-donut-legend">
