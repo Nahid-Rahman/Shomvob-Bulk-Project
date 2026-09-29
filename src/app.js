@@ -3409,18 +3409,22 @@
 
   /* `counts` is a plain {label: n} object — sorted desc, the biggest bar
      always reads full-width so every other one reads proportionally
-     against it rather than against some arbitrary fixed max. */
-  function barListHtml(counts) {
+     against it rather than against some arbitrary fixed max. `formatCount`
+     is optional — the raw number is what sizes/sorts the bar, but a caller
+     showing minutes (say) can pass a formatter so the printed value reads
+     "1H 20M" instead of a bare number of minutes. */
+  function barListHtml(counts, formatCount) {
+    const fmt = formatCount || ((n) => n);
     const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
     if (entries.length === 0) return `<p class="section-note" style="margin:6px 0 0">Nothing yet.</p>`;
-    const max = entries[0][1];
+    const max = entries[0][1] || 1;
     return `<div style="margin-top:8px">${entries
       .map(
         ([label, count]) => `
       <div class="stat-bar-row">
         <span class="stat-bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
         <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${Math.max(6, Math.round((count / max) * 100))}%"></span></span>
-        <span class="stat-bar-count">${count}</span>
+        <span class="stat-bar-count">${fmt(count)}</span>
       </div>`
       )
       .join("")}</div>`;
@@ -4073,6 +4077,11 @@
           </table>
         </div>
         <p class="section-note" style="margin-top:8px">Settings is a small thing per save — showing each one's own time difference wouldn't read as meaningful, so it's just a real count here.</p>
+
+        <div class="field-row" style="margin-top:18px">
+          <div class="field"><label>Entries created, by operation</label>${barListHtml(Object.fromEntries(rows.map((r) => [r.label, r.entries])))}</div>
+          <div class="field"><label>Time saved, by operation</label>${barListHtml(Object.fromEntries(rows.map((r) => [r.label, Math.round(r.bulkForge)])), formatHoursMinutes)}</div>
+        </div>
 
         <div class="numbers-addup-box">
           <p class="numbers-addup-title">Estimated impact so far</p>

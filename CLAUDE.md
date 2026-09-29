@@ -6218,6 +6218,55 @@ time-range filter defaulting to "All time" and sending a real
 listing all 11 real items (5 operations + 6 groups) after the usage
 section, not before it.
 
+**Real usage got two bar charts under the table the same day it first
+shipped, on live feedback against a real screenshot** ("eta ki ashlo?
+amader koyekta chart graph ashar kotha. ektao ashe nai" — where are the
+charts we were supposed to get, not even one showed up): this page was
+originally kicked off by a real Shomvob HR dashboard screenshot showing
+actual line/bar/donut charts, and what shipped first was a plain data
+table with none — a real gap between what was shown as inspiration and
+what got built, not something confirmed away at any point. Rather than
+replace the table, the user's own call was to keep both and compare
+("table chart duitai rakho, then dekhi konta valo lage" — keep both,
+we'll see which reads better, drop whichever isn't needed). Two more
+`barListHtml()` calls (the same plain-CSS bar component "By the
+numbers"/"Team activity" already use — no chart library, consistent
+with this app's own restraint) sit in a `.field-row` right under the
+table: **Entries created, by operation** and **Time saved, by
+operation**, both built from the exact same per-operation `rows` this
+section's own table already computes — no second data source.
+`barListHtml()` picked up an optional second `formatCount` argument
+(default identity, so its two pre-existing callers — "Team activity"'s
+own two bar lists — are untouched) so the time-saved chart can print
+`formatHoursMinutes()`'s "1H 20M" shape instead of a bare minute count,
+while still sorting/sizing bars off the raw minute value underneath.
+Also fixed in the same edit, found while widening this function: `max`
+now falls back to `1` when the biggest value is `0` — the entries chart
+can legitimately be all-zero (see the note right below), and dividing
+by a zero max produced `NaN%`-wide bars before this guard.
+
+**The reported "entries created = 0 / time saved = 0" the same
+screenshot flagged is real historical data, not a bug** — confirmed by
+reading `dashboard_bulk_stats()`'s own math rather than assumed:
+`entry_count` (above) only exists on `audit_log` rows logged *after*
+today's deploy, so the handful of real Employee Add generates that
+happened before this column existed have `entry_count = NULL` forever,
+and `coalesce(sum(entry_count), 0)` correctly sums those to `0` — the
+run *count* is still real (it was always tracked), only the *entries*
+figure for that pre-existing data can never be recovered, since the row
+count of an already-downloaded file was never captured anywhere. The
+user's own call, once this was explained: leave it as-is, since every
+generate from now on carries a real count and the historical gap will
+simply age out of relevance.
+
+Confirmed by a real Playwright screenshot pass (not just the mocked
+test suite) at both 1440px and 390px with real non-zero mocked data:
+both charts render true proportional bar widths (no `NaN%`), and the
+`.field-row` pair stacks into two full-width rows under the existing
+mobile breakpoint rather than squeezing side by side. Full 12-suite
+run stayed green (888 checks) — no test asserted on the table's own
+markup in a way either chart's insertion touched.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route
