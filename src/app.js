@@ -4272,7 +4272,7 @@
      it. */
   function faqCardsHtml() {
     return FAQ_TOPICS.map((t) => {
-      const note = t.category === "bulk" ? (OPERATION_BLURBS[t.id] || {}).cost || "" : "";
+      const note = t.note || (t.category === "bulk" ? (OPERATION_BLURBS[t.id] || {}).cost || "" : "");
       return `<button type="button" class="dashboard-service-card" data-faq-id="${t.id}">
         <span class="dashboard-service-title">${escapeHtml(t.label)}</span>
         ${note ? `<span class="dashboard-service-note">${escapeHtml(note)}</span>` : ""}

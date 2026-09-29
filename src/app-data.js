@@ -547,6 +547,7 @@ const FAQ_TOPICS = [
     id: "settings",
     category: "settings",
     label: "Settings",
+    note: "Automatic or Custom settings setup",
     intro: "Different from the five operations above — Settings doesn't hand you a file to upload by hand. It signs in as a real company, with the credentials you provide, and writes configuration directly into that company through Shomvob's own real API — departments, leave types, payroll rules, and everything else a fresh company needs before anyone can actually use it.",
     prose: [
       "It covers six real settings groups — Company, Employee, Attendance, Schedule Management, Leave and Payroll — each with its own set of modules, mirroring the real admin panel's own structure exactly.",

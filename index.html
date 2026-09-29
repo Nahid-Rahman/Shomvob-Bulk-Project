@@ -2943,6 +2943,7 @@ const FAQ_TOPICS = [
     id: "settings",
     category: "settings",
     label: "Settings",
+    note: "Automatic or Custom settings setup",
     intro: "Different from the five operations above — Settings doesn't hand you a file to upload by hand. It signs in as a real company, with the credentials you provide, and writes configuration directly into that company through Shomvob's own real API — departments, leave types, payroll rules, and everything else a fresh company needs before anyone can actually use it.",
     prose: [
       "It covers six real settings groups — Company, Employee, Attendance, Schedule Management, Leave and Payroll — each with its own set of modules, mirroring the real admin panel's own structure exactly.",
@@ -7965,7 +7966,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      it. */
   function faqCardsHtml() {
     return FAQ_TOPICS.map((t) => {
-      const note = t.category === "bulk" ? (OPERATION_BLURBS[t.id] || {}).cost || "" : "";
+      const note = t.note || (t.category === "bulk" ? (OPERATION_BLURBS[t.id] || {}).cost || "" : "");
       return `<button type="button" class="dashboard-service-card" data-faq-id="${t.id}">
         <span class="dashboard-service-title">${escapeHtml(t.label)}</span>
         ${note ? `<span class="dashboard-service-note">${escapeHtml(note)}</span>` : ""}

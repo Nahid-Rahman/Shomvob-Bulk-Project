@@ -6675,6 +6675,17 @@ another (a true 2×3 grid), and mobile still stacks to 1 column with no
 overflow. Full 13-suite run green — no test asserted on the strip's
 own layout shape, only its card count and labels.
 
+**The Settings card got its own note line too, same day** — the five
+Bulk operations' own cards each carry `OPERATION_BLURBS`' cost line
+(e.g. "14 columns x 300 rows = 4,200 cells"), but Settings had none,
+reading as visually incomplete next to them. Direct instruction:
+"settings e likhte paro je Automatic or Custom settings setup" — a
+plain `note` field on `FAQ_TOPICS`' own settings entry (`app-data.js`),
+read by `faqCardsHtml()` ahead of the bulk-only cost-line lookup
+(`t.note || (t.category === "bulk" ? ... : "")`) — a per-topic override
+any future topic can use the same way, not something special-cased
+just for Settings.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route
