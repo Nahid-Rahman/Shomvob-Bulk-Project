@@ -1629,19 +1629,32 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    created / Time saved (a magnitude/ranking question — a bar's own
    axis lets those be read precisely, which is what a pie/donut is bad
    at once there are 5+ slices). All three sit under the existing Real
-   usage table, one small card each, `.dashboard-chart-row` collapsing
-   to one column at the same breakpoint `.field-row-3` already does. */
-.dashboard-chart-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 18px; }
+   usage table. **Stacked one per row, not side by side** — a 3-column
+   grid read as cramped ("pasha pashi atbe na ghinchi hoye jabe" —
+   they won't fit side by side, it'll be crowded), direct feedback
+   against a screenshot. Each row is a chart plus a short description
+   of what it represents, filling the width a lone chart would
+   otherwise leave empty — alternating sides row to row
+   (`.dashboard-chart-card-reverse` on the 2nd), the same zigzag
+   instinct the Welcome page's own `.welcome-row`/`.welcome-row-reverse`
+   rows already use. */
+.dashboard-chart-row { display: flex; flex-direction: column; gap: 16px; margin-top: 18px; }
 .dashboard-chart-card {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: 16px;
+  padding: 20px 24px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 28px;
 }
+.dashboard-chart-card-reverse { flex-direction: row-reverse; }
+.dashboard-chart-main { flex: 0 0 380px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dashboard-chart-desc { flex: 1 1 220px; min-width: 200px; }
+.dashboard-chart-desc p { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.dashboard-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .dashboard-chart-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.dashboard-chart-range { font-size: 12px; padding: 4px 8px; }
 
 .dashboard-donut-body { display: flex; align-items: center; gap: 16px; margin-top: 10px; }
 .dashboard-donut-total { font-size: 22px; font-weight: 700; color: var(--text); }
@@ -2086,7 +2099,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
   .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
   .dashboard-route-row { grid-template-columns: 1fr; }
-  .dashboard-chart-row { grid-template-columns: 1fr; }
+  .dashboard-chart-card, .dashboard-chart-card-reverse { flex-direction: column; align-items: stretch; }
+  .dashboard-chart-main { flex-basis: auto; }
   .stat-bar-label { width: 110px; }
   .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; }
   .welcome-row-reverse .meme { order: 0; }
@@ -6734,37 +6748,56 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      unlike dashboardStats above, this is *not* admin-gated: reaching
      the Dashboard at all already requires a real sign-in ("dashboard
      kintu only for signed user" — direct confirmation that no
-     additional admin check belongs on top of that). Two new, narrow
-     SQL functions (dashboard_bulk_stats/dashboard_settings_save_count,
-     granted to `authenticated` only, never `anon`) return aggregated
-     counts with no company_name/user_email attached — the same
-     anon-safe-aggregate discipline `public_generate_counts()` already
-     holds itself to, just scoped one step tighter since this data only
-     needs to exist for someone who's actually signed in. */
-  const dashboardRealStats = { status: "idle", range: "all", byOperation: {}, settingsSaveCount: 0 };
+     additional admin check belongs on top of that). `dashboard_bulk_stats`,
+     a narrow SQL function granted to `authenticated` only, never `anon`,
+     returns aggregated per-operation counts with no company_name/
+     user_email attached — the same anon-safe-aggregate discipline
+     `public_generate_counts()` already holds itself to, just scoped one
+     step tighter since this data only needs to exist for someone who's
+     actually signed in. Its sibling, `dashboard_settings_save_count`,
+     backed the Real usage table's own Settings row — that table is
+     gone (below), so nothing here calls it any more; the SQL function
+     itself is still deployed, just unused client-side. */
+  /* One filter per chart, not one shared filter for the whole section
+     (revised 2026-09-29, direct request: "every graph e filter lagao"
+     — confirmed to mean each chart picks its own independent range,
+     not one control driving all three). `dashboard_bulk_stats` already
+     returns both count and entries per operation in one call, so each
+     chart's own fetch covers everything it needs — "bulk_runs" reads
+     `count`, "entries" reads `entries`, "time_saved" derives minutes
+     from the same `entries` via `OPERATION_TIME_COMPARISON`, exactly
+     as before. `impact` is a fourth, fixed-range slot with no filter
+     UI of its own — "Estimated impact so far" reads as a cumulative
+     claim ("so far"), not "in this range," so it's pinned to All time;
+     a judgment call, not something asked for explicitly, flagged back
+     to the user rather than silently assumed away. The Real usage
+     table this section used to show is gone outright, same request —
+     the three charts read better on their own. */
+  const dashboardChartStats = {
+    bulk_runs: { status: "idle", range: "all", byOperation: {} },
+    entries: { status: "idle", range: "all", byOperation: {} },
+    time_saved: { status: "idle", range: "all", byOperation: {} },
+    impact: { status: "idle", range: "all", byOperation: {} },
+  };
   // status: "idle" | "checking" | "ready" | "error"
 
-  async function loadDashboardRealStats(rangeId) {
-    dashboardRealStats.status = "checking";
-    dashboardRealStats.range = rangeId;
+  async function loadDashboardChartStats(key, rangeId) {
+    const state = dashboardChartStats[key];
+    state.status = "checking";
+    state.range = rangeId;
     const range = DASHBOARD_RANGES.find((r) => r.id === rangeId) || DASHBOARD_RANGES[0];
     const sinceTs = range.days ? new Date(Date.now() - range.days * 24 * 3600 * 1000).toISOString() : "1970-01-01T00:00:00Z";
     try {
       const headers = { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` };
-      const [bulkRes, settingsRes] = await Promise.all([
-        fetch(`${SUPABASE_URL}/rest/v1/rpc/dashboard_bulk_stats`, { method: "POST", headers, body: JSON.stringify({ since_ts: sinceTs }) }),
-        fetch(`${SUPABASE_URL}/rest/v1/rpc/dashboard_settings_save_count`, { method: "POST", headers, body: JSON.stringify({ since_ts: sinceTs }) }),
-      ]);
-      if (!bulkRes.ok || !settingsRes.ok) throw new Error("Couldn't load real usage.");
-      const bulkRows = await bulkRes.json();
-      const settingsCount = await settingsRes.json();
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/dashboard_bulk_stats`, { method: "POST", headers, body: JSON.stringify({ since_ts: sinceTs }) });
+      if (!res.ok) throw new Error("Couldn't load real usage.");
+      const bulkRows = await res.json();
       const byOperation = {};
       for (const row of bulkRows) byOperation[row.module_id] = { count: Number(row.generate_count), entries: Number(row.total_entries) };
-      dashboardRealStats.byOperation = byOperation;
-      dashboardRealStats.settingsSaveCount = Number(settingsCount) || 0;
-      dashboardRealStats.status = "ready";
+      state.byOperation = byOperation;
+      state.status = "ready";
     } catch (e) {
-      dashboardRealStats.status = "error";
+      state.status = "error";
     }
   }
 
@@ -6775,8 +6808,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      not a fixed 50. Zero entries (nothing generated yet, or no data
      for this range) correctly zeroes out every figure rather than
      dividing by zero. */
-  function realStatsForOperation(id) {
-    const s = dashboardRealStats.byOperation[id] || { count: 0, entries: 0 };
+  function chartStatsForOperation(key, id) {
+    const s = dashboardChartStats[key].byOperation[id] || { count: 0, entries: 0 };
     const basis = OPERATION_TIME_COMPARISON[id];
     const scale = s.entries / 50;
     return {
@@ -7632,96 +7665,92 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   }
 
   function dashboardUsageHtml() {
-    const rangeOptions = DASHBOARD_RANGES.map(
-      (r) => `<option value="${r.id}" ${r.id === dashboardRealStats.range ? "selected" : ""}>${r.label}</option>`
-    ).join("");
-    if (dashboardRealStats.status === "checking" || dashboardRealStats.status === "idle") {
-      return `
-        <div class="section">
-          <div class="section-head"><h2 class="section-title">Real usage</h2></div>
-          <p class="section-note">Checking…</p>
+    const rangeOptionsFor = (key) =>
+      DASHBOARD_RANGES.map((r) => `<option value="${r.id}" ${r.id === dashboardChartStats[key].range ? "selected" : ""}>${r.label}</option>`).join("");
+
+    function chartBodyHtml(key, build) {
+      const state = dashboardChartStats[key];
+      if (state.status === "checking" || state.status === "idle") return `<p class="section-note" style="margin:10px 0 0">Checking…</p>`;
+      if (state.status === "error") return `<p class="error-text" style="margin:10px 0 0">Couldn't load — try refreshing.</p>`;
+      const rows = WELCOME_OPERATION_ORDER.map((id) => ({ id, label: OPERATIONS.find((o) => o.id === id).label, ...chartStatsForOperation(key, id) }));
+      return build(rows);
+    }
+
+    const charts = [
+      {
+        key: "bulk_runs",
+        title: "Bulk runs, by operation",
+        desc: "Which operation actually gets used the most — a share of every real Generate click in this range, not a row count.",
+        build: (rows) => donutChartHtml(rows.map((r) => ({ label: r.label, value: r.count }))),
+      },
+      {
+        key: "entries",
+        title: "Entries created, by operation",
+        desc: "Real rows this tool has actually written into a file, per operation — reads exact volume off a real axis, not just a ranking.",
+        build: (rows) => axisBarChartHtml(rows.map((r) => ({ label: r.label, value: r.entries }))),
+      },
+      {
+        key: "time_saved",
+        title: "Time saved, by operation",
+        desc: "Estimated minutes saved by using Bulk Forge instead of typing this by hand, per operation — scaled from the same numbers “By the numbers” uses.",
+        build: (rows) => axisBarChartHtml(rows.map((r) => ({ label: r.label, value: Math.round(r.bulkForge) })), formatHoursMinutes),
+      },
+    ];
+
+    let impactBodyHtml;
+    const impactState = dashboardChartStats.impact;
+    if (impactState.status === "checking" || impactState.status === "idle") {
+      impactBodyHtml = `<p class="section-note">Checking…</p>`;
+    } else if (impactState.status === "error") {
+      impactBodyHtml = `<p class="error-text">Couldn't load — try refreshing.</p>`;
+    } else {
+      const rows = WELCOME_OPERATION_ORDER.map((id) => chartStatsForOperation("impact", id));
+      const totalManual = rows.reduce((s, r) => s + r.manual, 0);
+      const totalAi = rows.reduce((s, r) => s + r.ai, 0);
+      const totalBulkForge = rows.reduce((s, r) => s + r.bulkForge, 0);
+      const pctVsManual = totalManual > 0 ? Math.round((1 - totalBulkForge / totalManual) * 100) : 0;
+      const pctVsAi = totalAi > 0 ? Math.round((1 - totalBulkForge / totalAi) * 100) : 0;
+      impactBodyHtml = `
+        <div class="stat-row stat-row-2" style="margin-top:8px">
+          <div class="stat-tile">
+            <span class="stat-value">${formatHoursMinutes(totalBulkForge > 0 || totalManual > 0 ? totalManual - totalBulkForge : 0)}</span>
+            <span class="stat-label">Estimated time saved versus doing it all by hand${totalManual > 0 ? ` (~${pctVsManual}%)` : ""}</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value">${formatHoursMinutes(totalAi > 0 || totalBulkForge > 0 ? totalAi - totalBulkForge : 0)}</span>
+            <span class="stat-label">Estimated time saved versus using AI to help${totalAi > 0 ? ` (~${pctVsAi}%)` : ""}</span>
+          </div>
         </div>
       `;
     }
-    if (dashboardRealStats.status === "error") {
-      return `
-        <div class="section">
-          <div class="section-head"><h2 class="section-title">Real usage</h2></div>
-          <p class="error-text">Couldn't load real usage — try refreshing.</p>
-        </div>
-      `;
-    }
-    const rows = WELCOME_OPERATION_ORDER.map((id) => ({
-      id,
-      label: OPERATIONS.find((o) => o.id === id).label,
-      ...realStatsForOperation(id),
-    }));
-    const totalManual = rows.reduce((s, r) => s + r.manual, 0);
-    const totalAi = rows.reduce((s, r) => s + r.ai, 0);
-    const totalBulkForge = rows.reduce((s, r) => s + r.bulkForge, 0);
-    const pctVsManual = totalManual > 0 ? Math.round((1 - totalBulkForge / totalManual) * 100) : 0;
-    const pctVsAi = totalAi > 0 ? Math.round((1 - totalBulkForge / totalAi) * 100) : 0;
+
     return `
       <div class="section">
-        <div class="section-head">
-          <h2 class="section-title">Real usage</h2>
-          <select id="dashRangeSelect">${rangeOptions}</select>
-        </div>
-        <p class="section-note">Pulled straight from this tool's own activity log.</p>
-        <div class="preview-table-wrap" style="margin-top:8px">
-          <table class="preview-table">
-            <thead><tr>
-              <th>Operation</th><th class="num">Bulk runs</th><th class="num">Entries created</th><th class="num">Time saved</th>
-            </tr></thead>
-            <tbody>
-              ${rows
-                .map(
-                  (r) => `<tr>
-                <td>${escapeHtml(r.label)}</td>
-                <td class="num">${r.count}</td>
-                <td class="num">${r.entries}</td>
-                <td class="num strong">${formatHoursMinutes(r.bulkForge)}</td>
-              </tr>`
-                )
-                .join("")}
-              <tr>
-                <td>Settings <span class="faint">(count only — see note below)</span></td>
-                <td class="num" colspan="2">${dashboardRealStats.settingsSaveCount} real saves</td>
-                <td class="num faint">—</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="section-note" style="margin-top:8px">Settings is a small thing per save — showing each one's own time difference wouldn't read as meaningful, so it's just a real count here.</p>
+        <div class="section-head"><h2 class="section-title">Real usage</h2></div>
+        <p class="section-note">Pulled straight from this tool's own activity log — each chart below has its own time-range filter.</p>
 
         <div class="dashboard-chart-row">
-          <div class="dashboard-chart-card">
-            <span class="dashboard-chart-title">Bulk runs, by operation</span>
-            ${donutChartHtml(rows.map((r) => ({ label: r.label, value: r.count })))}
-          </div>
-          <div class="dashboard-chart-card">
-            <span class="dashboard-chart-title">Entries created, by operation</span>
-            ${axisBarChartHtml(rows.map((r) => ({ label: r.label, value: r.entries })))}
-          </div>
-          <div class="dashboard-chart-card">
-            <span class="dashboard-chart-title">Time saved, by operation</span>
-            ${axisBarChartHtml(rows.map((r) => ({ label: r.label, value: Math.round(r.bulkForge) })), formatHoursMinutes)}
-          </div>
+          ${charts
+            .map(
+              (c, i) => `
+          <div class="dashboard-chart-card${i % 2 === 1 ? " dashboard-chart-card-reverse" : ""}">
+            <div class="dashboard-chart-main">
+              <div class="dashboard-chart-head">
+                <span class="dashboard-chart-title">${c.title}</span>
+                <select class="dashboard-chart-range" data-chart-key="${c.key}">${rangeOptionsFor(c.key)}</select>
+              </div>
+              ${chartBodyHtml(c.key, c.build)}
+            </div>
+            <div class="dashboard-chart-desc"><p>${c.desc}</p></div>
+          </div>`
+            )
+            .join("")}
         </div>
 
         <div class="numbers-addup-box">
           <p class="numbers-addup-title">Estimated impact so far</p>
-          <p class="section-note">Bulk operations only — real entries created, scaled against the same per-task estimate "By the numbers" uses. Settings isn't included, since it has no "with AI" baseline.</p>
-          <div class="stat-row stat-row-2" style="margin-top:8px">
-            <div class="stat-tile">
-              <span class="stat-value">${formatHoursMinutes(totalBulkForge > 0 || totalManual > 0 ? totalManual - totalBulkForge : 0)}</span>
-              <span class="stat-label">Estimated time saved versus doing it all by hand${totalManual > 0 ? ` (~${pctVsManual}%)` : ""}</span>
-            </div>
-            <div class="stat-tile">
-              <span class="stat-value">${formatHoursMinutes(totalAi > 0 || totalBulkForge > 0 ? totalAi - totalBulkForge : 0)}</span>
-              <span class="stat-label">Estimated time saved versus using AI to help${totalAi > 0 ? ` (~${pctVsAi}%)` : ""}</span>
-            </div>
-          </div>
+          <p class="section-note">Bulk operations only, all time — real entries created, scaled against the same per-task estimate "By the numbers" uses. Settings isn't included, since it has no "with AI" baseline.</p>
+          ${impactBodyHtml}
         </div>
       </div>
     `;
@@ -7773,24 +7802,23 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         else if (target === "settings") navigateTo("company_setup");
       });
     });
-    const rangeSelect = $("#dashRangeSelect");
-    if (rangeSelect) {
-      rangeSelect.addEventListener("change", async () => {
-        await loadDashboardRealStats(rangeSelect.value);
-        if (currentOp !== "dashboard") return;
-        const root = $("#mainContent");
-        root.innerHTML = dashboardTemplate();
-        wireDashboardEvents();
+    const rerenderDashboard = () => {
+      if (currentOp !== "dashboard") return;
+      const root = $("#mainContent");
+      root.innerHTML = dashboardTemplate();
+      wireDashboardEvents();
+    };
+    $all(".dashboard-chart-range").forEach((sel) => {
+      sel.addEventListener("change", async () => {
+        await loadDashboardChartStats(sel.dataset.chartKey, sel.value);
+        rerenderDashboard();
       });
-    }
-    if (dashboardRealStats.status === "idle") {
-      loadDashboardRealStats(dashboardRealStats.range).then(() => {
-        if (currentOp !== "dashboard") return;
-        const root = $("#mainContent");
-        root.innerHTML = dashboardTemplate();
-        wireDashboardEvents();
-      });
-    }
+    });
+    Object.keys(dashboardChartStats).forEach((key) => {
+      if (dashboardChartStats[key].status === "idle") {
+        loadDashboardChartStats(key, dashboardChartStats[key].range).then(rerenderDashboard);
+      }
+    });
   }
 
   /* The Dashboard's joke "Auto setup my company & bulk upload" button

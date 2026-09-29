@@ -1612,19 +1612,32 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    created / Time saved (a magnitude/ranking question — a bar's own
    axis lets those be read precisely, which is what a pie/donut is bad
    at once there are 5+ slices). All three sit under the existing Real
-   usage table, one small card each, `.dashboard-chart-row` collapsing
-   to one column at the same breakpoint `.field-row-3` already does. */
-.dashboard-chart-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 18px; }
+   usage table. **Stacked one per row, not side by side** — a 3-column
+   grid read as cramped ("pasha pashi atbe na ghinchi hoye jabe" —
+   they won't fit side by side, it'll be crowded), direct feedback
+   against a screenshot. Each row is a chart plus a short description
+   of what it represents, filling the width a lone chart would
+   otherwise leave empty — alternating sides row to row
+   (`.dashboard-chart-card-reverse` on the 2nd), the same zigzag
+   instinct the Welcome page's own `.welcome-row`/`.welcome-row-reverse`
+   rows already use. */
+.dashboard-chart-row { display: flex; flex-direction: column; gap: 16px; margin-top: 18px; }
 .dashboard-chart-card {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: 16px;
+  padding: 20px 24px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 28px;
 }
+.dashboard-chart-card-reverse { flex-direction: row-reverse; }
+.dashboard-chart-main { flex: 0 0 380px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dashboard-chart-desc { flex: 1 1 220px; min-width: 200px; }
+.dashboard-chart-desc p { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.dashboard-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .dashboard-chart-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.dashboard-chart-range { font-size: 12px; padding: 4px 8px; }
 
 .dashboard-donut-body { display: flex; align-items: center; gap: 16px; margin-top: 10px; }
 .dashboard-donut-total { font-size: 22px; font-weight: 700; color: var(--text); }
@@ -2069,7 +2082,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
   .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
   .dashboard-route-row { grid-template-columns: 1fr; }
-  .dashboard-chart-row { grid-template-columns: 1fr; }
+  .dashboard-chart-card, .dashboard-chart-card-reverse { flex-direction: column; align-items: stretch; }
+  .dashboard-chart-main { flex-basis: auto; }
   .stat-bar-label { width: 110px; }
   .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; }
   .welcome-row-reverse .meme { order: 0; }

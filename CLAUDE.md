@@ -1681,7 +1681,7 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Twelve suites (`dashboard.test.js` added 2026-09-29), 888 checks as
+Twelve suites (`dashboard.test.js` added 2026-09-29), 894 checks as
 of that addition — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
@@ -6346,6 +6346,64 @@ show real gridlines and axis tick values (`3200/2400/1600/800/0`,
 collapses to 1 column on mobile. Full 12-suite run stayed green (888
 checks) — `dashboard.test.js`'s own assertions read the table's cell
 text, never `barListHtml()`'s markup, so none needed updating.
+
+**Revised again the same day: the table's gone outright, and every
+chart got its own filter** — direct feedback against a live screenshot
+("ei part tuku full baad diye dao, graphs e beshi shundor. ar every
+graph e filter lagao" — cut this part entirely, the graphs read
+nicer; put a filter on every graph). Asked directly what "every graph
+e filter lagao" meant before touching anything, since a shared single
+filter already existed and this could have meant either "keep one
+filter, just show it near each graph" or "give each graph its own,
+independent range" — confirmed the second: each chart should be
+individually filterable, e.g. Bulk runs on "This month" while Entries
+created stays on "All time," at the same time.
+
+**The Real usage table is deleted, including its own Settings row**
+(the "32 real saves" count) — no chart replaces that number, so it's
+simply gone from the Dashboard for now; a real, acknowledged trade-off
+of the instruction as given, not an oversight. `dashboard_settings_
+save_count` (the SQL function that fed it) is still deployed, just
+unused client-side — nothing to clean up there.
+
+**One shared `dashboardRealStats` object became `dashboardChartStats`,
+one independent slot per chart** — `bulk_runs`/`entries`/`time_saved`,
+plus a fourth, `impact`. `loadDashboardChartStats(key, rangeId)`
+replaces the old single loader; each slot calls `dashboard_bulk_stats`
+on its own (that RPC already returns both `count` and `entries` per
+operation in one response, so "bulk_runs" and "entries" each just read
+a different field off their own independent fetch, and "time_saved" is
+derived client-side from its own fetch's `entries`, the same
+`OPERATION_TIME_COMPARISON` scaling `chartStatsForOperation()` — the
+old `realStatsForOperation()`, renamed to take a `key` — already did).
+**`impact` — the "Estimated impact so far" box — deliberately has no
+filter UI of its own**, pinned to All time: a judgment call, not
+something asked for explicitly, since "so far" reads as a cumulative
+claim rather than "in this range" the way the three charts are. Each
+chart's own `<select class="dashboard-chart-range" data-chart-key="…">`
+is wired once in `wireDashboardEvents()` (a plain class + data-attribute
+query, not three separate ids) — changing one calls
+`loadDashboardChartStats()` for that key alone and re-renders the whole
+page, exactly the same "re-render on background resolve" shape every
+other async check in this app already uses; the other two charts' own
+last-fetched data is untouched by that re-render, since each lives in
+its own state slot.
+
+**Layout is otherwise unchanged from the zigzag pass above** — each
+chart's own filter sits in a new `.dashboard-chart-head` row next to
+its title, inside the same `.dashboard-chart-main` column the chart
+itself already occupies; the alternating chart-left/chart-right rows
+and the description text beside each are untouched.
+
+`tests/dashboard.test.js` was rewritten to match, not patched around —
+the old table/`#dashRangeSelect` assertions are gone; new ones confirm
+no `.preview-table` remains, all three `.dashboard-chart-range` selects
+default to "All time," exactly 4 requests fire on first load (3 charts
++ the impact box), and changing one chart's own select fires exactly
+one more request with a different `since_ts` while the rest stay
+untouched. Confirmed by a real Playwright screenshot pass (table really
+gone, all three filters visible and independent, mobile still stacks
+cleanly) and the full 12-suite run staying green (894 checks).
 
 ## Adding a sixth operation
 

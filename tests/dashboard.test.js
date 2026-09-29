@@ -3,12 +3,15 @@
  * Built 2026-09-29, TODO.md's last remaining Tiered Access step. Confirmed
  * content, in order: the Bulk/Settings routing cards (lock icons for
  * whatever the signed-in user's real tier excludes), real per-operation
- * usage (bulk runs/entries created/time saved, pulled from
- * dashboard_bulk_stats()), a combined estimated-impact comparison
- * (explicitly labelled "Estimated" — the per-entry basis is the dictated
- * OPERATION_TIME_COMPARISON figures, not a measured rate), a Settings row
- * that's deliberately just a real count with no time figure, and a
- * low-emphasis "what we offer" service-card strip at the very bottom.
+ * usage — a donut for Bulk runs, real axis bar charts for Entries created
+ * and Time saved, each with its own independent time-range filter (revised
+ * the same day: an earlier shared single filter + plain data table were
+ * both dropped — "every graph e filter lagao," direct request, confirmed
+ * to mean one filter per chart, not one filter for the whole section) — a
+ * combined estimated-impact comparison (explicitly labelled "Estimated",
+ * pinned to All time, no filter of its own — it reads as a cumulative
+ * claim), and a low-emphasis "what we offer" service-card strip at the
+ * very bottom.
  *
  * A real sign-in with no pending operation now lands here, not on the
  * Welcome page (see back-navigation.test.js/tiered-access.test.js for
@@ -22,15 +25,15 @@ const { PAGE, makeChecker, report, signIn, mockToolSignIn, watchPageErrors, mock
 
 const { check, state } = makeChecker();
 
-function mockDashboardStats(page, bulkRows, settingsCount) {
-  return Promise.all([
-    page.route("**/rest/v1/rpc/dashboard_bulk_stats", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bulkRows) })
-    ),
-    page.route("**/rest/v1/rpc/dashboard_settings_save_count", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(settingsCount) })
-    ),
-  ]);
+function mockDashboardStats(page, bulkRows) {
+  const sinceTsLog = [];
+  return {
+    sinceTsLog,
+    ready: page.route("**/rest/v1/rpc/dashboard_bulk_stats", (route) => {
+      sinceTsLog.push(route.request().postDataJSON().since_ts);
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bulkRows) });
+    }),
+  };
 }
 
 async function signInToDashboard(page) {
@@ -48,34 +51,40 @@ async function signInToDashboard(page) {
   {
     // A — a real sign-in with no pending operation lands here; both
     // routing cards render enabled for a "both"-tier account, and the
-    // real usage table shows real per-operation numbers, computed from
-    // the dictated per-50-entries basis scaled to the real entry count.
+    // three charts show real per-operation numbers, computed from the
+    // dictated per-50-entries basis scaled to the real entry count.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockToolSignIn(page);
-    await mockDashboardStats(page, [
+    const { ready } = mockDashboardStats(page, [
       { module_id: "employee_add", generate_count: 4, total_entries: 100 },
       { module_id: "assets_add", generate_count: 1, total_entries: 25 },
-    ], 7);
+    ]);
+    await ready;
 
     await signInToDashboard(page);
+    await page.waitForSelector(".dashboard-donut-legend-row");
     check("A both routing cards render, neither locked",
       (await page.locator(".dashboard-route-card").count()) === 2 &&
       (await page.locator(".dashboard-route-card .dashboard-locked-pill").count()) === 0);
 
-    await page.waitForSelector(".preview-table td.strong");
-    const rowText = await page.locator(".preview-table tbody tr", { hasText: "Employee Add" }).textContent();
-    check("A Employee Add's real bulk-run count shows", rowText.includes("4"));
-    check("A Employee Add's real entries-created count shows", rowText.includes("100"));
+    check("A no table left in Real usage — replaced by charts", (await page.locator(".preview-table").count()) === 0);
+    check("A three chart cards render", (await page.locator(".dashboard-chart-card").count()) === 3);
+    check("A one donut + two bar charts render", (await page.locator(".dashboard-donut-body").count()) === 1 && (await page.locator(".dashboard-bar-chart").count()) === 2);
 
-    const settingsRow = await page.locator(".preview-table tbody tr", { hasText: "Settings" }).textContent();
-    check("A Settings shows a real count, not a time figure", settingsRow.includes("7") && settingsRow.includes("real saves") && settingsRow.includes("—"));
+    const donutText = await page.locator(".dashboard-chart-card").first().textContent();
+    check("A donut shows the real total runs (5)", donutText.includes("5"));
+    check("A donut legend names Employee Add", donutText.includes("Employee Add"));
+
+    const entriesCardText = await page.locator(".dashboard-chart-card").nth(1).textContent();
+    check("A entries chart's axis/values show the real max (100)", entriesCardText.includes("100"));
 
     check("A the estimated-impact box is labelled as an estimate",
       (await page.textContent(".numbers-addup-title")) === "Estimated impact so far");
+    check("A the impact box is scoped to all time, no filter of its own", (await page.locator(".numbers-addup-box select").count()) === 0);
     check("A no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
@@ -90,7 +99,7 @@ async function signInToDashboard(page) {
     await signIn(page);
     await mockToolSignIn(page);
     await page.route("**/rest/v1/rpc/my_tier", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '"company"' }));
-    await mockDashboardStats(page, [], 0);
+    mockDashboardStats(page, []);
 
     await signInToDashboard(page);
     check("B Bulk card is locked", await page.locator('.dashboard-route-card[data-target="bulk"]').isDisabled());
@@ -115,7 +124,7 @@ async function signInToDashboard(page) {
     await signIn(page);
     await mockToolSignIn(page);
     await page.route("**/rest/v1/rpc/my_tier", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '"bulk"' }));
-    await mockDashboardStats(page, [], 0);
+    mockDashboardStats(page, []);
 
     await signInToDashboard(page);
     check("C Settings card is locked", await page.locator('.dashboard-route-card[data-target="settings"]').isDisabled());
@@ -129,54 +138,60 @@ async function signInToDashboard(page) {
   }
 
   {
-    // D — the time-range filter re-fetches with a different since_ts,
-    // and defaults to "All time" on first load.
+    // D — every chart's own filter is independent: each defaults to
+    // "All time", and changing just one chart's own select re-fetches
+    // only that chart, with a different since_ts, leaving the others'
+    // last-sent since_ts untouched.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
-    let lastSinceTs = "unset";
     await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockToolSignIn(page);
-    await page.route("**/rest/v1/rpc/dashboard_bulk_stats", (route) => {
-      lastSinceTs = route.request().postDataJSON().since_ts;
-      route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
-    });
-    await page.route("**/rest/v1/rpc/dashboard_settings_save_count", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "0" }));
+    const { sinceTsLog } = mockDashboardStats(page, []);
 
     await signInToDashboard(page);
-    await page.waitForSelector("#dashRangeSelect");
-    check("D defaults to All time", await page.locator("#dashRangeSelect").inputValue() === "all");
-    check("D All time sends the epoch as since_ts", lastSinceTs === "1970-01-01T00:00:00.000Z" || lastSinceTs.startsWith("1970-01-01"), lastSinceTs);
+    await page.waitForSelector(".dashboard-chart-range");
+    await page.waitForTimeout(300); // let all 4 initial-load requests (3 charts + impact) settle
+    const selects = page.locator(".dashboard-chart-range");
+    check("D three independent filters, one per chart", (await selects.count()) === 3);
+    const values = await selects.evaluateAll((els) => els.map((el) => el.value));
+    check("D every chart defaults to All time", values.every((v) => v === "all"), values.join(","));
 
-    await page.selectOption("#dashRangeSelect", "week");
+    const beforeCount = sinceTsLog.length;
+    check("D four requests fire on initial load (3 charts + the impact box)", beforeCount === 4, String(beforeCount));
+
+    // Change only the "entries" chart's own filter.
+    const entriesSelect = page.locator('.dashboard-chart-range[data-chart-key="entries"]');
+    await entriesSelect.selectOption("week");
     await page.waitForTimeout(300);
-    const daysAgo = (Date.now() - new Date(lastSinceTs).getTime()) / (24 * 3600 * 1000);
-    check("D switching to This week sends a ~7-day-old since_ts, not the epoch", daysAgo > 6 && daysAgo < 8, String(daysAgo));
+    check("D exactly one new request fired for the changed chart", sinceTsLog.length === beforeCount + 1, String(sinceTsLog.length));
+    const daysAgo = (Date.now() - new Date(sinceTsLog[sinceTsLog.length - 1]).getTime()) / (24 * 3600 * 1000);
+    check("D that request's since_ts is ~7 days old, not the epoch", daysAgo > 6 && daysAgo < 8, String(daysAgo));
     check("D no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
   {
     // E — the "what we offer" strip lists every real Bulk operation and
-    // Settings group, and sits after the real-usage section, not before it.
+    // Settings group, and sits after the real-usage charts, not before it.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await mockPublicStats(page);
     await page.goto(PAGE);
     await signIn(page);
     await mockToolSignIn(page);
-    await mockDashboardStats(page, [], 0);
+    mockDashboardStats(page, []);
 
     await signInToDashboard(page);
     await page.waitForSelector(".dashboard-service-card");
     check("E lists all 5 Bulk operations + 6 Settings groups", (await page.locator(".dashboard-service-card").count()) === 11);
     const order = await page.evaluate(() => {
-      const usage = document.querySelector(".preview-table-wrap");
+      const usage = document.querySelector(".dashboard-chart-row");
       const strip = document.querySelector(".dashboard-service-strip");
       return usage.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING ? "after" : "before";
     });
-    check("E the service strip sits after real usage, not before it", order === "after");
+    check("E the service strip sits after the charts, not before them", order === "after");
     check("E no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
