@@ -3514,8 +3514,8 @@
     });
     return `
       <div class="dashboard-donut-body">
-        <div style="position:relative;width:190px;height:190px;flex-shrink:0">
-          <svg width="190" height="190" viewBox="0 0 220 220">
+        <div style="position:relative;width:260px;height:260px;flex-shrink:0">
+          <svg width="260" height="260" viewBox="0 0 220 220">
             <circle cx="110" cy="110" r="70" fill="none" stroke="var(--surface-2)" stroke-width="34"></circle>
             ${slices
               .map(

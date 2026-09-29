@@ -6633,6 +6633,31 @@ position. Full 13-suite run green (915 checks) — including the five
 Back-based rewrites above, all still passing exactly what they always
 tested.
 
+**The donut got bigger again the same day, direct follow-up against
+another screenshot** ("etar height aro boro koro, circle ta jeno aro
+boro hoy" — make this taller, so the circle can get bigger too): 190px
+→ 260px (the render size only, same untouched viewBox/circle math as
+the first size-up). The card itself has no fixed height, so it grows
+to fit the bigger circle automatically — no separate height rule
+needed, exactly what the request implied by pointing at both in one
+breath.
+
+**A real bug surfaced immediately by this, found live rather than
+guessed at ahead of time**: `.dashboard-donut-body` (circle + legend)
+had stayed a side-by-side flex row on mobile the whole time, harmless
+at the smaller 190px size but overflowing the page horizontally
+(measured 421px of scroll width on a 390px viewport) the moment the
+circle grew past what a phone-width card's row could actually fit
+next to its own legend. Fixed the same way every other side-by-side
+element in this app already is under the existing mobile breakpoint —
+`.dashboard-donut-body` stacks to a centred column there instead,
+circle on top, legend below. Verified directly: `scrollWidth` back to
+exactly 390 (no overflow), and the circle's/legend's horizontal
+centres measured within a pixel of each other, confirming a real
+vertical stack rather than a coincidental fit. Full 13-suite run
+stayed green — nothing here touched a test-visible selector or class,
+only rendered pixel sizes.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route
