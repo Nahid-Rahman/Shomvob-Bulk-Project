@@ -15181,8 +15181,18 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
        the five generators don't require a real login at all today, only
        Company Setup does; this becomes attributable once the planned
        tiered-access work makes Bulk require login too. Still useful for
-       the dashboard's own aggregate counts in the meantime. */
-    logAudit("bulk_generate", title, { module_id: currentOp });
+       the dashboard's own aggregate counts in the meantime.
+
+       entry_count (2026-09-29, added for the post-login Dashboard's own
+       real per-operation stats) is read straight back off the already-
+       built workbook rather than threaded through all five generators'
+       own call sites — every one of them builds its sheet from a plain
+       rows array via aoa_to_sheet(rows), row 0 the header, so the
+       sheet's own decoded range end-row is exactly the real data-row
+       count, with zero changes needed to any of the five. */
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const entryCount = ws && ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]).e.r : null;
+    logAudit("bulk_generate", title, { module_id: currentOp, entry_count: entryCount });
     const modal = $("#generateCompleteModal");
     const downloadBtn = $("#gcDownloadBtn");
     const closeBtn = $("#gcCloseBtn");

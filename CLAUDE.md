@@ -6059,6 +6059,48 @@ plain relative-path asset, not inlined — same "too big for a data URI"
 reasoning as `assets/lazy_cat.mp4`, though the new clip (~1.4MB) is
 smaller than the GIF it replaced (~2.9MB).
 
+## `audit_log` now records real entry counts (2026-09-29)
+
+The first real piece of the post-login **Dashboard** page (TODO.md's
+last remaining Tiered Access step) — worked out through discussion
+before any code, same discipline as the Welcome page's own build.
+Confirmed content, before layout: per-Bulk-operation real counts (how
+many bulk runs, how many total entries created), per-operation and
+combined real time-saved, a 3-way Manual/AI/Bulk-Forge total comparison
+(explicitly labelled **estimated**, since the per-entry basis is still
+the user's own dictated `OPERATION_TIME_COMPARISON` figures, not a
+measured number), a This week/month/3 months/6 months filter over all
+of it, the already-confirmed Bulk/Settings/Both routing cards with lock
+icons, and a small, low-emphasis "what we offer" card strip — visible
+to any signed-in user, no separate admin gate, since reaching the
+Dashboard at all already requires a real sign-in ("dashboard kintu only
+for signed user").
+
+**`audit_log` only ever recorded that a generate happened, never how
+many rows the file had** — real per-operation "total entries created"
+needed a real number to sum, so a new nullable `entry_count integer`
+column was added (`ALTER TABLE audit_log ADD COLUMN entry_count
+integer;`, run directly by the user via the Supabase SQL Editor — this
+session's own connected Supabase MCP account only had access to two
+unrelated personal projects, not the shared Shomvob SQA org, so the
+migration couldn't be applied through the usual tool path this time).
+
+**`openGenerateCompleteModal()`'s own `logAudit("bulk_generate", ...)`
+call now also sends `entry_count`, read straight back off the
+already-built workbook** rather than threaded through all five
+generators' own call sites: every one of them builds its sheet from a
+plain `rows` array via `aoa_to_sheet(rows)` (row 0 the header), so
+`XLSX.utils.decode_range(ws["!ref"]).e.r` — the sheet's own decoded
+range end-row — is exactly the real data-row count, for free, with
+zero changes needed to any of the five `handleXGenerate()` functions.
+Verified directly with a real Playwright run (not just reasoned about):
+generating 25 Employee Add rows sends `entry_count: 25` in the real
+POST body. Full 11-suite run green — no test asserted on the previous
+audit_log payload shape, so nothing needed updating.
+
+**Not yet built**: the Dashboard page itself (the layout/filter/graph
+work this column exists to feed) — next.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route
