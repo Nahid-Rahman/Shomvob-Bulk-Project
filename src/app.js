@@ -3430,6 +3430,106 @@
       .join("")}</div>`;
   }
 
+  /* Two real chart types for the Dashboard's "Real usage" section
+     (2026-09-29), replacing an earlier `barListHtml()` pass that read
+     as a plain progress-bar list, not a chart ("ektu ekta chart graph
+     ashar kotha... ek fota o shundor lagtese na"). Mocked up on a
+     design canvas first — a donut for Bulk runs (a share-of-activity
+     question, where a pie/donut's whole job is proportion) and a real
+     axis bar chart for Entries created / Time saved (a magnitude/
+     ranking question, where an axis lets exact values be read off,
+     which a donut is bad at past a couple of slices) — confirmed
+     directly before building either. `DASHBOARD_CHART_COLORS`
+     (`app-data.js`) is a genuinely distinct 5-hue palette, not shades
+     of one colour — a first monochrome-green pass read as hard to
+     tell slices apart, direct feedback. */
+  function donutChartHtml(items) {
+    const data = items.filter((d) => d.value > 0);
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total === 0) return `<p class="section-note" style="margin:10px 0 0">Nothing yet.</p>`;
+    const R = 70;
+    const C = 2 * Math.PI * R;
+    let acc = 0;
+    const slices = data.map((d, i) => {
+      const frac = d.value / total;
+      const arc = frac * C;
+      const dasharray = `${arc.toFixed(2)} ${(C - arc).toFixed(2)}`;
+      const dashoffset = (-acc).toFixed(2);
+      acc += arc;
+      return { ...d, pct: Math.round(frac * 100), color: DASHBOARD_CHART_COLORS[i % DASHBOARD_CHART_COLORS.length], dasharray, dashoffset };
+    });
+    return `
+      <div class="dashboard-donut-body">
+        <div style="position:relative;width:130px;height:130px;flex-shrink:0">
+          <svg width="130" height="130" viewBox="0 0 220 220">
+            <circle cx="110" cy="110" r="70" fill="none" stroke="var(--surface-2)" stroke-width="34"></circle>
+            ${slices
+              .map(
+                (s) => `<circle cx="110" cy="110" r="70" fill="none" stroke-width="34" stroke="${s.color}" stroke-dasharray="${s.dasharray}" stroke-dashoffset="${s.dashoffset}" transform="rotate(-90 110 110)"></circle>`
+              )
+              .join("")}
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <span class="dashboard-donut-total">${total}</span>
+            <span class="dashboard-donut-total-label">total runs</span>
+          </div>
+        </div>
+        <div class="dashboard-donut-legend">
+          ${slices
+            .map(
+              (s) => `<div class="dashboard-donut-legend-row">
+            <span class="dashboard-donut-swatch" style="background:${s.color}"></span>
+            <span class="dashboard-donut-legend-label" title="${escapeHtml(s.label)}">${escapeHtml(s.label)}</span>
+            <span class="dashboard-donut-legend-pct">${s.pct}%</span>
+          </div>`
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function axisBarChartHtml(items, formatValue) {
+    const fmt = formatValue || ((n) => String(n));
+    const max = items.reduce((m, d) => Math.max(m, d.value), 0);
+    if (max === 0) return `<p class="section-note" style="margin:10px 0 0">Nothing yet.</p>`;
+    const PLOT_H = 150; // must match .dashboard-bar-plot/.dashboard-bar-axis's own height in app.css
+    const TOP_RESERVE = 18; // headroom above the tallest bar for its own value label
+    const maxBarPx = PLOT_H - TOP_RESERVE;
+    const bars = items.map((d) => ({
+      label: d.label,
+      value: fmt(d.value),
+      barHeightPx: Math.max(3, Math.round((d.value / max) * maxBarPx)),
+    }));
+    const ticks = [100, 75, 50, 25, 0].map((pct) => ({
+      value: fmt(Math.round((pct / 100) * max)),
+      top: Math.round(TOP_RESERVE + (1 - pct / 100) * maxBarPx),
+    }));
+    return `
+      <div class="dashboard-bar-chart">
+        <div class="dashboard-bar-axis">
+          ${ticks.map((t) => `<span class="dashboard-bar-tick" style="top:${t.top}px">${escapeHtml(t.value)}</span>`).join("")}
+        </div>
+        <div class="dashboard-bar-plot">
+          ${ticks.map((t) => `<span class="dashboard-bar-gridline" style="top:${t.top}px"></span>`).join("")}
+          <div class="dashboard-bar-bars">
+            ${bars
+              .map(
+                (b) => `<div class="dashboard-bar-col">
+              <span class="dashboard-bar-value">${escapeHtml(b.value)}</span>
+              <span class="dashboard-bar-fill" style="height:${b.barHeightPx}px"></span>
+            </div>`
+              )
+              .join("")}
+          </div>
+        </div>
+        <div class="dashboard-bar-labels">
+          ${bars.map((b) => `<span class="dashboard-bar-label" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</span>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
   /* Dashboard's public "By the numbers" charts (2026-09-25 redesign),
      rebuilt a third time 2026-09-28 — the most important feedback of
      that whole day's pass: revision #2's per-50-entries bar chart
@@ -4078,9 +4178,19 @@
         </div>
         <p class="section-note" style="margin-top:8px">Settings is a small thing per save — showing each one's own time difference wouldn't read as meaningful, so it's just a real count here.</p>
 
-        <div class="field-row" style="margin-top:18px">
-          <div class="field"><label>Entries created, by operation</label>${barListHtml(Object.fromEntries(rows.map((r) => [r.label, r.entries])))}</div>
-          <div class="field"><label>Time saved, by operation</label>${barListHtml(Object.fromEntries(rows.map((r) => [r.label, Math.round(r.bulkForge)])), formatHoursMinutes)}</div>
+        <div class="dashboard-chart-row">
+          <div class="dashboard-chart-card">
+            <span class="dashboard-chart-title">Bulk runs, by operation</span>
+            ${donutChartHtml(rows.map((r) => ({ label: r.label, value: r.count })))}
+          </div>
+          <div class="dashboard-chart-card">
+            <span class="dashboard-chart-title">Entries created, by operation</span>
+            ${axisBarChartHtml(rows.map((r) => ({ label: r.label, value: r.entries })))}
+          </div>
+          <div class="dashboard-chart-card">
+            <span class="dashboard-chart-title">Time saved, by operation</span>
+            ${axisBarChartHtml(rows.map((r) => ({ label: r.label, value: Math.round(r.bulkForge) })), formatHoursMinutes)}
+          </div>
         </div>
 
         <div class="numbers-addup-box">

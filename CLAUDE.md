@@ -6267,6 +6267,86 @@ mobile breakpoint rather than squeezing side by side. Full 12-suite
 run stayed green (888 checks) — no test asserted on the table's own
 markup in a way either chart's insertion touched.
 
+**Revised the same day: `barListHtml()`'s plain progress-bar rows still
+didn't read as real charts, direct feedback against a live screenshot**
+("eta kono graph chart er moddhe pore? ek fota o shundor lagtese na" —
+does this even count as a chart, not even a little bit good-looking).
+Discussed rather than guessed at a fix: asked to analyse which chart
+type actually suits which of this section's real datasets, with
+reasoning, not just restyle the same shape. The analysis that landed,
+confirmed directly:
+
+- **Bulk runs, by operation → a real donut chart.** This number was
+  never charted at all before (only in the table) and is genuinely a
+  *share-of-activity* question — "which operation gets clicked most" —
+  which is exactly what a donut is good at and a bar chart isn't.
+- **Entries created / Time saved, by operation → real axis bar
+  charts**, kept as two separate charts rather than folded into one —
+  both are *magnitude/ranking* questions where an axis lets an exact
+  value be read off, which a donut can't do past a couple of slices.
+  The two aren't the same "By the numbers" duplication bug fixed
+  earlier in this file (two identical-shaped bar lists showing one
+  ranking twice): here each operation carries its own per-entry time
+  cost (`OPERATION_TIME_COMPARISON`), so the two charts' rankings can
+  genuinely diverge, unlike that earlier case where minutes was just
+  cells × one shared, fixed rate.
+
+**Mocked up on a design canvas first, one option per artboard, before
+any app code changed** — the user's own request ("amake ekta dummy
+design dekhao ekta ekta kore"), the same propose-before-build
+discipline this project already holds itself to for anything visual.
+Confirmed, with one direct correction: the donut's first pass used five
+shades of the one brand green, flagged as too hard to tell apart
+("donut e ektu different colors use koro jeno easily differentiate kora
+jay") — landed on `DASHBOARD_CHART_COLORS` (`app-data.js`), five
+genuinely distinct hues (`#28a143` green, `#3b82f6` blue, `#e2a336`
+amber, `#8b5cf6` violet, `#64748b` slate) chosen specifically to avoid
+every colour that already carries a meaning elsewhere in this app —
+green (accent/success), gold (warning), red (danger), the env badges'
+blue/purple — so a data-viz colour can't be misread as one of those on
+the same page.
+
+**`barListHtml()`'s two callers here are gone, replaced by two new
+hand-rolled chart helpers** (`app.js`, same "no external chart library"
+discipline as every other chart in this app) — `barListHtml()` itself
+is untouched and still serves "Team activity"'s own two bar lists:
+
+- **`donutChartHtml(items)`** — plain inline SVG, one stroke-dasharray
+  arc per slice over a base ring (`var(--surface-2)`), rotated -90° so
+  the first slice starts at 12 o'clock; a legend lists every slice's
+  colour swatch, label and real percentage share. All-zero input (a
+  brand-new account) shows "Nothing yet.", the same empty-state
+  `barListHtml()` already used, rather than an empty ring.
+- **`axisBarChartHtml(items, formatValue)`** — a CSS-grid chart (axis
+  column + plot column, `.dashboard-bar-chart` in `app.css`): 5 tick
+  values on a real y-axis, dashed gridlines behind the bars, a value
+  label above each bar, category labels below. `TOP_RESERVE` (18px)
+  keeps the tallest bar's own value label from colliding with the top
+  gridline — the exact class of clipping bug this file has caught
+  elsewhere when a value sits flush against a container's own edge.
+  `formatValue` defaults to a bare number; the time-saved chart passes
+  `formatHoursMinutes` so its axis and bars read "1H 20M" instead of
+  raw minutes, the same optional-formatter shape `barListHtml()` itself
+  picked up earlier the same day.
+
+`.field-row` (2 columns) is now `.dashboard-chart-row` (3 columns,
+`.field-row-3`'s own `repeat(3, 1fr)` shape) holding one
+`.dashboard-chart-card` each — Bulk runs (donut), Entries created (bar),
+Time saved (bar) — all three built from the exact same per-operation
+`rows` the table above already computes, still no second data source.
+Stacks to 1 column at the same breakpoint `.dashboard-route-row`
+already does.
+
+Confirmed by a real Playwright screenshot pass in both light and dark,
+plus a 390px mobile check, against real non-zero mocked
+`dashboard_bulk_stats()` data: the donut's 5 slices render in 5 visibly
+distinct colours over a real ring (not a solid disc), both bar charts
+show real gridlines and axis tick values (`3200/2400/1600/800/0`,
+`1H 4M/48 Min/32 Min/16 Min/0 Min`), and the 3-column row correctly
+collapses to 1 column on mobile. Full 12-suite run stayed green (888
+checks) — `dashboard.test.js`'s own assertions read the table's cell
+text, never `barListHtml()`'s markup, so none needed updating.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route

@@ -547,6 +547,15 @@ const DASHBOARD_RANGES = [
   { id: "6months", label: "Last 6 months", days: 180 },
 ];
 
+/* Bulk runs' own donut chart (2026-09-29) — a monochrome-green first
+   pass read as hard to tell apart, direct feedback: "donut e ektu
+   different colors use koro jeno easily differentiate kora jay." Five
+   genuinely distinct hues, not a rainbow — kept away from every colour
+   that already carries a meaning elsewhere in this app (green = accent/
+   success, gold = warning, red = danger, blue/purple = the env badges),
+   so this palette can't be misread as any of those on the same page. */
+const DASHBOARD_CHART_COLORS = ["#28a143", "#3b82f6", "#e2a336", "#8b5cf6", "#64748b"];
+
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
   { id: "attendance_add", label: "Employee Attendance Add", status: "active" },
