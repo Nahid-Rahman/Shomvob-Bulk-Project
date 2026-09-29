@@ -4162,8 +4162,8 @@
       {
         key: "time_saved",
         title: "Time saved, by operation",
-        desc: "Estimated minutes saved by using Bulk Forge instead of typing this by hand, per operation — scaled from the same numbers “By the numbers” uses.",
-        build: (rows) => axisBarChartHtml(rows.map((r) => ({ label: r.label, value: Math.round(r.bulkForge) })), formatHoursMinutes),
+        desc: "Estimated minutes saved versus doing this fully by hand, per operation — scaled from the same numbers “By the numbers” uses.",
+        build: (rows) => axisBarChartHtml(rows.map((r) => ({ label: r.label, value: Math.max(0, Math.round(r.manual - r.bulkForge)) })), formatHoursMinutes),
       },
     ];
 

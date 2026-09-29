@@ -6405,6 +6405,72 @@ untouched. Confirmed by a real Playwright screenshot pass (table really
 gone, all three filters visible and independent, mobile still stacks
 cleanly) and the full 12-suite run staying green (894 checks).
 
+**Three more real bugs, all found and fixed the same day, two of them
+flagged directly against a live screenshot with the broken area
+circled and one caught by the user simply doing the arithmetic
+himself** ("duita jinish, mark kora jaygay dekho lekha kete gese. ar
+ratio thik koro... ar calculation check koro. 100 employee generation e
+kemne matro 2 min time save hoy?" — two things: look at the marked
+spot, text is cut off; fix the ratio too; and check the math — how does
+generating 100 employees save only 2 minutes?).
+
+1. **A category label wrapping to two lines was vertically clipped.**
+   `.dashboard-bar-chart`'s own label row was a fixed 24px
+   (`grid-template-rows: 150px 24px`), and `.dashboard-bar-label` has
+   `overflow: hidden` — a two-word operation name ("Employee
+   Attendance", "Leave Balance") wraps to 2 lines at this font size,
+   and the fixed row plus the clip together chopped the wrapped
+   second line's bottom off instead of showing it. Fixed by making the
+   row `auto` height instead of a fixed px value — it now grows to fit
+   whatever its own tallest label actually needs, independently per
+   chart card.
+2. **The chart:description split wasn't actually 75:25** — direct
+   request. `.dashboard-chart-main`'s own `flex: 0 0 380px` (earlier
+   the same day) was a fixed pixel width, not a proportion, so the
+   real ratio drifted with the card's own width rather than holding at
+   any fixed split. Fixed with percentage flex-basis
+   (`flex: 1 1 75%` / `flex: 1 1 25%`) — `flex-shrink` stays on for
+   both (not `0 0`) so the row's own 28px gap is absorbed
+   proportionally by each side rather than pushing the row past 100%
+   width. Verified directly: measured 681.0px vs 227.0px in a real
+   card, exactly 75.0%/25.0%.
+3. **The real bug, not just a display fix: "Time saved, by operation"
+   was plotting the wrong number entirely.** The chart's own title
+   promises time *saved*, but its `build()` function plotted raw
+   `r.bulkForge` — the scaled Bulk Forge tool-time *itself* (how long
+   the tool takes, not how much it saves) — which is why 100 real
+   Employee Add entries (scale ×2 over the dictated 50-entry basis)
+   showed "2 Min": that's `1 min × 2`, the tool's own generation time,
+   not a saving. This bug predates this exact chart — it was already
+   present in the very first `barListHtml()` version of this same
+   "Time saved, by operation" row, several revisions earlier the same
+   day, just never caught until the user did the arithmetic himself
+   and it didn't add up. Fixed to plot `manual − bulkForge` (clamped
+   at 0), the actual time-saved delta versus doing it fully by hand —
+   the same headline comparison "Add it all up"/"Estimated impact so
+   far" already use elsewhere in this app, not a fresh metric invented
+   for this chart. The same real input (100 Employee Add entries) now
+   correctly reads "2H 33M" (155 min manual − 2 min Bulk Forge),
+   verified directly rather than just reasoned about.
+
+Confirmed by a real Playwright screenshot + DOM measurement pass: the
+75:25 split measured exact, no `.dashboard-bar-label` has
+`scrollHeight > clientHeight` (nothing clipped) across a 3-word label,
+and the Employee Add time-saved bar reads "2H 33M" against real
+`total_entries: 100` input, not the old "2 Min". Full 12-suite run
+green throughout (`dashboard.test.js` didn't assert on either chart's
+exact pixel ratio or its raw minute values, so nothing needed
+updating there) — one unrelated, pre-existing flake surfaced in
+`company-setup.test.js` the same run (529 vs. its usual 530, still
+zero *failed* checks, just one fewer registered) — confirmed via a
+clean `git diff` that this session's own changes never touched
+anything outside the Dashboard's own code, and reproduced the same
+529 in a standalone re-run of just that suite; almost certainly one of
+the "roughly a dozen more spots" of unguarded
+`waitForTimeout`-before-an-"already"-check races this file already
+flags as a known, pre-existing risk (2026-09-19, above) — not
+something this session's work caused.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route

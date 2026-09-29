@@ -1649,8 +1649,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   gap: 28px;
 }
 .dashboard-chart-card-reverse { flex-direction: row-reverse; }
-.dashboard-chart-main { flex: 0 0 380px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.dashboard-chart-desc { flex: 1 1 220px; min-width: 200px; }
+/* 75:25 chart-to-description split, direct request ("graph 75% space
+   nibe ar 25% description") — flex-shrink stays on (not "0 0") so the
+   row's own 28px gap is absorbed proportionally by both sides rather
+   than pushing the row past 100% width. */
+.dashboard-chart-main { flex: 1 1 75%; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dashboard-chart-desc { flex: 1 1 25%; min-width: 160px; }
 .dashboard-chart-desc p { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 .dashboard-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .dashboard-chart-title { font-size: 13px; font-weight: 600; color: var(--text); }
@@ -1665,7 +1669,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .dashboard-donut-legend-label { color: var(--text); flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-donut-legend-pct { color: var(--text-faint); width: 34px; text-align: right; flex-shrink: 0; }
 
-.dashboard-bar-chart { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: 150px 24px; column-gap: 6px; margin-top: 12px; }
+/* The label row is `auto`, not a fixed 24px — a real bug, found live on
+   a screenshot with the cut-off text circled: a two-word category name
+   ("Employee Attendance", "Leave Balance") wraps to 2 lines at this
+   font size, and a fixed 24px row plus `.dashboard-bar-label`'s own
+   `overflow: hidden` clipped the wrapped second line's bottom instead
+   of showing it. `auto` lets the row grow to whatever its own tallest
+   label actually needs. */
+.dashboard-bar-chart { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: 150px auto; column-gap: 6px; margin-top: 12px; }
 .dashboard-bar-axis { grid-column: 1; grid-row: 1; position: relative; height: 150px; }
 .dashboard-bar-tick { position: absolute; right: 0; transform: translateY(-50%); font-size: 10px; color: var(--text-faint); white-space: nowrap; }
 .dashboard-bar-plot { grid-column: 2; grid-row: 1; position: relative; height: 150px; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border-strong); }
@@ -7692,8 +7703,8 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       {
         key: "time_saved",
         title: "Time saved, by operation",
-        desc: "Estimated minutes saved by using Bulk Forge instead of typing this by hand, per operation — scaled from the same numbers “By the numbers” uses.",
-        build: (rows) => axisBarChartHtml(rows.map((r) => ({ label: r.label, value: Math.round(r.bulkForge) })), formatHoursMinutes),
+        desc: "Estimated minutes saved versus doing this fully by hand, per operation — scaled from the same numbers “By the numbers” uses.",
+        build: (rows) => axisBarChartHtml(rows.map((r) => ({ label: r.label, value: Math.max(0, Math.round(r.manual - r.bulkForge)) })), formatHoursMinutes),
       },
     ];
 
