@@ -876,6 +876,15 @@ this 55 Min, and capitalise the H/M in Hour/Min). Two changes:
 Confirmed by screenshot: the box now reads `4H 37M` / `55 Min` side by
 side. Full 11-suite run green — no test referenced either exact string.
 
+**Each Bulk row's own `(50 entries)` caption reworded to `(Per 50
+entries)` the next day** — direct question ("50 entries ki grammatically
+correct na Per 50 entries hobe?"), agreed and fixed: the column values
+are a rate (how long 50 entries takes), not a fixed quantity label, so
+"Per 50 entries" reads correctly where "50 entries" alone read like a
+bare count. Settings' own `(whole company)` caption is untouched — that
+one's already a rate-free, one-time description and never had this
+issue.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,

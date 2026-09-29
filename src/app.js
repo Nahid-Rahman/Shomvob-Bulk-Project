@@ -3444,7 +3444,7 @@
               ${rows
                 .map(
                   (r) => `<tr>
-                <td>${escapeHtml(r.label)} <span class="faint">(50 entries)</span></td>
+                <td>${escapeHtml(r.label)} <span class="faint">(Per 50 entries)</span></td>
                 <td class="num">${formatMinRange(r.manual)}</td>
                 <td class="num">${formatMinRange(r.ai)}</td>
                 <td class="num strong">${r.bulkForge} min</td>
