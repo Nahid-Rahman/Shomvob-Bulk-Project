@@ -6,6 +6,52 @@ here instead of only saying it out loud, and delete it once it's done
 (pull the latest before checking — another machine may have finished it,
 or added more).
 
+- **Session paused here, 2026-09-29 (end of day)** — "ami guide korbo.
+  tumi apatoto to do list update kore rakho... tumi git e shob update
+  kore rakho" (I'll guide the next steps myself; for now just keep this
+  list updated and make sure everything's pushed to git). Everything up
+  to and including this point is committed and pushed to `main`
+  (already live at the production URL) — nothing local, nothing
+  uncommitted. Two items are queued, both explicitly waiting on the
+  user's own direct guidance before any more code changes, not
+  something to start unprompted from a guess:
+  1. **A "What we offer & FAQ" polish pass** — "ektu FAQ ta ghoshamaja
+     kore" (polish the FAQ page up a bit). No specific issues named
+     yet — wait for the user to point at what to change (same
+     discipline as every other UI pass in this app) rather than
+     guessing at what "polish" means.
+  2. **The CXO report** (bullet right below) — still needs the user's
+     own concrete brief on which real numbers/graphs matter to that
+     audience before any drafting starts.
+- **Welcome page confirmed 100% done, 2026-09-28** — every open item
+  the "Not started" bullet below used to list against the pre-signin
+  page is closed; see CLAUDE.md's own long revision history under
+  "Welcome page rewritten through discussion..." and "'By the
+  numbers' got asked about again..." for the full detail up through
+  its 5th revision (real dictated before/after numbers, one unified
+  table + Settings row, "Add it all up" folded into the same section
+  as a tinted panel, capitalised stat labels/units).
+- ✅ **Post-login Dashboard page built 2026-09-29** — the last piece of
+  the Tiered Access journey; see the ✅ bullet further down and
+  CLAUDE.md → "The post-login Dashboard" for the full build. **Nothing
+  from the originally-dictated Tiered Access journey is outstanding
+  any more.** Next up is the CXO report below, once the user's ready
+  for it.
+- **A 2-page CXO impact report, requested by the user's lead
+  (2026-09-28), not started** — "amar lead ekta report chaise 2 page
+  er jekhane ami amar kaj er impact and etar jonno ki ki upokar
+  pacchi ki ki help hobe shob include kore dite bolse jeta CXO der
+  dekhabe... graph diye bujhano lagbe... 2 page max" (my lead wants a
+  2-page report covering my work's impact and what benefits it's
+  providing, to show the CXOs, with graphs — strict 2-page max).
+  Explicitly **deferred until after the Dashboard is built** — "Report
+  check to pore korbo aro" (I'll go through the report requirements
+  later). Whoever picks this up: don't start drafting without the
+  user's own concrete brief on what impact numbers/graphs to include —
+  this app's own real data (`audit_log`, the Welcome page's "So far,
+  for real"/"By the numbers" sections) is the obvious source, but
+  which figures matter to a CXO audience is a business call, not an
+  engineering one — ask rather than assume.
 - Report validation
 - Lead feedback, relayed directly (2026-09-24) — three related asks,
   **all need a real backend + database**, a genuine architecture change
@@ -227,17 +273,36 @@ or added more).
       chinta kore guchay dibo ki ki rakhba" (leave it for now, I'll work
       out what belongs there myself) — don't redesign it without being
       asked again specifically.
-  - **Not started**: the new post-login **Dashboard** page itself
-    (renamed from "Welcome/tier routing page," 2026-09-27 — see the
-    naming note on step 5 above; the pre-signin landing keeps the name
-    "Welcome" instead, and is now fully rebuilt per the bullet just
-    above — don't confuse the two) — Bulk/Settings/Both cards + lock
-    icons, this is also where the Operations-picking experience now
-    moved off the sidebar is headed, and where Company Setup's own
-    step-one sign-in form is meant to move to. **This is the last piece
-    of the originally-dictated journey left** — enforcement itself is
-    done (above), what's missing now is purely the dedicated landing
-    page.
+  - ✅ **Built 2026-09-29**: the new post-login **Dashboard** page
+    itself (renamed from "Welcome/tier routing page," 2026-09-27 — see
+    the naming note on step 5 above; the pre-signin landing keeps the
+    name "Welcome" instead — don't confuse the two). See CLAUDE.md →
+    "The post-login Dashboard" for the full build: Bulk/Settings
+    routing cards with lock icons ("Both" turned out to mean "neither
+    locked," not a literal third card), a real per-operation usage
+    table (`entry_count`-powered, see the bullet right above this one),
+    an "Estimated impact so far" comparison, a This week/month/3-6
+    months/All-time filter, and a low-emphasis "what we offer" strip at
+    the bottom. **This closes the originally-dictated journey** — every
+    numbered step above is now done. `tests/dashboard.test.js` (22
+    checks) covers it; full 12-suite run (888 checks) green.
+  - ✅ **Dashboard iterated further the same/next day** — the plain data
+    table became a real donut + two axis bar charts (each with its own
+    independent time-range filter, not one shared filter), the old
+    Real usage table is gone entirely, and two more real bugs got
+    fixed along the way (a wrong "Time saved" calculation, a clipped
+    bar-chart label). See CLAUDE.md's own "Dashboard charts: fix
+    clipped labels..." entries for the full detail.
+  - ✅ **"What we offer" renamed to "What we offer & FAQ" and made
+    real, 2026-09-29** — a card now opens a real page naming that
+    operation's actual column-by-column generation logic (Settings is
+    one combined card, not six), reachable from its own sidebar item
+    too. Same day, the sidebar's own "Welcome" item was removed
+    outright — a real loophole, direct feedback ("login korar por
+    welcome page ta ar dekhano uchit na. o to login korei felse" —
+    the public landing page shouldn't be revisitable once already
+    signed in). See CLAUDE.md → "'What we offer & FAQ'" for the full
+    build; `tests/faq.test.js` (20 checks) covers it.
 
   **Whoever picks this up next**: don't restart planning from scratch —
   every numbered decision above is confirmed, not an open question. Ask

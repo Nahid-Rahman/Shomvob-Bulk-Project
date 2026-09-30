@@ -360,11 +360,59 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
 .logout-btn svg { flex-shrink: 0; opacity: 0.8; }
 .sidebar-note { display: block; }
 
+/* "What we offer & FAQ"'s own sidebar item (2026-09-29) — deliberately
+   NOT inside `.op-nav`'s own scrollable list ("shob gula option er
+   niche, logout er upore, alada vabe thakbe" — below every option,
+   above Log out, on its own): a sibling between `.op-nav` and
+   `.sidebar-foot` stays pinned in view regardless of scroll position
+   within Operations/Setup/Admin, the same way Log out itself already
+   does, rather than scrolling away with the rest of the nav list. */
+.op-nav-faq { padding: 10px 12px; border-top: 1px solid var(--sidebar-border); flex-shrink: 0; }
+
 .sidebar-foot {
   padding: 14px 22px 18px;
   border-top: 1px solid var(--sidebar-border);
   font-size: 12px;
   color: var(--sidebar-text-muted);
+}
+
+/* The sidebar's own "Signed in as" card (2026-09-29) — modelled on a
+   real reference screenshot's own sidebar-footer card, sitting right
+   above Log out the same way that reference's own card sat above its
+   Log in/Sign up buttons. Replaces the Dashboard page-head's own
+   "Signed in as..." line, removed the same day. */
+.sidebar-user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--sidebar-active);
+  border: 1px solid var(--sidebar-border);
+}
+.sidebar-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.sidebar-user-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sidebar-user-caption { font-size: 10.5px; color: var(--sidebar-text-muted); }
+.sidebar-user-email {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sidebar-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---- Main ---- */
@@ -400,6 +448,7 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
 }
 .main-inner.wide + .app-footer { max-width: 1100px; }
 .main-inner.welcome-wide + .app-footer { max-width: 1320px; }
+.main-inner.faq-wide + .app-footer { max-width: 1400px; }
 
 /* Company Setup only — its field-rows, textareas and tab strip actually
    use the extra room; the five generators keep the narrower, more
@@ -413,6 +462,19 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
    goes to the zigzag rows/meme column and the Scope checklist's own
    two-up field-row breathing more instead. */
 .main-inner.welcome-wide { max-width: 1320px; }
+
+/* The FAQ page's own two-level shell (2026-09-30) — flagged directly
+   against a screenshot as reading too narrow ("overall page er width
+   barao eto kom keno"): the Bulk side's own column/rule table has 14
+   real columns and was scrolling horizontally even at .wide's 1100px.
+   A distinct, wider-still class rather than raising .wide itself, same
+   reasoning as .welcome-wide's own note above — company-setup.test.js
+   asserts an exact 1100px for that one. Applied alongside .wide, not
+   instead of it, so this page keeps .wide's own typography bumps
+   (.wide .page-desc etc., below) — this rule only needs to come after
+   .main-inner.wide's own in source order to win on max-width, since
+   both selectors carry identical specificity. */
+.main-inner.faq-wide { max-width: 1400px; }
 
 /* Company Setup read noticeably lighter than the rest of the app at the
    shared classes' default sizes — bumped here, scoped to .wide so the
@@ -1346,7 +1408,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .preview-table tbody tr:last-child td { border-bottom: none; }
 .preview-table td { font-family: var(--font-mono); color: var(--text-muted); }
 .preview-table td.num, .preview-table th.num { text-align: right; }
-.preview-table td.faint { color: var(--text-faint); }
+.preview-table td.faint, .preview-table td .faint { color: var(--text-faint); }
 .preview-table td.strong { color: var(--accent-strong); font-weight: 600; }
 /* Admin Panel's Users table (2026-09-26) — a checked box reads as a
    green tick, same accent-color hook every other checkbox in this app
@@ -1394,7 +1456,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    needs a white backing to read as a tile rather than a stray white
    box, on both light and dark. Smaller than the sidebar's own 92px —
    this sits beside a headline, not alone in a corner. */
-.welcome-headline-logo { display: block; width: 40px; height: auto; padding: 6px; border-radius: var(--radius-sm); background: #ffffff; border: 1px solid var(--border); }
+.welcome-headline-logo { display: block; width: 56px; height: auto; padding: 8px; border-radius: var(--radius-sm); background: #ffffff; border: 1px solid var(--border); }
 .welcome-headline {
   text-align: center;
   font-size: 32px;
@@ -1447,24 +1509,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .scope-list { margin: 8px 0 0; padding-left: 18px; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
 .scope-list li { margin-bottom: 6px; }
 .scope-list li:last-child { margin-bottom: 0; }
-
-/* A placeholder for a meme that hasn't been picked yet — same footprint
-   as .meme-img (a real image) so the layout doesn't jump once one is
-   chosen, but unmistakably a placeholder, not finished art. */
-.meme-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  aspect-ratio: 4 / 3;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--text-faint);
-}
-.meme-placeholder-mark { font-size: 28px; }
-.meme-placeholder-text { font-size: 11.5px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
 
 .welcome-badge {
   display: inline-block;
@@ -1544,6 +1588,254 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--text-faint);
 }
 
+/* "By the numbers"' "Add it all up" block (2026-09-28, 4th revision of
+   this section the same day) — direct correction of the previous pass,
+   which had made this its own `.section` card floating below "By the
+   numbers": "ekhane ekdom alada section banaiso keno? eta ei section
+   er moddhei just alada shade e dekhate bolsi" (why a whole separate
+   section here? I said to show it inside this same section, just in a
+   different shade). Same request also folded the Settings row into
+   the one Bulk table (`table tai pura section e hobe" — the table
+   alone will be the whole section) and dropped the "What it does"
+   bullet list entirely, since the table's own Operation column already
+   names every row. `.numbers-addup-box` is the "different shade" — a
+   tinted panel *inside* "By the numbers", not a second bordered card —
+   `.stat-tile`'s own white/dark surface sits on top of it for contrast,
+   no change needed there. */
+.numbers-addup-box {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.numbers-addup-title { margin: 0 0 4px; font-weight: 600; font-size: 14px; }
+
+/* The post-login Dashboard's own routing cards (2026-09-29) — Bulk and
+   Settings, tier-aware. A plain button, not `.op-card` (that stays
+   reserved for the "what we offer" strip below, and for the still-
+   unbuilt tier page's own numbered-card reuse, per its own CLAUDE.md
+   note). `.dashboard-locked-pill` is its own small class rather than
+   reusing `.pill-soon` — that one's colours (`--sidebar-text-muted`,
+   a translucent white fill) are tuned for the sidebar's own fixed-dark
+   background, not a light/dark-aware main-content card. */
+.dashboard-route-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px; }
+.dashboard-route-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px;
+  font-family: inherit;
+}
+.dashboard-route-card:not(:disabled):hover { border-color: var(--accent); }
+.dashboard-route-card:disabled { cursor: not-allowed; opacity: 0.6; }
+.dashboard-route-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.dashboard-route-desc { font-size: 12.5px; color: var(--text-muted); }
+.dashboard-locked-pill {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+/* The "what we offer & FAQ" strip at the very bottom (2026-09-29) — a
+   compact, low-emphasis card grid, deliberately smaller than `.op-card`'s
+   own full-size cards, matching the real Shomvob HR dashboard's own
+   "Quick Links" strip the user pointed at as a reference. A real 3-column
+   grid, not a flex-wrap (revised same day, direct feedback: "3 ta 3 ta
+   kore equally shundor kore vaag kore dao" — split these evenly, 3 by 3)
+   — flex-wrap sized each card to its own content, so 6 cards landed
+   4-then-2 with mismatched widths; a grid gives exactly 2 even rows of 3
+   equal-width cards regardless of how long any one label is. Each card
+   is a real `<button>` now, not a `<div>` — clicking one opens that
+   topic's own real explanation page (`openFaqTopic()`), so it needs to
+   read and behave like an actual control, not a static label. */
+.dashboard-service-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.dashboard-service-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.dashboard-service-card:hover { border-color: var(--accent); }
+.dashboard-service-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.dashboard-service-note { font-size: 11px; color: var(--text-faint); }
+
+/* The dedicated FAQ page's own two-level shell (2026-09-30 redesign,
+   direct request against an Excel mockup) — a Bulk Operation/Settings
+   toggle up top (plain .seg/.seg-fill, reused as-is), a vertical list
+   of that category's own items on the left, and the selected item's
+   detail on the right. Replaces the earlier 2026-09-29 card-grid index
+   (.faq-index-grid) outright — nothing references that class any more. */
+/* Full-width, evenly split — the same shape as Company Setup's own
+   #setupCoEnvSeg (Dev/Staging), which this was modelled on directly
+   after being flagged as too narrow ("uporer section ta equal width e
+   purata cover koro. example ei je [Environment]"). .seg-fill already
+   splits the two buttons evenly; the max-width this class used to carry
+   was the only thing keeping the whole control narrow. */
+.faq-category-seg { margin-bottom: 16px; }
+
+.faq-shell { display: flex; gap: 20px; align-items: flex-start; }
+.faq-nav-list {
+  flex: 0 0 220px;
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 6px;
+}
+.faq-nav-item {
+  display: block; width: 100%; text-align: left;
+  border: 1px solid transparent; background: none; cursor: pointer;
+  font-family: var(--font-body); font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+  padding: 10px 12px; border-radius: var(--radius-sm);
+}
+.faq-nav-item:hover:not(.active) { color: var(--text); background: var(--surface); }
+.faq-nav-item.active { background: var(--surface); border-color: var(--border); color: var(--accent); font-weight: 600; }
+.faq-detail-panel { flex: 1 1 auto; min-width: 0; }
+
+/* FAQ's own tables carry real paragraphs, not the short, ID-like values
+   every other .preview-table in this app (Admin Panel, Audit Log, Leave
+   Balance, Payroll) is built for — that shared white-space:nowrap forced
+   this one into a horizontal scrollbar (2026-09-30, direct feedback:
+   "width fix rakho. multiple line e egele to kono somossa nai" — keep
+   the width fixed, wrapping across multiple lines is fine). Scoped to
+   #faqDetailPanel only, so every other .preview-table in the app keeps
+   its existing single-line behaviour, which still suits it. */
+#faqDetailPanel .preview-table { table-layout: fixed; }
+#faqDetailPanel .preview-table th,
+#faqDetailPanel .preview-table td { white-space: normal; word-wrap: break-word; }
+#faqDetailPanel .preview-table th:first-child,
+#faqDetailPanel .preview-table td:first-child { width: 26%; }
+
+@media (max-width: 860px) {
+  /* align-items: flex-start (base rule) sizes a column-mode flex item to
+     its own content width instead of stretching to fill — exactly what
+     lets a wide .preview-table push .faq-detail-panel, and the whole
+     page, wider than the viewport here. stretch (the flex default)
+     forces both columns to the container's full width instead, so
+     .preview-table-wrap's own overflow-x:auto can do its job. Found via
+     a real mobile screenshot pass — measured 1825px of document
+     scrollWidth against a 390px viewport before this fix, 390px after. */
+  .faq-shell { flex-direction: column; align-items: stretch; }
+  .faq-nav-list { flex: 0 0 auto; width: 100%; flex-direction: row; flex-wrap: wrap; }
+  .faq-nav-item { flex: 1 1 auto; text-align: center; }
+
+  /* The desktop 26% first-column width (above) reads fine against a
+     1400px table but is genuinely cramped at a 390px one — a long field
+     name like "Configure Salary Components — Basic % and each
+     component's %" wraps into a very narrow column with an awkward
+     line break per word. Found by the same screenshot pass that
+     confirmed the wrap fix itself worked. Widened here, not removed —
+     the "What we do" column still needs to keep the majority of the
+     row's width. */
+  #faqDetailPanel .preview-table th:first-child,
+  #faqDetailPanel .preview-table td:first-child { width: 38%; }
+}
+
+/* Real usage's three charts (2026-09-29) — mocked up first on a design
+   canvas and confirmed directly before building. A donut for Bulk runs
+   (a share-of-activity question) and real axis bar charts for Entries
+   created / Time saved (a magnitude/ranking question — a bar's own
+   axis lets those be read precisely, which is what a pie/donut is bad
+   at once there are 5+ slices). All three sit under the existing Real
+   usage table. **Stacked one per row, not side by side** — a 3-column
+   grid read as cramped ("pasha pashi atbe na ghinchi hoye jabe" —
+   they won't fit side by side, it'll be crowded), direct feedback
+   against a screenshot. Each row is a chart plus a short description
+   of what it represents, filling the width a lone chart would
+   otherwise leave empty — alternating sides row to row
+   (`.dashboard-chart-card-reverse` on the 2nd), the same zigzag
+   instinct the Welcome page's own `.welcome-row`/`.welcome-row-reverse`
+   rows already use. */
+.dashboard-chart-row { display: flex; flex-direction: column; gap: 16px; margin-top: 18px; }
+.dashboard-chart-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.dashboard-chart-card-reverse { flex-direction: row-reverse; }
+/* 75:25 chart-to-description split, direct request ("graph 75% space
+   nibe ar 25% description") — flex-shrink stays on (not "0 0") so the
+   row's own 28px gap is absorbed proportionally by both sides rather
+   than pushing the row past 100% width. */
+.dashboard-chart-main { flex: 1 1 75%; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dashboard-chart-desc { flex: 1 1 25%; min-width: 160px; }
+.dashboard-chart-desc p { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.dashboard-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dashboard-chart-title { font-size: 13px; font-weight: 600; color: var(--text); }
+/* A fixed width, not auto — a real bug, found live on a screenshot with
+   the wrapped title circled: a bare `<select>` sizes itself off its
+   widest OPTION text ("Last 6 months"), not the currently shown value
+   ("All time"), so it claimed far more of `.dashboard-chart-head`'s row
+   than it needed and squeezed the title onto two lines. */
+.dashboard-chart-range { font-size: 12px; padding: 4px 8px; width: 128px; flex-shrink: 0; }
+
+/* Sized up and the legend un-stretched (2026-09-29 revision, direct
+   feedback: "eta aro boro koro" — make this bigger) — the donut used
+   to sit small inside `.dashboard-chart-main`'s own narrow 380px
+   column; now that column is 75% of the card (see the ratio fix
+   above), a small fixed-size donut left a lot of unused width, and
+   `.dashboard-donut-legend-label`'s own `flex-grow: 1` stretched to
+   fill exactly that leftover space — dragging each row's percentage
+   far away from its own label instead of sitting right next to it.
+   Fixed both at once: the donut itself is bigger (130px → 190px, the
+   underlying SVG viewBox/circle math is untouched — only the render
+   size changed), and the legend no longer stretches to fill the
+   column at all — each row is its own natural width, percentage
+   immediately after its label with a small fixed gap, rather than a
+   column-aligned table reaching across the whole card. Sized up again
+   the same day (130px → 260px total, direct follow-up: "etar height
+   aro boro koro, circle ta jeno aro boro hoy") — the card has no fixed
+   height of its own, so it grows to fit the bigger circle rather than
+   needing a separate height rule. */
+.dashboard-donut-body { display: flex; align-items: center; gap: 24px; margin-top: 10px; }
+.dashboard-donut-total { font-size: 34px; font-weight: 700; color: var(--text); }
+.dashboard-donut-total-label { font-size: 12.5px; color: var(--text-faint); }
+.dashboard-donut-legend { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dashboard-donut-legend-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.dashboard-donut-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.dashboard-donut-legend-label { color: var(--text); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-donut-legend-pct { color: var(--text-faint); flex-shrink: 0; }
+
+/* The label row is `auto`, not a fixed 24px — a real bug, found live on
+   a screenshot with the cut-off text circled: a two-word category name
+   ("Employee Attendance", "Leave Balance") wraps to 2 lines at this
+   font size, and a fixed 24px row plus `.dashboard-bar-label`'s own
+   `overflow: hidden` clipped the wrapped second line's bottom instead
+   of showing it. `auto` lets the row grow to whatever its own tallest
+   label actually needs. */
+.dashboard-bar-chart { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: 150px auto; column-gap: 6px; margin-top: 12px; }
+.dashboard-bar-axis { grid-column: 1; grid-row: 1; position: relative; height: 150px; }
+.dashboard-bar-tick { position: absolute; right: 0; transform: translateY(-50%); font-size: 10px; color: var(--text-faint); white-space: nowrap; }
+.dashboard-bar-plot { grid-column: 2; grid-row: 1; position: relative; height: 150px; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border-strong); }
+.dashboard-bar-gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); }
+.dashboard-bar-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 10px; padding: 0 10px; }
+.dashboard-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+.dashboard-bar-value { font-size: 10.5px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+.dashboard-bar-fill { width: 26px; background: var(--accent); border-radius: 4px 4px 0 0; }
+.dashboard-bar-labels { grid-column: 2; grid-row: 2; display: flex; gap: 10px; padding: 0 10px; margin-top: 6px; }
+.dashboard-bar-label { flex: 1; text-align: center; font-size: 10px; color: var(--text-faint); line-height: 1.2; overflow: hidden; }
+
 .how-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 22px; }
 .how-step {
   display: inline-flex;
@@ -1567,16 +1859,36 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-weight: 700;
 }
 
-/* The meme (2026-09-25, Dashboard redesign): a real Hackerman GIF
-   (assets/hackerman.gif, downloaded from Tenor at the user's own direct
+/* The meme (2026-09-25, Dashboard redesign): originally a real
+   Hackerman GIF (downloaded from Tenor at the user's own direct
    instruction) — reverses the original "drawn rather than fetched"
    decision below this app held for its whole life, on the reasoning
    that a real meme image is someone else's to licence. That reasoning
    stands for anything published to a stranger; this is the user's own
    internal QA tool, and the call to use a real meme here was made
-   directly, not defaulted into. Not inlined — the file is ~2.9MB,
-   the same "too big for a data URI" reasoning as assets/lazy_cat.mp4,
-   kept as a plain relative-path asset instead. */
+   directly, not defaulted into.
+
+   Replaced with a real video, 2026-09-28, direct instruction ("ami
+   nijer face boshaisi" — I put my own face on it): assets/hackerman.mp4
+   is now the user's own clip, the Tenor GIF composited with his own
+   face, so the second-hand-licensing question above doesn't even apply
+   any more — his own footage, his own tool. `<video loop muted
+   playsinline autoplay>` replaces the `<img>`, the same treatment every
+   other clip in this app already gets (the login gate's cat, the five
+   operation rails, the Rickroll). `.meme-img`'s own styling is generic
+   enough (display/width/border/radius/shadow) that neither the markup
+   swap nor the format change needed a single rule touched.
+
+   Reason's own meme slot — a plain dashed-border placeholder for its
+   whole life — got filled the same day: assets/crying_cat_ok.mp4, a
+   real Tenor clip (crying cat, thumbs up, "OK" text), the user's own
+   link. Same `.meme-img`/`<video>` treatment, `.meme-placeholder` and
+   its two child classes are deleted outright rather than left dead,
+   since nothing else in this app reused that "hasn't been picked yet"
+   shape.
+
+   Neither clip is inlined — same "too big for a data URI" reasoning as
+   assets/lazy_cat.mp4, kept as plain relative-path assets instead. */
 .meme { margin: 0; }
 .meme-img {
   display: block;
@@ -1945,6 +2257,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .main-scroll { overflow: visible; }
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
   .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
+  .dashboard-route-row { grid-template-columns: 1fr; }
+  .dashboard-chart-card, .dashboard-chart-card-reverse { flex-direction: column; align-items: stretch; }
+  .dashboard-chart-main { flex-basis: auto; }
+  /* A real bug, found live right after the donut was sized up to 260px
+     (2026-09-29): `.dashboard-donut-body` stayed a side-by-side row on
+     mobile too, and the bigger circle plus its own legend together no
+     longer fit a phone-width card, overflowing the page horizontally.
+     Same standing instruction as every other side-by-side element in
+     this app — stack it top-to-bottom under this breakpoint instead. */
+  .dashboard-donut-body { flex-direction: column; align-items: center; text-align: center; }
+  .dashboard-service-strip { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
   .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; }
   .welcome-row-reverse .meme { order: 0; }

@@ -464,6 +464,196 @@ const OPERATION_BLURBS = {
   }
 };
 
+/* "What we offer & FAQ" (2026-09-29) — direct request: a card here now
+   opens a real explanation page naming every column's actual generation
+   rule, not just the existing blurb/cost line. Content is a plain-
+   English restatement of each operation's own confirmed spec
+   (SPEC.md/CLAUDE.md) — nothing here is guessed, same discipline as the
+   generators themselves. Settings gets one combined entry, not six
+   (one per SETTINGS_GROUPS group) — direct instruction ("ei section e
+   settings combined ekta dilei hobe, shob gula venge venge deyar
+   dorkar nai"), since it's one coherent thing to explain (real writes
+   into a real company) rather than 20+ modules' worth of field-by-field
+   detail. */
+const FAQ_TOPICS = [
+  {
+    id: "employee_add",
+    category: "bulk",
+    label: "Employee Add",
+    intro: "Builds a ready-to-upload employee file from scratch — every column filled with realistic, internally consistent test data.",
+    columns: [
+      { name: "Employee ID*", rule: "Every employee needs a unique ID inside the company — it's how the system tells two people apart, and it's a required field. You pick a 4-letter prefix (the tool suggests one, but you're free to type any 4 letters yourself), and once you say how many employees to generate, IDs are numbered in order after that prefix. By default, numbering starts at 0001, so 50 employees gives you IDs from PREFIX0001 through PREFIX0050. The catch: if you're generating employees for a company that already has some, starting at 0001 again could clash with IDs that already exist there. That's what the \"Starting number\" field is for — set it to something other than 1, and the IDs pick up from there instead, still counting up in order." },
+      { name: "Biometric ID", rule: "A second ID some attendance/biometric devices need, alongside the Employee ID — not something you type in, it's built automatically. It's the same prefix and the same running number as the Employee ID, just with a \"B\" inserted in between, so the two IDs always visibly belong to the same person (Employee ID PREFIX0001 → Biometric ID PREFIXB0001). It follows the same Starting number too, so the two never fall out of sync." },
+      { name: "First Name* / Last Name*", rule: "Every row needs a first and last name, and where they come from depends on what you picked in \"Name source\" — either the default pool of real Bangla names, or a character theme (Game of Thrones, Marvel, and so on) if you picked one. Within one generated file, no two employees share the exact same name — the tool keeps drawing fresh combinations so the file doesn't read like the same handful of names copy-pasted over and over." },
+      { name: "Employment Type*", rule: "Says whether someone is a permanent employee, still in probation, or an intern — picked randomly for each row, since a real company's staff list is naturally a mix of all three. Only these three are used; Part Time and Contract are deliberately left out, since they're rare enough in practice to just be noise in test data." },
+      { name: "Probation Period (Months)*", rule: "How many months of probation this employee still has left. It only makes sense for someone who isn't already Permanent, so a Permanent employee always gets 0 here — there's nothing to probate. Anyone \"In Probation\" or an \"Intern\" instead gets a random number between 3 and 6, matching how long a real probation period usually runs." },
+      { name: "Joining Date*", rule: "The date this employee joined the company. Rather than a plain random date, it's weighted to look like a real, growing company's hiring history: about 60% joined last year, 25% joined this year, and the remaining 15% joined two years ago. It's never a future date — nobody can join a company that hasn't happened yet." },
+      { name: "Gross Salary*", rule: "A monthly salary figure, randomly picked between ৳20,000 and ৳150,000. It's always a round number in steps of ৳500 (so ৳45,000 or ৳45,500, never ৳45,237), because that's how real salaries are actually set — nobody's contract says an odd random number." },
+      { name: "Email", rule: "An auto-generated address shaped like firstname.lastname.xxxxx@yopmail.com, all lowercase. The \"xxxxx\" part is a short random code generated fresh every time you click Generate — it exists purely so two separate files, even with the same names, never end up sharing an email by accident." },
+      { name: "Phone*", rule: "A 13-digit Bangladeshi mobile number: 880, then 1, then a real operator digit (3–9, matching how BD numbers are actually structured), then 8 more random digits. Every number in the file is checked against every other one, so no two employees ever end up with the same phone number." },
+      { name: "Gender*", rule: "Matches whichever name was picked for that row — a male-tagged name gets Male, same for female. It's never mismatched, and there's no \"prefer not to say,\" since the name itself already decides it." },
+      { name: "Date of Birth*", rule: "Set so the employee is somewhere between 18 and 45 years old as of their own Joining Date — young enough to be realistic, old enough to be legally employable. It always falls before the Joining Date, since nobody can be born after they've already started working." },
+      { name: "Department Name* / Designation Name*", rule: "Which department and job title this employee belongs to. One department is picked at random from whatever you've configured (the defaults, or your own custom ones), then one designation is picked from that specific department's own list of titles — never a title that actually belongs to a different department." },
+    ],
+  },
+  {
+    id: "attendance_add",
+    category: "bulk",
+    label: "Employee Attendance Add",
+    intro: "Fills in real attendance rows for a date range. Only Employee ID, Date, In Time and Out Time exist as columns, so everything else — lateness, absence, overtime — is expressed through how those four are set, never as an extra column.",
+    columns: [
+      { name: "Employee ID*", rule: "Which real employee this attendance row belongs to. Nothing here is invented — every ID comes from wherever you got your employee list (pasted in by hand, generated by this tool's own Employee Add, or read off an uploaded file), so it's guaranteed to match a real account rather than a made-up one." },
+      { name: "Date*", rule: "The calendar date this row is for. Not every day in your chosen date range gets a row — a day only appears here if something actually happened on it (see the note on absences/weekends/holidays below); a day with nothing to report is simply left out of the file rather than added as an empty row." },
+      { name: "In Time* / Out Time*", rule: "Together, these two times carry every real attendance scenario, since the file itself has no separate column for \"late\" or \"overtime\" — it's all expressed through when someone clocked in and out. An ordinary day has both times land a few minutes either side of the actual shift, the way a real clock-in naturally does. Lateness shows up as an In Time later than the shift's own grace period allows. Overtime shows up as an Out Time pushed later — always by at least 45 minutes, since anything less wouldn't really count as staying back. An early check-out instead pulls Out Time 15 to 60 minutes earlier than the shift was meant to end. Only one of overtime or an early check-out can happen on any single row — nobody both stays late and leaves early on the same day." },
+      { name: "Absent employees, weekends, holidays", rule: "If someone was absent, or the day was a weekend or a declared holiday, they simply get no row for that date at all — not a row with blank times, since a real HR system reads \"no row\" as \"nothing to report,\" not \"something went wrong.\" The one exception: if overtime is turned on for weekends/holidays, someone who worked that day gets a row whose whole span (In Time to Out Time) is treated as overtime, and it's never shorter than 2 hours, matching the real system's own minimum rule for counting a shift as genuinely worked." },
+      { name: "A shift that crosses midnight", rule: "For a shift that starts one day and ends after midnight the next, the row is still just one line, dated by whichever day the shift started on. That means Out Time can read as an earlier clock time than In Time (e.g. In at 22:00, Out at 06:00) — that's expected for these rows, not a mistake." },
+    ],
+  },
+  {
+    id: "leave_balance_add",
+    category: "bulk",
+    label: "Leave Balance Add",
+    intro: "The odd one out: nothing here is invented from scratch. You upload the system's own export, and every column except one is carried through exactly as it came in.",
+    columns: [
+      { name: "Employee ID, Employee Name, Leave Type Name, Total Allocated, Earned Leave", rule: "This operation doesn't invent any of these — you upload the company's own real export, and every one of these columns is carried through exactly as it came in, byte for byte. That includes whatever leave types the company has actually set up (which can be anything — even something unusual, since companies name their own leave types), and every employee's real name and ID." },
+      { name: "Already Used Leave", rule: "The one column this tool actually changes. Whenever it fills in a value, it's always a half-day step (like 2.5 or 10.0, never an odd fraction), and it's always kept strictly below Total Allocated plus Earned Leave, so nobody ends up shown as having used more leave than they could possibly have. How much is used also depends on when in the year you're generating the file — early in the year (say, January) the numbers stay small, since not much of the year's leave would realistically be used yet; later in the year (say, October) they run higher. If a row already had some leave used before you ran this, the new value only ever goes up from there, never down — and if a row was already at the maximum it could be, it's left exactly as it was, untouched." },
+    ],
+  },
+  {
+    id: "payroll_field_add",
+    category: "bulk",
+    label: "Payroll Custom Field Add",
+    intro: "Fills in your company's own custom-field export — the same “don't invent, fill what's blank” idea as Leave Balance Add.",
+    columns: [
+      { name: "Employee ID, Employee Name", rule: "Taken directly from whatever file you upload, and left completely untouched — this operation never changes who a row belongs to." },
+      { name: "Every custom field column after them", rule: "Each company sets up its own custom payroll fields with its own names — this tool never invents a name or corrects one, even if the company's own spelling has a typo in it (that's intentional: the file has to match what the real system actually has). Every field's column header already tells you whether it's an addition (+) or a deduction (-) to someone's pay — the actual number written in the cell is always positive either way, since the plus or minus sign is the header's job, not the number's." },
+      { name: "Coverage", rule: "A percentage you set yourself before generating, controlling how many of the individual cells actually get a value filled in — not how many employees get at least one field filled. Because it works cell by cell rather than employee by employee, at anything below 100% it's completely normal for some employees to end up with every one of their fields left blank — that's the coverage setting working as intended, not something going wrong." },
+      { name: "Already-filled cells", rule: "If a cell in your uploaded file already has a number in it, this tool leaves it exactly as it is. That means running this again on a file you've already partly filled in can't accidentally erase or overwrite work that's already there." },
+    ],
+  },
+  {
+    id: "assets_add",
+    category: "bulk",
+    label: "Assets Add",
+    intro: "Builds a ready-to-upload asset file from scratch, matching the real template's own seven columns.",
+    columns: [
+      { name: "Asset Image", rule: "Always left completely blank. A made-up placeholder image link would only show up as a broken image once the file is actually uploaded into the real system, so leaving it empty is the honest choice here — there's no real image to point to." },
+      { name: "Asset Code*", rule: "A unique code for each asset, built the same way an Employee ID is: a prefix followed by a number that counts up from 0001, so every asset in the file gets its own distinct code with nothing repeated." },
+      { name: "Asset Name* / Asset Type* / Asset Description", rule: "The Name and Description always agree with each other — a laptop's name comes with a laptop's own description, never a mismatched one. Asset Type, on the other hand, is picked completely independently of both — this isn't an oversight, it's actually how the real system's own template behaves: one of its own example rows lists a monitor under the type “Printers,” which is how we know Asset Type is meant to be a free label a company chooses for itself, not something that has to logically match the asset's actual name." },
+      { name: "Assigned Employee ID / Assigned Date", rule: "Both of these are optional — not every asset has to be assigned to someone. About 70–80% of the assets in a generated file end up assigned to a real employee ID from your list, each given a real assignment date sometime within the last year. The remaining 20–30% are left completely unassigned — both columns blank together, never one filled in while the other is left empty, since a half-assigned asset wouldn't make sense." },
+    ],
+  },
+];
+
+/* The FAQ page's own Settings side (2026-09-30 redesign — a left-hand
+   list of the real 6 SETTINGS_GROUPS, not one combined card) shows this
+   same shared overview under whichever group is currently selected,
+   plus that group's own real module names — until each group gets its
+   own dedicated per-module detail (still to be designed, deliberately
+   not guessed at here). This is the exact content the old single
+   combined "Settings" FAQ_TOPICS entry held before the split; `note` is
+   what the Dashboard's own card strip still shows for its one Settings
+   card (faqCardsHtml() in app.js), since that strip stays a single
+   6-card summary (5 Bulk + 1 Settings) regardless of this split. */
+const FAQ_SETTINGS_SHARED = {
+  note: "Automatic or Custom settings setup",
+  intro: "Different from the five operations above — Settings doesn't hand you a file to upload by hand. It signs in as a real company, with the credentials you provide, and writes configuration directly into that company through Shomvob's own real API — departments, leave types, payroll rules, and everything else a fresh company needs before anyone can actually use it.",
+  /* Trimmed to 2 lines once each group got its own real per-field table
+     below (2026-09-30) — the old first two lines ("six real settings
+     groups", "every field stays editable") are now obvious from the
+     table itself, so only the two facts a table can't show on its own
+     (live dependency-checking, the Run defaults shortcut) are kept, as
+     a shared closing note under every group's table. */
+  prose: [
+    "Real dependencies are checked live against the actual connected company, never assumed: a Designation needs a Department to exist first, a Leave Policy needs a Leave Type, and so on. If something's missing, the module names exactly what and gives you a one-click shortcut to fix it — nothing fails silently.",
+    "“Run defaults” is the shortcut worth knowing about: one click sets up a whole company's worth of sensible defaults — departments, a leave policy, a payroll cycle and more — instead of the roughly 2–2.5 hours it takes to click through all of this by hand.",
+  ],
+};
+
+/* The FAQ page's own per-field detail for each real SETTINGS_GROUPS
+   group (2026-09-30) — the same plain-English, "explain what/why/how"
+   depth FAQ_TOPICS' own Bulk columns just got, keyed by the group's own
+   real `id`. A row's name reads "Module — Field" so it's clear which of
+   a group's several real modules a field belongs to. Only fields that
+   are actually real and shown in the UI are covered — an editable
+   input where one exists, or the real generated/fixed behavior where a
+   module has no editable field at all (e.g. Overtime, Attendance
+   Bonus) — nothing here is invented; every row was checked directly
+   against that module's own template function in app.js before being
+   written. */
+const FAQ_SETTINGS_GROUP_DETAILS = {
+  company: {
+    columns: [
+      { name: "Company Profile — Legal Name", rule: "The company's own formal registered name, used across every real record this tool creates. It's generated automatically from the real company name you're connected to, plus a random legal suffix (like \"Ltd.\" or \"Group\"), but you can type over it with anything before saving." },
+      { name: "Company Profile — TEG NO", rule: "A 13-digit number the real system asks for, though — honestly — nobody involved in building this tool actually knows what it's supposed to represent; a real company was even found using free text here instead of numbers, so it clearly isn't strictly checked on the real server's side either. It's still generated as a plausible-looking registration number rather than a joke string, since that reads better in QA data." },
+      { name: "Company Profile — Tax ID", rule: "A separate tax identification number for the company, generated as a plausible-looking number — here to fill in a required-looking field with realistic QA data, the same reasoning as TEG NO above." },
+      { name: "Company Profile — Industry / Business Type", rule: "These two are always generated as a matching pair (say, \"Technology\" paired with \"Software Development\"), so a generated company never ends up with an industry and business type that don't make sense together." },
+      { name: "Company Profile — Website / Description / Mission / Vision", rule: "The rest of the company's public-facing profile — a website address, a short description of what the company does, and its mission and vision statements. All four are generated from realistic template text so the profile reads like a real company wrote it, and every one can be edited or replaced by hand before saving." },
+      { name: "Bank Info — Bank Name / Account Number", rule: "Which real Bangladeshi bank this company's payroll account sits with (picked at random from a list of real banks), and a randomly generated account number for it." },
+      { name: "Bank Info — NPSB Code / BEFTN Code", rule: "Two short codes real payment networks use to route money to this specific bank. Both are automatically derived from whichever bank was picked, so they always agree with each other — though you can still edit them by hand before saving." },
+      { name: "Bank Info — MFS Code", rule: "A code for a mobile financial service (like bKash or Nagad) this company also uses, picked at random from the real options." },
+      { name: "Location Types — Name", rule: "A category every real office Location has to attach to — like \"Head Office\" or \"Baridhara.\" A real Dhaka-area name is suggested as a starting point, but you're free to type your own." },
+      { name: "Location Types — Can Have Geofence", rule: "Whether locations under this type are even allowed to have a geofence (a virtual boundary used for location-based attendance) — this only permits it; each individual Location still turns its own geofence on or off separately." },
+      { name: "Locations — Name / Location Type", rule: "The office's own name (picked from a pool of realistic office names), and which real Location Type it belongs to — the dropdown only ever shows Location Types this specific company actually has, since a Location can't attach to one that doesn't exist yet." },
+      { name: "Locations — Has Geofence", rule: "Whether this specific office has a geofence set up for attendance. When turned on, real-looking coordinates (latitude, longitude and a radius in meters) are generated a short random distance from a real Dhaka reference point, and all three can be hand-edited before saving." },
+      { name: "Locations — Is Default", rule: "Whether this is the company's main, default office. A company should really only have one Location marked default at a time — the tool lets you set this either way, but keeping just one true is on you, the same as it would be in the real system." },
+      { name: "Department Management — Name", rule: "The department's own name — a common department name (HR, Engineering, Sales, and so on) is suggested as a starting point, fully editable before saving. A shortcut also exists to create all 6 common defaults in one go instead of one at a time." },
+      { name: "Designation Management — Name / Department", rule: "A job title (Designation Name) and which real Department it belongs to. The Department dropdown only ever lists departments this company actually has — a designation can't be created for one that doesn't exist yet. A shortcut can also create 4 starter designations for every real department at once." },
+    ],
+  },
+  employee: {
+    columns: [
+      { name: "Custom Fields — Field Name / Type", rule: "A custom piece of information this company wants to track on every employee record — its name (like \"T-Shirt Size\") and its Type (Text, Number, Date, Checkbox, or a dropdown-style \"Enum\" list). A name is suggested as a starting point, and both are yours to change." },
+      { name: "Custom Fields — Choices", rule: "Only shown when Type is set to the dropdown-style \"Enum\" — the actual list of options someone filling this field in would pick from, entered comma-separated." },
+      { name: "Custom Fields — Enable Filter / Shown As Column", rule: "Two Yes/No switches controlling how this field behaves elsewhere in the real system: whether people can filter employee lists by it, and whether it shows up as its own column in an employee table. Both default to No, since turning these on is meant to be a deliberate choice, not something that happens by accident." },
+      { name: "Custom Fields — Status", rule: "Whether this custom field is Active (actually usable) or Inactive (kept around but not currently in use)." },
+      { name: "Required Documents — Document Name / Type", rule: "A document employees need to have on file (like \"NID Copy\") and whether it's collected as an uploaded File or typed-in Text." },
+      { name: "Required Documents — Status / Is Required", rule: "Whether this document requirement is Active or Inactive, and whether it's actually mandatory (Is Required) or just optional to have on file." },
+    ],
+  },
+  attendance: {
+    columns: [
+      { name: "Attendance Policy — Title", rule: "The name for this company's attendance policy — the only field here that's meant to be hand-typed; everything else on this page is generated to a fixed, sensible shape rather than being its own input." },
+      { name: "Attendance Policy — Overtime, break and check-in/check-out limits", rule: "Generated together to a realistic default shape rather than typed in: overtime starts turned off, a fixed early check-in allowance and a fixed maximum check-out limit are set (matching what the real system expects), and break/deduct-break are both off by default too. They're shown as read-only summary tags rather than separate boxes, since together they represent one sensible starting policy rather than several independent choices." },
+    ],
+  },
+  schedule: {
+    columns: [
+      { name: "Create Roster — Name / Grace", rule: "A named shift, like \"Morning Shift\" — its display Name, and how many minutes of Grace period (0, 5, 10 or 15) employees get before being marked late." },
+      { name: "Create Roster — Start At / End At", rule: "What time the shift begins and ends. The total number of working hours is worked out automatically from these two times rather than being its own field to fill in — so if you change Start or End, the hours figure actually sent to the real system always stays accurate to what you typed." },
+      { name: "Create Roster Pattern — Name", rule: "The pattern's own display name. Everything else about this action is fixed — Sunday through Thursday, all five real working days assigned to this company's own default time slot. Assigning a *different* slot to each individual day isn't built yet, since that only makes real sense once a company has more than one time slot to actually choose between." },
+    ],
+  },
+  leave: {
+    columns: [
+      { name: "Leave Types — Name", rule: "The leave type's own name (like \"Annual Leave\" or \"Sick Leave\"). Whatever you type here is exactly what gets created — the tool doesn't try to guess special rules from the name, so typing something like \"Maternity Leave\" doesn't automatically turn on special maternity-specific behavior." },
+      { name: "Leave Types — Sandwich Rule", rule: "Controls what happens when someone takes leave on the days right before and after a weekend or holiday — whether those in-between days quietly get \"sandwiched\" into the leave too. When turned on, you choose whether the system should just notify an approver about it (Permission Based) or automatically count the weekend/holiday as leave without asking (Count Automatically), and separately choose whether this applies to weekends, public holidays, or both." },
+      { name: "Leave Types — Bridge Leave", rule: "A similar idea for leave taken immediately next to a single holiday, rather than a whole weekend — when turned on, the same choice applies: notify an approver first (Permission Based), or count it automatically (Count Automatically)." },
+      { name: "Leave Policy — Name / Status", rule: "The policy's own name, and whether it's Active or Inactive." },
+      { name: "Leave Policy — Which leave types are included, and how many days each", rule: "Every real leave type this company already has is listed here, each with its own checkbox (checked by default) and its own Days number (12 by default). Unchecking a leave type leaves it out of this policy entirely; the Days number is how many days of that leave type this policy actually grants." },
+      { name: "Holiday Calendar — Sync", rule: "Nothing to configure here at all — clicking the one button simply pulls this company's full real public holiday list from Shomvob's own system. It exists because a company's payroll and attendance calculations rely on knowing its real holidays, and this is the one-click way to make sure they're loaded in." },
+    ],
+  },
+  payroll: {
+    columns: [
+      { name: "General — Payroll Cycle", rule: "How often employees actually get paid — Calendar Month (once every real calendar month), Fixed Date (a specific day chosen each cycle) or Bi-weekly (every two weeks). It opens on Calendar Month by default, since that's the most common real setup, rather than a random pick — choose a different option yourself if that's what you're testing." },
+      { name: "Salary Components — Component", rule: "Which of the 4 real, fixed salary components this creates — Medical Allowance, House Rent Allowance, Mobile Allowance or Internet Allowance. These names are fixed to match what the real system actually expects; there's no free-text name here. A shortcut also creates 3 of these four (skipping Mobile Allowance) in one go." },
+      { name: "Salary Components — Status", rule: "Whether this component is Active or Inactive. It defaults to Active — an accidentally Inactive component is invisible to other modules that depend on having active salary components, so this default matters." },
+      { name: "Salary Components — Countable As Tax Component / Pro-rata", rule: "Two Yes/No choices: whether this component counts toward the employee's taxable income, and whether it's pro-rated (reduced proportionally) for an employee who joins partway through a pay period." },
+      { name: "Configure Salary Components — Basic % and each component's %", rule: "How an employee's total salary actually splits across Basic pay and the company's own real salary components — for example, Basic 60%, one component 15%, another 15%, a third 10%. Every percentage here is a real number you can edit, but they all have to add up to 100% between them, since that's how the real payroll system expects a salary structure to be defined. This needs the company to already have at least 2 Active salary components before it can be configured at all." },
+      { name: "Late Arrival — Penalty Type", rule: "Which single rule applies when someone arrives late: Late Penalty (a penalty for being late at all) or Repeated Late Penalty (a penalty only once lateness becomes a repeated pattern). The real system requires exactly one of these two to be on — never both, never neither — so this is a single either/or choice, not two separate switches." },
+      { name: "Absent Deduction — Repeated Absent Penalty", rule: "Whether this company's absence rule counts total absences over time (off, the default) or specifically counts consecutive absent days in a row (on)." },
+      { name: "Bonus Types — Bonus Type", rule: "Which of the 4 real, fixed bonus types this creates — Eid Bonus, Bangla New Year Bonus, Special Bonus or a deliberately Inactive Test Bonus (used for testing that inactive bonus types behave correctly). A shortcut also creates the first two of these (Eid and Bangla New Year) in one go." },
+      { name: "Bonus Policy — Name / Bonus %", rule: "The policy's own name and what percentage bonus it pays out, attached to one of this company's real bonus types. A shortcut can also create the 3 real festival policies at once (Eid Ul Fitr and Eid Ul Adha at 40% each, both against the one real Eid Bonus type, plus Bangla New Year at 20%) once that Bonus Type actually exists." },
+      { name: "Overtime — Regular / Weekend / Holiday", rule: "Whether overtime pay applies on an ordinary working day (Regular — always turned on), and independently on a Weekend or a Holiday (each generated with roughly an 80% chance of being turned on). This one only actually works once the company's own real Attendance Policy has overtime turned on too — otherwise there's nothing for payroll to pay overtime on." },
+      { name: "Attendance Bonus — Counted on / Calculation", rule: "How this bonus is earned (based on a percentage of attendance, or a number of days present) and how it's paid out (a flat rate, or a percentage of some other figure). Both are generated to a sensible default rather than typed in by hand." },
+      { name: "Custom Addition/Deduction — Name / Type", rule: "A custom line item added to or subtracted from an employee's pay — its own Name, and whether it's an Addition (adds to pay) or a Deduction (subtracts from it). A company can have up to 10 of these real fields." },
+      { name: "Custom Addition/Deduction — Carry Forward", rule: "Whether an unused amount from this line item carries forward into the next pay period instead of being lost." },
+      { name: "Tax — Enable Tax", rule: "A single switch to turn this company's tax rules on. This is honestly as far as this part of the real system currently goes — there's no way yet, in the real API this tool connects to, to actually configure a specific tax bracket or rate; this button only turns the feature on or off." },
+    ],
+  },
+};
+
 /* Five seconds a cell is generous for someone typing carefully from a
    spec — the constant welcomeChartsHtml()'s own "minutes saved" chart
    and Team activity's "estimated time saved" tile both multiply by. */
@@ -483,6 +673,78 @@ const OPERATION_CELL_ESTIMATE = {
   payroll_field_add: 880, // 110 people x 8 fields
   assets_add: 35000, // 7 columns x up to 5,000 rows
 };
+
+/* "By the numbers"' real per-task time comparison (2026-09-28, revision
+   #3) — replaces both SETTINGS_GROUP_TIME_ESTIMATE and the per-50-
+   entries OPERATION_CELLS_PER_ENTRY math from revision #2. Those were
+   both derived numbers (a field count times a seconds-per-cell rate);
+   this session's own feedback was that the derived numbers "didn't
+   convey impact to a normal user," so they're gone outright, replaced
+   by the user's own dictated real-world estimates — manual typing,
+   typing with AI's help, and Bulk Forge — confirmed one operation at a
+   time, not computed from any formula. Manual/AI are `[low, high]`
+   minute ranges (a single-value operation just repeats the same number
+   twice, e.g. `[80, 80]`) so `minutesMid()`/`formatMinRange()` below
+   can both display the real range and compute a real midpoint for the
+   combined total, from the one source of truth. Bulk Forge is always a
+   single number — a QA engineer's own click-to-file time, not a range. */
+const OPERATION_TIME_COMPARISON = {
+  employee_add: { manual: [75, 80], ai: [10, 10], bulkForge: 1 },
+  attendance_add: { manual: [80, 80], ai: [15, 15], bulkForge: 2 },
+  leave_balance_add: { manual: [5, 10], ai: [5, 5], bulkForge: 2 },
+  assets_add: { manual: [60, 65], ai: [5, 7], bulkForge: 1 },
+  payroll_field_add: { manual: [20, 20], ai: [5, 5], bulkForge: 1 },
+};
+
+/* Settings has no AI figure — AI can't click through a company's own
+   admin screens for you, only Company Setup's "Run defaults" can — so
+   this is a plain manual-vs-Bulk-Forge pair, not a 3-way comparison
+   like the Bulk operations above. Both dictated directly, same as the
+   table above; not derived from SETTINGS_GROUP_TIME_ESTIMATE's old
+   per-group breakdown (32+2+2+3+9+19=67), which this replaces outright. */
+const SETTINGS_TIME_COMPARISON = { manual: 37, bulkForge: 1 };
+
+/* The fixed display order for the Bulk side of "By the numbers" — Employee
+   Add, Attendance Add, Leave Balance Add, Assets Add, Payroll Custom
+   Field Add — direct instruction, not OPERATIONS' own declared order
+   (which has Payroll before Assets). Scoped to this one section only;
+   OPERATIONS itself drives the sidebar and stays untouched, so
+   reordering this display never touches Operations nav order. */
+const WELCOME_OPERATION_ORDER = ["employee_add", "attendance_add", "leave_balance_add", "assets_add", "payroll_field_add"];
+
+/* "Add it all up"'s own "vs AI" saved figure (2026-09-28) — a flat,
+   directly dictated value ("eta 55 Min koro"), not computed from the
+   per-operation `ai` figures above the way it was on the first pass
+   (that math gave 34 min; the user's own call was to set the shown
+   figure directly rather than revise any operation's own AI number to
+   make the math produce 55). The "vs fully manual" figure right next
+   to it stays a real live computation — only this one is fixed. */
+const WELCOME_VS_AI_SAVED_MIN = 55;
+
+/* The post-login Dashboard's own time-range filter (2026-09-29) — a
+   fixed, dictated list, "This week / This month / Last 3 months / Last
+   6 months," plus "All time" as the default (not in the user's own
+   list — added and confirmed directly, since a brand-new/light-usage
+   account would otherwise open on an empty-looking "This week"). Each
+   is a rolling window from now, not a calendar boundary — simpler, and
+   avoids "this week" meaning something different depending on what day
+   it is. `days: null` means no lower bound at all. */
+const DASHBOARD_RANGES = [
+  { id: "all", label: "All time", days: null },
+  { id: "week", label: "This week", days: 7 },
+  { id: "month", label: "This month", days: 30 },
+  { id: "3months", label: "Last 3 months", days: 90 },
+  { id: "6months", label: "Last 6 months", days: 180 },
+];
+
+/* Bulk runs' own donut chart (2026-09-29) — a monochrome-green first
+   pass read as hard to tell apart, direct feedback: "donut e ektu
+   different colors use koro jeno easily differentiate kora jay." Five
+   genuinely distinct hues, not a rainbow — kept away from every colour
+   that already carries a meaning elsewhere in this app (green = accent/
+   success, gold = warning, red = danger, blue/purple = the env badges),
+   so this palette can't be misread as any of those on the same page. */
+const DASHBOARD_CHART_COLORS = ["#28a143", "#3b82f6", "#e2a336", "#8b5cf6", "#64748b"];
 
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },

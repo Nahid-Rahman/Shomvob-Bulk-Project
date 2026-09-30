@@ -9,6 +9,19 @@
      gate below interrupted it, so a successful sign-in lands exactly
      where the visitor meant to go rather than back on the Dashboard. */
   let pendingOperation = null;
+  /* "What we offer & FAQ" (2026-09-29, reshaped into a two-level shell
+     2026-09-30) — `faqCategory` is which half of the page is showing
+     ("bulk" or "settings"), `faqTopic` is which item's own detail is
+     open within that category (a FAQ_TOPICS id under "bulk", a
+     SETTINGS_GROUPS id under "settings"). `null` means "not resolved
+     yet" — faqTemplate() resolves it to the first item of whichever
+     category is current, so the page always opens on something rather
+     than an empty detail pane. Not tracked in browser history, same as
+     Company Setup's own internal drill-down (group grid -> a module
+     tab) — switching the category or the topic is a plain re-render,
+     never a second History API entry. */
+  let faqCategory = "bulk";
+  let faqTopic = null;
   /* A Set, not a single key, 2026-09-19 (direct request: for a big batch,
      mixing more than one theme means less cycling within any one small
      pool before a numeric suffix has to appear). At least one theme is
@@ -282,14 +295,15 @@
     return departmentState().final;
   }
 
-  function generateWorkbookRows(count, prefix, theme, finalDepartments) {
+  function generateWorkbookRows(count, prefix, theme, finalDepartments, startNumber) {
     const names = generateNames(theme, count);
     const usedEmails = new Set();
     const usedPhones = new Set();
     const runTag = randomTag(5);
+    const start = startNumber || 1;
     const rows = [HEADER];
     for (let i = 0; i < count; i++) {
-      const seq = pad4(i + 1);
+      const seq = pad4(start + i);
       const empId = prefix + seq;
       const bioId = prefix + "B" + seq;
       const name = names[i];
@@ -404,16 +418,38 @@
   function renderSidebar() {
     const home = $("#homeNav");
     home.innerHTML = "";
-    const homeBtn = document.createElement("button");
-    homeBtn.className = "op-item";
-    homeBtn.type = "button";
-    homeBtn.setAttribute("aria-current", String(currentOp === "welcome"));
-    homeBtn.innerHTML = `<span class="op-item-label">${opIcon("welcome")}Welcome</span>`;
-    homeBtn.addEventListener("click", () => {
+    /* The real post-login Dashboard (2026-09-29) — a second, separate
+       sidebar item, not a repurposing of the existing Welcome one
+       below. That button is only ever visible/clickable once signed in
+       anyway (the whole .sidebar hides otherwise), which made
+       repointing it tempting — but several existing tests click it by
+       its exact label ("Welcome") expecting the actual pre-signin-style
+       page (.welcome-row etc.) to render, to check unrelated things
+       like scroll-reset behaviour. Adding this as its own item keeps
+       that page reachable exactly as before, with zero risk to those
+       checks, rather than repurposing a button whose label a handful
+       of tests already depend on. */
+    const dashBtn = document.createElement("button");
+    dashBtn.className = "op-item";
+    dashBtn.type = "button";
+    dashBtn.setAttribute("aria-current", String(currentOp === "dashboard"));
+    dashBtn.innerHTML = `<span class="op-item-label">${opIcon("dashboard")}Dashboard</span>`;
+    dashBtn.addEventListener("click", () => {
       if (isBulkRunActive()) return;
-      navigateTo("welcome");
+      navigateTo("dashboard");
     });
-    home.appendChild(homeBtn);
+    home.appendChild(dashBtn);
+
+    /* The "Welcome" nav item that used to sit here is gone (2026-09-29,
+       direct feedback: "login korar por welcome page ta ar dekhano
+       uchit na. o to login korei felse" — showing the public, not-yet-
+       signed-in landing page to someone who's already signed in is a
+       real loophole, not a feature). This ONLY removes the sidebar
+       button — an unauthenticated visitor still lands on the real
+       Welcome page first (currentOp's own initial value, above), since
+       the whole sidebar stays hidden until a real sign-in happens
+       anyway. Once signed in, "Dashboard" (above) is the only top-level
+       landing page reachable from the nav. */
 
     /* Tiered Access, continued (2026-09-25, round two — direct
        follow-up correction): the whole sidebar hides pre-signin now, not
@@ -521,6 +557,55 @@
         adminNav.appendChild(btn);
       });
     }
+
+    /* "What we offer & FAQ" (2026-09-29) — its own sidebar item, below
+       every other section, right above Log out ("shob gula option er
+       niche, logout er upore, alada vabe thakbe" — below all the
+       options, above Log out, on its own). No tier/admin gate: this is
+       documentation, not a real write, so any signed-in visitor can
+       open it. */
+    const faqNav = $("#faqNav");
+    faqNav.innerHTML = "";
+    const faqBtn = document.createElement("button");
+    faqBtn.className = "op-item";
+    faqBtn.type = "button";
+    faqBtn.setAttribute("aria-current", String(currentOp === "faq"));
+    faqBtn.innerHTML = `<span class="op-item-label">${opIcon("faq")}What we offer & FAQ</span>`;
+    faqBtn.addEventListener("click", () => {
+      if (isBulkRunActive()) return;
+      if (currentOp !== "faq") {
+        faqCategory = "bulk";
+        faqTopic = null;
+      }
+      navigateTo("faq");
+    });
+    faqNav.appendChild(faqBtn);
+
+    /* The sidebar's own "Signed in as" card (2026-09-29) — direct
+       request, modelled on a real reference screenshot's own sidebar-
+       footer card (there, "Download our mobile app"; here, who's
+       signed in) — replaces the Dashboard page-head's own "Signed in
+       as..." line, which is gone now that this lives here instead.
+       Email only for now, a deliberate first step — "amra jodi shobar
+       jonno ekta user name dite pari aro valo hoy. apatoto mail diye
+       design koro then user name er concept e ashtesi" (it'd be nicer
+       if everyone had a real username; design with email for now, the
+       username idea comes next). */
+    const userCard = $("#sidebarUserCard");
+    if (setup.toolToken && setup.toolEmail) {
+      const initial = setup.toolEmail.trim().charAt(0).toUpperCase() || "?";
+      userCard.innerHTML = `
+        <div class="sidebar-user-card">
+          <span class="sidebar-user-avatar">${escapeHtml(initial)}</span>
+          <span class="sidebar-user-info">
+            <span class="sidebar-user-caption">Signed in as</span>
+            <span class="sidebar-user-email">${escapeHtml(setup.toolEmail)}</span>
+          </span>
+        </div>
+      `;
+    } else {
+      userCard.innerHTML = "";
+    }
   }
 
   /* Wraps an operation's form in the two-column shell when that operation
@@ -565,7 +650,7 @@
        rail, not this page's bigger, vertically-centred one). welcome-wide
        is reset the same way — only the Welcome branch below turns it
        back on. */
-    root.classList.remove("rickroll-layout", "welcome-wide");
+    root.classList.remove("rickroll-layout", "welcome-wide", "faq-wide");
 
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
@@ -582,6 +667,17 @@
       root.innerHTML = welcomeTemplate();
       wireWelcomeEvents();
       $("#welcomeBar").style.display = "flex";
+      return;
+    }
+    if (currentOp === "dashboard") {
+      $("#actionBar").style.display = "none";
+      /* Same wider 1100px column Company Setup/Admin Panel already use
+         — this page has a data table and card rows, not a short
+         field-form, so the default 760px column would read cramped. */
+      root.classList.remove("has-media", "welcome-wide");
+      root.classList.add("wide");
+      root.innerHTML = dashboardTemplate();
+      wireDashboardEvents();
       return;
     }
     if (currentOp === "operations_gate") {
@@ -623,6 +719,19 @@
       root.classList.add("wide");
       root.innerHTML = adminAuditTemplate();
       wireAdminAuditEvents();
+      return;
+    }
+    if (currentOp === "faq") {
+      $("#actionBar").style.display = "none";
+      root.classList.remove("has-media", "welcome-wide");
+      /* Wider still than plain .wide (2026-09-30, direct feedback:
+         "overall page er width barao eto kom keno") — the Bulk side's
+         own 14-column table needed real room. Kept alongside .wide,
+         not instead of it, so this page keeps .wide's own typography
+         bumps too (see app.css). */
+      root.classList.add("wide", "faq-wide");
+      root.innerHTML = faqTemplate();
+      wireFaqEvents();
       return;
     }
     if (currentOp === "attendance_add") {
@@ -694,6 +803,7 @@
      assets. */
   const OP_ICONS = {
     welcome: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
+    dashboard: '<rect x="3.5" y="10" width="4" height="10.5" rx="1"/><rect x="10" y="5" width="4" height="15.5" rx="1"/><rect x="16.5" y="13.5" width="4" height="7" rx="1"/>',
     employee_add: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     attendance_add: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 1.9"/>',
     leave_balance_add: '<rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M8 2.5v4M16 2.5v4M3 10.5h18"/><path d="M8 15h.01M12 15h.01M16 15h.01M8 18.5h.01M12 18.5h.01"/>',
@@ -702,6 +812,7 @@
     company_setup: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
     admin_users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     admin_audit: '<path d="M9 2h6l4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v4h4"/><path d="M8 12h8M8 16h8M8 8h3"/>',
+    faq: '<circle cx="12" cy="12" r="9.5"/><path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   };
 
   function opIcon(id) {
@@ -811,7 +922,7 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Batch basics</h2></div>
         <p class="section-note">How many employees, and what their IDs should start with.</p>
-        <div class="field-row">
+        <div class="field-grid-3">
           <div class="field">
             <label for="countInput">Number of employees</label>
             <input type="number" id="countInput" min="10" max="300" value="50" />
@@ -823,6 +934,11 @@
             <input type="text" id="prefixInput" maxlength="8" placeholder="JHTY" value="JHTY" />
             <span class="hint">4 alphabetic characters — auto-uppercase</span>
             <span class="error-text" id="prefixError"></span>
+          </div>
+          <div class="field">
+            <label for="startNumberInput">Starting number</label>
+            <input type="number" id="startNumberInput" min="1" value="1" />
+            <span class="hint">Default 0001 — set this higher if this company already has IDs, so a re-run doesn't collide</span>
           </div>
         </div>
         <div class="preview-row" id="idPreview"></div>
@@ -859,6 +975,7 @@
   function wireEmployeeAddEvents() {
     const countInput = $("#countInput");
     const prefixInput = $("#prefixInput");
+    const startNumberInput = $("#startNumberInput");
 
     countInput.addEventListener("input", () => {
       validateCount();
@@ -871,6 +988,10 @@
       validatePrefix();
       renderIdPreview();
       updateSummary();
+    });
+    startNumberInput.addEventListener("input", () => {
+      startNumberInput.value = Math.max(1, parseInt(startNumberInput.value, 10) || 1);
+      renderIdPreview();
     });
 
     const themeGrid = $("#themeGrid");
@@ -966,9 +1087,10 @@
 
   function renderIdPreview() {
     const prefix = /^[A-Z]{4}$/.test($("#prefixInput").value) ? $("#prefixInput").value : "JHTY";
+    const start = Math.max(1, parseInt($("#startNumberInput").value, 10) || 1);
     const box = $("#idPreview");
     box.innerHTML = "";
-    [1, 2, 3].forEach((n) => {
+    [start, start + 1, start + 2].forEach((n) => {
       const chip = document.createElement("span");
       chip.className = "chip accent";
       chip.textContent = `${prefix}${pad4(n)}  /  ${prefix}B${pad4(n)}`;
@@ -1234,8 +1356,9 @@
     }
     const count = parseInt($("#countInput").value, 10);
     const prefix = $("#prefixInput").value;
+    const startNumber = Math.max(1, parseInt($("#startNumberInput").value, 10) || 1);
     try {
-      const rows = generateWorkbookRows(count, prefix, nameThemes, finalDepts);
+      const rows = generateWorkbookRows(count, prefix, nameThemes, finalDepts, startNumber);
       const { wb, filename } = downloadWorkbook(rows, prefix);
       openGenerateCompleteModal("Employee Add file is ready!", `${filename} — ${count} employees, and you typed none of them.`, wb, filename);
     } catch (err) {
@@ -2182,24 +2305,38 @@
     const showCustom = att.holidayMode === "custom" || att.holidayMode === "govt_custom";
 
     if (showGovt) {
-      const govt = govtHolidayList().filter((h) => att.govtRemoved.indexOf(h.date) === -1);
+      /* Scoped to the selected date range, not every year BD_HOLIDAYS
+         holds — direct request, 2026-09-30: "only oi range er moddhe
+         jeshob holiday porbe oigula dekhabe" (only show holidays that
+         fall inside the selected range). govtHolidayList() itself stays
+         unscoped — activeHolidaySet()/generateAttendanceRows() need the
+         full set, since eachDate() is what actually confines generation
+         to the range; this filter is display-only. */
+      const rangeFrom = att.from, rangeTo = att.to;
+      const govt = govtHolidayList()
+        .filter((h) => att.govtRemoved.indexOf(h.date) === -1)
+        .filter((h) => (!rangeFrom || h.date >= rangeFrom) && (!rangeTo || h.date <= rangeTo));
       const box = document.createElement("div");
-      box.innerHTML = `
-        <p class="sub-note">Taken from Shomvob HR — <strong>${govt.length}</strong> dates. Don't want one? Hit its ×.</p>
-        <div class="preview-row">${govt
-          .map(
-            (h) =>
-              `<span class="chip removable ${h.approx ? "approx" : ""}" title="${escapeHtml(h.name)}">${h.date}<button type="button" class="chip-x" data-govt="${h.date}" title="Remove">×</button></span>`
-          )
-          .join("")}</div>`;
-      $all("button[data-govt]", box).forEach((b) => {
-        b.addEventListener("click", () => {
-          att.govtRemoved.push(b.dataset.govt);
-          renderHolidays();
-          renderRangeTally();
-          updateSummary();
+      if (govt.length) {
+        box.innerHTML = `
+          <p class="sub-note">Taken from Shomvob HR — <strong>${govt.length}</strong> dates in this range. Don't want one? Hit its ×.</p>
+          <div class="preview-row">${govt
+            .map(
+              (h) =>
+                `<span class="chip removable ${h.approx ? "approx" : ""}" title="${escapeHtml(h.name)}">${h.date}<button type="button" class="chip-x" data-govt="${h.date}" title="Remove">×</button></span>`
+            )
+            .join("")}</div>`;
+        $all("button[data-govt]", box).forEach((b) => {
+          b.addEventListener("click", () => {
+            att.govtRemoved.push(b.dataset.govt);
+            renderHolidays();
+            renderRangeTally();
+            updateSummary();
+          });
         });
-      });
+      } else {
+        box.innerHTML = `<p class="sub-note">No Shomvob HR holidays fall inside this date range.</p>`;
+      }
       wrap.appendChild(box);
     }
 
@@ -2314,11 +2451,13 @@
 
     $("#fromDate").addEventListener("input", (e) => {
       att.from = e.target.value;
+      renderHolidays();
       renderRangeTally();
       updateSummary();
     });
     $("#toDate").addEventListener("input", (e) => {
       att.to = e.target.value;
+      renderHolidays();
       renderRangeTally();
       updateSummary();
     });
@@ -3195,6 +3334,83 @@
   const dashboardStats = { status: "idle", summary: null, error: "" };
   // status: "idle" | "checking" | "not_admin" | "ready" | "error"
 
+  /* The post-login Dashboard's own real usage stats (2026-09-29) —
+     unlike dashboardStats above, this is *not* admin-gated: reaching
+     the Dashboard at all already requires a real sign-in ("dashboard
+     kintu only for signed user" — direct confirmation that no
+     additional admin check belongs on top of that). `dashboard_bulk_stats`,
+     a narrow SQL function granted to `authenticated` only, never `anon`,
+     returns aggregated per-operation counts with no company_name/
+     user_email attached — the same anon-safe-aggregate discipline
+     `public_generate_counts()` already holds itself to, just scoped one
+     step tighter since this data only needs to exist for someone who's
+     actually signed in. Its sibling, `dashboard_settings_save_count`,
+     backed the Real usage table's own Settings row — that table is
+     gone (below), so nothing here calls it any more; the SQL function
+     itself is still deployed, just unused client-side. */
+  /* One filter per chart, not one shared filter for the whole section
+     (revised 2026-09-29, direct request: "every graph e filter lagao"
+     — confirmed to mean each chart picks its own independent range,
+     not one control driving all three). `dashboard_bulk_stats` already
+     returns both count and entries per operation in one call, so each
+     chart's own fetch covers everything it needs — "bulk_runs" reads
+     `count`, "entries" reads `entries`, "time_saved" derives minutes
+     from the same `entries` via `OPERATION_TIME_COMPARISON`, exactly
+     as before. `impact` is a fourth, fixed-range slot with no filter
+     UI of its own — "Estimated impact so far" reads as a cumulative
+     claim ("so far"), not "in this range," so it's pinned to All time;
+     a judgment call, not something asked for explicitly, flagged back
+     to the user rather than silently assumed away. The Real usage
+     table this section used to show is gone outright, same request —
+     the three charts read better on their own. */
+  const dashboardChartStats = {
+    bulk_runs: { status: "idle", range: "all", byOperation: {} },
+    entries: { status: "idle", range: "all", byOperation: {} },
+    time_saved: { status: "idle", range: "all", byOperation: {} },
+    impact: { status: "idle", range: "all", byOperation: {} },
+  };
+  // status: "idle" | "checking" | "ready" | "error"
+
+  async function loadDashboardChartStats(key, rangeId) {
+    const state = dashboardChartStats[key];
+    state.status = "checking";
+    state.range = rangeId;
+    const range = DASHBOARD_RANGES.find((r) => r.id === rangeId) || DASHBOARD_RANGES[0];
+    const sinceTs = range.days ? new Date(Date.now() - range.days * 24 * 3600 * 1000).toISOString() : "1970-01-01T00:00:00Z";
+    try {
+      const headers = { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` };
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/dashboard_bulk_stats`, { method: "POST", headers, body: JSON.stringify({ since_ts: sinceTs }) });
+      if (!res.ok) throw new Error("Couldn't load real usage.");
+      const bulkRows = await res.json();
+      const byOperation = {};
+      for (const row of bulkRows) byOperation[row.module_id] = { count: Number(row.generate_count), entries: Number(row.total_entries) };
+      state.byOperation = byOperation;
+      state.status = "ready";
+    } catch (e) {
+      state.status = "error";
+    }
+  }
+
+  /* Turns one operation's real (count, entries) into real Manual/AI/
+     Bulk-Forge minutes, scaled from OPERATION_TIME_COMPARISON's own
+     per-50-entries basis (the same dictated numbers "By the numbers"
+     already uses) — real usage is whatever count actually happened,
+     not a fixed 50. Zero entries (nothing generated yet, or no data
+     for this range) correctly zeroes out every figure rather than
+     dividing by zero. */
+  function chartStatsForOperation(key, id) {
+    const s = dashboardChartStats[key].byOperation[id] || { count: 0, entries: 0 };
+    const basis = OPERATION_TIME_COMPARISON[id];
+    const scale = s.entries / 50;
+    return {
+      count: s.count,
+      entries: s.entries,
+      manual: basis ? minutesMid(basis.manual) * scale : 0,
+      ai: basis ? minutesMid(basis.ai) * scale : 0,
+      bulkForge: basis ? basis.bulkForge * scale : 0,
+    };
+  }
+
   async function checkIsAdmin() {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/is_admin`, {
@@ -3332,46 +3548,268 @@
 
   /* `counts` is a plain {label: n} object — sorted desc, the biggest bar
      always reads full-width so every other one reads proportionally
-     against it rather than against some arbitrary fixed max. */
-  function barListHtml(counts) {
+     against it rather than against some arbitrary fixed max. `formatCount`
+     is optional — the raw number is what sizes/sorts the bar, but a caller
+     showing minutes (say) can pass a formatter so the printed value reads
+     "1H 20M" instead of a bare number of minutes. */
+  function barListHtml(counts, formatCount) {
+    const fmt = formatCount || ((n) => n);
     const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
     if (entries.length === 0) return `<p class="section-note" style="margin:6px 0 0">Nothing yet.</p>`;
-    const max = entries[0][1];
+    const max = entries[0][1] || 1;
     return `<div style="margin-top:8px">${entries
       .map(
         ([label, count]) => `
       <div class="stat-bar-row">
         <span class="stat-bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
         <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${Math.max(6, Math.round((count / max) * 100))}%"></span></span>
-        <span class="stat-bar-count">${count}</span>
+        <span class="stat-bar-count">${fmt(count)}</span>
       </div>`
       )
       .join("")}</div>`;
   }
 
-  /* Dashboard's public "By the numbers" charts (2026-09-25 redesign) —
-     unlike "Team activity" below, these need no sign-in and no network
-     call at all: every number here is static data this file already
-     ships (OPERATION_CELL_ESTIMATE, the same figures the old 3-tile
-     stat row and each op-card's own "by hand" cost line already showed).
-     Reuses barListHtml() as-is rather than a second bar component. */
-  function welcomeChartsHtml() {
-    const cellCounts = {};
-    const minuteCounts = {};
-    OPERATIONS.forEach((op) => {
-      const cells = OPERATION_CELL_ESTIMATE[op.id] || 0;
-      cellCounts[op.label] = cells;
-      minuteCounts[op.label] = Math.round((cells * WELCOME_SECONDS_PER_CELL) / 60);
+  /* Two real chart types for the Dashboard's "Real usage" section
+     (2026-09-29), replacing an earlier `barListHtml()` pass that read
+     as a plain progress-bar list, not a chart ("ektu ekta chart graph
+     ashar kotha... ek fota o shundor lagtese na"). Mocked up on a
+     design canvas first — a donut for Bulk runs (a share-of-activity
+     question, where a pie/donut's whole job is proportion) and a real
+     axis bar chart for Entries created / Time saved (a magnitude/
+     ranking question, where an axis lets exact values be read off,
+     which a donut is bad at past a couple of slices) — confirmed
+     directly before building either. `DASHBOARD_CHART_COLORS`
+     (`app-data.js`) is a genuinely distinct 5-hue palette, not shades
+     of one colour — a first monochrome-green pass read as hard to
+     tell slices apart, direct feedback. */
+  function donutChartHtml(items) {
+    const data = items.filter((d) => d.value > 0);
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total === 0) return `<p class="section-note" style="margin:10px 0 0">Nothing yet.</p>`;
+    const R = 70;
+    const C = 2 * Math.PI * R;
+    let acc = 0;
+    const slices = data.map((d, i) => {
+      const frac = d.value / total;
+      const arc = frac * C;
+      const dasharray = `${arc.toFixed(2)} ${(C - arc).toFixed(2)}`;
+      const dashoffset = (-acc).toFixed(2);
+      acc += arc;
+      return { ...d, pct: Math.round(frac * 100), color: DASHBOARD_CHART_COLORS[i % DASHBOARD_CHART_COLORS.length], dasharray, dashoffset };
     });
-    const shapeCounts = { "Build from scratch": 3, "Fill an existing export": 2 };
+    return `
+      <div class="dashboard-donut-body">
+        <div style="position:relative;width:260px;height:260px;flex-shrink:0">
+          <svg width="260" height="260" viewBox="0 0 220 220">
+            <circle cx="110" cy="110" r="70" fill="none" stroke="var(--surface-2)" stroke-width="34"></circle>
+            ${slices
+              .map(
+                (s) => `<circle cx="110" cy="110" r="70" fill="none" stroke-width="34" stroke="${s.color}" stroke-dasharray="${s.dasharray}" stroke-dashoffset="${s.dashoffset}" transform="rotate(-90 110 110)"></circle>`
+              )
+              .join("")}
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <span class="dashboard-donut-total">${total}</span>
+            <span class="dashboard-donut-total-label">Total runs</span>
+          </div>
+        </div>
+        <div class="dashboard-donut-legend">
+          ${slices
+            .map(
+              (s) => `<div class="dashboard-donut-legend-row">
+            <span class="dashboard-donut-swatch" style="background:${s.color}"></span>
+            <span class="dashboard-donut-legend-label" title="${escapeHtml(s.label)}">${escapeHtml(s.label)}</span>
+            <span class="dashboard-donut-legend-pct">${s.pct}%</span>
+          </div>`
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function axisBarChartHtml(items, formatValue) {
+    const fmt = formatValue || ((n) => String(n));
+    const max = items.reduce((m, d) => Math.max(m, d.value), 0);
+    if (max === 0) return `<p class="section-note" style="margin:10px 0 0">Nothing yet.</p>`;
+    const PLOT_H = 150; // must match .dashboard-bar-plot/.dashboard-bar-axis's own height in app.css
+    const TOP_RESERVE = 18; // headroom above the tallest bar for its own value label
+    const maxBarPx = PLOT_H - TOP_RESERVE;
+    const bars = items.map((d) => ({
+      label: d.label,
+      value: fmt(d.value),
+      barHeightPx: Math.max(3, Math.round((d.value / max) * maxBarPx)),
+    }));
+    const ticks = [100, 75, 50, 25, 0].map((pct) => ({
+      value: fmt(Math.round((pct / 100) * max)),
+      top: Math.round(TOP_RESERVE + (1 - pct / 100) * maxBarPx),
+    }));
+    return `
+      <div class="dashboard-bar-chart">
+        <div class="dashboard-bar-axis">
+          ${ticks.map((t) => `<span class="dashboard-bar-tick" style="top:${t.top}px">${escapeHtml(t.value)}</span>`).join("")}
+        </div>
+        <div class="dashboard-bar-plot">
+          ${ticks.map((t) => `<span class="dashboard-bar-gridline" style="top:${t.top}px"></span>`).join("")}
+          <div class="dashboard-bar-bars">
+            ${bars
+              .map(
+                (b) => `<div class="dashboard-bar-col">
+              <span class="dashboard-bar-value">${escapeHtml(b.value)}</span>
+              <span class="dashboard-bar-fill" style="height:${b.barHeightPx}px"></span>
+            </div>`
+              )
+              .join("")}
+          </div>
+        </div>
+        <div class="dashboard-bar-labels">
+          ${bars.map((b) => `<span class="dashboard-bar-label" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</span>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  /* Dashboard's public "By the numbers" charts (2026-09-25 redesign),
+     rebuilt a third time 2026-09-28 — the most important feedback of
+     that whole day's pass: revision #2's per-50-entries bar chart
+     (58/33/29/17/4 min, derived from a cells x seconds-per-cell
+     formula) still "didn't convey impact to a normal user." Asked
+     directly for an idea, not just a fix — the recommendation that
+     landed was a before/after comparison, and once that meant real
+     numbers rather than a formula, the user dictated them himself,
+     operation by operation, exactly this project's own "confirm rules,
+     never assume" discipline: how long 50 entries actually takes fully
+     by hand, how long with AI's help, and how long with Bulk Forge.
+     `OPERATION_TIME_COMPARISON`/`SETTINGS_TIME_COMPARISON`/
+     `WELCOME_OPERATION_ORDER` (`app-data.js`) hold these — see that
+     file's own comment for the full dictation. `minutesMid()`/
+     `formatMinRange()`/`formatHoursMinutes()` below are the shared
+     helpers that turn a `[low, high]` range into both its own display
+     text and a real number for the combined section's math, from one
+     source rather than two.
+
+     The Bulk list is a real 3-column table now (`.preview-table`,
+     reused as-is — Admin Panel's/Leave Balance's/Payroll's own
+     component, not a new one), not a bar chart — a bar's only real job
+     is ranking, and ranking was never the point here; the actual
+     numbers themselves (a Bulk Forge column reading "1 min" next to a
+     "By hand" column reading "75–80 min") are what a normal user can
+     actually feel. Row order is a fixed, dictated sequence
+     (`WELCOME_OPERATION_ORDER`) — Employee Add, Attendance Add, Leave
+     Balance Add, Assets Add, Payroll Custom Field Add — not sorted by
+     any value, on both the "What it does" list and the table, so the
+     two always agree without needing the descending-by-value sort
+     revision #2 built (and this revision deletes).
+
+     Settings gets the identical before/after shape, just 2 columns
+     instead of 3 — AI can't click through a company's own admin
+     screens, so there's no "with AI" figure for it. Its old merged
+     `~67 min` stat tile (the sum of 6 per-group estimates) is replaced
+     by a flat, directly dictated `37 min` — "eta 37 min koro 67 er
+     jaygay" — with `.stat-value`'s own "min" capitalised to "Min" the
+     same message asked for ("Min er M boro haat er dao"), and a new
+     line under it naming the Bulk Forge side too ("Run defaults
+     instead: ~1 min"), so Settings reads as the same real comparison
+     the Bulk side now does rather than a single number with nothing to
+     measure it against.
+
+     A brand-new second section, "Add it all up," is the direct answer
+     to a follow-up ask: run 50 of each Bulk operation plus one Settings
+     "Run defaults," what's the real combined gap? Computed live from
+     the same dictated numbers above (range midpoints, real minutes,
+     not a fresh guess) rather than the "der-arai ghonta" (1.5–2.5
+     hours) figure the user had been estimating by feel — confirmed
+     directly once the real math came out noticeably higher than that
+     estimate. Two totals, not one, since "vs AI" and "vs fully manual"
+     are genuinely different claims: vs fully manual includes Settings
+     (nobody's typing through 20 admin screens with AI's help either),
+     vs AI is Bulk-only (the one place AI genuinely competes).
+
+     Revised a 4th time minutes later, same day, two more direct
+     corrections against the very next screenshot: (1) "table tai pura
+     section e hobe. otai shundor lagtese" — the "What it does" bullet
+     list is gone outright and Settings' own separate 2-column row (the
+     "Company's Settings Setup" box + its own `~37 Min` stat tile) is
+     gone too, both folded into the *one* table as its final row — the
+     table's Operation column already names every row, so the bullet
+     list was pure duplication, and Settings reads as "Settings (whole
+     company)" with a `—` in the With-AI column rather than a whole
+     second layout just for one more row. The 6-group breakdown that
+     used to live in that box is now a plain caption under the table
+     instead of a box of its own. (2) "ekhon ekdom alada section
+     banaiso keno? eta ei section er moddhei just alada shade e
+     dekhate bolsi" — "Add it all up" was never meant to be its own
+     `.section` card; it's `.numbers-addup-box` now, a tinted panel
+     *inside* the same "By the numbers" card (see app.css's own note on
+     that class), so the whole thing is one section again, the same way
+     it was before revision #2 ever split it into two. */
+  function minutesMid(range) {
+    return (range[0] + range[1]) / 2;
+  }
+  function formatMinRange(range) {
+    return range[0] === range[1] ? `${range[0]} min` : `${range[0]}–${range[1]} min`;
+  }
+  function formatHoursMinutes(totalMinutes) {
+    const rounded = Math.round(totalMinutes);
+    const h = Math.floor(rounded / 60);
+    const m = rounded % 60;
+    return h > 0 ? `${h}H ${m}M` : `${m} Min`;
+  }
+  function welcomeChartsHtml() {
+    const rows = WELCOME_OPERATION_ORDER.map((id) => ({
+      id,
+      label: OPERATIONS.find((o) => o.id === id).label,
+      ...OPERATION_TIME_COMPARISON[id],
+    }));
+    const manualTotalAll = rows.reduce((sum, r) => sum + minutesMid(r.manual), 0) + SETTINGS_TIME_COMPARISON.manual;
+    const bulkForgeTotalAll = rows.reduce((sum, r) => sum + r.bulkForge, 0) + SETTINGS_TIME_COMPARISON.bulkForge;
+    const vsManualSaved = manualTotalAll - bulkForgeTotalAll;
+    const settingsGroupNames = SETTINGS_GROUPS.map((g) => g.label.replace(/ Settings$/, "")).join(", ");
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>By the numbers</h2></div>
-        <p class="section-note">Static facts about the five operations themselves — nothing here needs a real sign-in.</p>
-        <div class="field-row field-row-3">
-          <div class="field"><label>Cells per operation, by hand</label>${barListHtml(cellCounts)}</div>
-          <div class="field"><label>Minutes saved per operation, at five seconds a cell</label>${barListHtml(minuteCounts)}</div>
-          <div class="field"><label>Built from scratch vs. filled into an export</label>${barListHtml(shapeCounts)}</div>
+        <p class="section-note">Static facts about what this tool actually covers — nothing here needs a real sign-in.</p>
+        <label style="margin-top:6px; display:block">Time saved, at a real per-task estimate</label>
+        <div class="preview-table-wrap" style="margin-top:8px">
+          <table class="preview-table">
+            <thead><tr>
+              <th>Operation</th><th class="num">By hand</th><th class="num">With AI</th><th class="num">Bulk Forge</th>
+            </tr></thead>
+            <tbody>
+              ${rows
+                .map(
+                  (r) => `<tr>
+                <td>${escapeHtml(r.label)} <span class="faint">(Per 50 entries)</span></td>
+                <td class="num">${formatMinRange(r.manual)}</td>
+                <td class="num">${formatMinRange(r.ai)}</td>
+                <td class="num strong">${r.bulkForge} min</td>
+              </tr>`
+                )
+                .join("")}
+              <tr>
+                <td>Settings <span class="faint">(whole company)</span></td>
+                <td class="num">${SETTINGS_TIME_COMPARISON.manual} min</td>
+                <td class="num faint">—</td>
+                <td class="num strong">${SETTINGS_TIME_COMPARISON.bulkForge} min</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="section-note" style="margin-top:8px">Settings covers all 6 groups in one "Run defaults" click — ${escapeHtml(settingsGroupNames)}. AI can't click through those admin screens for you, so there's no "With AI" figure for that row.</p>
+
+        <div class="numbers-addup-box">
+          <p class="numbers-addup-title">Add it all up</p>
+          <p class="section-note">50 of each Bulk operation above, plus one Settings "Run defaults" — the real combined gap.</p>
+          <div class="stat-row stat-row-2" style="margin-top:8px">
+            <div class="stat-tile">
+              <span class="stat-value">${formatHoursMinutes(vsManualSaved)}</span>
+              <span class="stat-label">Saved versus doing every bit of it by hand — Bulk and Settings both</span>
+            </div>
+            <div class="stat-tile">
+              <span class="stat-value">${formatHoursMinutes(WELCOME_VS_AI_SAVED_MIN)}</span>
+              <span class="stat-label">Saved versus using AI to help type it — Bulk operations only, since AI can't click through Settings for you</span>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -3401,10 +3839,10 @@
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>Team activity <span style="font-weight:400; font-size:11.5px; color:var(--text-faint)">— admin only</span></h2></div>
         <p class="section-note">Real usage across the team, pulled straight from this tool's own activity log.</p>
         <div class="stat-row stat-row-4">
-          <div class="stat-tile"><span class="stat-value">${s.totalLogins}</span><span class="stat-label">tool sign-ins</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.totalSettingsSaved}</span><span class="stat-label">settings saved into real companies</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.totalBulkGenerated}</span><span class="stat-label">bulk files generated</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">estimated time those bulk files saved, at five seconds a cell</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalLogins}</span><span class="stat-label">Tool sign-ins</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalSettingsSaved}</span><span class="stat-label">Settings saved into real companies</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalBulkGenerated}</span><span class="stat-label">Bulk files generated</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">Estimated time those bulk files saved, at five seconds a cell</span></div>
         </div>
         <div class="field-row" style="margin-top:6px; align-items:flex-start;">
           <div class="field"><label>Bulk generates by operation</label>${barListHtml(s.bulkByOperation)}</div>
@@ -3432,7 +3870,7 @@
      estimate and Team Activity's own tile: `OPERATION_CELL_ESTIMATE` /
      `WELCOME_SECONDS_PER_CELL` are the only two numbers either one is
      built from, just fed by real counts here instead of a static guess. */
-  const publicGenerateStats = { status: "idle", totalFiles: 0, savedHours: 0, savedMins: 0, byOperation: {}, settingsAutomated: 0 };
+  const publicGenerateStats = { status: "idle", totalFiles: 0, savedHours: 0, savedMins: 0, settingsAutomated: 0 };
   // status: "idle" | "checking" | "ready" | "error"
 
   async function loadPublicGenerateStats() {
@@ -3452,17 +3890,13 @@
       const settingsAutomated = await settingsRes.json();
       let totalFiles = 0;
       let totalSeconds = 0;
-      const byOperation = {};
       for (const row of rows) {
         totalFiles += row.cnt;
         totalSeconds += (OPERATION_CELL_ESTIMATE[row.module_id] || 0) * WELCOME_SECONDS_PER_CELL * row.cnt;
-        const op = OPERATIONS.find((o) => o.id === row.module_id);
-        byOperation[op ? op.label : row.module_id] = row.cnt;
       }
       publicGenerateStats.totalFiles = totalFiles;
       publicGenerateStats.savedHours = Math.floor(totalSeconds / 3600);
       publicGenerateStats.savedMins = Math.round((totalSeconds % 3600) / 60);
-      publicGenerateStats.byOperation = byOperation;
       publicGenerateStats.settingsAutomated = settingsAutomated;
       publicGenerateStats.status = "ready";
     } catch (e) {
@@ -3470,6 +3904,10 @@
     }
   }
 
+  /* The "By operation" breakdown (a per-operation bar list under the 3
+     stat tiles) is gone, 2026-09-28 — direct instruction, boxed on a
+     screenshot with nothing else said about it. `byOperation` is no
+     longer collected above either, since nothing else reads it. */
   function publicGenerateStatsHtml() {
     if (publicGenerateStats.status === "idle" || publicGenerateStats.status === "checking") {
       return `
@@ -3486,12 +3924,9 @@
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>So far, for real</h2></div>
         <p class="section-note">Actual usage, pulled straight from this tool's own activity log — no sign-in needed to see it.</p>
         <div class="stat-row">
-          <div class="stat-tile"><span class="stat-value">${s.totalFiles}</span><span class="stat-label">real bulk files generated</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.settingsAutomated}</span><span class="stat-label">settings modules automated into real companies</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">estimated typing time that saved, at five seconds a cell</span></div>
-        </div>
-        <div class="field-row" style="margin-top:6px; align-items:flex-start;">
-          <div class="field"><label>By operation</label>${barListHtml(s.byOperation)}</div>
+          <div class="stat-tile"><span class="stat-value">${s.totalFiles}</span><span class="stat-label">Real bulk files generated</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.settingsAutomated}</span><span class="stat-label">Settings modules automated into real companies</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">Estimated typing time that saved, at five seconds a cell</span></div>
         </div>
       </div>
     `;
@@ -3506,7 +3941,7 @@
 
        Reason  (badge "Dear certified lazy")   — why this exists
        Offer   (badge "Your prayers, answered (mostly)") — what it does
-       Scope   (badge "The fine print")        — what's automated vs. not
+       Scope   (badge "Not actually magic")    — what's automated vs. not
 
      laid out as a deliberate zigzag: Reason's copy sits left of a meme,
      Offer's copy sits right of one (mirrored, via .welcome-row-reverse),
@@ -3514,9 +3949,22 @@
      since a third meme in a row would flatten the pattern into
      wallpaper, and Scope's own honest, sobering tone reads better set
      apart rather than folded into the same rhythm as the other two.
-     The Hackerman GIF (already licensed for this exact purpose, see
-     app.css's own note below) is Offer's meme; Reason's is a plain
-     placeholder — a real image for that slot hasn't been picked yet. */
+     The Hackerman clip (already licensed for this exact purpose, see
+     app.css's own note below — now the user's own face composited into
+     it, 2026-09-28) is Offer's meme; Reason's own slot — a plain
+     dashed-border placeholder for its whole life until now — is filled
+     the same day, direct instruction, with a real Tenor clip (a crying
+     cat giving a thumbs up, "OK" text and all — the user's own link).
+
+     Scope's badge was "The fine print" until the same day too — direct
+     feedback that it read too formal next to the other two's dry,
+     wry voice ("beshi formal lagtese, funny kisu koro baki gular
+     moto"). "Not actually magic" is Claude's own pick, not dictated —
+     picked to echo the section's own closing line ("So yes, one click.
+     Just not zero clicks. We're a bulk forge, not a mind reader."),
+     the same "propose options, land on one" latitude past creative
+     calls in this app have had (the 15th theme pool, "Friends," picked
+     freely the same way). */
   function welcomeTemplate() {
     return `
       <div class="welcome-headline-row">
@@ -3534,9 +3982,9 @@
         <div class="welcome-copy">
           <span class="welcome-badge">Dear certified lazy</span>
           <p class="welcome-lede">
-            Here's what actually happens: a dev needs test data, so they
-            either beg QA to make it, or grumble their way through three
-            fake employees themselves. Nobody spins up their own company
+            Nobody wants to prep their own test data. Ever. A dev needs
+            some, so they beg QA to make it, or grumble their way through
+            three fake employees themselves. Nobody spins up their own company
             for this — everyone quietly works out of the same one or two
             shared accounts, because properly setting one up (departments,
             leave policies, payroll, the works) takes about two to
@@ -3552,15 +4000,14 @@
             blamed for it.
           </p>
         </div>
-        <figure class="meme meme-placeholder" aria-label="Placeholder — a real image for this spot hasn't been picked yet">
-          <span class="meme-placeholder-mark">🖼️</span>
-          <span class="meme-placeholder-text">meme placeholder</span>
+        <figure class="meme" aria-label="A crying cat giving a thumbs up anyway — the exact energy of debugging someone else's broken shared company">
+          <video class="meme-img" src="assets/crying_cat_ok.mp4" loop muted playsinline autoplay></video>
         </figure>
       </div>
 
       <div class="section welcome-row welcome-row-reverse">
         <figure class="meme" aria-label="Hackerman, from Kung Fury — this whole page runs on hacker-movie logic">
-          <img class="meme-img" src="assets/hackerman.gif" alt="Hackerman" loading="lazy" />
+          <video class="meme-img" src="assets/hackerman.mp4" loop muted playsinline autoplay></video>
         </figure>
         <div class="welcome-copy">
           <span class="welcome-badge">Your prayers, answered (mostly)</span>
@@ -3592,7 +4039,7 @@
       </div>
 
       <div class="section welcome-scope">
-        <span class="welcome-badge">The fine print</span>
+        <span class="welcome-badge">Not actually magic</span>
         <p class="welcome-lede">Let's be honest about what "one click" actually means here.</p>
         <div class="field-row" style="margin-top:14px; align-items:flex-start;">
           <div class="field">
@@ -3751,7 +4198,12 @@
         logAudit("login", `${email} signed in`, { environment: setup.env });
         refreshAdminNav();
         refreshMyTier();
-        const target = pendingOperation || "welcome";
+        /* Lands on the real Dashboard now (2026-09-29), not the pre-signin
+           Welcome page — a real sign-in with no specific operation
+           requested means "just take me in," and the Dashboard is what
+           "in" now means. Welcome stays reachable afterward from its own
+           sidebar item, unchanged. */
+        const target = pendingOperation || "dashboard";
         pendingOperation = null;
         /* replace: true — signing in completes the gate rather than
            adding a new step, so Back from the target operation returns
@@ -3761,6 +4213,365 @@
       } catch (e) {
         clearBtnBusy(btn);
         err.textContent = e.message;
+      }
+    });
+  }
+
+  /* ---------- The real post-login Dashboard (2026-09-29) ----------
+
+     TODO.md's own last remaining Tiered Access step, built through
+     discussion before any code — same discipline as the Welcome page's
+     own build. Confirmed content, in order: the Bulk/Settings routing
+     (already-confirmed spec, lock icons for whatever the signed-in
+     user's real tier excludes), real per-operation usage (bulk runs,
+     entries created, time saved — all from dashboard_bulk_stats()),
+     a combined total plus a 3-way Manual/AI/Bulk-Forge comparison
+     (explicitly labelled "Estimated" — the per-entry basis is still
+     the dictated OPERATION_TIME_COMPARISON figures, not a measured
+     rate, scaled by a real count doesn't make it a measured total),
+     a Settings row that's deliberately just a count and no time figure
+     ("settings choto jinish. protita alada kore dekhale beshi value
+     create ba difference bujha jabe na" — Settings is a small thing,
+     showing each one's own difference separately wouldn't read as
+     meaningful), and a low-emphasis "what we offer" service-card strip
+     at the very bottom — mirrors the real Shomvob HR dashboard's own
+     "Quick Links" section the user pointed at as a layout reference,
+     both in shape and in sitting last, not in the middle. */
+  function dashboardBulkSettingsRowHtml() {
+    const bulkLocked = myTier === "company";
+    const settingsLocked = myTier === "bulk";
+    const card = (id, title, desc, locked) => `
+      <button type="button" class="dashboard-route-card" data-target="${id}" ${locked ? "disabled" : ""} title="${locked ? "Your account's access level doesn't include this" : ""}">
+        <span class="dashboard-route-title">${title}</span>
+        <span class="dashboard-route-desc">${desc}</span>
+        ${locked ? `<span class="dashboard-locked-pill">Locked</span>` : ""}
+      </button>`;
+    return `
+      <div class="dashboard-route-row">
+        ${card("bulk", "Bulk", "Generate QA-ready files for any of the 5 operations", bulkLocked)}
+        ${card("settings", "Settings", "Configure departments, leave, payroll and the rest for a real company", settingsLocked)}
+      </div>
+    `;
+  }
+
+  function dashboardUsageHtml() {
+    const rangeOptionsFor = (key) =>
+      DASHBOARD_RANGES.map((r) => `<option value="${r.id}" ${r.id === dashboardChartStats[key].range ? "selected" : ""}>${r.label}</option>`).join("");
+
+    function chartBodyHtml(key, build) {
+      const state = dashboardChartStats[key];
+      if (state.status === "checking" || state.status === "idle") return `<p class="section-note" style="margin:10px 0 0">Checking…</p>`;
+      if (state.status === "error") return `<p class="error-text" style="margin:10px 0 0">Couldn't load — try refreshing.</p>`;
+      const rows = WELCOME_OPERATION_ORDER.map((id) => ({ id, label: OPERATIONS.find((o) => o.id === id).label, ...chartStatsForOperation(key, id) }));
+      return build(rows);
+    }
+
+    const charts = [
+      {
+        key: "bulk_runs",
+        title: "Bulk runs, by operation",
+        desc: "Which operation actually gets used the most — a share of every real Generate click in this range, not a row count.",
+        build: (rows) => donutChartHtml(rows.map((r) => ({ label: r.label, value: r.count }))),
+      },
+      {
+        key: "entries",
+        title: "Entries created, by operation",
+        desc: "Real rows this tool has actually written into a file, per operation — reads exact volume off a real axis, not just a ranking.",
+        build: (rows) => axisBarChartHtml(rows.map((r) => ({ label: r.label, value: r.entries }))),
+      },
+      {
+        key: "time_saved",
+        title: "Time saved, by operation",
+        desc: "Estimated minutes saved versus doing this fully by hand, per operation — scaled from the same numbers “By the numbers” uses.",
+        build: (rows) => axisBarChartHtml(rows.map((r) => ({ label: r.label, value: Math.max(0, Math.round(r.manual - r.bulkForge)) })), formatHoursMinutes),
+      },
+    ];
+
+    let impactBodyHtml;
+    const impactState = dashboardChartStats.impact;
+    if (impactState.status === "checking" || impactState.status === "idle") {
+      impactBodyHtml = `<p class="section-note">Checking…</p>`;
+    } else if (impactState.status === "error") {
+      impactBodyHtml = `<p class="error-text">Couldn't load — try refreshing.</p>`;
+    } else {
+      const rows = WELCOME_OPERATION_ORDER.map((id) => chartStatsForOperation("impact", id));
+      const totalManual = rows.reduce((s, r) => s + r.manual, 0);
+      const totalAi = rows.reduce((s, r) => s + r.ai, 0);
+      const totalBulkForge = rows.reduce((s, r) => s + r.bulkForge, 0);
+      const pctVsManual = totalManual > 0 ? Math.round((1 - totalBulkForge / totalManual) * 100) : 0;
+      const pctVsAi = totalAi > 0 ? Math.round((1 - totalBulkForge / totalAi) * 100) : 0;
+      impactBodyHtml = `
+        <div class="stat-row stat-row-2" style="margin-top:8px">
+          <div class="stat-tile">
+            <span class="stat-value">${formatHoursMinutes(totalBulkForge > 0 || totalManual > 0 ? totalManual - totalBulkForge : 0)}</span>
+            <span class="stat-label">Estimated time saved versus doing it all by hand${totalManual > 0 ? ` (~${pctVsManual}%)` : ""}</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value">${formatHoursMinutes(totalAi > 0 || totalBulkForge > 0 ? totalAi - totalBulkForge : 0)}</span>
+            <span class="stat-label">Estimated time saved versus using AI to help${totalAi > 0 ? ` (~${pctVsAi}%)` : ""}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">User Statistics</h2></div>
+        <p class="section-note">Pulled straight from this tool's own activity log — each chart below has its own time-range filter.</p>
+
+        <div class="numbers-addup-box">
+          <p class="numbers-addup-title">Estimated impact so far</p>
+          <p class="section-note">Bulk operations only, all time — real entries created, scaled against the same per-task estimate "By the numbers" uses. Settings isn't included, since it has no "with AI" baseline.</p>
+          ${impactBodyHtml}
+        </div>
+
+        <div class="dashboard-chart-row">
+          ${charts
+            .map(
+              (c, i) => `
+          <div class="dashboard-chart-card${i % 2 === 1 ? " dashboard-chart-card-reverse" : ""}">
+            <div class="dashboard-chart-main">
+              <div class="dashboard-chart-head">
+                <span class="dashboard-chart-title">${c.title}</span>
+                <select class="dashboard-chart-range" data-chart-key="${c.key}">${rangeOptionsFor(c.key)}</select>
+              </div>
+              ${chartBodyHtml(c.key, c.build)}
+            </div>
+            <div class="dashboard-chart-desc"><p>${c.desc}</p></div>
+          </div>`
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  /* "What we offer & FAQ" (renamed 2026-09-29, direct request) — the
+     Dashboard's own low-emphasis card strip, still exactly 6 cards
+     (5 Bulk operations + 1 combined Settings) regardless of the FAQ
+     page's own 2026-09-30 redesign below — FAQ_TOPICS itself now only
+     holds the 5 Bulk entries (see app-data.js), so the Settings card
+     here is built from FAQ_SETTINGS_SHARED.note directly rather than
+     reading a "settings" FAQ_TOPICS entry that no longer exists.
+     OPERATION_BLURBS is still kept for the reason the 2026-09-25
+     Dashboard redesign's own note already gives — this reuses its cost
+     line directly, rather than duplicating it. */
+  function faqCardsHtml() {
+    const items = FAQ_TOPICS.map((t) => ({ id: t.id, label: t.label, note: (OPERATION_BLURBS[t.id] || {}).cost || "" }));
+    items.push({ id: "settings", label: "Settings", note: FAQ_SETTINGS_SHARED.note });
+    return items.map((t) => `<button type="button" class="dashboard-service-card" data-faq-id="${t.id}">
+        <span class="dashboard-service-title">${escapeHtml(t.label)}</span>
+        ${t.note ? `<span class="dashboard-service-note">${escapeHtml(t.note)}</span>` : ""}
+      </button>`).join("");
+  }
+
+  function wireFaqCardClicks() {
+    $all(".dashboard-service-card").forEach((btn) => {
+      btn.addEventListener("click", () => openFaqTopic(btn.dataset.faqId));
+    });
+  }
+
+  /* Opens a topic's real explanation from wherever it was clicked — the
+     Dashboard's own card strip, or (once there) the FAQ page's own left
+     nav list. "settings" (the Dashboard card's own id — there's no
+     single FAQ_TOPICS entry by that id any more) resolves to the
+     Settings category's first real group. Not tracked in browser
+     history (see `faqCategory`/`faqTopic`'s own note, above) — landing
+     on the FAQ page for the first time is a real top-level navigation
+     (`navigateTo`), but switching category/topic once already there is
+     a plain re-render, the same "internal drill-down, no History API
+     involvement" shape Company Setup's own tabs use. */
+  function openFaqTopic(id) {
+    if (id === "settings") {
+      faqCategory = "settings";
+      faqTopic = SETTINGS_GROUPS[0] ? SETTINGS_GROUPS[0].id : null;
+    } else {
+      faqCategory = "bulk";
+      faqTopic = id;
+    }
+    if (currentOp === "faq") {
+      const root = $("#mainContent");
+      root.innerHTML = faqTemplate();
+      wireFaqEvents();
+    } else {
+      navigateTo("faq");
+    }
+  }
+
+  function dashboardServiceStripHtml() {
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">What we offer &amp; FAQ</h2></div>
+        <p class="section-note">Everything Bulk Forge covers — click one to see exactly what it does.</p>
+        <div class="dashboard-service-strip">
+          ${faqCardsHtml()}
+        </div>
+      </div>
+    `;
+  }
+
+  /* The left nav list's own items for whichever category is current —
+     FAQ_TOPICS' 5 Bulk entries, or the real SETTINGS_GROUPS' 6, read
+     directly rather than a duplicated id/label list of its own. */
+  function faqNavItems() {
+    return faqCategory === "bulk"
+      ? FAQ_TOPICS.map((t) => ({ id: t.id, label: t.label }))
+      : SETTINGS_GROUPS.map((g) => ({ id: g.id, label: g.label }));
+  }
+
+  /* faqTopic can be null (fresh into the page/category) or stale (left
+     over from the other category) — always resolves to a real item of
+     the *current* category, defaulting to its first, so the detail pane
+     is never empty and the page always opens on something. */
+  function resolveFaqTopic() {
+    const items = faqNavItems();
+    if (!items.some((i) => i.id === faqTopic)) faqTopic = items.length ? items[0].id : null;
+    return faqTopic;
+  }
+
+  /* The dedicated "What we offer & FAQ" page (2026-09-30 redesign,
+     direct request against an Excel mockup: a Bulk Operation/Settings
+     toggle up top, an individual-item list on the left, the first
+     item's own detail open by default) — reached from its own sidebar
+     item (below every other section, above Log out) or from the
+     Dashboard's own card strip via openFaqTopic(). Replaces the earlier
+     2026-09-29 shape (a 6-card index, one detail view with its own
+     "<- Back" link) outright — there's no separate index screen any
+     more, the shell always shows a category + its list + one item's
+     detail, all at once. */
+  function faqTemplate() {
+    resolveFaqTopic();
+    const items = faqNavItems();
+    return `
+      <div class="page-head">
+        <h1 class="page-title">What we offer &amp; FAQ</h1>
+        <p class="page-desc">Every operation and the Settings side, explained — pick one to see exactly what it does.</p>
+      </div>
+      <div class="section">
+        <div class="seg seg-fill faq-category-seg" id="faqCategorySeg" role="group" aria-label="Category">
+          <button type="button" data-cat="bulk" aria-pressed="${faqCategory === "bulk"}">Bulk Operation</button>
+          <button type="button" data-cat="settings" aria-pressed="${faqCategory === "settings"}">Settings</button>
+        </div>
+        <div class="faq-shell">
+          <div class="faq-nav-list" id="faqNavList">
+            ${items.map((i) => `<button type="button" class="faq-nav-item ${i.id === faqTopic ? "active" : ""}" data-faq-topic="${i.id}">${escapeHtml(i.label)}</button>`).join("")}
+          </div>
+          <div class="faq-detail-panel" id="faqDetailPanel">
+            ${faqDetailBodyHtml()}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* Renders the currently-selected item's own detail — a real
+     column/rule table for a Bulk operation, or (for now, until each
+     Settings group gets its own dedicated per-module breakdown — still
+     to be designed, not guessed at here) the shared Settings overview
+     plus that specific group's own real module names, so the 6 groups
+     at least read as genuinely different pages rather than 6 identical
+     clones of one paragraph. */
+  function faqDetailBodyHtml() {
+    if (faqCategory === "bulk") {
+      const topic = FAQ_TOPICS.find((t) => t.id === faqTopic);
+      if (!topic) return "";
+      return `
+        <h2 class="section-title" style="margin-top:0">${escapeHtml(topic.label)}</h2>
+        <p class="section-note">${escapeHtml(topic.intro)}</p>
+        <div class="preview-table-wrap" style="margin-top:14px">
+          <table class="preview-table">
+            <thead><tr><th>Column</th><th>What we do</th></tr></thead>
+            <tbody>
+              ${topic.columns.map((c) => `<tr><td class="strong">${escapeHtml(c.name)}</td><td>${escapeHtml(c.rule)}</td></tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+    const group = SETTINGS_GROUPS.find((g) => g.id === faqTopic);
+    if (!group) return "";
+    const details = FAQ_SETTINGS_GROUP_DETAILS[group.id];
+    return `
+      <h2 class="section-title" style="margin-top:0">${escapeHtml(group.label)}</h2>
+      <p class="section-note">${escapeHtml(FAQ_SETTINGS_SHARED.intro)}</p>
+      <div class="preview-table-wrap" style="margin-top:14px">
+        <table class="preview-table">
+          <thead><tr><th>Column</th><th>What we do</th></tr></thead>
+          <tbody>
+            ${details.columns.map((c) => `<tr><td class="strong">${escapeHtml(c.name)}</td><td>${escapeHtml(c.rule)}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">
+        ${FAQ_SETTINGS_SHARED.prose.map((p) => `<p class="section-note" style="font-size:13.5px">${escapeHtml(p)}</p>`).join("")}
+      </div>
+    `;
+  }
+
+  function wireFaqEvents() {
+    wireFaqCardClicks();
+    $all("#faqCategorySeg button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const cat = btn.dataset.cat;
+        if (cat === faqCategory) return;
+        faqCategory = cat;
+        faqTopic = null;
+        const root = $("#mainContent");
+        root.innerHTML = faqTemplate();
+        wireFaqEvents();
+      });
+    });
+    $all(".faq-nav-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.faqTopic === faqTopic) return;
+        faqTopic = btn.dataset.faqTopic;
+        $all(".faq-nav-item").forEach((b) => b.classList.toggle("active", b === btn));
+        $("#faqDetailPanel").innerHTML = faqDetailBodyHtml();
+      });
+    });
+  }
+
+  function dashboardTemplate() {
+    /* No page-head any more (2026-09-29, direct request: "upore
+       dashboard ta uthay diba... ei part ta shoray diba" — remove the
+       "Dashboard" heading and the "Signed in as..." line above it) —
+       who's signed in now lives in the sidebar's own user card
+       instead (see renderSidebar()), not repeated here too. */
+    return `
+      ${dashboardUsageHtml()}
+      ${dashboardServiceStripHtml()}
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">Get started</h2></div>
+        ${dashboardBulkSettingsRowHtml()}
+      </div>
+    `;
+  }
+
+  function wireDashboardEvents() {
+    $all(".dashboard-route-card").forEach((btn) => {
+      if (btn.disabled) return;
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.target;
+        if (target === "bulk") goToOperation(OPERATIONS[0].id);
+        else if (target === "settings") navigateTo("company_setup");
+      });
+    });
+    wireFaqCardClicks();
+    const rerenderDashboard = () => {
+      if (currentOp !== "dashboard") return;
+      const root = $("#mainContent");
+      root.innerHTML = dashboardTemplate();
+      wireDashboardEvents();
+    };
+    $all(".dashboard-chart-range").forEach((sel) => {
+      sel.addEventListener("change", async () => {
+        await loadDashboardChartStats(sel.dataset.chartKey, sel.value);
+        rerenderDashboard();
+      });
+    });
+    Object.keys(dashboardChartStats).forEach((key) => {
+      if (dashboardChartStats[key].status === "idle") {
+        loadDashboardChartStats(key, dashboardChartStats[key].range).then(rerenderDashboard);
       }
     });
   }
@@ -11679,8 +12490,18 @@
        the five generators don't require a real login at all today, only
        Company Setup does; this becomes attributable once the planned
        tiered-access work makes Bulk require login too. Still useful for
-       the dashboard's own aggregate counts in the meantime. */
-    logAudit("bulk_generate", title, { module_id: currentOp });
+       the dashboard's own aggregate counts in the meantime.
+
+       entry_count (2026-09-29, added for the post-login Dashboard's own
+       real per-operation stats) is read straight back off the already-
+       built workbook rather than threaded through all five generators'
+       own call sites — every one of them builds its sheet from a plain
+       rows array via aoa_to_sheet(rows), row 0 the header, so the
+       sheet's own decoded range end-row is exactly the real data-row
+       count, with zero changes needed to any of the five. */
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const entryCount = ws && ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]).e.r : null;
+    logAudit("bulk_generate", title, { module_id: currentOp, entry_count: entryCount });
     const modal = $("#generateCompleteModal");
     const downloadBtn = $("#gcDownloadBtn");
     const closeBtn = $("#gcCloseBtn");
@@ -11919,10 +12740,15 @@
            a history entry from before the account was retiered down to
            "company" could otherwise land directly on a Bulk operation's
            page, the exact class of gap this app's own Back/Forward
-           already guards against for a stale signed-in session above. */
-        currentOp = "welcome";
+           already guards against for a stale signed-in session above.
+           Falls back to "dashboard", not "welcome" — both branches here
+           only ever fire once myTier is resolved, which only happens
+           signed in, so the real Dashboard is the correct landing spot
+           now (2026-09-29), the same as every other "just signed in,
+           no specific place requested" case in this file. */
+        currentOp = "dashboard";
       } else if (opId === "company_setup" && myTier === "bulk") {
-        currentOp = "welcome";
+        currentOp = "dashboard";
       } else {
         currentOp = opId;
       }

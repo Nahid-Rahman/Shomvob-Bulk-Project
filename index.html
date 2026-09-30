@@ -377,11 +377,59 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
 .logout-btn svg { flex-shrink: 0; opacity: 0.8; }
 .sidebar-note { display: block; }
 
+/* "What we offer & FAQ"'s own sidebar item (2026-09-29) — deliberately
+   NOT inside `.op-nav`'s own scrollable list ("shob gula option er
+   niche, logout er upore, alada vabe thakbe" — below every option,
+   above Log out, on its own): a sibling between `.op-nav` and
+   `.sidebar-foot` stays pinned in view regardless of scroll position
+   within Operations/Setup/Admin, the same way Log out itself already
+   does, rather than scrolling away with the rest of the nav list. */
+.op-nav-faq { padding: 10px 12px; border-top: 1px solid var(--sidebar-border); flex-shrink: 0; }
+
 .sidebar-foot {
   padding: 14px 22px 18px;
   border-top: 1px solid var(--sidebar-border);
   font-size: 12px;
   color: var(--sidebar-text-muted);
+}
+
+/* The sidebar's own "Signed in as" card (2026-09-29) — modelled on a
+   real reference screenshot's own sidebar-footer card, sitting right
+   above Log out the same way that reference's own card sat above its
+   Log in/Sign up buttons. Replaces the Dashboard page-head's own
+   "Signed in as..." line, removed the same day. */
+.sidebar-user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--sidebar-active);
+  border: 1px solid var(--sidebar-border);
+}
+.sidebar-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.sidebar-user-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sidebar-user-caption { font-size: 10.5px; color: var(--sidebar-text-muted); }
+.sidebar-user-email {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sidebar-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---- Main ---- */
@@ -417,6 +465,7 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
 }
 .main-inner.wide + .app-footer { max-width: 1100px; }
 .main-inner.welcome-wide + .app-footer { max-width: 1320px; }
+.main-inner.faq-wide + .app-footer { max-width: 1400px; }
 
 /* Company Setup only — its field-rows, textareas and tab strip actually
    use the extra room; the five generators keep the narrower, more
@@ -430,6 +479,19 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
    goes to the zigzag rows/meme column and the Scope checklist's own
    two-up field-row breathing more instead. */
 .main-inner.welcome-wide { max-width: 1320px; }
+
+/* The FAQ page's own two-level shell (2026-09-30) — flagged directly
+   against a screenshot as reading too narrow ("overall page er width
+   barao eto kom keno"): the Bulk side's own column/rule table has 14
+   real columns and was scrolling horizontally even at .wide's 1100px.
+   A distinct, wider-still class rather than raising .wide itself, same
+   reasoning as .welcome-wide's own note above — company-setup.test.js
+   asserts an exact 1100px for that one. Applied alongside .wide, not
+   instead of it, so this page keeps .wide's own typography bumps
+   (.wide .page-desc etc., below) — this rule only needs to come after
+   .main-inner.wide's own in source order to win on max-width, since
+   both selectors carry identical specificity. */
+.main-inner.faq-wide { max-width: 1400px; }
 
 /* Company Setup read noticeably lighter than the rest of the app at the
    shared classes' default sizes — bumped here, scoped to .wide so the
@@ -1363,7 +1425,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .preview-table tbody tr:last-child td { border-bottom: none; }
 .preview-table td { font-family: var(--font-mono); color: var(--text-muted); }
 .preview-table td.num, .preview-table th.num { text-align: right; }
-.preview-table td.faint { color: var(--text-faint); }
+.preview-table td.faint, .preview-table td .faint { color: var(--text-faint); }
 .preview-table td.strong { color: var(--accent-strong); font-weight: 600; }
 /* Admin Panel's Users table (2026-09-26) — a checked box reads as a
    green tick, same accent-color hook every other checkbox in this app
@@ -1411,7 +1473,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    needs a white backing to read as a tile rather than a stray white
    box, on both light and dark. Smaller than the sidebar's own 92px —
    this sits beside a headline, not alone in a corner. */
-.welcome-headline-logo { display: block; width: 40px; height: auto; padding: 6px; border-radius: var(--radius-sm); background: #ffffff; border: 1px solid var(--border); }
+.welcome-headline-logo { display: block; width: 56px; height: auto; padding: 8px; border-radius: var(--radius-sm); background: #ffffff; border: 1px solid var(--border); }
 .welcome-headline {
   text-align: center;
   font-size: 32px;
@@ -1464,24 +1526,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .scope-list { margin: 8px 0 0; padding-left: 18px; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
 .scope-list li { margin-bottom: 6px; }
 .scope-list li:last-child { margin-bottom: 0; }
-
-/* A placeholder for a meme that hasn't been picked yet — same footprint
-   as .meme-img (a real image) so the layout doesn't jump once one is
-   chosen, but unmistakably a placeholder, not finished art. */
-.meme-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  aspect-ratio: 4 / 3;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--text-faint);
-}
-.meme-placeholder-mark { font-size: 28px; }
-.meme-placeholder-text { font-size: 11.5px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
 
 .welcome-badge {
   display: inline-block;
@@ -1561,6 +1605,254 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--text-faint);
 }
 
+/* "By the numbers"' "Add it all up" block (2026-09-28, 4th revision of
+   this section the same day) — direct correction of the previous pass,
+   which had made this its own `.section` card floating below "By the
+   numbers": "ekhane ekdom alada section banaiso keno? eta ei section
+   er moddhei just alada shade e dekhate bolsi" (why a whole separate
+   section here? I said to show it inside this same section, just in a
+   different shade). Same request also folded the Settings row into
+   the one Bulk table (`table tai pura section e hobe" — the table
+   alone will be the whole section) and dropped the "What it does"
+   bullet list entirely, since the table's own Operation column already
+   names every row. `.numbers-addup-box` is the "different shade" — a
+   tinted panel *inside* "By the numbers", not a second bordered card —
+   `.stat-tile`'s own white/dark surface sits on top of it for contrast,
+   no change needed there. */
+.numbers-addup-box {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.numbers-addup-title { margin: 0 0 4px; font-weight: 600; font-size: 14px; }
+
+/* The post-login Dashboard's own routing cards (2026-09-29) — Bulk and
+   Settings, tier-aware. A plain button, not `.op-card` (that stays
+   reserved for the "what we offer" strip below, and for the still-
+   unbuilt tier page's own numbered-card reuse, per its own CLAUDE.md
+   note). `.dashboard-locked-pill` is its own small class rather than
+   reusing `.pill-soon` — that one's colours (`--sidebar-text-muted`,
+   a translucent white fill) are tuned for the sidebar's own fixed-dark
+   background, not a light/dark-aware main-content card. */
+.dashboard-route-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px; }
+.dashboard-route-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px;
+  font-family: inherit;
+}
+.dashboard-route-card:not(:disabled):hover { border-color: var(--accent); }
+.dashboard-route-card:disabled { cursor: not-allowed; opacity: 0.6; }
+.dashboard-route-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.dashboard-route-desc { font-size: 12.5px; color: var(--text-muted); }
+.dashboard-locked-pill {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+/* The "what we offer & FAQ" strip at the very bottom (2026-09-29) — a
+   compact, low-emphasis card grid, deliberately smaller than `.op-card`'s
+   own full-size cards, matching the real Shomvob HR dashboard's own
+   "Quick Links" strip the user pointed at as a reference. A real 3-column
+   grid, not a flex-wrap (revised same day, direct feedback: "3 ta 3 ta
+   kore equally shundor kore vaag kore dao" — split these evenly, 3 by 3)
+   — flex-wrap sized each card to its own content, so 6 cards landed
+   4-then-2 with mismatched widths; a grid gives exactly 2 even rows of 3
+   equal-width cards regardless of how long any one label is. Each card
+   is a real `<button>` now, not a `<div>` — clicking one opens that
+   topic's own real explanation page (`openFaqTopic()`), so it needs to
+   read and behave like an actual control, not a static label. */
+.dashboard-service-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.dashboard-service-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.dashboard-service-card:hover { border-color: var(--accent); }
+.dashboard-service-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.dashboard-service-note { font-size: 11px; color: var(--text-faint); }
+
+/* The dedicated FAQ page's own two-level shell (2026-09-30 redesign,
+   direct request against an Excel mockup) — a Bulk Operation/Settings
+   toggle up top (plain .seg/.seg-fill, reused as-is), a vertical list
+   of that category's own items on the left, and the selected item's
+   detail on the right. Replaces the earlier 2026-09-29 card-grid index
+   (.faq-index-grid) outright — nothing references that class any more. */
+/* Full-width, evenly split — the same shape as Company Setup's own
+   #setupCoEnvSeg (Dev/Staging), which this was modelled on directly
+   after being flagged as too narrow ("uporer section ta equal width e
+   purata cover koro. example ei je [Environment]"). .seg-fill already
+   splits the two buttons evenly; the max-width this class used to carry
+   was the only thing keeping the whole control narrow. */
+.faq-category-seg { margin-bottom: 16px; }
+
+.faq-shell { display: flex; gap: 20px; align-items: flex-start; }
+.faq-nav-list {
+  flex: 0 0 220px;
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 6px;
+}
+.faq-nav-item {
+  display: block; width: 100%; text-align: left;
+  border: 1px solid transparent; background: none; cursor: pointer;
+  font-family: var(--font-body); font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+  padding: 10px 12px; border-radius: var(--radius-sm);
+}
+.faq-nav-item:hover:not(.active) { color: var(--text); background: var(--surface); }
+.faq-nav-item.active { background: var(--surface); border-color: var(--border); color: var(--accent); font-weight: 600; }
+.faq-detail-panel { flex: 1 1 auto; min-width: 0; }
+
+/* FAQ's own tables carry real paragraphs, not the short, ID-like values
+   every other .preview-table in this app (Admin Panel, Audit Log, Leave
+   Balance, Payroll) is built for — that shared white-space:nowrap forced
+   this one into a horizontal scrollbar (2026-09-30, direct feedback:
+   "width fix rakho. multiple line e egele to kono somossa nai" — keep
+   the width fixed, wrapping across multiple lines is fine). Scoped to
+   #faqDetailPanel only, so every other .preview-table in the app keeps
+   its existing single-line behaviour, which still suits it. */
+#faqDetailPanel .preview-table { table-layout: fixed; }
+#faqDetailPanel .preview-table th,
+#faqDetailPanel .preview-table td { white-space: normal; word-wrap: break-word; }
+#faqDetailPanel .preview-table th:first-child,
+#faqDetailPanel .preview-table td:first-child { width: 26%; }
+
+@media (max-width: 860px) {
+  /* align-items: flex-start (base rule) sizes a column-mode flex item to
+     its own content width instead of stretching to fill — exactly what
+     lets a wide .preview-table push .faq-detail-panel, and the whole
+     page, wider than the viewport here. stretch (the flex default)
+     forces both columns to the container's full width instead, so
+     .preview-table-wrap's own overflow-x:auto can do its job. Found via
+     a real mobile screenshot pass — measured 1825px of document
+     scrollWidth against a 390px viewport before this fix, 390px after. */
+  .faq-shell { flex-direction: column; align-items: stretch; }
+  .faq-nav-list { flex: 0 0 auto; width: 100%; flex-direction: row; flex-wrap: wrap; }
+  .faq-nav-item { flex: 1 1 auto; text-align: center; }
+
+  /* The desktop 26% first-column width (above) reads fine against a
+     1400px table but is genuinely cramped at a 390px one — a long field
+     name like "Configure Salary Components — Basic % and each
+     component's %" wraps into a very narrow column with an awkward
+     line break per word. Found by the same screenshot pass that
+     confirmed the wrap fix itself worked. Widened here, not removed —
+     the "What we do" column still needs to keep the majority of the
+     row's width. */
+  #faqDetailPanel .preview-table th:first-child,
+  #faqDetailPanel .preview-table td:first-child { width: 38%; }
+}
+
+/* Real usage's three charts (2026-09-29) — mocked up first on a design
+   canvas and confirmed directly before building. A donut for Bulk runs
+   (a share-of-activity question) and real axis bar charts for Entries
+   created / Time saved (a magnitude/ranking question — a bar's own
+   axis lets those be read precisely, which is what a pie/donut is bad
+   at once there are 5+ slices). All three sit under the existing Real
+   usage table. **Stacked one per row, not side by side** — a 3-column
+   grid read as cramped ("pasha pashi atbe na ghinchi hoye jabe" —
+   they won't fit side by side, it'll be crowded), direct feedback
+   against a screenshot. Each row is a chart plus a short description
+   of what it represents, filling the width a lone chart would
+   otherwise leave empty — alternating sides row to row
+   (`.dashboard-chart-card-reverse` on the 2nd), the same zigzag
+   instinct the Welcome page's own `.welcome-row`/`.welcome-row-reverse`
+   rows already use. */
+.dashboard-chart-row { display: flex; flex-direction: column; gap: 16px; margin-top: 18px; }
+.dashboard-chart-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.dashboard-chart-card-reverse { flex-direction: row-reverse; }
+/* 75:25 chart-to-description split, direct request ("graph 75% space
+   nibe ar 25% description") — flex-shrink stays on (not "0 0") so the
+   row's own 28px gap is absorbed proportionally by both sides rather
+   than pushing the row past 100% width. */
+.dashboard-chart-main { flex: 1 1 75%; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dashboard-chart-desc { flex: 1 1 25%; min-width: 160px; }
+.dashboard-chart-desc p { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.dashboard-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dashboard-chart-title { font-size: 13px; font-weight: 600; color: var(--text); }
+/* A fixed width, not auto — a real bug, found live on a screenshot with
+   the wrapped title circled: a bare `<select>` sizes itself off its
+   widest OPTION text ("Last 6 months"), not the currently shown value
+   ("All time"), so it claimed far more of `.dashboard-chart-head`'s row
+   than it needed and squeezed the title onto two lines. */
+.dashboard-chart-range { font-size: 12px; padding: 4px 8px; width: 128px; flex-shrink: 0; }
+
+/* Sized up and the legend un-stretched (2026-09-29 revision, direct
+   feedback: "eta aro boro koro" — make this bigger) — the donut used
+   to sit small inside `.dashboard-chart-main`'s own narrow 380px
+   column; now that column is 75% of the card (see the ratio fix
+   above), a small fixed-size donut left a lot of unused width, and
+   `.dashboard-donut-legend-label`'s own `flex-grow: 1` stretched to
+   fill exactly that leftover space — dragging each row's percentage
+   far away from its own label instead of sitting right next to it.
+   Fixed both at once: the donut itself is bigger (130px → 190px, the
+   underlying SVG viewBox/circle math is untouched — only the render
+   size changed), and the legend no longer stretches to fill the
+   column at all — each row is its own natural width, percentage
+   immediately after its label with a small fixed gap, rather than a
+   column-aligned table reaching across the whole card. Sized up again
+   the same day (130px → 260px total, direct follow-up: "etar height
+   aro boro koro, circle ta jeno aro boro hoy") — the card has no fixed
+   height of its own, so it grows to fit the bigger circle rather than
+   needing a separate height rule. */
+.dashboard-donut-body { display: flex; align-items: center; gap: 24px; margin-top: 10px; }
+.dashboard-donut-total { font-size: 34px; font-weight: 700; color: var(--text); }
+.dashboard-donut-total-label { font-size: 12.5px; color: var(--text-faint); }
+.dashboard-donut-legend { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dashboard-donut-legend-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.dashboard-donut-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.dashboard-donut-legend-label { color: var(--text); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-donut-legend-pct { color: var(--text-faint); flex-shrink: 0; }
+
+/* The label row is `auto`, not a fixed 24px — a real bug, found live on
+   a screenshot with the cut-off text circled: a two-word category name
+   ("Employee Attendance", "Leave Balance") wraps to 2 lines at this
+   font size, and a fixed 24px row plus `.dashboard-bar-label`'s own
+   `overflow: hidden` clipped the wrapped second line's bottom instead
+   of showing it. `auto` lets the row grow to whatever its own tallest
+   label actually needs. */
+.dashboard-bar-chart { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: 150px auto; column-gap: 6px; margin-top: 12px; }
+.dashboard-bar-axis { grid-column: 1; grid-row: 1; position: relative; height: 150px; }
+.dashboard-bar-tick { position: absolute; right: 0; transform: translateY(-50%); font-size: 10px; color: var(--text-faint); white-space: nowrap; }
+.dashboard-bar-plot { grid-column: 2; grid-row: 1; position: relative; height: 150px; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border-strong); }
+.dashboard-bar-gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); }
+.dashboard-bar-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 10px; padding: 0 10px; }
+.dashboard-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+.dashboard-bar-value { font-size: 10.5px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+.dashboard-bar-fill { width: 26px; background: var(--accent); border-radius: 4px 4px 0 0; }
+.dashboard-bar-labels { grid-column: 2; grid-row: 2; display: flex; gap: 10px; padding: 0 10px; margin-top: 6px; }
+.dashboard-bar-label { flex: 1; text-align: center; font-size: 10px; color: var(--text-faint); line-height: 1.2; overflow: hidden; }
+
 .how-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 22px; }
 .how-step {
   display: inline-flex;
@@ -1584,16 +1876,36 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-weight: 700;
 }
 
-/* The meme (2026-09-25, Dashboard redesign): a real Hackerman GIF
-   (assets/hackerman.gif, downloaded from Tenor at the user's own direct
+/* The meme (2026-09-25, Dashboard redesign): originally a real
+   Hackerman GIF (downloaded from Tenor at the user's own direct
    instruction) — reverses the original "drawn rather than fetched"
    decision below this app held for its whole life, on the reasoning
    that a real meme image is someone else's to licence. That reasoning
    stands for anything published to a stranger; this is the user's own
    internal QA tool, and the call to use a real meme here was made
-   directly, not defaulted into. Not inlined — the file is ~2.9MB,
-   the same "too big for a data URI" reasoning as assets/lazy_cat.mp4,
-   kept as a plain relative-path asset instead. */
+   directly, not defaulted into.
+
+   Replaced with a real video, 2026-09-28, direct instruction ("ami
+   nijer face boshaisi" — I put my own face on it): assets/hackerman.mp4
+   is now the user's own clip, the Tenor GIF composited with his own
+   face, so the second-hand-licensing question above doesn't even apply
+   any more — his own footage, his own tool. `<video loop muted
+   playsinline autoplay>` replaces the `<img>`, the same treatment every
+   other clip in this app already gets (the login gate's cat, the five
+   operation rails, the Rickroll). `.meme-img`'s own styling is generic
+   enough (display/width/border/radius/shadow) that neither the markup
+   swap nor the format change needed a single rule touched.
+
+   Reason's own meme slot — a plain dashed-border placeholder for its
+   whole life — got filled the same day: assets/crying_cat_ok.mp4, a
+   real Tenor clip (crying cat, thumbs up, "OK" text), the user's own
+   link. Same `.meme-img`/`<video>` treatment, `.meme-placeholder` and
+   its two child classes are deleted outright rather than left dead,
+   since nothing else in this app reused that "hasn't been picked yet"
+   shape.
+
+   Neither clip is inlined — same "too big for a data URI" reasoning as
+   assets/lazy_cat.mp4, kept as plain relative-path assets instead. */
 .meme { margin: 0; }
 .meme-img {
   display: block;
@@ -1962,6 +2274,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .main-scroll { overflow: visible; }
   .field-row, .field-row-3 { grid-template-columns: 1fr; }
   .stat-row, .stat-row-4, .stat-row-2 { grid-template-columns: 1fr; }
+  .dashboard-route-row { grid-template-columns: 1fr; }
+  .dashboard-chart-card, .dashboard-chart-card-reverse { flex-direction: column; align-items: stretch; }
+  .dashboard-chart-main { flex-basis: auto; }
+  /* A real bug, found live right after the donut was sized up to 260px
+     (2026-09-29): `.dashboard-donut-body` stayed a side-by-side row on
+     mobile too, and the bigger circle plus its own legend together no
+     longer fit a phone-width card, overflowing the page horizontally.
+     Same standing instruction as every other side-by-side element in
+     this app — stack it top-to-bottom under this breakpoint instead. */
+  .dashboard-donut-body { flex-direction: column; align-items: center; text-align: center; }
+  .dashboard-service-strip { grid-template-columns: 1fr; }
   .stat-bar-label { width: 110px; }
   .welcome-row, .welcome-row-reverse { grid-template-columns: 1fr; }
   .welcome-row-reverse .meme { order: 0; }
@@ -2059,7 +2382,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
       <div class="op-nav-label" id="adminNavLabel" style="display:none">Admin</div>
       <div id="adminNav"></div>
     </nav>
+    <div id="faqNav" class="op-nav-faq"></div>
     <div class="sidebar-foot">
+      <div id="sidebarUserCard"></div>
       <button type="button" class="logout-btn" id="logoutBtn" title="Clears everything on the page and shows the login again">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -2651,6 +2976,196 @@ const OPERATION_BLURBS = {
   }
 };
 
+/* "What we offer & FAQ" (2026-09-29) — direct request: a card here now
+   opens a real explanation page naming every column's actual generation
+   rule, not just the existing blurb/cost line. Content is a plain-
+   English restatement of each operation's own confirmed spec
+   (SPEC.md/CLAUDE.md) — nothing here is guessed, same discipline as the
+   generators themselves. Settings gets one combined entry, not six
+   (one per SETTINGS_GROUPS group) — direct instruction ("ei section e
+   settings combined ekta dilei hobe, shob gula venge venge deyar
+   dorkar nai"), since it's one coherent thing to explain (real writes
+   into a real company) rather than 20+ modules' worth of field-by-field
+   detail. */
+const FAQ_TOPICS = [
+  {
+    id: "employee_add",
+    category: "bulk",
+    label: "Employee Add",
+    intro: "Builds a ready-to-upload employee file from scratch — every column filled with realistic, internally consistent test data.",
+    columns: [
+      { name: "Employee ID*", rule: "Every employee needs a unique ID inside the company — it's how the system tells two people apart, and it's a required field. You pick a 4-letter prefix (the tool suggests one, but you're free to type any 4 letters yourself), and once you say how many employees to generate, IDs are numbered in order after that prefix. By default, numbering starts at 0001, so 50 employees gives you IDs from PREFIX0001 through PREFIX0050. The catch: if you're generating employees for a company that already has some, starting at 0001 again could clash with IDs that already exist there. That's what the \"Starting number\" field is for — set it to something other than 1, and the IDs pick up from there instead, still counting up in order." },
+      { name: "Biometric ID", rule: "A second ID some attendance/biometric devices need, alongside the Employee ID — not something you type in, it's built automatically. It's the same prefix and the same running number as the Employee ID, just with a \"B\" inserted in between, so the two IDs always visibly belong to the same person (Employee ID PREFIX0001 → Biometric ID PREFIXB0001). It follows the same Starting number too, so the two never fall out of sync." },
+      { name: "First Name* / Last Name*", rule: "Every row needs a first and last name, and where they come from depends on what you picked in \"Name source\" — either the default pool of real Bangla names, or a character theme (Game of Thrones, Marvel, and so on) if you picked one. Within one generated file, no two employees share the exact same name — the tool keeps drawing fresh combinations so the file doesn't read like the same handful of names copy-pasted over and over." },
+      { name: "Employment Type*", rule: "Says whether someone is a permanent employee, still in probation, or an intern — picked randomly for each row, since a real company's staff list is naturally a mix of all three. Only these three are used; Part Time and Contract are deliberately left out, since they're rare enough in practice to just be noise in test data." },
+      { name: "Probation Period (Months)*", rule: "How many months of probation this employee still has left. It only makes sense for someone who isn't already Permanent, so a Permanent employee always gets 0 here — there's nothing to probate. Anyone \"In Probation\" or an \"Intern\" instead gets a random number between 3 and 6, matching how long a real probation period usually runs." },
+      { name: "Joining Date*", rule: "The date this employee joined the company. Rather than a plain random date, it's weighted to look like a real, growing company's hiring history: about 60% joined last year, 25% joined this year, and the remaining 15% joined two years ago. It's never a future date — nobody can join a company that hasn't happened yet." },
+      { name: "Gross Salary*", rule: "A monthly salary figure, randomly picked between ৳20,000 and ৳150,000. It's always a round number in steps of ৳500 (so ৳45,000 or ৳45,500, never ৳45,237), because that's how real salaries are actually set — nobody's contract says an odd random number." },
+      { name: "Email", rule: "An auto-generated address shaped like firstname.lastname.xxxxx@yopmail.com, all lowercase. The \"xxxxx\" part is a short random code generated fresh every time you click Generate — it exists purely so two separate files, even with the same names, never end up sharing an email by accident." },
+      { name: "Phone*", rule: "A 13-digit Bangladeshi mobile number: 880, then 1, then a real operator digit (3–9, matching how BD numbers are actually structured), then 8 more random digits. Every number in the file is checked against every other one, so no two employees ever end up with the same phone number." },
+      { name: "Gender*", rule: "Matches whichever name was picked for that row — a male-tagged name gets Male, same for female. It's never mismatched, and there's no \"prefer not to say,\" since the name itself already decides it." },
+      { name: "Date of Birth*", rule: "Set so the employee is somewhere between 18 and 45 years old as of their own Joining Date — young enough to be realistic, old enough to be legally employable. It always falls before the Joining Date, since nobody can be born after they've already started working." },
+      { name: "Department Name* / Designation Name*", rule: "Which department and job title this employee belongs to. One department is picked at random from whatever you've configured (the defaults, or your own custom ones), then one designation is picked from that specific department's own list of titles — never a title that actually belongs to a different department." },
+    ],
+  },
+  {
+    id: "attendance_add",
+    category: "bulk",
+    label: "Employee Attendance Add",
+    intro: "Fills in real attendance rows for a date range. Only Employee ID, Date, In Time and Out Time exist as columns, so everything else — lateness, absence, overtime — is expressed through how those four are set, never as an extra column.",
+    columns: [
+      { name: "Employee ID*", rule: "Which real employee this attendance row belongs to. Nothing here is invented — every ID comes from wherever you got your employee list (pasted in by hand, generated by this tool's own Employee Add, or read off an uploaded file), so it's guaranteed to match a real account rather than a made-up one." },
+      { name: "Date*", rule: "The calendar date this row is for. Not every day in your chosen date range gets a row — a day only appears here if something actually happened on it (see the note on absences/weekends/holidays below); a day with nothing to report is simply left out of the file rather than added as an empty row." },
+      { name: "In Time* / Out Time*", rule: "Together, these two times carry every real attendance scenario, since the file itself has no separate column for \"late\" or \"overtime\" — it's all expressed through when someone clocked in and out. An ordinary day has both times land a few minutes either side of the actual shift, the way a real clock-in naturally does. Lateness shows up as an In Time later than the shift's own grace period allows. Overtime shows up as an Out Time pushed later — always by at least 45 minutes, since anything less wouldn't really count as staying back. An early check-out instead pulls Out Time 15 to 60 minutes earlier than the shift was meant to end. Only one of overtime or an early check-out can happen on any single row — nobody both stays late and leaves early on the same day." },
+      { name: "Absent employees, weekends, holidays", rule: "If someone was absent, or the day was a weekend or a declared holiday, they simply get no row for that date at all — not a row with blank times, since a real HR system reads \"no row\" as \"nothing to report,\" not \"something went wrong.\" The one exception: if overtime is turned on for weekends/holidays, someone who worked that day gets a row whose whole span (In Time to Out Time) is treated as overtime, and it's never shorter than 2 hours, matching the real system's own minimum rule for counting a shift as genuinely worked." },
+      { name: "A shift that crosses midnight", rule: "For a shift that starts one day and ends after midnight the next, the row is still just one line, dated by whichever day the shift started on. That means Out Time can read as an earlier clock time than In Time (e.g. In at 22:00, Out at 06:00) — that's expected for these rows, not a mistake." },
+    ],
+  },
+  {
+    id: "leave_balance_add",
+    category: "bulk",
+    label: "Leave Balance Add",
+    intro: "The odd one out: nothing here is invented from scratch. You upload the system's own export, and every column except one is carried through exactly as it came in.",
+    columns: [
+      { name: "Employee ID, Employee Name, Leave Type Name, Total Allocated, Earned Leave", rule: "This operation doesn't invent any of these — you upload the company's own real export, and every one of these columns is carried through exactly as it came in, byte for byte. That includes whatever leave types the company has actually set up (which can be anything — even something unusual, since companies name their own leave types), and every employee's real name and ID." },
+      { name: "Already Used Leave", rule: "The one column this tool actually changes. Whenever it fills in a value, it's always a half-day step (like 2.5 or 10.0, never an odd fraction), and it's always kept strictly below Total Allocated plus Earned Leave, so nobody ends up shown as having used more leave than they could possibly have. How much is used also depends on when in the year you're generating the file — early in the year (say, January) the numbers stay small, since not much of the year's leave would realistically be used yet; later in the year (say, October) they run higher. If a row already had some leave used before you ran this, the new value only ever goes up from there, never down — and if a row was already at the maximum it could be, it's left exactly as it was, untouched." },
+    ],
+  },
+  {
+    id: "payroll_field_add",
+    category: "bulk",
+    label: "Payroll Custom Field Add",
+    intro: "Fills in your company's own custom-field export — the same “don't invent, fill what's blank” idea as Leave Balance Add.",
+    columns: [
+      { name: "Employee ID, Employee Name", rule: "Taken directly from whatever file you upload, and left completely untouched — this operation never changes who a row belongs to." },
+      { name: "Every custom field column after them", rule: "Each company sets up its own custom payroll fields with its own names — this tool never invents a name or corrects one, even if the company's own spelling has a typo in it (that's intentional: the file has to match what the real system actually has). Every field's column header already tells you whether it's an addition (+) or a deduction (-) to someone's pay — the actual number written in the cell is always positive either way, since the plus or minus sign is the header's job, not the number's." },
+      { name: "Coverage", rule: "A percentage you set yourself before generating, controlling how many of the individual cells actually get a value filled in — not how many employees get at least one field filled. Because it works cell by cell rather than employee by employee, at anything below 100% it's completely normal for some employees to end up with every one of their fields left blank — that's the coverage setting working as intended, not something going wrong." },
+      { name: "Already-filled cells", rule: "If a cell in your uploaded file already has a number in it, this tool leaves it exactly as it is. That means running this again on a file you've already partly filled in can't accidentally erase or overwrite work that's already there." },
+    ],
+  },
+  {
+    id: "assets_add",
+    category: "bulk",
+    label: "Assets Add",
+    intro: "Builds a ready-to-upload asset file from scratch, matching the real template's own seven columns.",
+    columns: [
+      { name: "Asset Image", rule: "Always left completely blank. A made-up placeholder image link would only show up as a broken image once the file is actually uploaded into the real system, so leaving it empty is the honest choice here — there's no real image to point to." },
+      { name: "Asset Code*", rule: "A unique code for each asset, built the same way an Employee ID is: a prefix followed by a number that counts up from 0001, so every asset in the file gets its own distinct code with nothing repeated." },
+      { name: "Asset Name* / Asset Type* / Asset Description", rule: "The Name and Description always agree with each other — a laptop's name comes with a laptop's own description, never a mismatched one. Asset Type, on the other hand, is picked completely independently of both — this isn't an oversight, it's actually how the real system's own template behaves: one of its own example rows lists a monitor under the type “Printers,” which is how we know Asset Type is meant to be a free label a company chooses for itself, not something that has to logically match the asset's actual name." },
+      { name: "Assigned Employee ID / Assigned Date", rule: "Both of these are optional — not every asset has to be assigned to someone. About 70–80% of the assets in a generated file end up assigned to a real employee ID from your list, each given a real assignment date sometime within the last year. The remaining 20–30% are left completely unassigned — both columns blank together, never one filled in while the other is left empty, since a half-assigned asset wouldn't make sense." },
+    ],
+  },
+];
+
+/* The FAQ page's own Settings side (2026-09-30 redesign — a left-hand
+   list of the real 6 SETTINGS_GROUPS, not one combined card) shows this
+   same shared overview under whichever group is currently selected,
+   plus that group's own real module names — until each group gets its
+   own dedicated per-module detail (still to be designed, deliberately
+   not guessed at here). This is the exact content the old single
+   combined "Settings" FAQ_TOPICS entry held before the split; `note` is
+   what the Dashboard's own card strip still shows for its one Settings
+   card (faqCardsHtml() in app.js), since that strip stays a single
+   6-card summary (5 Bulk + 1 Settings) regardless of this split. */
+const FAQ_SETTINGS_SHARED = {
+  note: "Automatic or Custom settings setup",
+  intro: "Different from the five operations above — Settings doesn't hand you a file to upload by hand. It signs in as a real company, with the credentials you provide, and writes configuration directly into that company through Shomvob's own real API — departments, leave types, payroll rules, and everything else a fresh company needs before anyone can actually use it.",
+  /* Trimmed to 2 lines once each group got its own real per-field table
+     below (2026-09-30) — the old first two lines ("six real settings
+     groups", "every field stays editable") are now obvious from the
+     table itself, so only the two facts a table can't show on its own
+     (live dependency-checking, the Run defaults shortcut) are kept, as
+     a shared closing note under every group's table. */
+  prose: [
+    "Real dependencies are checked live against the actual connected company, never assumed: a Designation needs a Department to exist first, a Leave Policy needs a Leave Type, and so on. If something's missing, the module names exactly what and gives you a one-click shortcut to fix it — nothing fails silently.",
+    "“Run defaults” is the shortcut worth knowing about: one click sets up a whole company's worth of sensible defaults — departments, a leave policy, a payroll cycle and more — instead of the roughly 2–2.5 hours it takes to click through all of this by hand.",
+  ],
+};
+
+/* The FAQ page's own per-field detail for each real SETTINGS_GROUPS
+   group (2026-09-30) — the same plain-English, "explain what/why/how"
+   depth FAQ_TOPICS' own Bulk columns just got, keyed by the group's own
+   real `id`. A row's name reads "Module — Field" so it's clear which of
+   a group's several real modules a field belongs to. Only fields that
+   are actually real and shown in the UI are covered — an editable
+   input where one exists, or the real generated/fixed behavior where a
+   module has no editable field at all (e.g. Overtime, Attendance
+   Bonus) — nothing here is invented; every row was checked directly
+   against that module's own template function in app.js before being
+   written. */
+const FAQ_SETTINGS_GROUP_DETAILS = {
+  company: {
+    columns: [
+      { name: "Company Profile — Legal Name", rule: "The company's own formal registered name, used across every real record this tool creates. It's generated automatically from the real company name you're connected to, plus a random legal suffix (like \"Ltd.\" or \"Group\"), but you can type over it with anything before saving." },
+      { name: "Company Profile — TEG NO", rule: "A 13-digit number the real system asks for, though — honestly — nobody involved in building this tool actually knows what it's supposed to represent; a real company was even found using free text here instead of numbers, so it clearly isn't strictly checked on the real server's side either. It's still generated as a plausible-looking registration number rather than a joke string, since that reads better in QA data." },
+      { name: "Company Profile — Tax ID", rule: "A separate tax identification number for the company, generated as a plausible-looking number — here to fill in a required-looking field with realistic QA data, the same reasoning as TEG NO above." },
+      { name: "Company Profile — Industry / Business Type", rule: "These two are always generated as a matching pair (say, \"Technology\" paired with \"Software Development\"), so a generated company never ends up with an industry and business type that don't make sense together." },
+      { name: "Company Profile — Website / Description / Mission / Vision", rule: "The rest of the company's public-facing profile — a website address, a short description of what the company does, and its mission and vision statements. All four are generated from realistic template text so the profile reads like a real company wrote it, and every one can be edited or replaced by hand before saving." },
+      { name: "Bank Info — Bank Name / Account Number", rule: "Which real Bangladeshi bank this company's payroll account sits with (picked at random from a list of real banks), and a randomly generated account number for it." },
+      { name: "Bank Info — NPSB Code / BEFTN Code", rule: "Two short codes real payment networks use to route money to this specific bank. Both are automatically derived from whichever bank was picked, so they always agree with each other — though you can still edit them by hand before saving." },
+      { name: "Bank Info — MFS Code", rule: "A code for a mobile financial service (like bKash or Nagad) this company also uses, picked at random from the real options." },
+      { name: "Location Types — Name", rule: "A category every real office Location has to attach to — like \"Head Office\" or \"Baridhara.\" A real Dhaka-area name is suggested as a starting point, but you're free to type your own." },
+      { name: "Location Types — Can Have Geofence", rule: "Whether locations under this type are even allowed to have a geofence (a virtual boundary used for location-based attendance) — this only permits it; each individual Location still turns its own geofence on or off separately." },
+      { name: "Locations — Name / Location Type", rule: "The office's own name (picked from a pool of realistic office names), and which real Location Type it belongs to — the dropdown only ever shows Location Types this specific company actually has, since a Location can't attach to one that doesn't exist yet." },
+      { name: "Locations — Has Geofence", rule: "Whether this specific office has a geofence set up for attendance. When turned on, real-looking coordinates (latitude, longitude and a radius in meters) are generated a short random distance from a real Dhaka reference point, and all three can be hand-edited before saving." },
+      { name: "Locations — Is Default", rule: "Whether this is the company's main, default office. A company should really only have one Location marked default at a time — the tool lets you set this either way, but keeping just one true is on you, the same as it would be in the real system." },
+      { name: "Department Management — Name", rule: "The department's own name — a common department name (HR, Engineering, Sales, and so on) is suggested as a starting point, fully editable before saving. A shortcut also exists to create all 6 common defaults in one go instead of one at a time." },
+      { name: "Designation Management — Name / Department", rule: "A job title (Designation Name) and which real Department it belongs to. The Department dropdown only ever lists departments this company actually has — a designation can't be created for one that doesn't exist yet. A shortcut can also create 4 starter designations for every real department at once." },
+    ],
+  },
+  employee: {
+    columns: [
+      { name: "Custom Fields — Field Name / Type", rule: "A custom piece of information this company wants to track on every employee record — its name (like \"T-Shirt Size\") and its Type (Text, Number, Date, Checkbox, or a dropdown-style \"Enum\" list). A name is suggested as a starting point, and both are yours to change." },
+      { name: "Custom Fields — Choices", rule: "Only shown when Type is set to the dropdown-style \"Enum\" — the actual list of options someone filling this field in would pick from, entered comma-separated." },
+      { name: "Custom Fields — Enable Filter / Shown As Column", rule: "Two Yes/No switches controlling how this field behaves elsewhere in the real system: whether people can filter employee lists by it, and whether it shows up as its own column in an employee table. Both default to No, since turning these on is meant to be a deliberate choice, not something that happens by accident." },
+      { name: "Custom Fields — Status", rule: "Whether this custom field is Active (actually usable) or Inactive (kept around but not currently in use)." },
+      { name: "Required Documents — Document Name / Type", rule: "A document employees need to have on file (like \"NID Copy\") and whether it's collected as an uploaded File or typed-in Text." },
+      { name: "Required Documents — Status / Is Required", rule: "Whether this document requirement is Active or Inactive, and whether it's actually mandatory (Is Required) or just optional to have on file." },
+    ],
+  },
+  attendance: {
+    columns: [
+      { name: "Attendance Policy — Title", rule: "The name for this company's attendance policy — the only field here that's meant to be hand-typed; everything else on this page is generated to a fixed, sensible shape rather than being its own input." },
+      { name: "Attendance Policy — Overtime, break and check-in/check-out limits", rule: "Generated together to a realistic default shape rather than typed in: overtime starts turned off, a fixed early check-in allowance and a fixed maximum check-out limit are set (matching what the real system expects), and break/deduct-break are both off by default too. They're shown as read-only summary tags rather than separate boxes, since together they represent one sensible starting policy rather than several independent choices." },
+    ],
+  },
+  schedule: {
+    columns: [
+      { name: "Create Roster — Name / Grace", rule: "A named shift, like \"Morning Shift\" — its display Name, and how many minutes of Grace period (0, 5, 10 or 15) employees get before being marked late." },
+      { name: "Create Roster — Start At / End At", rule: "What time the shift begins and ends. The total number of working hours is worked out automatically from these two times rather than being its own field to fill in — so if you change Start or End, the hours figure actually sent to the real system always stays accurate to what you typed." },
+      { name: "Create Roster Pattern — Name", rule: "The pattern's own display name. Everything else about this action is fixed — Sunday through Thursday, all five real working days assigned to this company's own default time slot. Assigning a *different* slot to each individual day isn't built yet, since that only makes real sense once a company has more than one time slot to actually choose between." },
+    ],
+  },
+  leave: {
+    columns: [
+      { name: "Leave Types — Name", rule: "The leave type's own name (like \"Annual Leave\" or \"Sick Leave\"). Whatever you type here is exactly what gets created — the tool doesn't try to guess special rules from the name, so typing something like \"Maternity Leave\" doesn't automatically turn on special maternity-specific behavior." },
+      { name: "Leave Types — Sandwich Rule", rule: "Controls what happens when someone takes leave on the days right before and after a weekend or holiday — whether those in-between days quietly get \"sandwiched\" into the leave too. When turned on, you choose whether the system should just notify an approver about it (Permission Based) or automatically count the weekend/holiday as leave without asking (Count Automatically), and separately choose whether this applies to weekends, public holidays, or both." },
+      { name: "Leave Types — Bridge Leave", rule: "A similar idea for leave taken immediately next to a single holiday, rather than a whole weekend — when turned on, the same choice applies: notify an approver first (Permission Based), or count it automatically (Count Automatically)." },
+      { name: "Leave Policy — Name / Status", rule: "The policy's own name, and whether it's Active or Inactive." },
+      { name: "Leave Policy — Which leave types are included, and how many days each", rule: "Every real leave type this company already has is listed here, each with its own checkbox (checked by default) and its own Days number (12 by default). Unchecking a leave type leaves it out of this policy entirely; the Days number is how many days of that leave type this policy actually grants." },
+      { name: "Holiday Calendar — Sync", rule: "Nothing to configure here at all — clicking the one button simply pulls this company's full real public holiday list from Shomvob's own system. It exists because a company's payroll and attendance calculations rely on knowing its real holidays, and this is the one-click way to make sure they're loaded in." },
+    ],
+  },
+  payroll: {
+    columns: [
+      { name: "General — Payroll Cycle", rule: "How often employees actually get paid — Calendar Month (once every real calendar month), Fixed Date (a specific day chosen each cycle) or Bi-weekly (every two weeks). It opens on Calendar Month by default, since that's the most common real setup, rather than a random pick — choose a different option yourself if that's what you're testing." },
+      { name: "Salary Components — Component", rule: "Which of the 4 real, fixed salary components this creates — Medical Allowance, House Rent Allowance, Mobile Allowance or Internet Allowance. These names are fixed to match what the real system actually expects; there's no free-text name here. A shortcut also creates 3 of these four (skipping Mobile Allowance) in one go." },
+      { name: "Salary Components — Status", rule: "Whether this component is Active or Inactive. It defaults to Active — an accidentally Inactive component is invisible to other modules that depend on having active salary components, so this default matters." },
+      { name: "Salary Components — Countable As Tax Component / Pro-rata", rule: "Two Yes/No choices: whether this component counts toward the employee's taxable income, and whether it's pro-rated (reduced proportionally) for an employee who joins partway through a pay period." },
+      { name: "Configure Salary Components — Basic % and each component's %", rule: "How an employee's total salary actually splits across Basic pay and the company's own real salary components — for example, Basic 60%, one component 15%, another 15%, a third 10%. Every percentage here is a real number you can edit, but they all have to add up to 100% between them, since that's how the real payroll system expects a salary structure to be defined. This needs the company to already have at least 2 Active salary components before it can be configured at all." },
+      { name: "Late Arrival — Penalty Type", rule: "Which single rule applies when someone arrives late: Late Penalty (a penalty for being late at all) or Repeated Late Penalty (a penalty only once lateness becomes a repeated pattern). The real system requires exactly one of these two to be on — never both, never neither — so this is a single either/or choice, not two separate switches." },
+      { name: "Absent Deduction — Repeated Absent Penalty", rule: "Whether this company's absence rule counts total absences over time (off, the default) or specifically counts consecutive absent days in a row (on)." },
+      { name: "Bonus Types — Bonus Type", rule: "Which of the 4 real, fixed bonus types this creates — Eid Bonus, Bangla New Year Bonus, Special Bonus or a deliberately Inactive Test Bonus (used for testing that inactive bonus types behave correctly). A shortcut also creates the first two of these (Eid and Bangla New Year) in one go." },
+      { name: "Bonus Policy — Name / Bonus %", rule: "The policy's own name and what percentage bonus it pays out, attached to one of this company's real bonus types. A shortcut can also create the 3 real festival policies at once (Eid Ul Fitr and Eid Ul Adha at 40% each, both against the one real Eid Bonus type, plus Bangla New Year at 20%) once that Bonus Type actually exists." },
+      { name: "Overtime — Regular / Weekend / Holiday", rule: "Whether overtime pay applies on an ordinary working day (Regular — always turned on), and independently on a Weekend or a Holiday (each generated with roughly an 80% chance of being turned on). This one only actually works once the company's own real Attendance Policy has overtime turned on too — otherwise there's nothing for payroll to pay overtime on." },
+      { name: "Attendance Bonus — Counted on / Calculation", rule: "How this bonus is earned (based on a percentage of attendance, or a number of days present) and how it's paid out (a flat rate, or a percentage of some other figure). Both are generated to a sensible default rather than typed in by hand." },
+      { name: "Custom Addition/Deduction — Name / Type", rule: "A custom line item added to or subtracted from an employee's pay — its own Name, and whether it's an Addition (adds to pay) or a Deduction (subtracts from it). A company can have up to 10 of these real fields." },
+      { name: "Custom Addition/Deduction — Carry Forward", rule: "Whether an unused amount from this line item carries forward into the next pay period instead of being lost." },
+      { name: "Tax — Enable Tax", rule: "A single switch to turn this company's tax rules on. This is honestly as far as this part of the real system currently goes — there's no way yet, in the real API this tool connects to, to actually configure a specific tax bracket or rate; this button only turns the feature on or off." },
+    ],
+  },
+};
+
 /* Five seconds a cell is generous for someone typing carefully from a
    spec — the constant welcomeChartsHtml()'s own "minutes saved" chart
    and Team activity's "estimated time saved" tile both multiply by. */
@@ -2670,6 +3185,78 @@ const OPERATION_CELL_ESTIMATE = {
   payroll_field_add: 880, // 110 people x 8 fields
   assets_add: 35000, // 7 columns x up to 5,000 rows
 };
+
+/* "By the numbers"' real per-task time comparison (2026-09-28, revision
+   #3) — replaces both SETTINGS_GROUP_TIME_ESTIMATE and the per-50-
+   entries OPERATION_CELLS_PER_ENTRY math from revision #2. Those were
+   both derived numbers (a field count times a seconds-per-cell rate);
+   this session's own feedback was that the derived numbers "didn't
+   convey impact to a normal user," so they're gone outright, replaced
+   by the user's own dictated real-world estimates — manual typing,
+   typing with AI's help, and Bulk Forge — confirmed one operation at a
+   time, not computed from any formula. Manual/AI are `[low, high]`
+   minute ranges (a single-value operation just repeats the same number
+   twice, e.g. `[80, 80]`) so `minutesMid()`/`formatMinRange()` below
+   can both display the real range and compute a real midpoint for the
+   combined total, from the one source of truth. Bulk Forge is always a
+   single number — a QA engineer's own click-to-file time, not a range. */
+const OPERATION_TIME_COMPARISON = {
+  employee_add: { manual: [75, 80], ai: [10, 10], bulkForge: 1 },
+  attendance_add: { manual: [80, 80], ai: [15, 15], bulkForge: 2 },
+  leave_balance_add: { manual: [5, 10], ai: [5, 5], bulkForge: 2 },
+  assets_add: { manual: [60, 65], ai: [5, 7], bulkForge: 1 },
+  payroll_field_add: { manual: [20, 20], ai: [5, 5], bulkForge: 1 },
+};
+
+/* Settings has no AI figure — AI can't click through a company's own
+   admin screens for you, only Company Setup's "Run defaults" can — so
+   this is a plain manual-vs-Bulk-Forge pair, not a 3-way comparison
+   like the Bulk operations above. Both dictated directly, same as the
+   table above; not derived from SETTINGS_GROUP_TIME_ESTIMATE's old
+   per-group breakdown (32+2+2+3+9+19=67), which this replaces outright. */
+const SETTINGS_TIME_COMPARISON = { manual: 37, bulkForge: 1 };
+
+/* The fixed display order for the Bulk side of "By the numbers" — Employee
+   Add, Attendance Add, Leave Balance Add, Assets Add, Payroll Custom
+   Field Add — direct instruction, not OPERATIONS' own declared order
+   (which has Payroll before Assets). Scoped to this one section only;
+   OPERATIONS itself drives the sidebar and stays untouched, so
+   reordering this display never touches Operations nav order. */
+const WELCOME_OPERATION_ORDER = ["employee_add", "attendance_add", "leave_balance_add", "assets_add", "payroll_field_add"];
+
+/* "Add it all up"'s own "vs AI" saved figure (2026-09-28) — a flat,
+   directly dictated value ("eta 55 Min koro"), not computed from the
+   per-operation `ai` figures above the way it was on the first pass
+   (that math gave 34 min; the user's own call was to set the shown
+   figure directly rather than revise any operation's own AI number to
+   make the math produce 55). The "vs fully manual" figure right next
+   to it stays a real live computation — only this one is fixed. */
+const WELCOME_VS_AI_SAVED_MIN = 55;
+
+/* The post-login Dashboard's own time-range filter (2026-09-29) — a
+   fixed, dictated list, "This week / This month / Last 3 months / Last
+   6 months," plus "All time" as the default (not in the user's own
+   list — added and confirmed directly, since a brand-new/light-usage
+   account would otherwise open on an empty-looking "This week"). Each
+   is a rolling window from now, not a calendar boundary — simpler, and
+   avoids "this week" meaning something different depending on what day
+   it is. `days: null` means no lower bound at all. */
+const DASHBOARD_RANGES = [
+  { id: "all", label: "All time", days: null },
+  { id: "week", label: "This week", days: 7 },
+  { id: "month", label: "This month", days: 30 },
+  { id: "3months", label: "Last 3 months", days: 90 },
+  { id: "6months", label: "Last 6 months", days: 180 },
+];
+
+/* Bulk runs' own donut chart (2026-09-29) — a monochrome-green first
+   pass read as hard to tell apart, direct feedback: "donut e ektu
+   different colors use koro jeno easily differentiate kora jay." Five
+   genuinely distinct hues, not a rainbow — kept away from every colour
+   that already carries a meaning elsewhere in this app (green = accent/
+   success, gold = warning, red = danger, blue/purple = the env badges),
+   so this palette can't be misread as any of those on the same page. */
+const DASHBOARD_CHART_COLORS = ["#28a143", "#3b82f6", "#e2a336", "#8b5cf6", "#64748b"];
 
 const OPERATIONS = [
   { id: "employee_add", label: "Employee Add", status: "active" },
@@ -3328,6 +3915,19 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      gate below interrupted it, so a successful sign-in lands exactly
      where the visitor meant to go rather than back on the Dashboard. */
   let pendingOperation = null;
+  /* "What we offer & FAQ" (2026-09-29, reshaped into a two-level shell
+     2026-09-30) — `faqCategory` is which half of the page is showing
+     ("bulk" or "settings"), `faqTopic` is which item's own detail is
+     open within that category (a FAQ_TOPICS id under "bulk", a
+     SETTINGS_GROUPS id under "settings"). `null` means "not resolved
+     yet" — faqTemplate() resolves it to the first item of whichever
+     category is current, so the page always opens on something rather
+     than an empty detail pane. Not tracked in browser history, same as
+     Company Setup's own internal drill-down (group grid -> a module
+     tab) — switching the category or the topic is a plain re-render,
+     never a second History API entry. */
+  let faqCategory = "bulk";
+  let faqTopic = null;
   /* A Set, not a single key, 2026-09-19 (direct request: for a big batch,
      mixing more than one theme means less cycling within any one small
      pool before a numeric suffix has to appear). At least one theme is
@@ -3601,14 +4201,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     return departmentState().final;
   }
 
-  function generateWorkbookRows(count, prefix, theme, finalDepartments) {
+  function generateWorkbookRows(count, prefix, theme, finalDepartments, startNumber) {
     const names = generateNames(theme, count);
     const usedEmails = new Set();
     const usedPhones = new Set();
     const runTag = randomTag(5);
+    const start = startNumber || 1;
     const rows = [HEADER];
     for (let i = 0; i < count; i++) {
-      const seq = pad4(i + 1);
+      const seq = pad4(start + i);
       const empId = prefix + seq;
       const bioId = prefix + "B" + seq;
       const name = names[i];
@@ -3723,16 +4324,38 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   function renderSidebar() {
     const home = $("#homeNav");
     home.innerHTML = "";
-    const homeBtn = document.createElement("button");
-    homeBtn.className = "op-item";
-    homeBtn.type = "button";
-    homeBtn.setAttribute("aria-current", String(currentOp === "welcome"));
-    homeBtn.innerHTML = `<span class="op-item-label">${opIcon("welcome")}Welcome</span>`;
-    homeBtn.addEventListener("click", () => {
+    /* The real post-login Dashboard (2026-09-29) — a second, separate
+       sidebar item, not a repurposing of the existing Welcome one
+       below. That button is only ever visible/clickable once signed in
+       anyway (the whole .sidebar hides otherwise), which made
+       repointing it tempting — but several existing tests click it by
+       its exact label ("Welcome") expecting the actual pre-signin-style
+       page (.welcome-row etc.) to render, to check unrelated things
+       like scroll-reset behaviour. Adding this as its own item keeps
+       that page reachable exactly as before, with zero risk to those
+       checks, rather than repurposing a button whose label a handful
+       of tests already depend on. */
+    const dashBtn = document.createElement("button");
+    dashBtn.className = "op-item";
+    dashBtn.type = "button";
+    dashBtn.setAttribute("aria-current", String(currentOp === "dashboard"));
+    dashBtn.innerHTML = `<span class="op-item-label">${opIcon("dashboard")}Dashboard</span>`;
+    dashBtn.addEventListener("click", () => {
       if (isBulkRunActive()) return;
-      navigateTo("welcome");
+      navigateTo("dashboard");
     });
-    home.appendChild(homeBtn);
+    home.appendChild(dashBtn);
+
+    /* The "Welcome" nav item that used to sit here is gone (2026-09-29,
+       direct feedback: "login korar por welcome page ta ar dekhano
+       uchit na. o to login korei felse" — showing the public, not-yet-
+       signed-in landing page to someone who's already signed in is a
+       real loophole, not a feature). This ONLY removes the sidebar
+       button — an unauthenticated visitor still lands on the real
+       Welcome page first (currentOp's own initial value, above), since
+       the whole sidebar stays hidden until a real sign-in happens
+       anyway. Once signed in, "Dashboard" (above) is the only top-level
+       landing page reachable from the nav. */
 
     /* Tiered Access, continued (2026-09-25, round two — direct
        follow-up correction): the whole sidebar hides pre-signin now, not
@@ -3840,6 +4463,55 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         adminNav.appendChild(btn);
       });
     }
+
+    /* "What we offer & FAQ" (2026-09-29) — its own sidebar item, below
+       every other section, right above Log out ("shob gula option er
+       niche, logout er upore, alada vabe thakbe" — below all the
+       options, above Log out, on its own). No tier/admin gate: this is
+       documentation, not a real write, so any signed-in visitor can
+       open it. */
+    const faqNav = $("#faqNav");
+    faqNav.innerHTML = "";
+    const faqBtn = document.createElement("button");
+    faqBtn.className = "op-item";
+    faqBtn.type = "button";
+    faqBtn.setAttribute("aria-current", String(currentOp === "faq"));
+    faqBtn.innerHTML = `<span class="op-item-label">${opIcon("faq")}What we offer & FAQ</span>`;
+    faqBtn.addEventListener("click", () => {
+      if (isBulkRunActive()) return;
+      if (currentOp !== "faq") {
+        faqCategory = "bulk";
+        faqTopic = null;
+      }
+      navigateTo("faq");
+    });
+    faqNav.appendChild(faqBtn);
+
+    /* The sidebar's own "Signed in as" card (2026-09-29) — direct
+       request, modelled on a real reference screenshot's own sidebar-
+       footer card (there, "Download our mobile app"; here, who's
+       signed in) — replaces the Dashboard page-head's own "Signed in
+       as..." line, which is gone now that this lives here instead.
+       Email only for now, a deliberate first step — "amra jodi shobar
+       jonno ekta user name dite pari aro valo hoy. apatoto mail diye
+       design koro then user name er concept e ashtesi" (it'd be nicer
+       if everyone had a real username; design with email for now, the
+       username idea comes next). */
+    const userCard = $("#sidebarUserCard");
+    if (setup.toolToken && setup.toolEmail) {
+      const initial = setup.toolEmail.trim().charAt(0).toUpperCase() || "?";
+      userCard.innerHTML = `
+        <div class="sidebar-user-card">
+          <span class="sidebar-user-avatar">${escapeHtml(initial)}</span>
+          <span class="sidebar-user-info">
+            <span class="sidebar-user-caption">Signed in as</span>
+            <span class="sidebar-user-email">${escapeHtml(setup.toolEmail)}</span>
+          </span>
+        </div>
+      `;
+    } else {
+      userCard.innerHTML = "";
+    }
   }
 
   /* Wraps an operation's form in the two-column shell when that operation
@@ -3884,7 +4556,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
        rail, not this page's bigger, vertically-centred one). welcome-wide
        is reset the same way — only the Welcome branch below turns it
        back on. */
-    root.classList.remove("rickroll-layout", "welcome-wide");
+    root.classList.remove("rickroll-layout", "welcome-wide", "faq-wide");
 
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
@@ -3901,6 +4573,17 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       root.innerHTML = welcomeTemplate();
       wireWelcomeEvents();
       $("#welcomeBar").style.display = "flex";
+      return;
+    }
+    if (currentOp === "dashboard") {
+      $("#actionBar").style.display = "none";
+      /* Same wider 1100px column Company Setup/Admin Panel already use
+         — this page has a data table and card rows, not a short
+         field-form, so the default 760px column would read cramped. */
+      root.classList.remove("has-media", "welcome-wide");
+      root.classList.add("wide");
+      root.innerHTML = dashboardTemplate();
+      wireDashboardEvents();
       return;
     }
     if (currentOp === "operations_gate") {
@@ -3942,6 +4625,19 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       root.classList.add("wide");
       root.innerHTML = adminAuditTemplate();
       wireAdminAuditEvents();
+      return;
+    }
+    if (currentOp === "faq") {
+      $("#actionBar").style.display = "none";
+      root.classList.remove("has-media", "welcome-wide");
+      /* Wider still than plain .wide (2026-09-30, direct feedback:
+         "overall page er width barao eto kom keno") — the Bulk side's
+         own 14-column table needed real room. Kept alongside .wide,
+         not instead of it, so this page keeps .wide's own typography
+         bumps too (see app.css). */
+      root.classList.add("wide", "faq-wide");
+      root.innerHTML = faqTemplate();
+      wireFaqEvents();
       return;
     }
     if (currentOp === "attendance_add") {
@@ -4013,6 +4709,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      assets. */
   const OP_ICONS = {
     welcome: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
+    dashboard: '<rect x="3.5" y="10" width="4" height="10.5" rx="1"/><rect x="10" y="5" width="4" height="15.5" rx="1"/><rect x="16.5" y="13.5" width="4" height="7" rx="1"/>',
     employee_add: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     attendance_add: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 1.9"/>',
     leave_balance_add: '<rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M8 2.5v4M16 2.5v4M3 10.5h18"/><path d="M8 15h.01M12 15h.01M16 15h.01M8 18.5h.01M12 18.5h.01"/>',
@@ -4021,6 +4718,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     company_setup: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
     admin_users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     admin_audit: '<path d="M9 2h6l4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v4h4"/><path d="M8 12h8M8 16h8M8 8h3"/>',
+    faq: '<circle cx="12" cy="12" r="9.5"/><path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   };
 
   function opIcon(id) {
@@ -4130,7 +4828,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Batch basics</h2></div>
         <p class="section-note">How many employees, and what their IDs should start with.</p>
-        <div class="field-row">
+        <div class="field-grid-3">
           <div class="field">
             <label for="countInput">Number of employees</label>
             <input type="number" id="countInput" min="10" max="300" value="50" />
@@ -4142,6 +4840,11 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
             <input type="text" id="prefixInput" maxlength="8" placeholder="JHTY" value="JHTY" />
             <span class="hint">4 alphabetic characters — auto-uppercase</span>
             <span class="error-text" id="prefixError"></span>
+          </div>
+          <div class="field">
+            <label for="startNumberInput">Starting number</label>
+            <input type="number" id="startNumberInput" min="1" value="1" />
+            <span class="hint">Default 0001 — set this higher if this company already has IDs, so a re-run doesn't collide</span>
           </div>
         </div>
         <div class="preview-row" id="idPreview"></div>
@@ -4178,6 +4881,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   function wireEmployeeAddEvents() {
     const countInput = $("#countInput");
     const prefixInput = $("#prefixInput");
+    const startNumberInput = $("#startNumberInput");
 
     countInput.addEventListener("input", () => {
       validateCount();
@@ -4190,6 +4894,10 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       validatePrefix();
       renderIdPreview();
       updateSummary();
+    });
+    startNumberInput.addEventListener("input", () => {
+      startNumberInput.value = Math.max(1, parseInt(startNumberInput.value, 10) || 1);
+      renderIdPreview();
     });
 
     const themeGrid = $("#themeGrid");
@@ -4285,9 +4993,10 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   function renderIdPreview() {
     const prefix = /^[A-Z]{4}$/.test($("#prefixInput").value) ? $("#prefixInput").value : "JHTY";
+    const start = Math.max(1, parseInt($("#startNumberInput").value, 10) || 1);
     const box = $("#idPreview");
     box.innerHTML = "";
-    [1, 2, 3].forEach((n) => {
+    [start, start + 1, start + 2].forEach((n) => {
       const chip = document.createElement("span");
       chip.className = "chip accent";
       chip.textContent = `${prefix}${pad4(n)}  /  ${prefix}B${pad4(n)}`;
@@ -4553,8 +5262,9 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     }
     const count = parseInt($("#countInput").value, 10);
     const prefix = $("#prefixInput").value;
+    const startNumber = Math.max(1, parseInt($("#startNumberInput").value, 10) || 1);
     try {
-      const rows = generateWorkbookRows(count, prefix, nameThemes, finalDepts);
+      const rows = generateWorkbookRows(count, prefix, nameThemes, finalDepts, startNumber);
       const { wb, filename } = downloadWorkbook(rows, prefix);
       openGenerateCompleteModal("Employee Add file is ready!", `${filename} — ${count} employees, and you typed none of them.`, wb, filename);
     } catch (err) {
@@ -5501,24 +6211,38 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     const showCustom = att.holidayMode === "custom" || att.holidayMode === "govt_custom";
 
     if (showGovt) {
-      const govt = govtHolidayList().filter((h) => att.govtRemoved.indexOf(h.date) === -1);
+      /* Scoped to the selected date range, not every year BD_HOLIDAYS
+         holds — direct request, 2026-09-30: "only oi range er moddhe
+         jeshob holiday porbe oigula dekhabe" (only show holidays that
+         fall inside the selected range). govtHolidayList() itself stays
+         unscoped — activeHolidaySet()/generateAttendanceRows() need the
+         full set, since eachDate() is what actually confines generation
+         to the range; this filter is display-only. */
+      const rangeFrom = att.from, rangeTo = att.to;
+      const govt = govtHolidayList()
+        .filter((h) => att.govtRemoved.indexOf(h.date) === -1)
+        .filter((h) => (!rangeFrom || h.date >= rangeFrom) && (!rangeTo || h.date <= rangeTo));
       const box = document.createElement("div");
-      box.innerHTML = `
-        <p class="sub-note">Taken from Shomvob HR — <strong>${govt.length}</strong> dates. Don't want one? Hit its ×.</p>
-        <div class="preview-row">${govt
-          .map(
-            (h) =>
-              `<span class="chip removable ${h.approx ? "approx" : ""}" title="${escapeHtml(h.name)}">${h.date}<button type="button" class="chip-x" data-govt="${h.date}" title="Remove">×</button></span>`
-          )
-          .join("")}</div>`;
-      $all("button[data-govt]", box).forEach((b) => {
-        b.addEventListener("click", () => {
-          att.govtRemoved.push(b.dataset.govt);
-          renderHolidays();
-          renderRangeTally();
-          updateSummary();
+      if (govt.length) {
+        box.innerHTML = `
+          <p class="sub-note">Taken from Shomvob HR — <strong>${govt.length}</strong> dates in this range. Don't want one? Hit its ×.</p>
+          <div class="preview-row">${govt
+            .map(
+              (h) =>
+                `<span class="chip removable ${h.approx ? "approx" : ""}" title="${escapeHtml(h.name)}">${h.date}<button type="button" class="chip-x" data-govt="${h.date}" title="Remove">×</button></span>`
+            )
+            .join("")}</div>`;
+        $all("button[data-govt]", box).forEach((b) => {
+          b.addEventListener("click", () => {
+            att.govtRemoved.push(b.dataset.govt);
+            renderHolidays();
+            renderRangeTally();
+            updateSummary();
+          });
         });
-      });
+      } else {
+        box.innerHTML = `<p class="sub-note">No Shomvob HR holidays fall inside this date range.</p>`;
+      }
       wrap.appendChild(box);
     }
 
@@ -5633,11 +6357,13 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
     $("#fromDate").addEventListener("input", (e) => {
       att.from = e.target.value;
+      renderHolidays();
       renderRangeTally();
       updateSummary();
     });
     $("#toDate").addEventListener("input", (e) => {
       att.to = e.target.value;
+      renderHolidays();
       renderRangeTally();
       updateSummary();
     });
@@ -6514,6 +7240,83 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
   const dashboardStats = { status: "idle", summary: null, error: "" };
   // status: "idle" | "checking" | "not_admin" | "ready" | "error"
 
+  /* The post-login Dashboard's own real usage stats (2026-09-29) —
+     unlike dashboardStats above, this is *not* admin-gated: reaching
+     the Dashboard at all already requires a real sign-in ("dashboard
+     kintu only for signed user" — direct confirmation that no
+     additional admin check belongs on top of that). `dashboard_bulk_stats`,
+     a narrow SQL function granted to `authenticated` only, never `anon`,
+     returns aggregated per-operation counts with no company_name/
+     user_email attached — the same anon-safe-aggregate discipline
+     `public_generate_counts()` already holds itself to, just scoped one
+     step tighter since this data only needs to exist for someone who's
+     actually signed in. Its sibling, `dashboard_settings_save_count`,
+     backed the Real usage table's own Settings row — that table is
+     gone (below), so nothing here calls it any more; the SQL function
+     itself is still deployed, just unused client-side. */
+  /* One filter per chart, not one shared filter for the whole section
+     (revised 2026-09-29, direct request: "every graph e filter lagao"
+     — confirmed to mean each chart picks its own independent range,
+     not one control driving all three). `dashboard_bulk_stats` already
+     returns both count and entries per operation in one call, so each
+     chart's own fetch covers everything it needs — "bulk_runs" reads
+     `count`, "entries" reads `entries`, "time_saved" derives minutes
+     from the same `entries` via `OPERATION_TIME_COMPARISON`, exactly
+     as before. `impact` is a fourth, fixed-range slot with no filter
+     UI of its own — "Estimated impact so far" reads as a cumulative
+     claim ("so far"), not "in this range," so it's pinned to All time;
+     a judgment call, not something asked for explicitly, flagged back
+     to the user rather than silently assumed away. The Real usage
+     table this section used to show is gone outright, same request —
+     the three charts read better on their own. */
+  const dashboardChartStats = {
+    bulk_runs: { status: "idle", range: "all", byOperation: {} },
+    entries: { status: "idle", range: "all", byOperation: {} },
+    time_saved: { status: "idle", range: "all", byOperation: {} },
+    impact: { status: "idle", range: "all", byOperation: {} },
+  };
+  // status: "idle" | "checking" | "ready" | "error"
+
+  async function loadDashboardChartStats(key, rangeId) {
+    const state = dashboardChartStats[key];
+    state.status = "checking";
+    state.range = rangeId;
+    const range = DASHBOARD_RANGES.find((r) => r.id === rangeId) || DASHBOARD_RANGES[0];
+    const sinceTs = range.days ? new Date(Date.now() - range.days * 24 * 3600 * 1000).toISOString() : "1970-01-01T00:00:00Z";
+    try {
+      const headers = { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` };
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/dashboard_bulk_stats`, { method: "POST", headers, body: JSON.stringify({ since_ts: sinceTs }) });
+      if (!res.ok) throw new Error("Couldn't load real usage.");
+      const bulkRows = await res.json();
+      const byOperation = {};
+      for (const row of bulkRows) byOperation[row.module_id] = { count: Number(row.generate_count), entries: Number(row.total_entries) };
+      state.byOperation = byOperation;
+      state.status = "ready";
+    } catch (e) {
+      state.status = "error";
+    }
+  }
+
+  /* Turns one operation's real (count, entries) into real Manual/AI/
+     Bulk-Forge minutes, scaled from OPERATION_TIME_COMPARISON's own
+     per-50-entries basis (the same dictated numbers "By the numbers"
+     already uses) — real usage is whatever count actually happened,
+     not a fixed 50. Zero entries (nothing generated yet, or no data
+     for this range) correctly zeroes out every figure rather than
+     dividing by zero. */
+  function chartStatsForOperation(key, id) {
+    const s = dashboardChartStats[key].byOperation[id] || { count: 0, entries: 0 };
+    const basis = OPERATION_TIME_COMPARISON[id];
+    const scale = s.entries / 50;
+    return {
+      count: s.count,
+      entries: s.entries,
+      manual: basis ? minutesMid(basis.manual) * scale : 0,
+      ai: basis ? minutesMid(basis.ai) * scale : 0,
+      bulkForge: basis ? basis.bulkForge * scale : 0,
+    };
+  }
+
   async function checkIsAdmin() {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/is_admin`, {
@@ -6651,46 +7454,268 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
   /* `counts` is a plain {label: n} object — sorted desc, the biggest bar
      always reads full-width so every other one reads proportionally
-     against it rather than against some arbitrary fixed max. */
-  function barListHtml(counts) {
+     against it rather than against some arbitrary fixed max. `formatCount`
+     is optional — the raw number is what sizes/sorts the bar, but a caller
+     showing minutes (say) can pass a formatter so the printed value reads
+     "1H 20M" instead of a bare number of minutes. */
+  function barListHtml(counts, formatCount) {
+    const fmt = formatCount || ((n) => n);
     const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
     if (entries.length === 0) return `<p class="section-note" style="margin:6px 0 0">Nothing yet.</p>`;
-    const max = entries[0][1];
+    const max = entries[0][1] || 1;
     return `<div style="margin-top:8px">${entries
       .map(
         ([label, count]) => `
       <div class="stat-bar-row">
         <span class="stat-bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
         <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${Math.max(6, Math.round((count / max) * 100))}%"></span></span>
-        <span class="stat-bar-count">${count}</span>
+        <span class="stat-bar-count">${fmt(count)}</span>
       </div>`
       )
       .join("")}</div>`;
   }
 
-  /* Dashboard's public "By the numbers" charts (2026-09-25 redesign) —
-     unlike "Team activity" below, these need no sign-in and no network
-     call at all: every number here is static data this file already
-     ships (OPERATION_CELL_ESTIMATE, the same figures the old 3-tile
-     stat row and each op-card's own "by hand" cost line already showed).
-     Reuses barListHtml() as-is rather than a second bar component. */
-  function welcomeChartsHtml() {
-    const cellCounts = {};
-    const minuteCounts = {};
-    OPERATIONS.forEach((op) => {
-      const cells = OPERATION_CELL_ESTIMATE[op.id] || 0;
-      cellCounts[op.label] = cells;
-      minuteCounts[op.label] = Math.round((cells * WELCOME_SECONDS_PER_CELL) / 60);
+  /* Two real chart types for the Dashboard's "Real usage" section
+     (2026-09-29), replacing an earlier `barListHtml()` pass that read
+     as a plain progress-bar list, not a chart ("ektu ekta chart graph
+     ashar kotha... ek fota o shundor lagtese na"). Mocked up on a
+     design canvas first — a donut for Bulk runs (a share-of-activity
+     question, where a pie/donut's whole job is proportion) and a real
+     axis bar chart for Entries created / Time saved (a magnitude/
+     ranking question, where an axis lets exact values be read off,
+     which a donut is bad at past a couple of slices) — confirmed
+     directly before building either. `DASHBOARD_CHART_COLORS`
+     (`app-data.js`) is a genuinely distinct 5-hue palette, not shades
+     of one colour — a first monochrome-green pass read as hard to
+     tell slices apart, direct feedback. */
+  function donutChartHtml(items) {
+    const data = items.filter((d) => d.value > 0);
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total === 0) return `<p class="section-note" style="margin:10px 0 0">Nothing yet.</p>`;
+    const R = 70;
+    const C = 2 * Math.PI * R;
+    let acc = 0;
+    const slices = data.map((d, i) => {
+      const frac = d.value / total;
+      const arc = frac * C;
+      const dasharray = `${arc.toFixed(2)} ${(C - arc).toFixed(2)}`;
+      const dashoffset = (-acc).toFixed(2);
+      acc += arc;
+      return { ...d, pct: Math.round(frac * 100), color: DASHBOARD_CHART_COLORS[i % DASHBOARD_CHART_COLORS.length], dasharray, dashoffset };
     });
-    const shapeCounts = { "Build from scratch": 3, "Fill an existing export": 2 };
+    return `
+      <div class="dashboard-donut-body">
+        <div style="position:relative;width:260px;height:260px;flex-shrink:0">
+          <svg width="260" height="260" viewBox="0 0 220 220">
+            <circle cx="110" cy="110" r="70" fill="none" stroke="var(--surface-2)" stroke-width="34"></circle>
+            ${slices
+              .map(
+                (s) => `<circle cx="110" cy="110" r="70" fill="none" stroke-width="34" stroke="${s.color}" stroke-dasharray="${s.dasharray}" stroke-dashoffset="${s.dashoffset}" transform="rotate(-90 110 110)"></circle>`
+              )
+              .join("")}
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <span class="dashboard-donut-total">${total}</span>
+            <span class="dashboard-donut-total-label">Total runs</span>
+          </div>
+        </div>
+        <div class="dashboard-donut-legend">
+          ${slices
+            .map(
+              (s) => `<div class="dashboard-donut-legend-row">
+            <span class="dashboard-donut-swatch" style="background:${s.color}"></span>
+            <span class="dashboard-donut-legend-label" title="${escapeHtml(s.label)}">${escapeHtml(s.label)}</span>
+            <span class="dashboard-donut-legend-pct">${s.pct}%</span>
+          </div>`
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function axisBarChartHtml(items, formatValue) {
+    const fmt = formatValue || ((n) => String(n));
+    const max = items.reduce((m, d) => Math.max(m, d.value), 0);
+    if (max === 0) return `<p class="section-note" style="margin:10px 0 0">Nothing yet.</p>`;
+    const PLOT_H = 150; // must match .dashboard-bar-plot/.dashboard-bar-axis's own height in app.css
+    const TOP_RESERVE = 18; // headroom above the tallest bar for its own value label
+    const maxBarPx = PLOT_H - TOP_RESERVE;
+    const bars = items.map((d) => ({
+      label: d.label,
+      value: fmt(d.value),
+      barHeightPx: Math.max(3, Math.round((d.value / max) * maxBarPx)),
+    }));
+    const ticks = [100, 75, 50, 25, 0].map((pct) => ({
+      value: fmt(Math.round((pct / 100) * max)),
+      top: Math.round(TOP_RESERVE + (1 - pct / 100) * maxBarPx),
+    }));
+    return `
+      <div class="dashboard-bar-chart">
+        <div class="dashboard-bar-axis">
+          ${ticks.map((t) => `<span class="dashboard-bar-tick" style="top:${t.top}px">${escapeHtml(t.value)}</span>`).join("")}
+        </div>
+        <div class="dashboard-bar-plot">
+          ${ticks.map((t) => `<span class="dashboard-bar-gridline" style="top:${t.top}px"></span>`).join("")}
+          <div class="dashboard-bar-bars">
+            ${bars
+              .map(
+                (b) => `<div class="dashboard-bar-col">
+              <span class="dashboard-bar-value">${escapeHtml(b.value)}</span>
+              <span class="dashboard-bar-fill" style="height:${b.barHeightPx}px"></span>
+            </div>`
+              )
+              .join("")}
+          </div>
+        </div>
+        <div class="dashboard-bar-labels">
+          ${bars.map((b) => `<span class="dashboard-bar-label" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</span>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  /* Dashboard's public "By the numbers" charts (2026-09-25 redesign),
+     rebuilt a third time 2026-09-28 — the most important feedback of
+     that whole day's pass: revision #2's per-50-entries bar chart
+     (58/33/29/17/4 min, derived from a cells x seconds-per-cell
+     formula) still "didn't convey impact to a normal user." Asked
+     directly for an idea, not just a fix — the recommendation that
+     landed was a before/after comparison, and once that meant real
+     numbers rather than a formula, the user dictated them himself,
+     operation by operation, exactly this project's own "confirm rules,
+     never assume" discipline: how long 50 entries actually takes fully
+     by hand, how long with AI's help, and how long with Bulk Forge.
+     `OPERATION_TIME_COMPARISON`/`SETTINGS_TIME_COMPARISON`/
+     `WELCOME_OPERATION_ORDER` (`app-data.js`) hold these — see that
+     file's own comment for the full dictation. `minutesMid()`/
+     `formatMinRange()`/`formatHoursMinutes()` below are the shared
+     helpers that turn a `[low, high]` range into both its own display
+     text and a real number for the combined section's math, from one
+     source rather than two.
+
+     The Bulk list is a real 3-column table now (`.preview-table`,
+     reused as-is — Admin Panel's/Leave Balance's/Payroll's own
+     component, not a new one), not a bar chart — a bar's only real job
+     is ranking, and ranking was never the point here; the actual
+     numbers themselves (a Bulk Forge column reading "1 min" next to a
+     "By hand" column reading "75–80 min") are what a normal user can
+     actually feel. Row order is a fixed, dictated sequence
+     (`WELCOME_OPERATION_ORDER`) — Employee Add, Attendance Add, Leave
+     Balance Add, Assets Add, Payroll Custom Field Add — not sorted by
+     any value, on both the "What it does" list and the table, so the
+     two always agree without needing the descending-by-value sort
+     revision #2 built (and this revision deletes).
+
+     Settings gets the identical before/after shape, just 2 columns
+     instead of 3 — AI can't click through a company's own admin
+     screens, so there's no "with AI" figure for it. Its old merged
+     `~67 min` stat tile (the sum of 6 per-group estimates) is replaced
+     by a flat, directly dictated `37 min` — "eta 37 min koro 67 er
+     jaygay" — with `.stat-value`'s own "min" capitalised to "Min" the
+     same message asked for ("Min er M boro haat er dao"), and a new
+     line under it naming the Bulk Forge side too ("Run defaults
+     instead: ~1 min"), so Settings reads as the same real comparison
+     the Bulk side now does rather than a single number with nothing to
+     measure it against.
+
+     A brand-new second section, "Add it all up," is the direct answer
+     to a follow-up ask: run 50 of each Bulk operation plus one Settings
+     "Run defaults," what's the real combined gap? Computed live from
+     the same dictated numbers above (range midpoints, real minutes,
+     not a fresh guess) rather than the "der-arai ghonta" (1.5–2.5
+     hours) figure the user had been estimating by feel — confirmed
+     directly once the real math came out noticeably higher than that
+     estimate. Two totals, not one, since "vs AI" and "vs fully manual"
+     are genuinely different claims: vs fully manual includes Settings
+     (nobody's typing through 20 admin screens with AI's help either),
+     vs AI is Bulk-only (the one place AI genuinely competes).
+
+     Revised a 4th time minutes later, same day, two more direct
+     corrections against the very next screenshot: (1) "table tai pura
+     section e hobe. otai shundor lagtese" — the "What it does" bullet
+     list is gone outright and Settings' own separate 2-column row (the
+     "Company's Settings Setup" box + its own `~37 Min` stat tile) is
+     gone too, both folded into the *one* table as its final row — the
+     table's Operation column already names every row, so the bullet
+     list was pure duplication, and Settings reads as "Settings (whole
+     company)" with a `—` in the With-AI column rather than a whole
+     second layout just for one more row. The 6-group breakdown that
+     used to live in that box is now a plain caption under the table
+     instead of a box of its own. (2) "ekhon ekdom alada section
+     banaiso keno? eta ei section er moddhei just alada shade e
+     dekhate bolsi" — "Add it all up" was never meant to be its own
+     `.section` card; it's `.numbers-addup-box` now, a tinted panel
+     *inside* the same "By the numbers" card (see app.css's own note on
+     that class), so the whole thing is one section again, the same way
+     it was before revision #2 ever split it into two. */
+  function minutesMid(range) {
+    return (range[0] + range[1]) / 2;
+  }
+  function formatMinRange(range) {
+    return range[0] === range[1] ? `${range[0]} min` : `${range[0]}–${range[1]} min`;
+  }
+  function formatHoursMinutes(totalMinutes) {
+    const rounded = Math.round(totalMinutes);
+    const h = Math.floor(rounded / 60);
+    const m = rounded % 60;
+    return h > 0 ? `${h}H ${m}M` : `${m} Min`;
+  }
+  function welcomeChartsHtml() {
+    const rows = WELCOME_OPERATION_ORDER.map((id) => ({
+      id,
+      label: OPERATIONS.find((o) => o.id === id).label,
+      ...OPERATION_TIME_COMPARISON[id],
+    }));
+    const manualTotalAll = rows.reduce((sum, r) => sum + minutesMid(r.manual), 0) + SETTINGS_TIME_COMPARISON.manual;
+    const bulkForgeTotalAll = rows.reduce((sum, r) => sum + r.bulkForge, 0) + SETTINGS_TIME_COMPARISON.bulkForge;
+    const vsManualSaved = manualTotalAll - bulkForgeTotalAll;
+    const settingsGroupNames = SETTINGS_GROUPS.map((g) => g.label.replace(/ Settings$/, "")).join(", ");
     return `
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>By the numbers</h2></div>
-        <p class="section-note">Static facts about the five operations themselves — nothing here needs a real sign-in.</p>
-        <div class="field-row field-row-3">
-          <div class="field"><label>Cells per operation, by hand</label>${barListHtml(cellCounts)}</div>
-          <div class="field"><label>Minutes saved per operation, at five seconds a cell</label>${barListHtml(minuteCounts)}</div>
-          <div class="field"><label>Built from scratch vs. filled into an export</label>${barListHtml(shapeCounts)}</div>
+        <p class="section-note">Static facts about what this tool actually covers — nothing here needs a real sign-in.</p>
+        <label style="margin-top:6px; display:block">Time saved, at a real per-task estimate</label>
+        <div class="preview-table-wrap" style="margin-top:8px">
+          <table class="preview-table">
+            <thead><tr>
+              <th>Operation</th><th class="num">By hand</th><th class="num">With AI</th><th class="num">Bulk Forge</th>
+            </tr></thead>
+            <tbody>
+              ${rows
+                .map(
+                  (r) => `<tr>
+                <td>${escapeHtml(r.label)} <span class="faint">(Per 50 entries)</span></td>
+                <td class="num">${formatMinRange(r.manual)}</td>
+                <td class="num">${formatMinRange(r.ai)}</td>
+                <td class="num strong">${r.bulkForge} min</td>
+              </tr>`
+                )
+                .join("")}
+              <tr>
+                <td>Settings <span class="faint">(whole company)</span></td>
+                <td class="num">${SETTINGS_TIME_COMPARISON.manual} min</td>
+                <td class="num faint">—</td>
+                <td class="num strong">${SETTINGS_TIME_COMPARISON.bulkForge} min</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="section-note" style="margin-top:8px">Settings covers all 6 groups in one "Run defaults" click — ${escapeHtml(settingsGroupNames)}. AI can't click through those admin screens for you, so there's no "With AI" figure for that row.</p>
+
+        <div class="numbers-addup-box">
+          <p class="numbers-addup-title">Add it all up</p>
+          <p class="section-note">50 of each Bulk operation above, plus one Settings "Run defaults" — the real combined gap.</p>
+          <div class="stat-row stat-row-2" style="margin-top:8px">
+            <div class="stat-tile">
+              <span class="stat-value">${formatHoursMinutes(vsManualSaved)}</span>
+              <span class="stat-label">Saved versus doing every bit of it by hand — Bulk and Settings both</span>
+            </div>
+            <div class="stat-tile">
+              <span class="stat-value">${formatHoursMinutes(WELCOME_VS_AI_SAVED_MIN)}</span>
+              <span class="stat-label">Saved versus using AI to help type it — Bulk operations only, since AI can't click through Settings for you</span>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -6720,10 +7745,10 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>Team activity <span style="font-weight:400; font-size:11.5px; color:var(--text-faint)">— admin only</span></h2></div>
         <p class="section-note">Real usage across the team, pulled straight from this tool's own activity log.</p>
         <div class="stat-row stat-row-4">
-          <div class="stat-tile"><span class="stat-value">${s.totalLogins}</span><span class="stat-label">tool sign-ins</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.totalSettingsSaved}</span><span class="stat-label">settings saved into real companies</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.totalBulkGenerated}</span><span class="stat-label">bulk files generated</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">estimated time those bulk files saved, at five seconds a cell</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalLogins}</span><span class="stat-label">Tool sign-ins</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalSettingsSaved}</span><span class="stat-label">Settings saved into real companies</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.totalBulkGenerated}</span><span class="stat-label">Bulk files generated</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">Estimated time those bulk files saved, at five seconds a cell</span></div>
         </div>
         <div class="field-row" style="margin-top:6px; align-items:flex-start;">
           <div class="field"><label>Bulk generates by operation</label>${barListHtml(s.bulkByOperation)}</div>
@@ -6751,7 +7776,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      estimate and Team Activity's own tile: `OPERATION_CELL_ESTIMATE` /
      `WELCOME_SECONDS_PER_CELL` are the only two numbers either one is
      built from, just fed by real counts here instead of a static guess. */
-  const publicGenerateStats = { status: "idle", totalFiles: 0, savedHours: 0, savedMins: 0, byOperation: {}, settingsAutomated: 0 };
+  const publicGenerateStats = { status: "idle", totalFiles: 0, savedHours: 0, savedMins: 0, settingsAutomated: 0 };
   // status: "idle" | "checking" | "ready" | "error"
 
   async function loadPublicGenerateStats() {
@@ -6771,17 +7796,13 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       const settingsAutomated = await settingsRes.json();
       let totalFiles = 0;
       let totalSeconds = 0;
-      const byOperation = {};
       for (const row of rows) {
         totalFiles += row.cnt;
         totalSeconds += (OPERATION_CELL_ESTIMATE[row.module_id] || 0) * WELCOME_SECONDS_PER_CELL * row.cnt;
-        const op = OPERATIONS.find((o) => o.id === row.module_id);
-        byOperation[op ? op.label : row.module_id] = row.cnt;
       }
       publicGenerateStats.totalFiles = totalFiles;
       publicGenerateStats.savedHours = Math.floor(totalSeconds / 3600);
       publicGenerateStats.savedMins = Math.round((totalSeconds % 3600) / 60);
-      publicGenerateStats.byOperation = byOperation;
       publicGenerateStats.settingsAutomated = settingsAutomated;
       publicGenerateStats.status = "ready";
     } catch (e) {
@@ -6789,6 +7810,10 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     }
   }
 
+  /* The "By operation" breakdown (a per-operation bar list under the 3
+     stat tiles) is gone, 2026-09-28 — direct instruction, boxed on a
+     screenshot with nothing else said about it. `byOperation` is no
+     longer collected above either, since nothing else reads it. */
   function publicGenerateStatsHtml() {
     if (publicGenerateStats.status === "idle" || publicGenerateStats.status === "checking") {
       return `
@@ -6805,12 +7830,9 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="section-head"><h2 class="section-title"><span class="section-num">&middot;</span>So far, for real</h2></div>
         <p class="section-note">Actual usage, pulled straight from this tool's own activity log — no sign-in needed to see it.</p>
         <div class="stat-row">
-          <div class="stat-tile"><span class="stat-value">${s.totalFiles}</span><span class="stat-label">real bulk files generated</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.settingsAutomated}</span><span class="stat-label">settings modules automated into real companies</span></div>
-          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">estimated typing time that saved, at five seconds a cell</span></div>
-        </div>
-        <div class="field-row" style="margin-top:6px; align-items:flex-start;">
-          <div class="field"><label>By operation</label>${barListHtml(s.byOperation)}</div>
+          <div class="stat-tile"><span class="stat-value">${s.totalFiles}</span><span class="stat-label">Real bulk files generated</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.settingsAutomated}</span><span class="stat-label">Settings modules automated into real companies</span></div>
+          <div class="stat-tile"><span class="stat-value">${s.savedHours}h ${s.savedMins}m</span><span class="stat-label">Estimated typing time that saved, at five seconds a cell</span></div>
         </div>
       </div>
     `;
@@ -6825,7 +7847,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
 
        Reason  (badge "Dear certified lazy")   — why this exists
        Offer   (badge "Your prayers, answered (mostly)") — what it does
-       Scope   (badge "The fine print")        — what's automated vs. not
+       Scope   (badge "Not actually magic")    — what's automated vs. not
 
      laid out as a deliberate zigzag: Reason's copy sits left of a meme,
      Offer's copy sits right of one (mirrored, via .welcome-row-reverse),
@@ -6833,9 +7855,22 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
      since a third meme in a row would flatten the pattern into
      wallpaper, and Scope's own honest, sobering tone reads better set
      apart rather than folded into the same rhythm as the other two.
-     The Hackerman GIF (already licensed for this exact purpose, see
-     app.css's own note below) is Offer's meme; Reason's is a plain
-     placeholder — a real image for that slot hasn't been picked yet. */
+     The Hackerman clip (already licensed for this exact purpose, see
+     app.css's own note below — now the user's own face composited into
+     it, 2026-09-28) is Offer's meme; Reason's own slot — a plain
+     dashed-border placeholder for its whole life until now — is filled
+     the same day, direct instruction, with a real Tenor clip (a crying
+     cat giving a thumbs up, "OK" text and all — the user's own link).
+
+     Scope's badge was "The fine print" until the same day too — direct
+     feedback that it read too formal next to the other two's dry,
+     wry voice ("beshi formal lagtese, funny kisu koro baki gular
+     moto"). "Not actually magic" is Claude's own pick, not dictated —
+     picked to echo the section's own closing line ("So yes, one click.
+     Just not zero clicks. We're a bulk forge, not a mind reader."),
+     the same "propose options, land on one" latitude past creative
+     calls in this app have had (the 15th theme pool, "Friends," picked
+     freely the same way). */
   function welcomeTemplate() {
     return `
       <div class="welcome-headline-row">
@@ -6853,9 +7888,9 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         <div class="welcome-copy">
           <span class="welcome-badge">Dear certified lazy</span>
           <p class="welcome-lede">
-            Here's what actually happens: a dev needs test data, so they
-            either beg QA to make it, or grumble their way through three
-            fake employees themselves. Nobody spins up their own company
+            Nobody wants to prep their own test data. Ever. A dev needs
+            some, so they beg QA to make it, or grumble their way through
+            three fake employees themselves. Nobody spins up their own company
             for this — everyone quietly works out of the same one or two
             shared accounts, because properly setting one up (departments,
             leave policies, payroll, the works) takes about two to
@@ -6871,15 +7906,14 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
             blamed for it.
           </p>
         </div>
-        <figure class="meme meme-placeholder" aria-label="Placeholder — a real image for this spot hasn't been picked yet">
-          <span class="meme-placeholder-mark">🖼️</span>
-          <span class="meme-placeholder-text">meme placeholder</span>
+        <figure class="meme" aria-label="A crying cat giving a thumbs up anyway — the exact energy of debugging someone else's broken shared company">
+          <video class="meme-img" src="assets/crying_cat_ok.mp4" loop muted playsinline autoplay></video>
         </figure>
       </div>
 
       <div class="section welcome-row welcome-row-reverse">
         <figure class="meme" aria-label="Hackerman, from Kung Fury — this whole page runs on hacker-movie logic">
-          <img class="meme-img" src="assets/hackerman.gif" alt="Hackerman" loading="lazy" />
+          <video class="meme-img" src="assets/hackerman.mp4" loop muted playsinline autoplay></video>
         </figure>
         <div class="welcome-copy">
           <span class="welcome-badge">Your prayers, answered (mostly)</span>
@@ -6911,7 +7945,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       </div>
 
       <div class="section welcome-scope">
-        <span class="welcome-badge">The fine print</span>
+        <span class="welcome-badge">Not actually magic</span>
         <p class="welcome-lede">Let's be honest about what "one click" actually means here.</p>
         <div class="field-row" style="margin-top:14px; align-items:flex-start;">
           <div class="field">
@@ -7070,7 +8104,12 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
         logAudit("login", `${email} signed in`, { environment: setup.env });
         refreshAdminNav();
         refreshMyTier();
-        const target = pendingOperation || "welcome";
+        /* Lands on the real Dashboard now (2026-09-29), not the pre-signin
+           Welcome page — a real sign-in with no specific operation
+           requested means "just take me in," and the Dashboard is what
+           "in" now means. Welcome stays reachable afterward from its own
+           sidebar item, unchanged. */
+        const target = pendingOperation || "dashboard";
         pendingOperation = null;
         /* replace: true — signing in completes the gate rather than
            adding a new step, so Back from the target operation returns
@@ -7080,6 +8119,365 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
       } catch (e) {
         clearBtnBusy(btn);
         err.textContent = e.message;
+      }
+    });
+  }
+
+  /* ---------- The real post-login Dashboard (2026-09-29) ----------
+
+     TODO.md's own last remaining Tiered Access step, built through
+     discussion before any code — same discipline as the Welcome page's
+     own build. Confirmed content, in order: the Bulk/Settings routing
+     (already-confirmed spec, lock icons for whatever the signed-in
+     user's real tier excludes), real per-operation usage (bulk runs,
+     entries created, time saved — all from dashboard_bulk_stats()),
+     a combined total plus a 3-way Manual/AI/Bulk-Forge comparison
+     (explicitly labelled "Estimated" — the per-entry basis is still
+     the dictated OPERATION_TIME_COMPARISON figures, not a measured
+     rate, scaled by a real count doesn't make it a measured total),
+     a Settings row that's deliberately just a count and no time figure
+     ("settings choto jinish. protita alada kore dekhale beshi value
+     create ba difference bujha jabe na" — Settings is a small thing,
+     showing each one's own difference separately wouldn't read as
+     meaningful), and a low-emphasis "what we offer" service-card strip
+     at the very bottom — mirrors the real Shomvob HR dashboard's own
+     "Quick Links" section the user pointed at as a layout reference,
+     both in shape and in sitting last, not in the middle. */
+  function dashboardBulkSettingsRowHtml() {
+    const bulkLocked = myTier === "company";
+    const settingsLocked = myTier === "bulk";
+    const card = (id, title, desc, locked) => `
+      <button type="button" class="dashboard-route-card" data-target="${id}" ${locked ? "disabled" : ""} title="${locked ? "Your account's access level doesn't include this" : ""}">
+        <span class="dashboard-route-title">${title}</span>
+        <span class="dashboard-route-desc">${desc}</span>
+        ${locked ? `<span class="dashboard-locked-pill">Locked</span>` : ""}
+      </button>`;
+    return `
+      <div class="dashboard-route-row">
+        ${card("bulk", "Bulk", "Generate QA-ready files for any of the 5 operations", bulkLocked)}
+        ${card("settings", "Settings", "Configure departments, leave, payroll and the rest for a real company", settingsLocked)}
+      </div>
+    `;
+  }
+
+  function dashboardUsageHtml() {
+    const rangeOptionsFor = (key) =>
+      DASHBOARD_RANGES.map((r) => `<option value="${r.id}" ${r.id === dashboardChartStats[key].range ? "selected" : ""}>${r.label}</option>`).join("");
+
+    function chartBodyHtml(key, build) {
+      const state = dashboardChartStats[key];
+      if (state.status === "checking" || state.status === "idle") return `<p class="section-note" style="margin:10px 0 0">Checking…</p>`;
+      if (state.status === "error") return `<p class="error-text" style="margin:10px 0 0">Couldn't load — try refreshing.</p>`;
+      const rows = WELCOME_OPERATION_ORDER.map((id) => ({ id, label: OPERATIONS.find((o) => o.id === id).label, ...chartStatsForOperation(key, id) }));
+      return build(rows);
+    }
+
+    const charts = [
+      {
+        key: "bulk_runs",
+        title: "Bulk runs, by operation",
+        desc: "Which operation actually gets used the most — a share of every real Generate click in this range, not a row count.",
+        build: (rows) => donutChartHtml(rows.map((r) => ({ label: r.label, value: r.count }))),
+      },
+      {
+        key: "entries",
+        title: "Entries created, by operation",
+        desc: "Real rows this tool has actually written into a file, per operation — reads exact volume off a real axis, not just a ranking.",
+        build: (rows) => axisBarChartHtml(rows.map((r) => ({ label: r.label, value: r.entries }))),
+      },
+      {
+        key: "time_saved",
+        title: "Time saved, by operation",
+        desc: "Estimated minutes saved versus doing this fully by hand, per operation — scaled from the same numbers “By the numbers” uses.",
+        build: (rows) => axisBarChartHtml(rows.map((r) => ({ label: r.label, value: Math.max(0, Math.round(r.manual - r.bulkForge)) })), formatHoursMinutes),
+      },
+    ];
+
+    let impactBodyHtml;
+    const impactState = dashboardChartStats.impact;
+    if (impactState.status === "checking" || impactState.status === "idle") {
+      impactBodyHtml = `<p class="section-note">Checking…</p>`;
+    } else if (impactState.status === "error") {
+      impactBodyHtml = `<p class="error-text">Couldn't load — try refreshing.</p>`;
+    } else {
+      const rows = WELCOME_OPERATION_ORDER.map((id) => chartStatsForOperation("impact", id));
+      const totalManual = rows.reduce((s, r) => s + r.manual, 0);
+      const totalAi = rows.reduce((s, r) => s + r.ai, 0);
+      const totalBulkForge = rows.reduce((s, r) => s + r.bulkForge, 0);
+      const pctVsManual = totalManual > 0 ? Math.round((1 - totalBulkForge / totalManual) * 100) : 0;
+      const pctVsAi = totalAi > 0 ? Math.round((1 - totalBulkForge / totalAi) * 100) : 0;
+      impactBodyHtml = `
+        <div class="stat-row stat-row-2" style="margin-top:8px">
+          <div class="stat-tile">
+            <span class="stat-value">${formatHoursMinutes(totalBulkForge > 0 || totalManual > 0 ? totalManual - totalBulkForge : 0)}</span>
+            <span class="stat-label">Estimated time saved versus doing it all by hand${totalManual > 0 ? ` (~${pctVsManual}%)` : ""}</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value">${formatHoursMinutes(totalAi > 0 || totalBulkForge > 0 ? totalAi - totalBulkForge : 0)}</span>
+            <span class="stat-label">Estimated time saved versus using AI to help${totalAi > 0 ? ` (~${pctVsAi}%)` : ""}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">User Statistics</h2></div>
+        <p class="section-note">Pulled straight from this tool's own activity log — each chart below has its own time-range filter.</p>
+
+        <div class="numbers-addup-box">
+          <p class="numbers-addup-title">Estimated impact so far</p>
+          <p class="section-note">Bulk operations only, all time — real entries created, scaled against the same per-task estimate "By the numbers" uses. Settings isn't included, since it has no "with AI" baseline.</p>
+          ${impactBodyHtml}
+        </div>
+
+        <div class="dashboard-chart-row">
+          ${charts
+            .map(
+              (c, i) => `
+          <div class="dashboard-chart-card${i % 2 === 1 ? " dashboard-chart-card-reverse" : ""}">
+            <div class="dashboard-chart-main">
+              <div class="dashboard-chart-head">
+                <span class="dashboard-chart-title">${c.title}</span>
+                <select class="dashboard-chart-range" data-chart-key="${c.key}">${rangeOptionsFor(c.key)}</select>
+              </div>
+              ${chartBodyHtml(c.key, c.build)}
+            </div>
+            <div class="dashboard-chart-desc"><p>${c.desc}</p></div>
+          </div>`
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  /* "What we offer & FAQ" (renamed 2026-09-29, direct request) — the
+     Dashboard's own low-emphasis card strip, still exactly 6 cards
+     (5 Bulk operations + 1 combined Settings) regardless of the FAQ
+     page's own 2026-09-30 redesign below — FAQ_TOPICS itself now only
+     holds the 5 Bulk entries (see app-data.js), so the Settings card
+     here is built from FAQ_SETTINGS_SHARED.note directly rather than
+     reading a "settings" FAQ_TOPICS entry that no longer exists.
+     OPERATION_BLURBS is still kept for the reason the 2026-09-25
+     Dashboard redesign's own note already gives — this reuses its cost
+     line directly, rather than duplicating it. */
+  function faqCardsHtml() {
+    const items = FAQ_TOPICS.map((t) => ({ id: t.id, label: t.label, note: (OPERATION_BLURBS[t.id] || {}).cost || "" }));
+    items.push({ id: "settings", label: "Settings", note: FAQ_SETTINGS_SHARED.note });
+    return items.map((t) => `<button type="button" class="dashboard-service-card" data-faq-id="${t.id}">
+        <span class="dashboard-service-title">${escapeHtml(t.label)}</span>
+        ${t.note ? `<span class="dashboard-service-note">${escapeHtml(t.note)}</span>` : ""}
+      </button>`).join("");
+  }
+
+  function wireFaqCardClicks() {
+    $all(".dashboard-service-card").forEach((btn) => {
+      btn.addEventListener("click", () => openFaqTopic(btn.dataset.faqId));
+    });
+  }
+
+  /* Opens a topic's real explanation from wherever it was clicked — the
+     Dashboard's own card strip, or (once there) the FAQ page's own left
+     nav list. "settings" (the Dashboard card's own id — there's no
+     single FAQ_TOPICS entry by that id any more) resolves to the
+     Settings category's first real group. Not tracked in browser
+     history (see `faqCategory`/`faqTopic`'s own note, above) — landing
+     on the FAQ page for the first time is a real top-level navigation
+     (`navigateTo`), but switching category/topic once already there is
+     a plain re-render, the same "internal drill-down, no History API
+     involvement" shape Company Setup's own tabs use. */
+  function openFaqTopic(id) {
+    if (id === "settings") {
+      faqCategory = "settings";
+      faqTopic = SETTINGS_GROUPS[0] ? SETTINGS_GROUPS[0].id : null;
+    } else {
+      faqCategory = "bulk";
+      faqTopic = id;
+    }
+    if (currentOp === "faq") {
+      const root = $("#mainContent");
+      root.innerHTML = faqTemplate();
+      wireFaqEvents();
+    } else {
+      navigateTo("faq");
+    }
+  }
+
+  function dashboardServiceStripHtml() {
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">What we offer &amp; FAQ</h2></div>
+        <p class="section-note">Everything Bulk Forge covers — click one to see exactly what it does.</p>
+        <div class="dashboard-service-strip">
+          ${faqCardsHtml()}
+        </div>
+      </div>
+    `;
+  }
+
+  /* The left nav list's own items for whichever category is current —
+     FAQ_TOPICS' 5 Bulk entries, or the real SETTINGS_GROUPS' 6, read
+     directly rather than a duplicated id/label list of its own. */
+  function faqNavItems() {
+    return faqCategory === "bulk"
+      ? FAQ_TOPICS.map((t) => ({ id: t.id, label: t.label }))
+      : SETTINGS_GROUPS.map((g) => ({ id: g.id, label: g.label }));
+  }
+
+  /* faqTopic can be null (fresh into the page/category) or stale (left
+     over from the other category) — always resolves to a real item of
+     the *current* category, defaulting to its first, so the detail pane
+     is never empty and the page always opens on something. */
+  function resolveFaqTopic() {
+    const items = faqNavItems();
+    if (!items.some((i) => i.id === faqTopic)) faqTopic = items.length ? items[0].id : null;
+    return faqTopic;
+  }
+
+  /* The dedicated "What we offer & FAQ" page (2026-09-30 redesign,
+     direct request against an Excel mockup: a Bulk Operation/Settings
+     toggle up top, an individual-item list on the left, the first
+     item's own detail open by default) — reached from its own sidebar
+     item (below every other section, above Log out) or from the
+     Dashboard's own card strip via openFaqTopic(). Replaces the earlier
+     2026-09-29 shape (a 6-card index, one detail view with its own
+     "<- Back" link) outright — there's no separate index screen any
+     more, the shell always shows a category + its list + one item's
+     detail, all at once. */
+  function faqTemplate() {
+    resolveFaqTopic();
+    const items = faqNavItems();
+    return `
+      <div class="page-head">
+        <h1 class="page-title">What we offer &amp; FAQ</h1>
+        <p class="page-desc">Every operation and the Settings side, explained — pick one to see exactly what it does.</p>
+      </div>
+      <div class="section">
+        <div class="seg seg-fill faq-category-seg" id="faqCategorySeg" role="group" aria-label="Category">
+          <button type="button" data-cat="bulk" aria-pressed="${faqCategory === "bulk"}">Bulk Operation</button>
+          <button type="button" data-cat="settings" aria-pressed="${faqCategory === "settings"}">Settings</button>
+        </div>
+        <div class="faq-shell">
+          <div class="faq-nav-list" id="faqNavList">
+            ${items.map((i) => `<button type="button" class="faq-nav-item ${i.id === faqTopic ? "active" : ""}" data-faq-topic="${i.id}">${escapeHtml(i.label)}</button>`).join("")}
+          </div>
+          <div class="faq-detail-panel" id="faqDetailPanel">
+            ${faqDetailBodyHtml()}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* Renders the currently-selected item's own detail — a real
+     column/rule table for a Bulk operation, or (for now, until each
+     Settings group gets its own dedicated per-module breakdown — still
+     to be designed, not guessed at here) the shared Settings overview
+     plus that specific group's own real module names, so the 6 groups
+     at least read as genuinely different pages rather than 6 identical
+     clones of one paragraph. */
+  function faqDetailBodyHtml() {
+    if (faqCategory === "bulk") {
+      const topic = FAQ_TOPICS.find((t) => t.id === faqTopic);
+      if (!topic) return "";
+      return `
+        <h2 class="section-title" style="margin-top:0">${escapeHtml(topic.label)}</h2>
+        <p class="section-note">${escapeHtml(topic.intro)}</p>
+        <div class="preview-table-wrap" style="margin-top:14px">
+          <table class="preview-table">
+            <thead><tr><th>Column</th><th>What we do</th></tr></thead>
+            <tbody>
+              ${topic.columns.map((c) => `<tr><td class="strong">${escapeHtml(c.name)}</td><td>${escapeHtml(c.rule)}</td></tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+    const group = SETTINGS_GROUPS.find((g) => g.id === faqTopic);
+    if (!group) return "";
+    const details = FAQ_SETTINGS_GROUP_DETAILS[group.id];
+    return `
+      <h2 class="section-title" style="margin-top:0">${escapeHtml(group.label)}</h2>
+      <p class="section-note">${escapeHtml(FAQ_SETTINGS_SHARED.intro)}</p>
+      <div class="preview-table-wrap" style="margin-top:14px">
+        <table class="preview-table">
+          <thead><tr><th>Column</th><th>What we do</th></tr></thead>
+          <tbody>
+            ${details.columns.map((c) => `<tr><td class="strong">${escapeHtml(c.name)}</td><td>${escapeHtml(c.rule)}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">
+        ${FAQ_SETTINGS_SHARED.prose.map((p) => `<p class="section-note" style="font-size:13.5px">${escapeHtml(p)}</p>`).join("")}
+      </div>
+    `;
+  }
+
+  function wireFaqEvents() {
+    wireFaqCardClicks();
+    $all("#faqCategorySeg button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const cat = btn.dataset.cat;
+        if (cat === faqCategory) return;
+        faqCategory = cat;
+        faqTopic = null;
+        const root = $("#mainContent");
+        root.innerHTML = faqTemplate();
+        wireFaqEvents();
+      });
+    });
+    $all(".faq-nav-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.faqTopic === faqTopic) return;
+        faqTopic = btn.dataset.faqTopic;
+        $all(".faq-nav-item").forEach((b) => b.classList.toggle("active", b === btn));
+        $("#faqDetailPanel").innerHTML = faqDetailBodyHtml();
+      });
+    });
+  }
+
+  function dashboardTemplate() {
+    /* No page-head any more (2026-09-29, direct request: "upore
+       dashboard ta uthay diba... ei part ta shoray diba" — remove the
+       "Dashboard" heading and the "Signed in as..." line above it) —
+       who's signed in now lives in the sidebar's own user card
+       instead (see renderSidebar()), not repeated here too. */
+    return `
+      ${dashboardUsageHtml()}
+      ${dashboardServiceStripHtml()}
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">Get started</h2></div>
+        ${dashboardBulkSettingsRowHtml()}
+      </div>
+    `;
+  }
+
+  function wireDashboardEvents() {
+    $all(".dashboard-route-card").forEach((btn) => {
+      if (btn.disabled) return;
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.target;
+        if (target === "bulk") goToOperation(OPERATIONS[0].id);
+        else if (target === "settings") navigateTo("company_setup");
+      });
+    });
+    wireFaqCardClicks();
+    const rerenderDashboard = () => {
+      if (currentOp !== "dashboard") return;
+      const root = $("#mainContent");
+      root.innerHTML = dashboardTemplate();
+      wireDashboardEvents();
+    };
+    $all(".dashboard-chart-range").forEach((sel) => {
+      sel.addEventListener("change", async () => {
+        await loadDashboardChartStats(sel.dataset.chartKey, sel.value);
+        rerenderDashboard();
+      });
+    });
+    Object.keys(dashboardChartStats).forEach((key) => {
+      if (dashboardChartStats[key].status === "idle") {
+        loadDashboardChartStats(key, dashboardChartStats[key].range).then(rerenderDashboard);
       }
     });
   }
@@ -14998,8 +16396,18 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
        the five generators don't require a real login at all today, only
        Company Setup does; this becomes attributable once the planned
        tiered-access work makes Bulk require login too. Still useful for
-       the dashboard's own aggregate counts in the meantime. */
-    logAudit("bulk_generate", title, { module_id: currentOp });
+       the dashboard's own aggregate counts in the meantime.
+
+       entry_count (2026-09-29, added for the post-login Dashboard's own
+       real per-operation stats) is read straight back off the already-
+       built workbook rather than threaded through all five generators'
+       own call sites — every one of them builds its sheet from a plain
+       rows array via aoa_to_sheet(rows), row 0 the header, so the
+       sheet's own decoded range end-row is exactly the real data-row
+       count, with zero changes needed to any of the five. */
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const entryCount = ws && ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]).e.r : null;
+    logAudit("bulk_generate", title, { module_id: currentOp, entry_count: entryCount });
     const modal = $("#generateCompleteModal");
     const downloadBtn = $("#gcDownloadBtn");
     const closeBtn = $("#gcCloseBtn");
@@ -15238,10 +16646,15 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
            a history entry from before the account was retiered down to
            "company" could otherwise land directly on a Bulk operation's
            page, the exact class of gap this app's own Back/Forward
-           already guards against for a stale signed-in session above. */
-        currentOp = "welcome";
+           already guards against for a stale signed-in session above.
+           Falls back to "dashboard", not "welcome" — both branches here
+           only ever fire once myTier is resolved, which only happens
+           signed in, so the real Dashboard is the correct landing spot
+           now (2026-09-29), the same as every other "just signed in,
+           no specific place requested" case in this file. */
+        currentOp = "dashboard";
       } else if (opId === "company_setup" && myTier === "bulk") {
-        currentOp = "welcome";
+        currentOp = "dashboard";
       } else {
         currentOp = opId;
       }

@@ -532,6 +532,359 @@ Confirmed by Playwright screenshot in both themes, at both 1920px and a
 the meme centring and the button sizing (not just eyeballed) — full
 11-suite run green throughout.
 
+**"By the numbers" got asked about again the next day, revised into a
+real redesign, not just left as noted — direct feedback against a
+screenshot: "ei section ta onek khet ar complex lagtese."** The actual
+cause, worked out through discussion rather than guessed at: **"Cells
+per operation" and "Minutes saved per operation" were two separate bar
+charts showing the same ranking twice** — minutes is just cells x a
+fixed rate (`WELCOME_SECONDS_PER_CELL`), so the two lists were always
+going to have identical relative bar lengths, just different units,
+which read as confusing duplication rather than two distinct facts.
+
+Rebuilt as two columns instead of three, once the user proposed the
+actual shape directly: **"What it does"** (a plain bulleted list, no
+bars — the 5 Bulk operations and the 6 real `SETTINGS_GROUPS` groups,
+read live from `OPERATIONS`/`SETTINGS_GROUPS` rather than a duplicated
+string list) and **"Time saved"** (real minutes — Bulk and Settings
+each as their *own* `barListHtml()` call, not one shared scale).
+**Deliberately not one combined chart**, flagged directly before
+building: Bulk's own minutes run into the thousands (a whole file's
+worth of manual typing) while a single Settings group's is tens of
+minutes (clicking through admin screens) — a ~100x gap that would make
+every Settings bar an invisible sliver next to Bulk's on one shared
+axis. "Built from scratch vs. filled into an export" (the old 3rd
+column) is gone outright, not folded in — it was never load-bearing to
+either the original complaint or the new shape, and a 3rd chart just
+for that distinction would have reintroduced the same "onek khet"
+problem this rebuild exists to fix.
+
+**A new number needed for this: how much a Settings group saves,
+which nothing in this app had ever estimated before** (only Bulk's
+per-operation cells-to-seconds math existed). The user dictated real,
+considered per-module estimates rather than have Claude guess a
+business number — the same "confirm rules, never assume" discipline
+this whole project holds itself to — based on each real admin screen's
+actual field count and whether it loops a real bulk create:
+
+| Settings group | Real basis | Minutes |
+|---|---|---|
+| Company Settings | Profile 3–4min + Bank Info 3min + Locations 3min + 5 departments x 1min + (5 x ~3.5 designations) x 1min | 32 |
+| Employee Settings | Custom Fields 1min + Required Documents 1min (neither has a real bulk default, so one of each) | 2 |
+| Attendance Settings | Attendance Policy 2min | 2 |
+| Schedule Management | Roster + Roster Pattern combined | 3 |
+| Leave Settings | 3 leave types x 2min + Leave Policy 2min + Holiday Calendar 1min | 9 |
+| Payroll Settings | General 2 + Salary (Components/Configure) 3–4 + Deduction (Late Arrival/Absent) 1–3 + Bonus (Types/Policy) 4 + Custom Addition/Deduction 3 + Tax 1 | 19 |
+
+`SETTINGS_GROUP_TIME_ESTIMATE` (`app-data.js`) holds these, mirroring
+`OPERATION_CELL_ESTIMATE`'s own shape. **Two of Payroll's 11 modules —
+Overtime and Attendance Bonus — were never given an explicit number in
+the dictation**; folded into Payroll's own 19-minute total as a
+judgment-call estimate (~2min, ~1.5min) consistent with the granularity
+of everything else in that row, flagged back to the user rather than
+silently absorbed — revisit if a real number for either surfaces later.
+Total across all 6 groups (~67 min) lines up plausibly against the
+Reason section's own already-confirmed "two to two-and-a-half hours"
+figure for the *whole* company (Bulk's own manual-typing time filling
+the rest of that range) — a sanity check, not a claim the two numbers
+were derived from each other.
+
+Confirmed by a fresh Playwright screenshot at 1440px: both bar lists
+render at readable, proportional widths within their own scale, the
+list column shows all 5 Bulk operations and 6 Settings groups correctly
+sourced from live data, and the section reads as two clear halves
+rather than three cramped ones. Full 11-suite run green throughout —
+no test referenced the removed columns' own text.
+
+**Revised a second time the same day** — a real ordering bug, then a
+real framing fix, both direct feedback:
+
+1. **Row-order mismatch, flagged with two crossing arrows on a
+   screenshot** ("eta ekhono make sense kortese na"): "What it does"
+   listed items in `OPERATIONS`'/`SETTINGS_GROUPS`' own declared
+   order, while `barListHtml()` always sorts its own rows descending
+   by value — so the two columns showed the same 5-and-6 items in two
+   *different* orders (Assets Add sat last on the left but first/
+   biggest on the right), reading as if the labels and bars didn't
+   correspond at all. Fixed first by sorting "What it does" the
+   identical descending-by-minutes way the bar list already sorts
+   itself, so row 1 of one column is always row 1 of the other.
+2. **The per-group Settings bars themselves didn't hold up, flagged
+   right after** ("settings e merge kore dekhabo venge na dekhe...
+   2-3 min er jonno khub ekta impact bujha jay na" — show it merged,
+   not broken out; 2-3 minutes a group doesn't read as impactful on
+   its own). Settings' own 6 bars (2/2/3/9/19/32 min) are gone,
+   replaced by one merged `.stat-tile` — the same 67-minute total,
+   just not sliced into pieces small enough to each look trivial. The
+   "What it does" Settings list went back to `SETTINGS_GROUPS`' own
+   declared order — there's no longer a second bar list on the right
+   for it to stay row-aligned with, so the sort from fix 1 has nothing
+   left to correspond to on this side.
+3. **Bulk's own metric changed too, second half of the same message**
+   ("per 50 entry er jonno kottuk data bachtese bulk e ota dekhao" —
+   show how much is saved per 50 entries, for Bulk). The old
+   full-batch totals (`OPERATION_CELL_ESTIMATE`, each operation's own
+   max — up to Assets Add's 5,000-row ceiling, 2,917 min) are gone
+   from this chart specifically (the constant itself is untouched,
+   still used by "Team activity"'s real estimated-time-saved tile) —
+   replaced by a new `OPERATION_CELLS_PER_ENTRY` (`app-data.js`, cells
+   per single row: Employee Add 14, Attendance Add 4, Leave Balance
+   Add 1 — only "Already Used Leave" is actually written per row —
+   Payroll Custom Field Add 8, Assets Add 7, each read straight off
+   the matching `OPERATION_BLURBS` cost line) x a fixed 50 entries x
+   the same `WELCOME_SECONDS_PER_CELL` rate. A fixed basis instead of
+   each operation's own max batch size is the same yardstick for all
+   five, rather than a number dominated by whichever operation happens
+   to allow the biggest batch — this also reorders the bar list
+   itself (Employee Add 58 min now leads, not Assets Add), a direct
+   consequence of the metric change, not a separate fix. Bulk stays
+   its own bar list, unlike Settings — 5 genuinely different-shaped
+   operations read fine side by side; 6 nearly-equal small numbers
+   didn't.
+
+Confirmed by Playwright screenshot in both light and dark: the Bulk
+bar list now ranges 4–58 min (was 46–2,917) and both "What it does"
+columns line up row-for-row with their own "Time saved" side where one
+still exists; the Settings stat tile reads `~67 min` with no new hex
+values (`.stat-tile`/`.stat-value`/`.stat-label`, reused as-is from
+"So far, for real"'s own tiles). Full 11-suite run green throughout.
+
+**The Settings "What it does" list was still 6 separate bullets, boxed
+on a follow-up screenshot** ("eitar ekta combined name dao" — give
+this a combined name): naming Settings' own time as one merged stat
+(above) but still listing its 6 groups one bullet each on the left was
+half-finished — the same "merge it, don't show it broken up" reasoning
+from the fix above, just not yet carried over to this side. The 6-item
+`<ul>` is now a single line, read live from `SETTINGS_GROUPS` (each
+group's own label with a trailing " Settings" trimmed off,
+`.replace(/ Settings$/, "")`), not a hardcoded string — renamed once
+more the same day, direct instruction ("Company's Settings Setup ei
+name dao"), to the line's current wording, `"Company's Settings Setup
+— Company, Employee, Attendance, Schedule Management, Leave,
+Payroll"`. Bulk's own 5-item list is untouched — it wasn't the one
+boxed, and 5 genuinely distinct operations read fine itemized the way
+6 nearly-equal Settings groups didn't.
+
+**That combined line then needed real alignment against the stat tile
+beside it, not just approximate spacing** — a follow-up screenshot
+boxed both the Settings line and its neighbouring `~67 min` tile
+together, with an arrow pointing up: "lekha ta majh align koro daan
+pash er date er sathe. lagle data te jemon ekta alada shade e diso ota
+dao" (centre this text against the data on the right; give it a
+similar shaded box too, if needed). The Settings row is now its own
+`.field-row` (`numbers-settings-row`), separate from the Bulk row
+above it — splitting what was one shared two-column `.field` (Bulk
+then Settings stacked inside each column) into two independent grid
+rows was the actual fix, not a manual margin guess: a CSS Grid row
+always sizes both its cells to the tallest one, so the left
+`.numbers-settings-box` (new — same border/background/radius as
+`.stat-tile`, the "shade" asked for) and the right `.stat-tile`
+genuinely share one height, and both use `flex; align-items:center` (`
+justify-content:center` for the tile's own value+label stack) to
+centre their own content inside it, rather than sitting top-aligned in
+a taller box. Confirmed by screenshot in both light and dark — the two
+boxes measure identical heights, no new hex values.
+
+**Rebuilt a third time the same day — the most important feedback of
+the whole pass, asked directly rather than fixed on the first guess**
+("kontar jonno koto value dekhaba" wasn't answered by Claude alone;
+"tomar kono idea ache jeta nile ekta ordinary user o bujhbe" — do you
+have an idea that would make even an ordinary user understand this —
+was asked back first). Revision #2's per-50-entries bar chart
+(58/33/29/17/4 min, a cells-x-seconds-per-cell formula) was the
+underlying problem: a formula-derived number, however internally
+consistent, doesn't read as *real* the way a dictated one does. Claude
+proposed three directions (a before/after comparison, a relatable
+time analogy, a "Nx faster" multiplier); the user picked before/after,
+then — rather than have Claude invent the "before" numbers from
+another formula — dictated them himself, operation by operation,
+confirmed one at a time, the same "confirm rules, never assume"
+discipline this whole project already holds itself to: how long 50
+entries actually takes fully by hand, how long with AI's help, and how
+long with Bulk Forge. `OPERATION_TIME_COMPARISON`/
+`SETTINGS_TIME_COMPARISON`/`WELCOME_OPERATION_ORDER` (`app-data.js`)
+hold these, replacing `OPERATION_CELLS_PER_ENTRY` and
+`SETTINGS_GROUP_TIME_ESTIMATE` outright (both deleted, not left dead):
+
+| Operation (50 entries) | By hand | With AI | Bulk Forge |
+|---|---|---|---|
+| Employee Add | 75–80 min | 10 min | 1 min |
+| Attendance Add | 80 min | 15 min | 2 min |
+| Leave Balance Add | 5–10 min | 5 min | 2 min |
+| Assets Add | 60–65 min | 5–7 min | 1 min |
+| Payroll Custom Field Add | 20 min | 5 min | 1 min |
+| Settings (whole company) | 37 min | *(no AI figure)* | ~1 min |
+
+**Settings has no "with AI" column, on purpose** — AI can't click
+through a company's own admin screens the way it can help type out
+rows of fake data, so a 3-way comparison would have been dishonest
+here. Its old merged `~67 min` stat tile (the sum of 6 per-group
+estimates) is a flat, directly dictated `37 min` now, not a formula
+total — "eta 37 min koro 67 er jaygay" — with the tile's own "min"
+capitalised to "Min" the same message also asked for ("Min er M boro
+haat er dao"), and a new line under it naming the Bulk Forge side too
+("Run defaults instead: ~1 min", `.numbers-bulkforge-line`), so
+Settings now reads as the same real comparison the Bulk side does
+rather than one number with nothing to measure it against.
+
+**The Bulk list is a real 3-column `.preview-table` now, not a bar
+chart** — reused as-is (Admin Panel's/Leave Balance's/Payroll's own
+component, not a new one). A bar's only real job is ranking, and
+ranking was never actually the point here; the numbers themselves (a
+Bulk Forge column reading "1 min" next to a By-hand column reading
+"75–80 min") are what a normal user can feel, which a bar's relative
+width never quite managed. **Row order is a fixed, dictated sequence**
+(`WELCOME_OPERATION_ORDER`: Employee Add, Attendance Add, Leave
+Balance Add, Assets Add, Payroll Custom Field Add) — not `OPERATIONS`'
+own declared order (which has Payroll before Assets) and not sorted by
+any value — applied to both the "What it does" list and the table, so
+the two always agree by construction rather than needing the
+descending-by-value sort revision #2 built (and this revision
+deletes) to keep them in sync.
+
+**A brand-new second section, "Add it all up,"** is the direct answer
+to a follow-up ask: run 50 of each Bulk operation plus one Settings
+"Run defaults," what's the real combined gap? `minutesMid()` turns
+each dictated `[low, high]` range into a real number (a single-value
+operation is just `[80, 80]`, midpoint 80); the section computes two
+totals live from the same source data, not a fresh guess — the "der-
+arai ghonta" (1.5–2.5 hours) figure the user had been estimating by
+feel came out noticeably lower than the real math once it existed, and
+he confirmed the real number rather than keeping the guess. Two totals,
+not one, since they're genuinely different claims:
+
+- **vs fully manual** (5 ops + Settings): `(sum of By-hand midpoints +
+  37) − (sum of Bulk Forge times + 1)` ≈ **4h 37m saved** — includes
+  Settings, since nobody's typing through 20 admin screens with AI's
+  help either.
+- **vs AI** (5 ops only): `(sum of With-AI midpoints) − (sum of Bulk
+  Forge times)` ≈ **34 min saved** — Bulk-only, the one place AI
+  genuinely competes.
+
+`formatHoursMinutes()` renders the first as `4h 37m` (over an hour) and
+the second as plain `34 min` (under one), same h/m-vs-plain-minutes
+convention `publicGenerateStatsHtml()`'s own tile already uses. Reuses
+`.stat-row`/`.stat-tile` as-is (`class="stat-row stat-row-2"` — a real
+bug caught in the first screenshot pass: `.stat-row-2` alone has no
+`display: grid` of its own, that comes from the base `.stat-row`
+class, so the two tiles rendered stacked instead of side-by-side until
+both classes were applied together, matching how `.stat-row-4` is
+already used elsewhere).
+
+**"So far, for real"'s own "By operation" breakdown (a bar list under
+its 3 stat tiles) is gone**, same pass — boxed on a screenshot with no
+further explanation needed. `byOperation` is no longer collected in
+`loadPublicGenerateStats()` either, since nothing else read it.
+
+**Two more items from the same list, both cosmetic, both on the
+Welcome page's other two sections:**
+
+- **Scope's own badge, "The fine print," read too formal next to
+  Reason's "Dear certified lazy" and Offer's "Your prayers, answered
+  (mostly)"** — direct feedback ("beshi formal lagtese. funny kisu
+  koro baki gular moto"). Renamed to **"Not actually magic"** — Claude's
+  own pick, not dictated, chosen to echo the section's own closing line
+  ("So yes, one click. Just not zero clicks. We're a bulk forge, not a
+  mind reader.") — the same propose-and-land-on-one latitude past
+  creative calls in this app have had (the 15th theme pool, "Friends,"
+  picked freely the same way).
+- **Reason's own meme slot — a plain dashed-border placeholder for its
+  whole life, deliberately left that way pending a real choice** — is
+  filled: `assets/crying_cat_ok.mp4`, a real Tenor clip (a crying cat
+  giving a thumbs up, "OK" text and all), the user's own link. The
+  first fetch from that link resolved to a *different* cat entirely (no
+  "OK" text, no thumbs up, confirmed by extracting frames across the
+  whole 9-second clip, not just the first one) — flagged back rather
+  than used blind; the user's own call was to use it anyway ("tumi link
+  er tai nao latest ta" — take whatever's actually there). Same
+  `<video loop muted playsinline autoplay>`/`.meme-img` treatment as
+  every other clip in this app. `.meme-placeholder` and its two child
+  classes are deleted outright, not left dead, since nothing else
+  reused that "hasn't been picked yet" shape.
+
+Confirmed by Playwright screenshot in both light and dark, no page
+errors: the comparison table renders all 5 operations in the fixed
+order with real By-hand/With-AI/Bulk-Forge values, the Settings tile
+reads `~37 Min` with the Run-defaults line under it, "Add it all up"
+shows `4h 37m`/`34 min` side by side once the `stat-row-2` bug above
+was caught and fixed, both memes play, and the new Scope badge renders
+correctly. Full 11-suite run (866 checks) green throughout — no test
+asserted on any of the removed bar-chart/By-operation/placeholder
+markup, so nothing needed updating on the test side.
+
+**Every stat-label description across the whole app was still
+lowercase-first, boxed with 5 arrows on a follow-up screenshot** ("shob
+boro haat er diye shuru korba" — start all of them with a capital
+letter): all 10 `.stat-label` spans in `app.js` — "Add it all up"'s own
+2, "So far, for real"'s 3, and "Team activity"'s 4 (not visible in that
+screenshot, admin-only, but the same class everywhere it appears) — now
+read "Saved versus…"/"Real bulk files generated"/"Tool sign-ins"/etc.
+`company-setup.test.js`'s own "BS" block asserted the old lowercase
+text verbatim (`.includes("tool sign-ins")` etc.) and had to be updated
+to match — a real, caught-before-push regression, not a style-only
+change with no test impact.
+
+**Revised a 4th time minutes later, same day, two more direct
+corrections against the very next screenshot.** First: "table tai pura
+section e hobe. otai shundor lagtese" (the table alone will be the
+whole section, that's what looks nicest) — the "What it does" bullet
+list is gone outright (the table's own Operation column already names
+every row) and Settings' own separate 2-column row (the "Company's
+Settings Setup" box + its own `~37 Min` stat tile) is folded into the
+*same* table as a final row — "Settings (whole company)" with a `—` in
+the With-AI column, since AI can't click through admin screens. The
+6-group breakdown that used to live in that box is now a plain caption
+under the table instead. Second: "ekhon ekdom alada section banaiso
+keno? eta ei section er moddhei just alada shade e dekhate bolsi" (why
+a whole separate section here — I said to show it inside this same
+section, just in a different shade) — "Add it all up" was never meant
+to be its own `.section` card, the way revision #3 had just built it.
+`.numbers-addup-box` (`app.css`) is the "different shade" instead — a
+`var(--accent-soft)`-tinted panel sitting *inside* "By the numbers",
+not a second bordered card, with `.stat-tile`'s own white/dark surface
+reading as a real card-on-tint contrast against it, no changes needed
+there. The whole section is one `.section` again, the same way it was
+before revision #2 ever split it into two.
+
+Confirmed by a second Playwright screenshot pass, both themes: one
+`.preview-table` now holds all 6 rows (5 Bulk + Settings), the caption
+line names all 6 Settings groups, and `.numbers-addup-box` renders as a
+visibly tinted panel with two full-contrast `.stat-tile`s sitting on
+top of it — no new hex values in either theme. Full 11-suite run green
+throughout, including the corrected "BS" assertions above.
+
+**"Add it all up"'s own "vs AI" figure got a 5th revision, same day**
+("eta 55 Min koro. ar Hour Min er H and M boro haat er koro" — make
+this 55 Min, and capitalise the H/M in Hour/Min). Two changes:
+
+- `formatHoursMinutes()`'s own output capitalised — `"4h 37m"` →
+  `"4H 37M"`, `"34 min"` → the same function's under-an-hour branch,
+  now `"N Min"` not `"N min"` — matching the Settings tile's own
+  `~37 Min` capitalisation from the message before this one.
+- **The "vs AI" figure is now a flat, directly dictated `55`**
+  (`WELCOME_VS_AI_SAVED_MIN`, `app-data.js`), not the live `AI total −
+  Bulk Forge total` computation (`34`) the table's own per-operation
+  numbers produce. Asked directly rather than assumed which one to
+  change: revise an operation's own AI estimate so the math produces
+  55, or just set the shown figure directly — the user's own call was
+  the second. The "vs fully manual" figure right next to it
+  (`vsManualSaved`) is untouched, still a real live computation from
+  the same per-operation table — only this one figure is now fixed,
+  and the code says so directly rather than leaving a future reader to
+  wonder why the table's own numbers don't sum to what's shown.
+
+Confirmed by screenshot: the box now reads `4H 37M` / `55 Min` side by
+side. Full 11-suite run green — no test referenced either exact string.
+
+**Each Bulk row's own `(50 entries)` caption reworded to `(Per 50
+entries)` the next day** — direct question ("50 entries ki grammatically
+correct na Per 50 entries hobe?"), agreed and fixed: the column values
+are a rate (how long 50 entries takes), not a fixed quantity label, so
+"Per 50 entries" reads correctly where "50 entries" alone read like a
+bare count. Settings' own `(whole company)` caption is untouched — that
+one's already a rate-free, one-time description and never had this
+issue.
+
 **"So far, for real" — a genuinely public, real (not estimated) usage
 stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
 section was always explicit that its numbers are a static *estimate*,
@@ -608,6 +961,20 @@ already-centred headline above it — inconsistent with `.welcome-
 headline-row`'s own `justify-content: center`. Both fixed together:
 `.how-row` gets `justify-content: center`; step 1's text now reads
 "Sign in to Bulk Forge", byte-for-byte matching the button.
+
+**Logo bigger, Reason's own opening line reworded, 2026-09-28** — two
+more direct asks against a screenshot with the logo circled: it read too
+small next to the big headline, and "Here's what actually happens: a
+dev needs test data..." read as an oddly formal preamble rather than a
+natural hook. `.welcome-headline-logo` grew from 40px to 56px (padding
+8px, was 6px, so the white tile still frames it proportionally).
+Reworded, after weighing two directions and picking the wrier one:
+"Nobody wants to prep their own test data. Ever. A dev needs some, so
+they beg QA to make it, or grumble their way through three fake
+employees themselves." — drops the "Here's what actually happens:"
+framing device entirely rather than softening it, landing the same
+"nobody actually does this" point as its own punchy opening beat
+instead of a stated premise.
 
 Two things about it worth keeping:
 
@@ -1332,8 +1699,9 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 867 checks as
-of the Employee Add name-cycling fix (2026-09-30) — this number drifts with every change, so treat it as
+Thirteen suites (`faq.test.js` and `dashboard.test.js` added 2026-09-29),
+926 checks as of the Employee Add name-cycling fix (2026-09-30) — this
+number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed
@@ -5689,6 +6057,1046 @@ real server and leaving now doesn't undo it" first becomes a real risk,
 and where `hasUnsavedWork()`/`wireUnloadGuard()` will need extending —
 build it alongside whichever module is first to actually loop, not
 speculatively before then.
+
+## The Hackerman meme is now the user's own face (2026-09-28)
+
+`assets/hackerman.gif` (the Tenor download, Dashboard redesign round
+one, above) is gone — replaced with `assets/hackerman.mp4`, direct
+instruction ("ami nijer face boshaisi" — I put my own face on it): the
+user's own edit of the same Kung Fury clip, his own face composited in.
+This drops the second-hand-licensing question that GIF always carried
+("a real meme image would be someone else's to licence") entirely —
+it's the user's own footage now, for his own internal tool.
+
+`<video loop muted playsinline autoplay>` replaces the old `<img>` in
+`welcomeTemplate()`'s Offer section — the exact same treatment every
+other clip in this app already gets (the login gate's cat, the five
+operation media rails, the Rickroll). `.meme-img`'s own CSS
+(display/width/border/radius/shadow) is generic enough that neither the
+markup swap nor the format change needed a single rule touched. Still a
+plain relative-path asset, not inlined — same "too big for a data URI"
+reasoning as `assets/lazy_cat.mp4`, though the new clip (~1.4MB) is
+smaller than the GIF it replaced (~2.9MB).
+
+## `audit_log` now records real entry counts (2026-09-29)
+
+The first real piece of the post-login **Dashboard** page (TODO.md's
+last remaining Tiered Access step) — worked out through discussion
+before any code, same discipline as the Welcome page's own build.
+Confirmed content, before layout: per-Bulk-operation real counts (how
+many bulk runs, how many total entries created), per-operation and
+combined real time-saved, a 3-way Manual/AI/Bulk-Forge total comparison
+(explicitly labelled **estimated**, since the per-entry basis is still
+the user's own dictated `OPERATION_TIME_COMPARISON` figures, not a
+measured number), a This week/month/3 months/6 months filter over all
+of it, the already-confirmed Bulk/Settings/Both routing cards with lock
+icons, and a small, low-emphasis "what we offer" card strip — visible
+to any signed-in user, no separate admin gate, since reaching the
+Dashboard at all already requires a real sign-in ("dashboard kintu only
+for signed user").
+
+**`audit_log` only ever recorded that a generate happened, never how
+many rows the file had** — real per-operation "total entries created"
+needed a real number to sum, so a new nullable `entry_count integer`
+column was added (`ALTER TABLE audit_log ADD COLUMN entry_count
+integer;`, run directly by the user via the Supabase SQL Editor — this
+session's own connected Supabase MCP account only had access to two
+unrelated personal projects, not the shared Shomvob SQA org, so the
+migration couldn't be applied through the usual tool path this time).
+
+**`openGenerateCompleteModal()`'s own `logAudit("bulk_generate", ...)`
+call now also sends `entry_count`, read straight back off the
+already-built workbook** rather than threaded through all five
+generators' own call sites: every one of them builds its sheet from a
+plain `rows` array via `aoa_to_sheet(rows)` (row 0 the header), so
+`XLSX.utils.decode_range(ws["!ref"]).e.r` — the sheet's own decoded
+range end-row — is exactly the real data-row count, for free, with
+zero changes needed to any of the five `handleXGenerate()` functions.
+Verified directly with a real Playwright run (not just reasoned about):
+generating 25 Employee Add rows sends `entry_count: 25` in the real
+POST body. Full 11-suite run green — no test asserted on the previous
+audit_log payload shape, so nothing needed updating.
+
+**Not yet built**: the Dashboard page itself (the layout/filter/graph
+work this column exists to feed) — next.
+
+## The post-login Dashboard (2026-09-29)
+
+TODO.md's own last remaining Tiered Access step, built the same day as
+`entry_count` above (which this page exists to consume) — content
+confirmed through discussion before any code, same discipline as the
+Welcome page's own build. **A real Shomvob HR admin screenshot was the
+starting reference** ("emon kichu graph rakhbo" — I'll keep some graphs
+like this), then narrowed down message by message into exactly what's
+built:
+
+- **Get started** — two routing cards, **Bulk** and **Settings**
+  (TODO.md's own "Bulk/Settings/Both" spec re-read correctly once
+  actually building it: "Both" was never a literal third card, it's
+  the tier value that leaves *neither* card locked — a `"company"`
+  tier locks Bulk, a `"bulk"` tier locks Settings, `"both"`/unresolved
+  locks neither). Reuses the same disabled+`title`+small pill shape
+  the sidebar's own Locked pills already established, in a new
+  `.dashboard-locked-pill` class rather than reusing `.pill-soon`
+  itself — that one's colours are tuned for the sidebar's own fixed-
+  dark background, not a light/dark-aware main-content card. Clicking
+  Bulk goes to the first real operation; clicking Settings goes
+  straight to Company Setup.
+- **Real usage** — a `.preview-table`, one row per Bulk operation
+  (real bulk-run count, real entries created, real time saved) plus a
+  final Settings row that's deliberately just a count with no time
+  figure — direct instruction, confirmed after flagging the real
+  design gap first (there was no reliable per-module manual-time
+  figure left to compute a real Settings time-saved number from, since
+  the dictated `37 min` total was always "the whole company in one
+  Run defaults click," not a per-individual-save rate): "settings choto
+  jinish. protita alada kore dekhale beshi value create ba difference
+  bujha jabe na" — Settings is a small thing, showing each save's own
+  difference separately wouldn't read as meaningful. A **This week /
+  This month / Last 3 months / Last 6 months / All time** filter sits
+  above the table — "All time" is the default, added on top of the
+  user's own four (confirmed directly: a light-usage account would
+  otherwise open on an empty-looking "This week"). Each option is a
+  rolling window from now, not a calendar boundary, computed client-
+  side and sent as a `since_ts` parameter.
+- **Estimated impact so far** — `.numbers-addup-box`, reused as-is from
+  "By the numbers" — two totals, vs-fully-manual and vs-AI, Bulk
+  operations only (Settings has no "with AI" baseline, same reasoning
+  as the Welcome page's own comparison). Explicitly labelled
+  **"Estimated"**, not a plain number — the per-entry basis scaling a
+  real count up is still the dictated `OPERATION_TIME_COMPARISON`
+  figures, not a measured rate, so a real count multiplied by an
+  estimate is still an estimate, and the page says so rather than
+  letting a real-sounding number imply otherwise.
+- **What we offer** — a low-emphasis, horizontally-scrolling strip at
+  the very bottom, reusing `OPERATION_BLURBS`/`SETTINGS_GROUPS`
+  directly (both kept specifically for this reuse when the old
+  operation-card grid was removed from the Welcome page, 2026-09-25 —
+  see that section's own note). Confirmed position directly ("service
+  cards gula koi dekhabo? majha majhi?" — where do the service cards
+  go, in the middle?) against the same real Shomvob screenshot's own
+  "Quick Links" section, which sits last, not in the middle — so this
+  does too, not because a middle placement was wrong on its own merits,
+  but because the reference the whole page was modelled on put it last.
+
+**No admin gate on top of any of this** — confirmed directly ("signed
+user. cz dashboard kintu only for signed user. welcome is open for
+all"): reaching the Dashboard at all already requires a real sign-in,
+so a second, narrower admin check on top would be redundant — unlike
+"Team activity" (Welcome page, admin-only), which needed its own gate
+specifically because the *Welcome page itself* stays reachable by
+anyone past the joke gate.
+
+**Two new, narrow SQL functions power the real numbers** —
+`dashboard_bulk_stats(since_ts)` (returns `{module_id, generate_count,
+total_entries}` grouped and summed from `audit_log`) and
+`dashboard_settings_save_count(since_ts)` — both `SECURITY DEFINER`,
+granted `EXECUTE` to `authenticated` only, never `anon`, and both
+return only aggregated counts, no `company_name`/`user_email` — the
+same anon-safe-aggregate discipline `public_generate_counts()` already
+holds itself to, just scoped one notch tighter since this data only
+ever needs to exist for someone who's actually signed in. Applied
+directly via the Supabase SQL Editor, same as `entry_count` above —
+this session's own connected Supabase MCP account still didn't have
+access to the Shomvob SQA project.
+
+**A real sign-in with no pending operation now lands on `"dashboard"`,
+not `"welcome"`** — `wireOperationsGateEvents()`'s own `pendingOperation
+|| "welcome"` fallback is the one place this was decided, changed to
+`|| "dashboard"`; the same two `myTier`-mismatch corrections inside
+`wirePopstate()` (a stale Bulk/Settings history entry from before a
+retiering) fall back the same way now, since both only ever fire once
+signed in. **The sidebar gets a second, separate nav item, "Dashboard,"
+above "Welcome"** — not a repurposing of the existing Welcome button,
+even though that button is only ever visible/clickable once signed in
+anyway (the whole `.sidebar` hides otherwise, which made repointing it
+tempting): several existing tests click it by its exact label
+("Welcome") expecting the real pre-signin-style page (`.welcome-row`
+etc.) to render, to check unrelated things like scroll-reset behaviour.
+Adding a second item keeps that page reachable exactly as before, with
+zero risk to those checks. `opIcon("dashboard")` is a new hand-drawn
+bar-chart glyph, same hand as every other `OP_ICONS` entry.
+
+**Real fallout from this routing change, all fixed the same day**:
+`tiered-access.test.js`'s blocks E/F checked `#welcomeBarNote`
+(Welcome-page-only UI) immediately after a sign-in that no longer lands
+there — both now click the sidebar's "Welcome" item first, since a
+signed-in visitor genuinely revisiting that page and seeing its
+tier-aware note is still exactly what those blocks are testing, just
+one click later than before. `back-navigation.test.js`'s block B
+checked `.welcome-headline` for the same reason — now checks
+`.dashboard-route-row`, the new page's own stable first-paint marker.
+Confirmed by a full 11-suite run green (866 checks) before adding a
+12th suite, `tests/dashboard.test.js` (22 checks): both routing cards
+enabled for a `"both"` tier and correctly locked/routing for
+`"company"`/`"bulk"` tiers, real per-operation numbers rendering from
+mocked `dashboard_bulk_stats()` rows, the Settings row showing a plain
+count with no time figure, the impact box's own "Estimated" label, the
+time-range filter defaulting to "All time" and sending a real
+`since_ts` that actually changes when switched, and the service strip
+listing all 11 real items (5 operations + 6 groups) after the usage
+section, not before it.
+
+**Real usage got two bar charts under the table the same day it first
+shipped, on live feedback against a real screenshot** ("eta ki ashlo?
+amader koyekta chart graph ashar kotha. ektao ashe nai" — where are the
+charts we were supposed to get, not even one showed up): this page was
+originally kicked off by a real Shomvob HR dashboard screenshot showing
+actual line/bar/donut charts, and what shipped first was a plain data
+table with none — a real gap between what was shown as inspiration and
+what got built, not something confirmed away at any point. Rather than
+replace the table, the user's own call was to keep both and compare
+("table chart duitai rakho, then dekhi konta valo lage" — keep both,
+we'll see which reads better, drop whichever isn't needed). Two more
+`barListHtml()` calls (the same plain-CSS bar component "By the
+numbers"/"Team activity" already use — no chart library, consistent
+with this app's own restraint) sit in a `.field-row` right under the
+table: **Entries created, by operation** and **Time saved, by
+operation**, both built from the exact same per-operation `rows` this
+section's own table already computes — no second data source.
+`barListHtml()` picked up an optional second `formatCount` argument
+(default identity, so its two pre-existing callers — "Team activity"'s
+own two bar lists — are untouched) so the time-saved chart can print
+`formatHoursMinutes()`'s "1H 20M" shape instead of a bare minute count,
+while still sorting/sizing bars off the raw minute value underneath.
+Also fixed in the same edit, found while widening this function: `max`
+now falls back to `1` when the biggest value is `0` — the entries chart
+can legitimately be all-zero (see the note right below), and dividing
+by a zero max produced `NaN%`-wide bars before this guard.
+
+**The reported "entries created = 0 / time saved = 0" the same
+screenshot flagged is real historical data, not a bug** — confirmed by
+reading `dashboard_bulk_stats()`'s own math rather than assumed:
+`entry_count` (above) only exists on `audit_log` rows logged *after*
+today's deploy, so the handful of real Employee Add generates that
+happened before this column existed have `entry_count = NULL` forever,
+and `coalesce(sum(entry_count), 0)` correctly sums those to `0` — the
+run *count* is still real (it was always tracked), only the *entries*
+figure for that pre-existing data can never be recovered, since the row
+count of an already-downloaded file was never captured anywhere. The
+user's own call, once this was explained: leave it as-is, since every
+generate from now on carries a real count and the historical gap will
+simply age out of relevance.
+
+Confirmed by a real Playwright screenshot pass (not just the mocked
+test suite) at both 1440px and 390px with real non-zero mocked data:
+both charts render true proportional bar widths (no `NaN%`), and the
+`.field-row` pair stacks into two full-width rows under the existing
+mobile breakpoint rather than squeezing side by side. Full 12-suite
+run stayed green (888 checks) — no test asserted on the table's own
+markup in a way either chart's insertion touched.
+
+**Revised the same day: `barListHtml()`'s plain progress-bar rows still
+didn't read as real charts, direct feedback against a live screenshot**
+("eta kono graph chart er moddhe pore? ek fota o shundor lagtese na" —
+does this even count as a chart, not even a little bit good-looking).
+Discussed rather than guessed at a fix: asked to analyse which chart
+type actually suits which of this section's real datasets, with
+reasoning, not just restyle the same shape. The analysis that landed,
+confirmed directly:
+
+- **Bulk runs, by operation → a real donut chart.** This number was
+  never charted at all before (only in the table) and is genuinely a
+  *share-of-activity* question — "which operation gets clicked most" —
+  which is exactly what a donut is good at and a bar chart isn't.
+- **Entries created / Time saved, by operation → real axis bar
+  charts**, kept as two separate charts rather than folded into one —
+  both are *magnitude/ranking* questions where an axis lets an exact
+  value be read off, which a donut can't do past a couple of slices.
+  The two aren't the same "By the numbers" duplication bug fixed
+  earlier in this file (two identical-shaped bar lists showing one
+  ranking twice): here each operation carries its own per-entry time
+  cost (`OPERATION_TIME_COMPARISON`), so the two charts' rankings can
+  genuinely diverge, unlike that earlier case where minutes was just
+  cells × one shared, fixed rate.
+
+**Mocked up on a design canvas first, one option per artboard, before
+any app code changed** — the user's own request ("amake ekta dummy
+design dekhao ekta ekta kore"), the same propose-before-build
+discipline this project already holds itself to for anything visual.
+Confirmed, with one direct correction: the donut's first pass used five
+shades of the one brand green, flagged as too hard to tell apart
+("donut e ektu different colors use koro jeno easily differentiate kora
+jay") — landed on `DASHBOARD_CHART_COLORS` (`app-data.js`), five
+genuinely distinct hues (`#28a143` green, `#3b82f6` blue, `#e2a336`
+amber, `#8b5cf6` violet, `#64748b` slate) chosen specifically to avoid
+every colour that already carries a meaning elsewhere in this app —
+green (accent/success), gold (warning), red (danger), the env badges'
+blue/purple — so a data-viz colour can't be misread as one of those on
+the same page.
+
+**`barListHtml()`'s two callers here are gone, replaced by two new
+hand-rolled chart helpers** (`app.js`, same "no external chart library"
+discipline as every other chart in this app) — `barListHtml()` itself
+is untouched and still serves "Team activity"'s own two bar lists:
+
+- **`donutChartHtml(items)`** — plain inline SVG, one stroke-dasharray
+  arc per slice over a base ring (`var(--surface-2)`), rotated -90° so
+  the first slice starts at 12 o'clock; a legend lists every slice's
+  colour swatch, label and real percentage share. All-zero input (a
+  brand-new account) shows "Nothing yet.", the same empty-state
+  `barListHtml()` already used, rather than an empty ring.
+- **`axisBarChartHtml(items, formatValue)`** — a CSS-grid chart (axis
+  column + plot column, `.dashboard-bar-chart` in `app.css`): 5 tick
+  values on a real y-axis, dashed gridlines behind the bars, a value
+  label above each bar, category labels below. `TOP_RESERVE` (18px)
+  keeps the tallest bar's own value label from colliding with the top
+  gridline — the exact class of clipping bug this file has caught
+  elsewhere when a value sits flush against a container's own edge.
+  `formatValue` defaults to a bare number; the time-saved chart passes
+  `formatHoursMinutes` so its axis and bars read "1H 20M" instead of
+  raw minutes, the same optional-formatter shape `barListHtml()` itself
+  picked up earlier the same day.
+
+`.field-row` (2 columns) is now `.dashboard-chart-row` (3 columns,
+`.field-row-3`'s own `repeat(3, 1fr)` shape) holding one
+`.dashboard-chart-card` each — Bulk runs (donut), Entries created (bar),
+Time saved (bar) — all three built from the exact same per-operation
+`rows` the table above already computes, still no second data source.
+Stacks to 1 column at the same breakpoint `.dashboard-route-row`
+already does.
+
+Confirmed by a real Playwright screenshot pass in both light and dark,
+plus a 390px mobile check, against real non-zero mocked
+`dashboard_bulk_stats()` data: the donut's 5 slices render in 5 visibly
+distinct colours over a real ring (not a solid disc), both bar charts
+show real gridlines and axis tick values (`3200/2400/1600/800/0`,
+`1H 4M/48 Min/32 Min/16 Min/0 Min`), and the 3-column row correctly
+collapses to 1 column on mobile. Full 12-suite run stayed green (888
+checks) — `dashboard.test.js`'s own assertions read the table's cell
+text, never `barListHtml()`'s markup, so none needed updating.
+
+**Revised again the same day: the table's gone outright, and every
+chart got its own filter** — direct feedback against a live screenshot
+("ei part tuku full baad diye dao, graphs e beshi shundor. ar every
+graph e filter lagao" — cut this part entirely, the graphs read
+nicer; put a filter on every graph). Asked directly what "every graph
+e filter lagao" meant before touching anything, since a shared single
+filter already existed and this could have meant either "keep one
+filter, just show it near each graph" or "give each graph its own,
+independent range" — confirmed the second: each chart should be
+individually filterable, e.g. Bulk runs on "This month" while Entries
+created stays on "All time," at the same time.
+
+**The Real usage table is deleted, including its own Settings row**
+(the "32 real saves" count) — no chart replaces that number, so it's
+simply gone from the Dashboard for now; a real, acknowledged trade-off
+of the instruction as given, not an oversight. `dashboard_settings_
+save_count` (the SQL function that fed it) is still deployed, just
+unused client-side — nothing to clean up there.
+
+**One shared `dashboardRealStats` object became `dashboardChartStats`,
+one independent slot per chart** — `bulk_runs`/`entries`/`time_saved`,
+plus a fourth, `impact`. `loadDashboardChartStats(key, rangeId)`
+replaces the old single loader; each slot calls `dashboard_bulk_stats`
+on its own (that RPC already returns both `count` and `entries` per
+operation in one response, so "bulk_runs" and "entries" each just read
+a different field off their own independent fetch, and "time_saved" is
+derived client-side from its own fetch's `entries`, the same
+`OPERATION_TIME_COMPARISON` scaling `chartStatsForOperation()` — the
+old `realStatsForOperation()`, renamed to take a `key` — already did).
+**`impact` — the "Estimated impact so far" box — deliberately has no
+filter UI of its own**, pinned to All time: a judgment call, not
+something asked for explicitly, since "so far" reads as a cumulative
+claim rather than "in this range" the way the three charts are. Each
+chart's own `<select class="dashboard-chart-range" data-chart-key="…">`
+is wired once in `wireDashboardEvents()` (a plain class + data-attribute
+query, not three separate ids) — changing one calls
+`loadDashboardChartStats()` for that key alone and re-renders the whole
+page, exactly the same "re-render on background resolve" shape every
+other async check in this app already uses; the other two charts' own
+last-fetched data is untouched by that re-render, since each lives in
+its own state slot.
+
+**Layout is otherwise unchanged from the zigzag pass above** — each
+chart's own filter sits in a new `.dashboard-chart-head` row next to
+its title, inside the same `.dashboard-chart-main` column the chart
+itself already occupies; the alternating chart-left/chart-right rows
+and the description text beside each are untouched.
+
+`tests/dashboard.test.js` was rewritten to match, not patched around —
+the old table/`#dashRangeSelect` assertions are gone; new ones confirm
+no `.preview-table` remains, all three `.dashboard-chart-range` selects
+default to "All time," exactly 4 requests fire on first load (3 charts
++ the impact box), and changing one chart's own select fires exactly
+one more request with a different `since_ts` while the rest stay
+untouched. Confirmed by a real Playwright screenshot pass (table really
+gone, all three filters visible and independent, mobile still stacks
+cleanly) and the full 12-suite run staying green (894 checks).
+
+**Three more real bugs, all found and fixed the same day, two of them
+flagged directly against a live screenshot with the broken area
+circled and one caught by the user simply doing the arithmetic
+himself** ("duita jinish, mark kora jaygay dekho lekha kete gese. ar
+ratio thik koro... ar calculation check koro. 100 employee generation e
+kemne matro 2 min time save hoy?" — two things: look at the marked
+spot, text is cut off; fix the ratio too; and check the math — how does
+generating 100 employees save only 2 minutes?).
+
+1. **A category label wrapping to two lines was vertically clipped.**
+   `.dashboard-bar-chart`'s own label row was a fixed 24px
+   (`grid-template-rows: 150px 24px`), and `.dashboard-bar-label` has
+   `overflow: hidden` — a two-word operation name ("Employee
+   Attendance", "Leave Balance") wraps to 2 lines at this font size,
+   and the fixed row plus the clip together chopped the wrapped
+   second line's bottom off instead of showing it. Fixed by making the
+   row `auto` height instead of a fixed px value — it now grows to fit
+   whatever its own tallest label actually needs, independently per
+   chart card.
+2. **The chart:description split wasn't actually 75:25** — direct
+   request. `.dashboard-chart-main`'s own `flex: 0 0 380px` (earlier
+   the same day) was a fixed pixel width, not a proportion, so the
+   real ratio drifted with the card's own width rather than holding at
+   any fixed split. Fixed with percentage flex-basis
+   (`flex: 1 1 75%` / `flex: 1 1 25%`) — `flex-shrink` stays on for
+   both (not `0 0`) so the row's own 28px gap is absorbed
+   proportionally by each side rather than pushing the row past 100%
+   width. Verified directly: measured 681.0px vs 227.0px in a real
+   card, exactly 75.0%/25.0%.
+3. **The real bug, not just a display fix: "Time saved, by operation"
+   was plotting the wrong number entirely.** The chart's own title
+   promises time *saved*, but its `build()` function plotted raw
+   `r.bulkForge` — the scaled Bulk Forge tool-time *itself* (how long
+   the tool takes, not how much it saves) — which is why 100 real
+   Employee Add entries (scale ×2 over the dictated 50-entry basis)
+   showed "2 Min": that's `1 min × 2`, the tool's own generation time,
+   not a saving. This bug predates this exact chart — it was already
+   present in the very first `barListHtml()` version of this same
+   "Time saved, by operation" row, several revisions earlier the same
+   day, just never caught until the user did the arithmetic himself
+   and it didn't add up. Fixed to plot `manual − bulkForge` (clamped
+   at 0), the actual time-saved delta versus doing it fully by hand —
+   the same headline comparison "Add it all up"/"Estimated impact so
+   far" already use elsewhere in this app, not a fresh metric invented
+   for this chart. The same real input (100 Employee Add entries) now
+   correctly reads "2H 33M" (155 min manual − 2 min Bulk Forge),
+   verified directly rather than just reasoned about.
+
+Confirmed by a real Playwright screenshot + DOM measurement pass: the
+75:25 split measured exact, no `.dashboard-bar-label` has
+`scrollHeight > clientHeight` (nothing clipped) across a 3-word label,
+and the Employee Add time-saved bar reads "2H 33M" against real
+`total_entries: 100` input, not the old "2 Min". Full 12-suite run
+green throughout (`dashboard.test.js` didn't assert on either chart's
+exact pixel ratio or its raw minute values, so nothing needed
+updating there) — one unrelated, pre-existing flake surfaced in
+`company-setup.test.js` the same run (529 vs. its usual 530, still
+zero *failed* checks, just one fewer registered) — confirmed via a
+clean `git diff` that this session's own changes never touched
+anything outside the Dashboard's own code, and reproduced the same
+529 in a standalone re-run of just that suite; almost certainly one of
+the "roughly a dozen more spots" of unguarded
+`waitForTimeout`-before-an-"already"-check races this file already
+flags as a known, pre-existing risk (2026-09-19, above) — not
+something this session's work caused.
+
+**Three more small revisions the same day, each from a follow-up
+screenshot, none needing a test change:**
+
+1. **The donut got bigger and its legend un-stretched** ("eta aro boro
+   koro" — make this bigger): the donut sat small inside
+   `.dashboard-chart-main`'s new 75%-wide column, and
+   `.dashboard-donut-legend-label`'s own `flex-grow: 1` stretched to
+   fill the leftover width — dragging each row's percentage far away
+   from its own label instead of sitting next to it. Fixed both at
+   once: the SVG render size grew 130px → 190px (the underlying
+   viewBox/circle math untouched), and the legend stopped stretching
+   at all — each row is now its own natural width, percentage
+   immediately after the label.
+2. **A bare `<select>` sizes off its widest OPTION, not its current
+   value** — found live, a screenshot with the wrapped "Entries
+   created, by operation" title circled: `.dashboard-chart-range` had
+   no explicit width, so it claimed as much room as "Last 6 months"
+   needed even while showing "All time," squeezing the title next to
+   it onto two lines. Fixed with a fixed `width: 128px`.
+3. **"Estimated impact so far" moved above all three charts**, direct
+   request — a pure markup reorder in `dashboardUsageHtml()`, no CSS
+   change needed since both blocks already carry their own
+   `margin-top`.
+
+## "What we offer & FAQ" — real per-operation documentation (2026-09-29)
+
+Two related asks in the same message, handled together since one made
+the other's own scope decision obvious. First: the Dashboard's existing
+low-emphasis "What we offer" strip (2026-09-25, kept from the old
+operation-card grid) should open something real on click — "click
+korle amra new ekta page banabo. okhane every single logic amra ja
+kortesi otar explanation thakbe. Like Employee Bulk upload e gele,
+every column er logic ta and amra ki kortesi eta diba" (clicking should
+open a new page explaining every single thing we actually do — for
+Employee Add, every column's own logic). Second, in the same message:
+the strip's own Settings breakdown should collapse to one combined
+card, not the six it had one per `SETTINGS_GROUPS` group — "ei section
+e settings combined ekta dilei hobe, shob gula venge venge deyar
+dorkar nai" (one combined entry is enough here, no need to break it
+into pieces).
+
+**Content is a plain-English restatement of each operation's own
+already-confirmed spec (`SPEC.md`/`CLAUDE.md`), not new business
+rules** — `FAQ_TOPICS` (`app-data.js`) holds one entry per Bulk
+operation (a real `columns: [{name, rule}]` table, matching the exact
+column names and confirmed rules this file and `SPEC.md` already
+document — Employee ID's `PREFIX0001` sequencing, Joining Date's
+60/25/15 year-weighting, Leave Balance's half-step/ceiling/only-
+increases rule, and so on) plus one combined `settings` entry with
+plain prose instead of a table (the six real groups, "every field
+stays editable," dependencies checked live and named rather than
+failing silently, and the "Run defaults" shortcut) — deliberately not
+one entry per settings module, matching the "combined, not broken up"
+instruction directly. Nothing here was guessed; the same "confirm
+rules, never assume" discipline the generators themselves are held to.
+
+**One page, two states, not a second content system.** `faqTemplate()`
+shows either the 6-card index (`faqIndexBodyHtml()`) or one topic's own
+detail view (`faqDetailBodyHtml()`), switched by a module-level
+`faqTopic` variable — `null` for the index. **Not tracked in browser
+history** — landing on the FAQ page itself is a real top-level
+`navigateTo("faq")`, but switching between topics once there is a
+plain re-render, the same "internal drill-down, no History API
+involvement" shape Company Setup's own group-grid-to-tab drill-down
+already uses; a detail view's own `#faqBackLink` returns to the index
+the same way Company Setup's "← Back to Company Setup" link does.
+`openFaqTopic(id)` is the one shared entry point both the Dashboard's
+own strip and the dedicated FAQ page's identical cards call — clicking
+either navigates or re-renders as appropriate, so there's exactly one
+place this decision is made, not two copies of it.
+
+**`faqCardsHtml()` replaces the old 11-item strip with `FAQ_TOPICS`'s
+own 6** — 5 Bulk operations plus the one combined Settings card,
+reusing `OPERATION_BLURBS`' own cost line for the operations' notes
+(Settings gets none, since there's no single "N cells" figure for it).
+Cards are real `<button>` elements now, not `<div>`s — a card that
+opens a page needs to behave like a control, not a static label, the
+same accessibility discipline this app already holds itself to
+elsewhere. `.dashboard-service-strip` switched from horizontal-scroll
+to wrap, now that 6 cards fit in two short rows without needing a
+scrollbar at all. The dedicated FAQ page reuses the exact same strip
+markup at a larger size (`.faq-index-grid`, a modifier class) rather
+than a second card component.
+
+**The sidebar gets its own, deliberately separate "What we offer &
+FAQ" item** — direct placement instruction ("side menu te shob gula
+option er niche, logout er upore, alada vabe thakbe" — below every
+option, above Log out, on its own): `#faqNav` is a sibling of `.op-nav`
+itself, not nested inside its scrollable list, sitting between it and
+`.sidebar-foot` — pinned in view regardless of scroll position within
+Operations/Setup/Admin, the same way Log out itself already is, rather
+than scrolling away with the rest of the nav. No tier/admin gate —
+this is documentation, not a real write, so any signed-in visitor can
+open it.
+
+### The Welcome nav item is gone — a real, confirmed loophole (2026-09-29)
+
+Same message, a third item: "ar ekta loophole ase. login korar por
+welcome page ta ar dekhano uchit na. o to login korei felse" (there's
+also a loophole — the Welcome page shouldn't be shown after logging
+in, since they've already signed in). Confirmed directly before
+touching anything, since this touches a deliberate 2026-09-29 design
+decision (a *separate* "Dashboard" sidebar item was added specifically
+so several existing tests could still click "Welcome" by its exact
+label and check the real pre-signin page's own content) — the fix
+removes only the *sidebar button*, not the underlying page: an
+unauthenticated visitor still lands on the real Welcome page first
+(`currentOp`'s own initial value is untouched), since the whole
+sidebar stays hidden until a real sign-in happens anyway. What's
+removed is the path that let an *already signed-in* visitor navigate
+back to that same public, "please sign in" marketing page from the
+sidebar — a genuine loophole, not a feature.
+
+**Reachable by Back, not gone outright — confirmed acceptable, not a
+gap.** Browser Back/Forward is a separate mechanism from the sidebar
+(`wirePopstate()`), deliberately untouched by this fix — a signed-in
+visitor who arrived via Welcome -> the operations gate -> Dashboard can
+still hit Back and land on that same Welcome page, exactly as a real
+browser's own history already allows for any page. Only the *sidebar's
+own* button, the loophole actually named, is removed; chasing the
+Back-button path too would be scope beyond what was asked, and this
+app's own Back/Forward feature was built to behave like a real
+browser's, not to second-guess it.
+
+**Real test fallout, all fixed the same way — Back, not a new button.**
+Seven `.op-item:has-text("Welcome")` clicks across three files needed
+a different path once that button no longer exists:
+
+- Two (`company-setup.test.js`'s own "state survives navigating away"
+  check, `employee.test.js`'s own scroll-reset `hops` array + a
+  standalone scroll check) only ever used Welcome as *some other page*
+  to navigate to and back — replaced with "Dashboard," the same kind of
+  page switch, since neither test cared about Welcome's own content.
+- Five genuinely needed to reach Welcome's own content while already
+  signed in (`company-setup.test.js`'s own "L" — the page's 1320px
+  column doesn't drift after a detour — and "BR"/"BS" — the admin-only
+  "Team activity" section; `tiered-access.test.js`'s own "E"/"F" —
+  `#welcomeBarNote`'s tier-aware wording). Each of these flows' own
+  browser history is exactly `[welcome (from init()'s own
+  replaceState), <wherever the test navigated next> (pushed)]` — a
+  single `page.goBack()` reliably lands back on the same Welcome page
+  a real signed-in visitor could still reach this exact way, with
+  `setup.toolToken` untouched throughout (Back doesn't clear app
+  state), so every one of these checks still exercises the real
+  feature it always did.
+
+Confirmed by a real Playwright screenshot pass: "Welcome" is genuinely
+absent from every `.op-item` nav label (`Dashboard` still present),
+"What we offer & FAQ" sits correctly between the nav list and Log out,
+the Employee Add detail page renders a real rule table in both light
+and dark, the Settings detail page renders prose with no table, and a
+390px mobile pass shows zero horizontal overflow on the card grid. A
+new suite, `tests/faq.test.js` (20 checks): the 6-card index (never
+11), a real column-rule table for Employee Add naming its actual
+`PREFIX0001`/joining-date-weighting rules, the combined Settings card's
+prose (no table) naming the real six groups and "Run defaults," the
+Dashboard's own strip opening the identical FAQ topic (not a second
+content path), Back returning to the index, and the sidebar item's own
+position. Full 13-suite run green (915 checks) — including the five
+Back-based rewrites above, all still passing exactly what they always
+tested.
+
+**The donut got bigger again the same day, direct follow-up against
+another screenshot** ("etar height aro boro koro, circle ta jeno aro
+boro hoy" — make this taller, so the circle can get bigger too): 190px
+→ 260px (the render size only, same untouched viewBox/circle math as
+the first size-up). The card itself has no fixed height, so it grows
+to fit the bigger circle automatically — no separate height rule
+needed, exactly what the request implied by pointing at both in one
+breath.
+
+**A real bug surfaced immediately by this, found live rather than
+guessed at ahead of time**: `.dashboard-donut-body` (circle + legend)
+had stayed a side-by-side flex row on mobile the whole time, harmless
+at the smaller 190px size but overflowing the page horizontally
+(measured 421px of scroll width on a 390px viewport) the moment the
+circle grew past what a phone-width card's row could actually fit
+next to its own legend. Fixed the same way every other side-by-side
+element in this app already is under the existing mobile breakpoint —
+`.dashboard-donut-body` stacks to a centred column there instead,
+circle on top, legend below. Verified directly: `scrollWidth` back to
+exactly 390 (no overflow), and the circle's/legend's horizontal
+centres measured within a pixel of each other, confirming a real
+vertical stack rather than a coincidental fit. Full 13-suite run
+stayed green — nothing here touched a test-visible selector or class,
+only rendered pixel sizes.
+
+**"What we offer & FAQ"'s own card strip became a real 3-column grid
+the same day, direct feedback against a screenshot** ("3 ta 3 ta kore
+equally shundor kore vaag kore dao" — split these evenly, 3 by 3): the
+original `flex-wrap` sized each card to its own content, so 6 cards
+landed 4-then-2 with mismatched widths rather than two clean rows.
+`.dashboard-service-strip` is `display: grid; grid-template-columns:
+repeat(3, 1fr)` now, on both the Dashboard's own compact strip and the
+dedicated FAQ page's bigger `.faq-index-grid` variant — one shared
+class, so the fix landed in both places at once rather than needing a
+second copy. Collapses to a single column at the existing mobile
+breakpoint, same as every other grid in this app. Confirmed by a real
+bounding-box check in both places: all 6 cards measure identical
+widths, the first three share one `top` and the last three share
+another (a true 2×3 grid), and mobile still stacks to 1 column with no
+overflow. Full 13-suite run green — no test asserted on the strip's
+own layout shape, only its card count and labels.
+
+**The Settings card got its own note line too, same day** — the five
+Bulk operations' own cards each carry `OPERATION_BLURBS`' cost line
+(e.g. "14 columns x 300 rows = 4,200 cells"), but Settings had none,
+reading as visually incomplete next to them. Direct instruction:
+"settings e likhte paro je Automatic or Custom settings setup" — a
+plain `note` field on `FAQ_TOPICS`' own settings entry (`app-data.js`),
+read by `faqCardsHtml()` ahead of the bulk-only cost-line lookup
+(`t.note || (t.category === "bulk" ? ... : "")`) — a per-topic override
+any future topic can use the same way, not something special-cased
+just for Settings.
+
+**The Dashboard's own page-head is gone, replaced by a sidebar "Signed
+in as" card, direct request the same day** ("upore dashboard ta uthay
+diba. ar 'Signed in as...' ei part ta shoray diba. and side panel e
+[a reference screenshot] ei screenshot er moto user er chotto ekta part
+rakho je Signed in as then user" — remove the "Dashboard" heading and
+the "Signed in as..." line above it; put a small "Signed in as [user]"
+card in the sidebar instead, modelled on a real reference screenshot's
+own sidebar-footer card). `dashboardTemplate()`'s `.page-head` (the
+`<h1>Dashboard</h1>` + "Signed in as {email} — pick where to go..."
+paragraph) is deleted outright — nothing else on the page read it.
+
+`#sidebarUserCard` is a new sibling inside `.sidebar-foot`, right above
+Log out, the same position the reference screenshot's own card held
+above its Log in/Sign up buttons — rendered at the end of
+`renderSidebar()` (so it updates on every sign-in/sign-out alongside
+everything else that section already does), showing a single-letter
+avatar (the email's own first character, uppercased) plus "Signed in
+as" + the real `setup.toolEmail`, or nothing at all when signed out.
+
+**Email only, on purpose — a named first step, not the finished
+idea**: "amra jodi shobar jonno ekta user name dite pari aro valo hoy.
+apatoto mail diye design koro then user name er concept e ashtesi" (it
+would be nicer if everyone had a real display name; design with email
+for now, the username idea comes next) — flagged here so a future
+session doesn't mistake the email-based avatar/label for the final
+design; revisit once real usernames exist for the 25-or-so real
+accounts this app has.
+
+Confirmed by a real Playwright check: `#mainContent` on the Dashboard
+now has no `.page-head`/`.page-title`/`.page-desc` at all and its text
+no longer includes "pick where to go," and `#sidebarUserCard`'s own
+card renders the real signed-in email with a matching avatar letter,
+sitting before Log out in document order. Full 13-suite run green — no
+test asserted on the removed page-head text.
+
+**"Get started" moved to the very bottom of the page, "Real usage"
+renamed to "User Statistics" (2026-09-30)** — two more direct requests
+against a screenshot with "Get started" boxed in red: "Get Started ta
+ei page er ekdom niche diba. ar real usage name change kore User
+Statistics diba" (put Get Started at the very bottom of this page, and
+rename "Real usage" to "User Statistics"). Both are pure reorders/
+renames in `dashboardTemplate()`/`dashboardUsageHtml()` — no new
+markup, no CSS changes: the "Get started" `.section` block (the
+Bulk/Settings routing cards) moved from the top of the template
+literal to after `${dashboardServiceStripHtml()}`, so the page now
+reads User Statistics → What we offer & FAQ → Get started, top to
+bottom; the `<h2 class="section-title">` text in `dashboardUsageHtml()`
+changed from "Real usage" to "User Statistics". Confirmed by Playwright
+in both themes at 1440px and 390px: the DOM order is correct, the
+heading text search finds "User Statistics" and no remaining "Real
+usage", and nothing clips or misaligns as a result of the reorder — the
+reordered sections are unrelated `.section` siblings, so moving one
+past the others needed no layout changes. Full 13-suite run green
+throughout (no test asserted on section order or the old heading text).
+
+## Employee Add gets a configurable starting number; Attendance Add's holiday list is scoped to the range (2026-09-30)
+
+Two small, direct requests, given one after another before either was
+built (per this session's own "list everything, then build" discipline)
+— then "ei duita koro age" (do these two first).
+
+**Employee Add — "Starting number."** Employee ID/Biometric ID always
+sequenced from `0001`, confirmed correct for a brand-new company — but
+flagged directly as a real risk for a second run against the *same*
+company: "user je same company er jonno abar create korbe. so oi 1
+theke shuru korle duplicate porbe" (if the user generates again for the
+same company, starting from 1 again collides with IDs that already
+exist). The fix mirrors a pattern this app already had, not a new one —
+Attendance Add's own `idSourceMarkup()` "generate" mode has carried a
+"Start number" field (`genStart`, defaulting to 1, hint "Real accounts
+don't always start at 0001") since long before this session. Employee
+Add's own **Batch basics** section picked up the identical idea: a
+third field, "Starting number" (`#startNumberInput`, default `1`, min
+`1`), added to what was a 2-field `.field-row` — now a 3-column
+`.field-grid-3` (the same class Attendance's own generate-mode picker
+uses, already collapsing to 1 column under the existing mobile
+breakpoint, so no new CSS was needed). `generateWorkbookRows()` takes a
+new `startNumber` argument and sequences `pad4(start + i)` instead of
+always `pad4(i + 1)`; `renderIdPreview()`'s own 3 sample chips shift to
+match whatever's typed, live. Default stays `1`, so a plain Generate
+click with the field untouched produces byte-identical output to
+before this change — nothing about the default, single-run case
+changed. Verified end-to-end: Starting number 50 + count 10 produces a
+real downloaded file with Employee IDs `PREFIX0050`–`PREFIX0059`.
+
+**Attendance Add — the "Shomvob HR holidays" chip list is now scoped
+to the selected date range**, not every year `BD_HOLIDAYS` holds —
+direct feedback against a screenshot showing all 28 dates regardless
+of the From/To range picked above it: "ekhane user je date range
+select korbe only oi range er moddhe jeshob holiday porbe oigula
+dekhabe. kono holiday na thakle ekta msg dekhaba" (only show holidays
+that fall inside the selected range; show a message if none do).
+**Display-only fix, not a generation-logic change** — `govtHolidayList()`
+itself (used by `activeHolidaySet()`/`generateAttendanceRows()`) stays
+unscoped and unchanged, since `eachDate(att.from, att.to, ...)` already
+confines actual row generation to the range; the real bug was purely
+that `renderHolidays()` rendered every govt holiday regardless of
+range. Fixed by filtering the govt list a second time, after the
+existing `att.govtRemoved` filter, against `att.from`/`att.to` (both
+plain ISO `YYYY-MM-DD` strings from their own `<input type="date">`,
+so a lexical string comparison is exact — no date parsing needed). An
+empty result after filtering renders a plain message ("No Shomvob HR
+holidays fall inside this date range.") instead of an empty box.
+`renderHolidays()` is now also called from both `#fromDate`/`#toDate`'s
+own `input` handlers (it wasn't before — they only called
+`renderRangeTally()`/`updateSummary()`), so the chip list updates live
+as the range is edited, not just on the next holiday-mode toggle.
+Removing a chip (`att.govtRemoved`) is unaffected — it still matches by
+literal date string against the full list, so a removal made while one
+range is selected still holds if the range is later widened to include
+that date again. Verified end-to-end: Feb 1–15 2026 correctly shows
+only that window's own 3 real holidays (02-04/02-11/02-12); Jan 1–15
+2026 (a real gap in the calendar) shows the "no holidays" message; the
+full year reverts to all 28.
+
+Confirmed by Playwright in both themes at 1440px and 390px for both
+fixes — the 3-column Batch basics grid stacks cleanly on mobile, the
+Holiday section's chip list/empty-state message render correctly with
+no CSS changes needed (existing `.chip`/`.sub-note` classes, reused
+as-is). Full 13-suite run green throughout — no test asserted on an
+exact ID sequence starting at 1, or on the holiday chip count/text, so
+neither fix needed a test update.
+
+## "What we offer & FAQ" redesigned into a two-level shell (2026-09-30)
+
+Design discussed and confirmed *before* any code, per this session's own
+"bujhai age, hut kore kaj shuru korba na" (explain the design first,
+don't just jump in and start) — the user sketched the target layout in
+a plain Excel grid (a screenshot of two labelled columns, "Bulk
+Operation"/"Settings", with Employee/attendance/leave/payroll/asset
+listed under the first) rather than a finished spec, and confirmed one
+piece at a time: a top toggle between Bulk Operation and Settings
+(Bulk default), a left-hand list of that category's own individual
+items, and the first item already open by default with its detail
+alongside — "details kemne thakbe pore boli" (I'll say how the details
+themselves should look later) was explicit that the detail *content*
+format is still open; only this navigation shell was confirmed and
+asked to be built now ("banao eituk age" — build this part first).
+
+**Replaces the 2026-09-29 shape outright** — a 6-card index (5 Bulk
+operations + 1 combined Settings card) with a single detail view and
+its own "← Back" link. That card grid and back-link are gone from the
+dedicated FAQ page entirely; there is no more "index" state to return
+to, since the shell always shows a category, that category's own list,
+and one item's detail, all at once.
+
+**Settings is no longer one combined card's worth of content** — direct
+follow-up question asked before building ("Settings tab select korle
+baam pashe ki thakbe?"), confirmed: the left list under Settings shows
+the real 6 `SETTINGS_GROUPS` (Company/Employee/Attendance/Schedule
+Management/Leave/Payroll Settings), matched by their real `id`s, not a
+second hardcoded list. Since each group's own *detailed* content isn't
+designed yet, `faqDetailBodyHtml()` shows the exact same shared overview
+text every group already had (`FAQ_SETTINGS_SHARED` in `app-data.js` —
+the old single "settings" `FAQ_TOPICS` entry's own intro/prose, lifted
+out unchanged) plus that specific group's own real module names (read
+straight off `SETTINGS_GROUPS[i].modules`, e.g. Company Settings lists
+"Company Profile, Bank Info, Location Types, Locations, Department
+Management, Designation Management") — real data, not fabricated
+per-group content, so the 6 items read as genuinely different pages
+rather than 6 identical clones of one paragraph, without pre-empting
+whatever per-module breakdown the user designs next.
+
+**State**: `faqTopic` (a single nullable id) became `faqCategory`
+("bulk"/"settings") + `faqTopic` (an id meaningful *within* that
+category — a `FAQ_TOPICS` id under Bulk, a `SETTINGS_GROUPS` id under
+Settings). `resolveFaqTopic()` defaults `faqTopic` to the current
+category's own first item whenever it's `null` or stale (left over from
+switching category), so the detail pane is never empty — `faqTemplate()`
+calls it before rendering, `faqCategorySeg`'s own click handler resets
+`faqTopic = null` before re-rendering so switching category always
+lands back on that category's first item, not wherever the other
+category happened to leave off. Neither is tracked in browser history,
+same as before and same as Company Setup's own group→module drill-down
+— a plain re-render, not a second History API entry per click.
+
+**The Dashboard's own card strip is untouched** — still exactly 6 cards
+(5 Bulk + 1 combined "Settings"), since that's a separate showcase
+feature from the FAQ page's own internal navigation and the user never
+asked to change it. `openFaqTopic(id)` is the one place the two connect:
+called with a Bulk operation's id it sets `faqCategory = "bulk"`
+directly; called with `"settings"` (the Dashboard card's own id — there
+is no single `FAQ_TOPICS` entry by that id any more) it sets
+`faqCategory = "settings"` and resolves `faqTopic` to
+`SETTINGS_GROUPS[0]`'s id, so clicking that one card still lands
+somewhere real rather than an empty category.
+
+**A real mobile bug, found and fixed by the verification pass itself,
+not guessed at in advance**: `.faq-shell`'s base `align-items:
+flex-start` sizes a column-mode flex child to its own *content* width
+rather than stretching to fill — harmless above the existing 860px
+breakpoint, where the two columns sit side by side and share the row's
+width normally, but once collapsed to a single stacked column on
+mobile this let the wide `.preview-table` inside `.faq-detail-panel`
+push the whole page 1825px wide against a 390px viewport (measured via
+`document.documentElement.scrollWidth`), rather than the table getting
+its own internal horizontal scroll the way every other wide table in
+this app already does. Fixed with one added declaration inside the
+existing `@media (max-width: 860px)` block — `align-items: stretch` —
+so both the nav list and the detail panel are forced to the container's
+full width, letting `.preview-table-wrap`'s own `overflow-x: auto` do
+its job like it does everywhere else. Confirmed: `scrollWidth` back to
+exactly 390 in both themes after the fix.
+
+**Test fallout, `tests/faq.test.js` rewritten outright**, not patched —
+every old assertion depended on markup that no longer exists
+(`.dashboard-service-card`/`#faqBackLink` *inside* the FAQ page,
+6-card-index-then-detail flow). New blocks confirm: Bulk Operation
+selected by default with all 5 real operations listed and the first
+(Employee Add) already open with no click; clicking another item swaps
+the detail panel and the active state in place; toggling to Settings
+swaps the list to the real 6 groups with Company Settings open by
+default, prose (not a table) naming real modules; the Dashboard's own
+strip still shows exactly 6 cards and each one still lands on the right
+category/topic preselected; the sidebar item's own position is
+unchanged; and reopening the page via the sidebar after having drilled
+into Settings resets back to Bulk Operation, not wherever it was left.
+Confirmed by Playwright in both themes at 1440px and 390px. Full
+13-suite run green throughout.
+
+**Still open, per the user's own "pore boli"**: what each Settings
+group's own detail should actually contain (a per-module breakdown, the
+same way each Bulk operation gets a real column/rule table, or
+something else) — don't design or build this unprompted; ask first, the
+same discipline this whole feature has followed so far.
+
+**Two follow-up fixes the same day, from a screenshot with the toggle
+boxed in red and a reference screenshot of Company Setup's own
+Dev/Staging picker beside it**: "uporer section ta equal width e purata
+cover koro... ar overall page er width barao eto kom keno" (make the
+top section cover the full width evenly, like this reference; also the
+overall page width is too small).
+
+- **`#faqCategorySeg`'s own `max-width: 420px`** — the only thing
+  keeping the Bulk Operation/Settings toggle narrow, `.seg-fill` itself
+  already splits the two buttons evenly — is gone, modelled directly on
+  Company Setup's own `#setupCoEnvSeg` (Dev/Staging), which has no such
+  cap and simply fills its row. Verified: both buttons now measure
+  exactly equal width, spanning the full section.
+- **A new `.main-inner.faq-wide { max-width: 1400px; }`** — wider than
+  every other `.wide` page (1100px) — applied alongside `.wide` (not
+  instead of it, so this page keeps `.wide`'s own typography bumps too),
+  same "a distinct class rather than raising `.wide` itself" reasoning
+  `.welcome-wide` already established (`company-setup.test.js` asserts
+  an exact 1100px for that one). Reset to removed at the top of
+  `renderMain()` alongside `rickroll-layout`/`welcome-wide`, so it can
+  never leak onto another page; the `faq` branch adds both `wide` and
+  `faq-wide` together, and since both selectors carry identical
+  specificity, `faq-wide`'s own rule simply needs to come after
+  `.main-inner.wide`'s in `app.css` to win. Verified: `#mainContent`
+  reaches the true 1400px cap at a 1920px viewport (at 1440px it
+  correctly fills all the room actually left beside the sidebar, since
+  a `max-width` can't exceed that). The Bulk side's own 14-column table
+  still needs its own inner horizontal scroll even at this width — same
+  as every other wide `.preview-table` in this app, expected, not a
+  regression. Confirmed by Playwright in both themes at 1440px/1920px,
+  plus a 390px mobile check (`scrollWidth` exactly 390, no overflow —
+  the wider cap is simply unreachable below it, same as any other
+  `.main-inner` page). Full 13-suite run green throughout — neither fix
+  touched a class or id any test asserts on.
+
+## Every FAQ field rewritten into plain-English narrative — Bulk and Settings (2026-09-30)
+
+The "still open" item from the FAQ redesign above — what each Settings
+group's own detail should contain — was answered the same day, but the
+real scope turned out to be bigger: the user first dictated a complete
+worked example of the *style* he wanted for every field on the whole
+page, not just Settings. His own Employee ID example: "first e 4 letter
+nibo random prefix, system ekta suggest korbe chaile user nijeo any 4
+letter dite pare. then koto gula employee seta input neyar por
+basically 2 ta option ashbe. default serial 0001 theke shuru hoye...
+ba user jodi same employee er jonno abar generate kore tokhon to 1
+theke shuru korle somossa. so user tokhon starting number chaile 1 er
+bodole onno number o dite parbe" — followed by the explicit brief:
+"evabe every single field ami description dibo jeno je coding ba eshob
+bujheo na se porleo bujhte pare... Plain simple english e likhba."
+
+**Every existing "rule" one-liner across the whole FAQ page was too
+terse for that bar** — e.g. Employee ID's old text was just "PREFIX0001,
+sequential, always starting at 0001," which states the mechanism but
+never explains *why* it matters or what a QA engineer should do about
+it (the Starting number field, built earlier the same day — see "Batch
+basics" above — exists specifically to solve the "regenerating for a
+company that already has IDs" problem the user's own example calls
+out). The fix, confirmed one operation at a time before being applied
+everywhere: rewrite every `rule` string in `FAQ_TOPICS` (`app-data.js`)
+into a full paragraph — what the field is, why it exists or matters,
+the real mechanism/default behind it, and a concrete example number
+where that helps a non-technical reader picture it. Drafted for
+Employee Add's 14 fields first and shown to the user for approval
+("hae thik ache" — yes, that's fine) before touching any other
+operation, then applied to all 5 Bulk operations' columns in one pass.
+
+**Then broadened to Settings in the same breath** — "tumi ekebare
+taile settings shoho kore felo" (go ahead and do it all at once,
+Settings included), answering the deferred question from the FAQ
+redesign's own "Still open" note above: each of the 6 real
+`SETTINGS_GROUPS` now gets the identical treatment, a real
+`.preview-table` of "Module — Field" rows (e.g. "Company Profile —
+Legal Name", "Attendance Policy — Title", "Late Arrival — Penalty
+Type"), not the old plain module-name list + 3 generic prose bullets.
+`FAQ_SETTINGS_GROUP_DETAILS` (`app-data.js`) is the new data structure
+— one entry per group id, each holding a `columns` array in the exact
+same shape `FAQ_TOPICS` already uses; `faqDetailBodyHtml()`'s Settings
+branch renders it through the identical `.preview-table-wrap` markup
+the Bulk branch already had, rather than inventing a second table
+shape. `FAQ_SETTINGS_SHARED.prose` is trimmed from 3 generic bullets to
+2 — the two facts a table can't show on its own (live dependency-
+checking, the "Run defaults" shortcut) — kept as a shared closing note
+under every group's table now that the table itself covers what the
+old "editable fields"/"six groups" bullets used to state.
+
+**Only real, user-facing editable fields are described — nothing
+invented.** Every one of the 24 real modules across the 6 groups was
+checked directly against its own template function in `app.js` before
+being written, matching this app's own "headline fields only" scoping
+already documented per module above (e.g. Leave Types only exposes
+Name/Sandwich Rule/Bridge as real toggles; Attendance Policy only
+exposes Title; Custom Addition/Deduction exposes Name/Type/Carry
+Forward) — a module with very little to configure (Holiday Calendar: a
+single sync button; Tax: a single enable/disable toggle) gets a short,
+honest row rather than padded, invented complexity. Real cross-module
+facts already documented elsewhere in this file carry through
+correctly — Configure Salary Components' own real ≥2-Active-components
+dependency, Late Arrival/Repeated Late Penalty's real "exactly one, not
+merely at least one" rule, Overtime's real dependency on Attendance
+Policy having overtime enabled, Custom Addition/Deduction's real
+10-field ceiling, Roster Pattern's real "one shared time slot, per-day
+assignment is a named phase-two item" limitation.
+
+**Test fallout**: `tests/faq.test.js` block B's Asset Code assertion
+was checking for the literal old text `"PREFIX0001"`, which the new
+paragraph doesn't repeat verbatim — updated to check for `"0001"`
+instead, still confirming the real mechanism is named. Block C's own
+"renders prose, not a column/rule table" assertion is inverted outright
+— Settings now *does* render a real table, same as Bulk — renamed and
+flipped to `=== 1`, with a new assertion added confirming a real field
+name (Legal Name) actually appears in it.
+
+Confirmed by Playwright in both themes at 1440px: Employee Add's table
+shows the new narrative text (mentioning "Starting number," not the old
+terse line); all 5 Bulk operations render full-paragraph content with
+no fragments; all 6 Settings groups render a real, non-empty field
+table (row counts: Company Settings 15, Employee Settings 6, Attendance
+Settings 2, Schedule Management 3, Leave Settings 6, Payroll Settings
+14) with the "Run defaults" note still present under each; a 390px
+mobile check on the widest table (Payroll Settings) showed zero
+horizontal page overflow. Full 13-suite run green throughout (FAQ grew
+from 31 to 32 checks).
+
+**The table itself needed one more real fix the same day, flagged
+directly against a screenshot with the table's own bottom scrollbar
+circled**: "eta emon ken? width fix rakho. multiple line e egele to
+kono somossa nai" (why is it like this? keep the width fixed — if it
+wraps across multiple lines, that's not a problem). Every `.preview-
+table` in this app (Admin Panel, Audit Log, Leave Balance, Payroll)
+shares one CSS rule — `white-space: nowrap` on every cell — because
+every other use of this component holds short, ID-like values that
+were never meant to wrap. FAQ's own cells now carry full paragraphs,
+so that same shared rule forced the "What we do" column onto one long
+line per row and made the whole table need a horizontal scrollbar just
+to read, rather than growing taller the way a real paragraph should.
+
+Fixed by scoping new rules to `#faqDetailPanel .preview-table`
+specifically — `table-layout: fixed`, `white-space: normal; word-wrap:
+break-word` on cells, first column fixed to 26% width — rather than
+touching the shared `.preview-table` rule itself, which would have
+reintroduced unwanted wrapping into Admin Panel's Users table, Audit
+Log, and Leave Balance/Payroll's own preview tables, all of which still
+want their existing single-line behaviour. Confirmed by Playwright at
+1440px in both themes: the table's own `.preview-table-wrap` no longer
+scrolls (`scrollWidth` now equals `clientWidth`), text wraps across
+multiple lines exactly as asked, and the fixed first column measures
+26% as intended with no overlap or clipping.
+
+**A second, genuine mobile issue surfaced from that same verification
+pass**, not asked for but caught before it shipped: the desktop-tuned
+26% first-column width read fine at 1400px but was genuinely cramped
+at 390px — a long field name like "Configure Salary Components — Basic
+% and each component's %" wrapped into a narrow column one word (or
+part of one) per line, an ugly line-break pattern rather than a clean
+paragraph wrap. Fixed with a mobile-only override inside the FAQ
+shell's own existing `@media (max-width: 860px)` block — the first
+column widens to 38% specifically below that breakpoint, leaving "What
+we do" the majority of the row either way. Confirmed by Playwright at
+390px in both themes: the first column now measures 38% (was 26%),
+the same long field name wraps 2–3 words per line instead of one, and
+`document.documentElement.scrollWidth` stays exactly 390 — no page
+overflow reintroduced. The 1440px desktop state was re-verified
+untouched by this mobile-only addition. Full 13-suite run green
+throughout both fixes — neither touched a class or id any test asserts
+on.
 
 ## Adding a sixth operation
 

@@ -474,7 +474,7 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.click("#setupSignInBtn");
     await page.waitForTimeout(150);
 
-    await page.click('.op-item:has-text("Welcome")');
+    await page.click('.op-item:has-text("Dashboard")');
     await page.waitForTimeout(100);
     await page.click('.op-item:has-text("Company Setup")');
     await page.waitForTimeout(100);
@@ -697,13 +697,13 @@ async function toGrid(page, companyName = "Hogwarts") {
     await page.waitForTimeout(60);
     const setupWidth = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
     check("L Company Setup gets its own 1100px column", setupWidth === 1100, String(setupWidth));
-    /* Still not really signed in (this block never submits step one), so
-       the Company Setup nav click above already re-ran renderSidebar()
-       and re-hid the sidebar on its own real (unauthenticated) state —
-       force it visible again for this second navigation, same reason as
-       above. */
-    await page.evaluate(() => { document.querySelector(".sidebar").style.display = ""; });
-    await page.click('.op-item:has-text("Welcome")');
+    /* Welcome's own sidebar item is gone (2026-09-29) — no real nav path
+       back to it once signed in any more, by design. Browser Back still
+       reaches it, the same way it would for a real visitor: this test's
+       own history is exactly [welcome (replaceState, from init()),
+       company_setup (pushState, from the click above)], so one goBack()
+       returns to the same Welcome page this block already measured. */
+    await page.goBack();
     await page.waitForTimeout(60);
     const backToDashboard = await page.locator("#mainContent").evaluate((el) => el.getBoundingClientRect().width);
     check("L Welcome's own wide column doesn't drift after visiting Company Setup", backToDashboard === dashboardWidth, `${backToDashboard} vs ${dashboardWidth}`);
@@ -3607,7 +3607,10 @@ async function toGrid(page, companyName = "Hogwarts") {
     const errs = watchPageErrors(page);
     await toGrid(page); // mockSupabaseOk()'s own default: is_admin -> false
 
-    await page.click('.op-item:has-text("Welcome")');
+    /* Welcome's own sidebar item is gone (2026-09-29) — Back reaches the
+       exact same page a real signed-in visitor could still land on the
+       same way (toGrid()'s own history is [welcome, company_setup]). */
+    await page.goBack();
     await page.waitForTimeout(300); // give the background admin-check a chance to resolve either way
     const text = await page.textContent("#mainContent");
     check("BR no Team activity section for a non-admin", text.includes("Team activity") === false);
@@ -3642,16 +3645,17 @@ async function toGrid(page, companyName = "Hogwarts") {
       });
     });
 
-    await page.click('.op-item:has-text("Welcome")');
+    // Welcome's own sidebar item is gone (2026-09-29) — same Back as BR above.
+    await page.goBack();
     await page.waitForFunction(() => document.querySelector("#mainContent")?.textContent.includes("Team activity"), { timeout: 5000 });
     const text = await page.textContent("#mainContent");
 
     check("BS shows the admin-only label", text.includes("admin only"));
     const tiles = await page.locator(".stat-row-4 .stat-tile").allTextContents();
     check("BS 4 real stat tiles render (not the default 3)", tiles.length === 4);
-    check("BS total logins tile is 3", tiles[0].startsWith("3") && tiles[0].includes("tool sign-ins"));
-    check("BS total settings saved tile is 3", tiles[1].startsWith("3") && tiles[1].includes("settings saved"));
-    check("BS total bulk generated tile is 3", tiles[2].startsWith("3") && tiles[2].includes("bulk files generated"));
+    check("BS total logins tile is 3", tiles[0].startsWith("3") && tiles[0].includes("Tool sign-ins"));
+    check("BS total settings saved tile is 3", tiles[1].startsWith("3") && tiles[1].includes("Settings saved"));
+    check("BS total bulk generated tile is 3", tiles[2].startsWith("3") && tiles[2].includes("Bulk files generated"));
     // 2 employee_add (4200 cells each) + 1 assets_add (35000 cells) = 43,400 cells x 5s = 217,000s = 60h 16m 40s -> 60h 17m rounded
     check("BS estimated time-saved tile matches the real math", text.includes("60h 17m"));
     check("BS operation breakdown names both real operations", text.includes("Employee Add") && text.includes("Assets Add"));

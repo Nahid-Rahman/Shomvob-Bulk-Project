@@ -65,7 +65,12 @@ const { check, state } = makeChecker();
     await page.fill("#opGatePass", "whatever");
     await page.click("#opGateSignInBtn");
     await page.waitForSelector(".sidebar");
-    check("B sign-in with no pending operation lands back on the Dashboard", await page.isVisible(".welcome-headline"));
+    /* A real sign-in with no pending operation lands on the real
+       Dashboard now (2026-09-29), not the pre-signin Welcome page — the
+       two used to be the same page, which is why this checked
+       .welcome-headline before. .dashboard-route-row is the new page's
+       own stable marker, present on first paint. */
+    check("B sign-in with no pending operation lands back on the Dashboard", await page.isVisible(".dashboard-route-row"));
 
     await page.click('.op-item:has-text("Employee Add")');
     await page.waitForSelector("#countInput");
@@ -73,7 +78,7 @@ const { check, state } = makeChecker();
     await page.goBack();
     await page.waitForTimeout(200);
     check("B Back skips the (replaced) gate entry and lands on the Dashboard directly",
-      await page.isVisible(".welcome-headline") && (await page.locator("#opGateSignInBtn").count()) === 0);
+      await page.isVisible(".dashboard-route-row") && (await page.locator("#opGateSignInBtn").count()) === 0);
     check("B no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
