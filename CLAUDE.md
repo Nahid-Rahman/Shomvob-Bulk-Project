@@ -7036,6 +7036,49 @@ mobile check on the widest table (Payroll Settings) showed zero
 horizontal page overflow. Full 13-suite run green throughout (FAQ grew
 from 31 to 32 checks).
 
+**The table itself needed one more real fix the same day, flagged
+directly against a screenshot with the table's own bottom scrollbar
+circled**: "eta emon ken? width fix rakho. multiple line e egele to
+kono somossa nai" (why is it like this? keep the width fixed — if it
+wraps across multiple lines, that's not a problem). Every `.preview-
+table` in this app (Admin Panel, Audit Log, Leave Balance, Payroll)
+shares one CSS rule — `white-space: nowrap` on every cell — because
+every other use of this component holds short, ID-like values that
+were never meant to wrap. FAQ's own cells now carry full paragraphs,
+so that same shared rule forced the "What we do" column onto one long
+line per row and made the whole table need a horizontal scrollbar just
+to read, rather than growing taller the way a real paragraph should.
+
+Fixed by scoping new rules to `#faqDetailPanel .preview-table`
+specifically — `table-layout: fixed`, `white-space: normal; word-wrap:
+break-word` on cells, first column fixed to 26% width — rather than
+touching the shared `.preview-table` rule itself, which would have
+reintroduced unwanted wrapping into Admin Panel's Users table, Audit
+Log, and Leave Balance/Payroll's own preview tables, all of which still
+want their existing single-line behaviour. Confirmed by Playwright at
+1440px in both themes: the table's own `.preview-table-wrap` no longer
+scrolls (`scrollWidth` now equals `clientWidth`), text wraps across
+multiple lines exactly as asked, and the fixed first column measures
+26% as intended with no overlap or clipping.
+
+**A second, genuine mobile issue surfaced from that same verification
+pass**, not asked for but caught before it shipped: the desktop-tuned
+26% first-column width read fine at 1400px but was genuinely cramped
+at 390px — a long field name like "Configure Salary Components — Basic
+% and each component's %" wrapped into a narrow column one word (or
+part of one) per line, an ugly line-break pattern rather than a clean
+paragraph wrap. Fixed with a mobile-only override inside the FAQ
+shell's own existing `@media (max-width: 860px)` block — the first
+column widens to 38% specifically below that breakpoint, leaving "What
+we do" the majority of the row either way. Confirmed by Playwright at
+390px in both themes: the first column now measures 38% (was 26%),
+the same long field name wraps 2–3 words per line instead of one, and
+`document.documentElement.scrollWidth` stays exactly 390 — no page
+overflow reintroduced. The 1440px desktop state was re-verified
+untouched by this mobile-only addition. Full 13-suite run green
+throughout both fixes — neither touched a class or id any test asserts
+on.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route

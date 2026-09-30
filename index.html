@@ -1726,6 +1726,20 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .faq-nav-item.active { background: var(--surface); border-color: var(--border); color: var(--accent); font-weight: 600; }
 .faq-detail-panel { flex: 1 1 auto; min-width: 0; }
 
+/* FAQ's own tables carry real paragraphs, not the short, ID-like values
+   every other .preview-table in this app (Admin Panel, Audit Log, Leave
+   Balance, Payroll) is built for — that shared white-space:nowrap forced
+   this one into a horizontal scrollbar (2026-09-30, direct feedback:
+   "width fix rakho. multiple line e egele to kono somossa nai" — keep
+   the width fixed, wrapping across multiple lines is fine). Scoped to
+   #faqDetailPanel only, so every other .preview-table in the app keeps
+   its existing single-line behaviour, which still suits it. */
+#faqDetailPanel .preview-table { table-layout: fixed; }
+#faqDetailPanel .preview-table th,
+#faqDetailPanel .preview-table td { white-space: normal; word-wrap: break-word; }
+#faqDetailPanel .preview-table th:first-child,
+#faqDetailPanel .preview-table td:first-child { width: 26%; }
+
 @media (max-width: 860px) {
   /* align-items: flex-start (base rule) sizes a column-mode flex item to
      its own content width instead of stretching to fill — exactly what
@@ -1738,6 +1752,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .faq-shell { flex-direction: column; align-items: stretch; }
   .faq-nav-list { flex: 0 0 auto; width: 100%; flex-direction: row; flex-wrap: wrap; }
   .faq-nav-item { flex: 1 1 auto; text-align: center; }
+
+  /* The desktop 26% first-column width (above) reads fine against a
+     1400px table but is genuinely cramped at a 390px one — a long field
+     name like "Configure Salary Components — Basic % and each
+     component's %" wraps into a very narrow column with an awkward
+     line break per word. Found by the same screenshot pass that
+     confirmed the wrap fix itself worked. Widened here, not removed —
+     the "What we do" column still needs to keep the majority of the
+     row's width. */
+  #faqDetailPanel .preview-table th:first-child,
+  #faqDetailPanel .preview-table td:first-child { width: 38%; }
 }
 
 /* Real usage's three charts (2026-09-29) — mocked up first on a design
