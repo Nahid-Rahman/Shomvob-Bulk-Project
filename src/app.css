@@ -1664,13 +1664,44 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .dashboard-service-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
 .dashboard-service-note { font-size: 11px; color: var(--text-faint); }
 
-/* The dedicated FAQ page's own card grid (2026-09-29) — the same cards
-   as the Dashboard's strip, just bigger and roomier since this is the
-   page's whole content rather than one low-emphasis section at the
-   bottom of a busier page. Still the same 3-column grid underneath. */
-.faq-index-grid .dashboard-service-card { padding: 16px; gap: 6px; }
-.faq-index-grid .dashboard-service-title { font-size: 14px; }
-.faq-index-grid .dashboard-service-note { font-size: 12px; }
+/* The dedicated FAQ page's own two-level shell (2026-09-30 redesign,
+   direct request against an Excel mockup) — a Bulk Operation/Settings
+   toggle up top (plain .seg/.seg-fill, reused as-is), a vertical list
+   of that category's own items on the left, and the selected item's
+   detail on the right. Replaces the earlier 2026-09-29 card-grid index
+   (.faq-index-grid) outright — nothing references that class any more. */
+.faq-category-seg { margin-bottom: 16px; max-width: 420px; }
+
+.faq-shell { display: flex; gap: 20px; align-items: flex-start; }
+.faq-nav-list {
+  flex: 0 0 220px;
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 6px;
+}
+.faq-nav-item {
+  display: block; width: 100%; text-align: left;
+  border: 1px solid transparent; background: none; cursor: pointer;
+  font-family: var(--font-body); font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+  padding: 10px 12px; border-radius: var(--radius-sm);
+}
+.faq-nav-item:hover:not(.active) { color: var(--text); background: var(--surface); }
+.faq-nav-item.active { background: var(--surface); border-color: var(--border); color: var(--accent); font-weight: 600; }
+.faq-detail-panel { flex: 1 1 auto; min-width: 0; }
+
+@media (max-width: 860px) {
+  /* align-items: flex-start (base rule) sizes a column-mode flex item to
+     its own content width instead of stretching to fill — exactly what
+     lets a wide .preview-table push .faq-detail-panel, and the whole
+     page, wider than the viewport here. stretch (the flex default)
+     forces both columns to the container's full width instead, so
+     .preview-table-wrap's own overflow-x:auto can do its job. Found via
+     a real mobile screenshot pass — measured 1825px of document
+     scrollWidth against a 390px viewport before this fix, 390px after. */
+  .faq-shell { flex-direction: column; align-items: stretch; }
+  .faq-nav-list { flex: 0 0 auto; width: 100%; flex-direction: row; flex-wrap: wrap; }
+  .faq-nav-item { flex: 1 1 auto; text-align: center; }
+}
 
 /* Real usage's three charts (2026-09-29) — mocked up first on a design
    canvas and confirmed directly before building. A donut for Bulk runs

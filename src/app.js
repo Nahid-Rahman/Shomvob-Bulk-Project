@@ -9,11 +9,18 @@
      gate below interrupted it, so a successful sign-in lands exactly
      where the visitor meant to go rather than back on the Dashboard. */
   let pendingOperation = null;
-  /* "What we offer & FAQ" (2026-09-29) — which topic's explanation is
-     showing, `null` for the card index itself. Not tracked in browser
-     history, same as Company Setup's own internal drill-down (group
-     grid -> a module tab) — a plain "<- Back to overview" link inside
-     the detail view, not a second History API entry per topic. */
+  /* "What we offer & FAQ" (2026-09-29, reshaped into a two-level shell
+     2026-09-30) — `faqCategory` is which half of the page is showing
+     ("bulk" or "settings"), `faqTopic` is which item's own detail is
+     open within that category (a FAQ_TOPICS id under "bulk", a
+     SETTINGS_GROUPS id under "settings"). `null` means "not resolved
+     yet" — faqTemplate() resolves it to the first item of whichever
+     category is current, so the page always opens on something rather
+     than an empty detail pane. Not tracked in browser history, same as
+     Company Setup's own internal drill-down (group grid -> a module
+     tab) — switching the category or the topic is a plain re-render,
+     never a second History API entry. */
+  let faqCategory = "bulk";
   let faqTopic = null;
   /* A Set, not a single key, 2026-09-19 (direct request: for a big batch,
      mixing more than one theme means less cycling within any one small
@@ -551,7 +558,10 @@
     faqBtn.innerHTML = `<span class="op-item-label">${opIcon("faq")}What we offer & FAQ</span>`;
     faqBtn.addEventListener("click", () => {
       if (isBulkRunActive()) return;
-      if (currentOp !== "faq") faqTopic = null;
+      if (currentOp !== "faq") {
+        faqCategory = "bulk";
+        faqTopic = null;
+      }
       navigateTo("faq");
     });
     faqNav.appendChild(faqBtn);
@@ -4317,22 +4327,22 @@
   }
 
   /* "What we offer & FAQ" (renamed 2026-09-29, direct request) — the
-     same low-emphasis card strip, now reusing FAQ_TOPICS directly
-     (6 cards: 5 Bulk operations + 1 combined Settings, not 11) so a
-     click opens that topic's own real explanation page
-     (openFaqTopic()) instead of doing nothing. OPERATION_BLURBS/
-     SETTINGS_GROUPS are still kept for the reasons the 2026-09-25
-     Dashboard redesign's own note already gives — FAQ_TOPICS reuses
-     OPERATION_BLURBS' own cost line directly, rather than duplicating
-     it. */
+     Dashboard's own low-emphasis card strip, still exactly 6 cards
+     (5 Bulk operations + 1 combined Settings) regardless of the FAQ
+     page's own 2026-09-30 redesign below — FAQ_TOPICS itself now only
+     holds the 5 Bulk entries (see app-data.js), so the Settings card
+     here is built from FAQ_SETTINGS_SHARED.note directly rather than
+     reading a "settings" FAQ_TOPICS entry that no longer exists.
+     OPERATION_BLURBS is still kept for the reason the 2026-09-25
+     Dashboard redesign's own note already gives — this reuses its cost
+     line directly, rather than duplicating it. */
   function faqCardsHtml() {
-    return FAQ_TOPICS.map((t) => {
-      const note = t.note || (t.category === "bulk" ? (OPERATION_BLURBS[t.id] || {}).cost || "" : "");
-      return `<button type="button" class="dashboard-service-card" data-faq-id="${t.id}">
+    const items = FAQ_TOPICS.map((t) => ({ id: t.id, label: t.label, note: (OPERATION_BLURBS[t.id] || {}).cost || "" }));
+    items.push({ id: "settings", label: "Settings", note: FAQ_SETTINGS_SHARED.note });
+    return items.map((t) => `<button type="button" class="dashboard-service-card" data-faq-id="${t.id}">
         <span class="dashboard-service-title">${escapeHtml(t.label)}</span>
-        ${note ? `<span class="dashboard-service-note">${escapeHtml(note)}</span>` : ""}
-      </button>`;
-    }).join("");
+        ${t.note ? `<span class="dashboard-service-note">${escapeHtml(t.note)}</span>` : ""}
+      </button>`).join("");
   }
 
   function wireFaqCardClicks() {
@@ -4342,14 +4352,23 @@
   }
 
   /* Opens a topic's real explanation from wherever it was clicked — the
-     Dashboard's own card strip, or the dedicated FAQ page's identical
-     cards. Not tracked in browser history (see `faqTopic`'s own note,
-     above) — landing on the FAQ page for the first time is a real
-     top-level navigation (`navigateTo`), but switching topics once
-     already there is a plain re-render, the same "internal drill-down,
-     no History API involvement" shape Company Setup's own tabs use. */
+     Dashboard's own card strip, or (once there) the FAQ page's own left
+     nav list. "settings" (the Dashboard card's own id — there's no
+     single FAQ_TOPICS entry by that id any more) resolves to the
+     Settings category's first real group. Not tracked in browser
+     history (see `faqCategory`/`faqTopic`'s own note, above) — landing
+     on the FAQ page for the first time is a real top-level navigation
+     (`navigateTo`), but switching category/topic once already there is
+     a plain re-render, the same "internal drill-down, no History API
+     involvement" shape Company Setup's own tabs use. */
   function openFaqTopic(id) {
-    faqTopic = id;
+    if (id === "settings") {
+      faqCategory = "settings";
+      faqTopic = SETTINGS_GROUPS[0] ? SETTINGS_GROUPS[0].id : null;
+    } else {
+      faqCategory = "bulk";
+      faqTopic = id;
+    }
     if (currentOp === "faq") {
       const root = $("#mainContent");
       root.innerHTML = faqTemplate();
@@ -4371,38 +4390,74 @@
     `;
   }
 
-  /* The dedicated "What we offer & FAQ" page, reached from its own
-     sidebar item (below every other section, above Log out) — the same
-     card set as the Dashboard's own strip, just as the page's whole
-     content rather than one low-emphasis section at the bottom.
-     `faqTopic` decides whether this shows the card index or one
-     topic's own detail view. */
+  /* The left nav list's own items for whichever category is current —
+     FAQ_TOPICS' 5 Bulk entries, or the real SETTINGS_GROUPS' 6, read
+     directly rather than a duplicated id/label list of its own. */
+  function faqNavItems() {
+    return faqCategory === "bulk"
+      ? FAQ_TOPICS.map((t) => ({ id: t.id, label: t.label }))
+      : SETTINGS_GROUPS.map((g) => ({ id: g.id, label: g.label }));
+  }
+
+  /* faqTopic can be null (fresh into the page/category) or stale (left
+     over from the other category) — always resolves to a real item of
+     the *current* category, defaulting to its first, so the detail pane
+     is never empty and the page always opens on something. */
+  function resolveFaqTopic() {
+    const items = faqNavItems();
+    if (!items.some((i) => i.id === faqTopic)) faqTopic = items.length ? items[0].id : null;
+    return faqTopic;
+  }
+
+  /* The dedicated "What we offer & FAQ" page (2026-09-30 redesign,
+     direct request against an Excel mockup: a Bulk Operation/Settings
+     toggle up top, an individual-item list on the left, the first
+     item's own detail open by default) — reached from its own sidebar
+     item (below every other section, above Log out) or from the
+     Dashboard's own card strip via openFaqTopic(). Replaces the earlier
+     2026-09-29 shape (a 6-card index, one detail view with its own
+     "<- Back" link) outright — there's no separate index screen any
+     more, the shell always shows a category + its list + one item's
+     detail, all at once. */
   function faqTemplate() {
-    const topic = FAQ_TOPICS.find((t) => t.id === faqTopic);
+    resolveFaqTopic();
+    const items = faqNavItems();
     return `
       <div class="page-head">
         <h1 class="page-title">What we offer &amp; FAQ</h1>
-        <p class="page-desc">${topic ? "Exactly what this one does, column by column." : "Every operation and the Settings side, explained — pick one to see exactly what it does."}</p>
+        <p class="page-desc">Every operation and the Settings side, explained — pick one to see exactly what it does.</p>
       </div>
-      <div class="main-inner">
-        ${topic ? faqDetailBodyHtml(topic) : faqIndexBodyHtml()}
-      </div>
-    `;
-  }
-
-  function faqIndexBodyHtml() {
-    return `
       <div class="section">
-        <div class="dashboard-service-strip faq-index-grid">
-          ${faqCardsHtml()}
+        <div class="seg seg-fill faq-category-seg" id="faqCategorySeg" role="group" aria-label="Category">
+          <button type="button" data-cat="bulk" aria-pressed="${faqCategory === "bulk"}">Bulk Operation</button>
+          <button type="button" data-cat="settings" aria-pressed="${faqCategory === "settings"}">Settings</button>
+        </div>
+        <div class="faq-shell">
+          <div class="faq-nav-list" id="faqNavList">
+            ${items.map((i) => `<button type="button" class="faq-nav-item ${i.id === faqTopic ? "active" : ""}" data-faq-topic="${i.id}">${escapeHtml(i.label)}</button>`).join("")}
+          </div>
+          <div class="faq-detail-panel" id="faqDetailPanel">
+            ${faqDetailBodyHtml()}
+          </div>
         </div>
       </div>
     `;
   }
 
-  function faqDetailBodyHtml(topic) {
-    const body = topic.columns
-      ? `
+  /* Renders the currently-selected item's own detail — a real
+     column/rule table for a Bulk operation, or (for now, until each
+     Settings group gets its own dedicated per-module breakdown — still
+     to be designed, not guessed at here) the shared Settings overview
+     plus that specific group's own real module names, so the 6 groups
+     at least read as genuinely different pages rather than 6 identical
+     clones of one paragraph. */
+  function faqDetailBodyHtml() {
+    if (faqCategory === "bulk") {
+      const topic = FAQ_TOPICS.find((t) => t.id === faqTopic);
+      if (!topic) return "";
+      return `
+        <h2 class="section-title" style="margin-top:0">${escapeHtml(topic.label)}</h2>
+        <p class="section-note">${escapeHtml(topic.intro)}</p>
         <div class="preview-table-wrap" style="margin-top:14px">
           <table class="preview-table">
             <thead><tr><th>Column</th><th>What we do</th></tr></thead>
@@ -4411,30 +4466,41 @@
             </tbody>
           </table>
         </div>
-      `
-      : `<div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">${(topic.prose || []).map((p) => `<p class="section-note" style="font-size:13.5px">${escapeHtml(p)}</p>`).join("")}</div>`;
+      `;
+    }
+    const group = SETTINGS_GROUPS.find((g) => g.id === faqTopic);
+    if (!group) return "";
     return `
-      <div class="section">
-        <a href="#" id="faqBackLink" style="display:inline-block;font-size:13px">&larr; Back to What we offer &amp; FAQ</a>
-        <h2 class="section-title" style="margin-top:10px">${escapeHtml(topic.label)}</h2>
-        <p class="section-note">${escapeHtml(topic.intro)}</p>
-        ${body}
+      <h2 class="section-title" style="margin-top:0">${escapeHtml(group.label)}</h2>
+      <p class="section-note">${escapeHtml(FAQ_SETTINGS_SHARED.intro)}</p>
+      <p class="section-note" style="margin-top:10px"><strong>Modules in this group:</strong> ${group.modules.map((m) => escapeHtml(m.label)).join(", ")}</p>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">
+        ${FAQ_SETTINGS_SHARED.prose.map((p) => `<p class="section-note" style="font-size:13.5px">${escapeHtml(p)}</p>`).join("")}
       </div>
     `;
   }
 
   function wireFaqEvents() {
     wireFaqCardClicks();
-    const back = $("#faqBackLink");
-    if (back) {
-      back.addEventListener("click", (e) => {
-        e.preventDefault();
+    $all("#faqCategorySeg button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const cat = btn.dataset.cat;
+        if (cat === faqCategory) return;
+        faqCategory = cat;
         faqTopic = null;
         const root = $("#mainContent");
         root.innerHTML = faqTemplate();
         wireFaqEvents();
       });
-    }
+    });
+    $all(".faq-nav-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.faqTopic === faqTopic) return;
+        faqTopic = btn.dataset.faqTopic;
+        $all(".faq-nav-item").forEach((b) => b.classList.toggle("active", b === btn));
+        $("#faqDetailPanel").innerHTML = faqDetailBodyHtml();
+      });
+    });
   }
 
   function dashboardTemplate() {

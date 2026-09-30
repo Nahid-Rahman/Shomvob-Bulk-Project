@@ -543,20 +543,27 @@ const FAQ_TOPICS = [
       { name: "Assigned Employee ID / Assigned Date", rule: "Both optional. About 70–80% of assets end up assigned to a real employee ID from your list, each with a real assignment date from within the last year. The rest leave both columns blank — never one filled with the other left empty." },
     ],
   },
-  {
-    id: "settings",
-    category: "settings",
-    label: "Settings",
-    note: "Automatic or Custom settings setup",
-    intro: "Different from the five operations above — Settings doesn't hand you a file to upload by hand. It signs in as a real company, with the credentials you provide, and writes configuration directly into that company through Shomvob's own real API — departments, leave types, payroll rules, and everything else a fresh company needs before anyone can actually use it.",
-    prose: [
-      "It covers six real settings groups — Company, Employee, Attendance, Schedule Management, Leave and Payroll — each with its own set of modules, mirroring the real admin panel's own structure exactly.",
-      "Most modules generate a realistic, ready-to-save value on their own (a bank, a leave type, a payroll cycle) — every field stays editable before you save, so you can hand-tweak anything the generated value doesn't fit.",
-      "Real dependencies are checked live against the actual connected company, never assumed: a Designation needs a Department to exist first, a Leave Policy needs a Leave Type, and so on. If something's missing, the module names exactly what and gives you a one-click shortcut to fix it — nothing fails silently.",
-      "“Run defaults” is the shortcut worth knowing about: one click sets up a whole company's worth of sensible defaults — departments, a leave policy, a payroll cycle and more — instead of the roughly 2–2.5 hours it takes to click through all of this by hand.",
-    ],
-  },
 ];
+
+/* The FAQ page's own Settings side (2026-09-30 redesign — a left-hand
+   list of the real 6 SETTINGS_GROUPS, not one combined card) shows this
+   same shared overview under whichever group is currently selected,
+   plus that group's own real module names — until each group gets its
+   own dedicated per-module detail (still to be designed, deliberately
+   not guessed at here). This is the exact content the old single
+   combined "Settings" FAQ_TOPICS entry held before the split; `note` is
+   what the Dashboard's own card strip still shows for its one Settings
+   card (faqCardsHtml() in app.js), since that strip stays a single
+   6-card summary (5 Bulk + 1 Settings) regardless of this split. */
+const FAQ_SETTINGS_SHARED = {
+  note: "Automatic or Custom settings setup",
+  intro: "Different from the five operations above — Settings doesn't hand you a file to upload by hand. It signs in as a real company, with the credentials you provide, and writes configuration directly into that company through Shomvob's own real API — departments, leave types, payroll rules, and everything else a fresh company needs before anyone can actually use it.",
+  prose: [
+    "Most modules generate a realistic, ready-to-save value on their own (a bank, a leave type, a payroll cycle) — every field stays editable before you save, so you can hand-tweak anything the generated value doesn't fit.",
+    "Real dependencies are checked live against the actual connected company, never assumed: a Designation needs a Department to exist first, a Leave Policy needs a Leave Type, and so on. If something's missing, the module names exactly what and gives you a one-click shortcut to fix it — nothing fails silently.",
+    "“Run defaults” is the shortcut worth knowing about: one click sets up a whole company's worth of sensible defaults — departments, a leave policy, a payroll cycle and more — instead of the roughly 2–2.5 hours it takes to click through all of this by hand.",
+  ],
+};
 
 /* Five seconds a cell is generous for someone typing carefully from a
    spec — the constant welcomeChartsHtml()'s own "minutes saved" chart

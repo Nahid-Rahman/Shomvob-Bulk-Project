@@ -1,12 +1,15 @@
 /* "What we offer & FAQ" — end-to-end against the built index.html.
  *
- * Built 2026-09-29, direct request: the Dashboard's own low-emphasis
- * "What we offer" strip is renamed and its cards become real links — a
- * click opens a new page naming that operation's actual, real generation
- * logic (every column's own rule), or, for Settings, a combined overview
- * covering all six real groups at once rather than one card per group.
- * The page is also reachable from its own sidebar item, sitting below
- * every other section and above Log out.
+ * Built 2026-09-29 as a card index + a single detail view per card;
+ * redesigned 2026-09-30 into a two-level shell, direct request against
+ * an Excel mockup: a Bulk Operation/Settings toggle up top (default
+ * Bulk), an individual-item list on the left for whichever category is
+ * selected, and the first item's own detail open by default on the
+ * right. The Dashboard's own card strip is unchanged — still exactly 6
+ * cards (5 Bulk operations + 1 combined Settings) — clicking one still
+ * opens the same dedicated page, just landing on this new shell with
+ * that card's own category/topic preselected instead of a standalone
+ * detail view with its own "<- Back" link.
  *
  * Every assertion maps to a rule in CLAUDE.md; if one fails, check there
  * before changing the test.
@@ -20,8 +23,9 @@ const { check, state } = makeChecker();
   const browser = await chromium.launch();
 
   {
-    // A — the sidebar's own "What we offer & FAQ" item opens the card
-    // index: 5 real Bulk operations + exactly one combined Settings card.
+    // A — the sidebar's own "What we offer & FAQ" item opens the shell
+    // on Bulk Operation by default, with all 5 real operations listed
+    // and the first one's own detail already open.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await mockPublicStats(page);
@@ -30,18 +34,21 @@ const { check, state } = makeChecker();
     await mockToolSignIn(page);
 
     await goToOp(page, "What we offer & FAQ");
-    await page.waitForSelector(".dashboard-service-card");
-    check("A shows exactly 6 cards (5 operations + 1 combined Settings)", (await page.locator(".dashboard-service-card").count()) === 6);
-    const labels = await page.locator(".dashboard-service-title").allTextContents();
+    await page.waitForSelector(".faq-nav-item");
+    check("A Bulk Operation is selected by default", await page.locator('#faqCategorySeg button[data-cat="bulk"]').getAttribute("aria-pressed") === "true");
+    check("A lists all 5 real Bulk operations", (await page.locator(".faq-nav-item").count()) === 5);
+    const labels = await page.locator(".faq-nav-item").allTextContents();
     check("A names every real Bulk operation", ["Employee Add", "Employee Attendance Add", "Leave Balance Add", "Payroll Custom Field Add", "Assets Add"].every((l) => labels.includes(l)));
-    check("A Settings is one combined card, not six", labels.filter((l) => l === "Settings").length === 1 && !labels.some((l) => l.includes("Company Settings") || l.includes("Payroll Settings")));
+    check("A the first item is already open by default", (await page.locator(".faq-nav-item.active").textContent()) === "Employee Add");
+    const text = await page.textContent("#faqDetailPanel");
+    check("A the detail panel shows the first item's real rules without a click", text.includes("PREFIX0001"));
     check("A no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
   {
-    // B — clicking a real operation's card shows its own real column
-    // rules, and "<- Back" returns to the index.
+    // B — clicking another item in the list swaps the detail panel in
+    // place, no separate index/back-link round trip.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await mockPublicStats(page);
@@ -50,25 +57,21 @@ const { check, state } = makeChecker();
     await mockToolSignIn(page);
 
     await goToOp(page, "What we offer & FAQ");
-    await page.waitForSelector(".dashboard-service-card");
-    await page.click('.dashboard-service-card[data-faq-id="employee_add"]');
-    await page.waitForSelector("#faqBackLink");
-    const text = await page.textContent("#mainContent");
-    check("B shows the real topic title", text.includes("Employee Add"));
-    check("B names a real column rule (Employee ID)", text.includes("PREFIX0001"));
-    check("B names another real column rule (Joining Date weighting)", text.includes("60%") && text.includes("previous year"));
+    await page.waitForSelector(".faq-nav-item");
+    await page.click('.faq-nav-item[data-faq-topic="assets_add"]');
+    const text = await page.textContent("#faqDetailPanel");
+    check("B shows the real topic title", text.includes("Assets Add"));
+    check("B names a real column rule (Asset Code)", text.includes("PREFIX0001") && text.includes("Asset Code"));
     check("B renders a real column/rule table, not prose", (await page.locator(".preview-table").count()) === 1);
-
-    await page.click("#faqBackLink");
-    await page.waitForSelector(".dashboard-service-card");
-    check("B Back returns to the 6-card index", (await page.locator(".dashboard-service-card").count()) === 6);
+    check("B the clicked item is now the active one", (await page.locator(".faq-nav-item.active").textContent()) === "Assets Add");
     check("B no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 
   {
-    // C — the combined Settings card shows a real overview, not a table
-    // (Settings has no per-column rules the way an operation does).
+    // C — switching the toggle to Settings swaps the left list to the
+    // real 6 SETTINGS_GROUPS, first one open by default, prose not a
+    // table (Settings has no per-column rules the way an operation does).
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await mockPublicStats(page);
@@ -77,12 +80,15 @@ const { check, state } = makeChecker();
     await mockToolSignIn(page);
 
     await goToOp(page, "What we offer & FAQ");
-    await page.waitForSelector(".dashboard-service-card");
-    await page.click('.dashboard-service-card[data-faq-id="settings"]');
-    await page.waitForSelector("#faqBackLink");
-    const text = await page.textContent("#mainContent");
-    check("C shows the real topic title", text.includes("Settings"));
-    check("C mentions the real six settings groups", text.includes("Schedule Management") && text.includes("Payroll"));
+    await page.waitForSelector(".faq-nav-item");
+    await page.click('#faqCategorySeg button[data-cat="settings"]');
+    check("C Settings is now the pressed toggle", await page.locator('#faqCategorySeg button[data-cat="settings"]').getAttribute("aria-pressed") === "true");
+    check("C lists all 6 real settings groups", (await page.locator(".faq-nav-item").count()) === 6);
+    const labels = await page.locator(".faq-nav-item").allTextContents();
+    check("C names every real settings group", ["Company Settings", "Employee Settings", "Attendance Settings", "Schedule Management", "Leave Settings", "Payroll Settings"].every((l) => labels.includes(l)));
+    check("C the first group is already open by default", (await page.locator(".faq-nav-item.active").textContent()) === "Company Settings");
+    const text = await page.textContent("#faqDetailPanel");
+    check("C names that group's own real modules", text.includes("Company Profile") && text.includes("Bank Info"));
     check("C mentions the real Run defaults shortcut", text.includes("Run defaults"));
     check("C renders prose, not a column/rule table", (await page.locator(".preview-table").count()) === 0);
     check("C no page errors", errs.length === 0, errs.join(" | "));
@@ -91,7 +97,7 @@ const { check, state } = makeChecker();
 
   {
     // D — clicking a card from the Dashboard's own strip opens the exact
-    // same FAQ page and topic, not a separate content system.
+    // same shell, landing on that card's own category/topic preselected.
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await mockPublicStats(page);
@@ -106,10 +112,19 @@ const { check, state } = makeChecker();
     await page.click("#opGateSignInBtn");
     await page.waitForSelector(".dashboard-route-row");
     await page.waitForSelector(".dashboard-service-card");
+    check("D Dashboard's own strip still shows exactly 6 cards", (await page.locator(".dashboard-service-card").count()) === 6);
     await page.click('.dashboard-service-card[data-faq-id="assets_add"]');
-    await page.waitForSelector("#faqBackLink");
-    const text = await page.textContent("#mainContent");
-    check("D the Dashboard's own card opens the real Assets Add topic", text.includes("Assets Add") && text.includes("Asset Code"));
+    await page.waitForSelector(".faq-nav-item");
+    const text = await page.textContent("#faqDetailPanel");
+    check("D the Dashboard's own card opens the real Assets Add topic, preselected", text.includes("Assets Add") && text.includes("Asset Code"));
+    check("D lands on the Bulk Operation side", await page.locator('#faqCategorySeg button[data-cat="bulk"]').getAttribute("aria-pressed") === "true");
+
+    await page.click('.op-item:has-text("Dashboard")');
+    await page.waitForSelector(".dashboard-service-card");
+    await page.click('.dashboard-service-card[data-faq-id="settings"]');
+    await page.waitForSelector(".faq-nav-item");
+    check("D the Dashboard's Settings card lands on the Settings side, first group preselected", await page.locator('#faqCategorySeg button[data-cat="settings"]').getAttribute("aria-pressed") === "true");
+    check("D that first group is Company Settings", (await page.locator(".faq-nav-item.active").textContent()) === "Company Settings");
     check("D no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
@@ -125,7 +140,7 @@ const { check, state } = makeChecker();
     await signIn(page);
     await mockToolSignIn(page);
     await goToOp(page, "What we offer & FAQ");
-    await page.waitForSelector(".dashboard-service-card");
+    await page.waitForSelector(".faq-nav-item");
 
     const order = await page.evaluate(() => {
       const nav = document.getElementById("opNav");
@@ -138,6 +153,33 @@ const { check, state } = makeChecker();
     check("E FAQ's sidebar item sits after Operations and before Log out", order);
     check("E the sidebar shows a plain 'What we offer & FAQ' item", (await page.locator("#faqNav .op-item").count()) === 1);
     check("E no page errors", errs.length === 0, errs.join(" | "));
+    await page.close();
+  }
+
+  {
+    // F — reopening the sidebar item after having drilled into Settings
+    // resets back to Bulk Operation, not wherever it was left.
+    const page = await browser.newContext().then((c) => c.newPage());
+    const errs = watchPageErrors(page);
+    await mockPublicStats(page);
+    await page.goto(PAGE);
+    await signIn(page);
+    await mockToolSignIn(page);
+
+    await goToOp(page, "What we offer & FAQ");
+    await page.waitForSelector(".faq-nav-item");
+    await page.click('#faqCategorySeg button[data-cat="settings"]');
+    await page.waitForSelector('.faq-nav-item[data-faq-topic="payroll"]');
+    await page.click('.faq-nav-item[data-faq-topic="payroll"]');
+
+    // navigate away, then back to FAQ via the sidebar
+    await page.click('.op-item:has-text("Dashboard")');
+    await page.waitForSelector(".dashboard-route-row");
+    await page.click('#faqNav .op-item');
+    await page.waitForSelector(".faq-nav-item");
+    check("F reopening resets to Bulk Operation", await page.locator('#faqCategorySeg button[data-cat="bulk"]').getAttribute("aria-pressed") === "true");
+    check("F reopening resets to the first Bulk item", (await page.locator(".faq-nav-item.active").textContent()) === "Employee Add");
+    check("F no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }
 

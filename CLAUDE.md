@@ -6809,6 +6809,109 @@ as-is). Full 13-suite run green throughout — no test asserted on an
 exact ID sequence starting at 1, or on the holiday chip count/text, so
 neither fix needed a test update.
 
+## "What we offer & FAQ" redesigned into a two-level shell (2026-09-30)
+
+Design discussed and confirmed *before* any code, per this session's own
+"bujhai age, hut kore kaj shuru korba na" (explain the design first,
+don't just jump in and start) — the user sketched the target layout in
+a plain Excel grid (a screenshot of two labelled columns, "Bulk
+Operation"/"Settings", with Employee/attendance/leave/payroll/asset
+listed under the first) rather than a finished spec, and confirmed one
+piece at a time: a top toggle between Bulk Operation and Settings
+(Bulk default), a left-hand list of that category's own individual
+items, and the first item already open by default with its detail
+alongside — "details kemne thakbe pore boli" (I'll say how the details
+themselves should look later) was explicit that the detail *content*
+format is still open; only this navigation shell was confirmed and
+asked to be built now ("banao eituk age" — build this part first).
+
+**Replaces the 2026-09-29 shape outright** — a 6-card index (5 Bulk
+operations + 1 combined Settings card) with a single detail view and
+its own "← Back" link. That card grid and back-link are gone from the
+dedicated FAQ page entirely; there is no more "index" state to return
+to, since the shell always shows a category, that category's own list,
+and one item's detail, all at once.
+
+**Settings is no longer one combined card's worth of content** — direct
+follow-up question asked before building ("Settings tab select korle
+baam pashe ki thakbe?"), confirmed: the left list under Settings shows
+the real 6 `SETTINGS_GROUPS` (Company/Employee/Attendance/Schedule
+Management/Leave/Payroll Settings), matched by their real `id`s, not a
+second hardcoded list. Since each group's own *detailed* content isn't
+designed yet, `faqDetailBodyHtml()` shows the exact same shared overview
+text every group already had (`FAQ_SETTINGS_SHARED` in `app-data.js` —
+the old single "settings" `FAQ_TOPICS` entry's own intro/prose, lifted
+out unchanged) plus that specific group's own real module names (read
+straight off `SETTINGS_GROUPS[i].modules`, e.g. Company Settings lists
+"Company Profile, Bank Info, Location Types, Locations, Department
+Management, Designation Management") — real data, not fabricated
+per-group content, so the 6 items read as genuinely different pages
+rather than 6 identical clones of one paragraph, without pre-empting
+whatever per-module breakdown the user designs next.
+
+**State**: `faqTopic` (a single nullable id) became `faqCategory`
+("bulk"/"settings") + `faqTopic` (an id meaningful *within* that
+category — a `FAQ_TOPICS` id under Bulk, a `SETTINGS_GROUPS` id under
+Settings). `resolveFaqTopic()` defaults `faqTopic` to the current
+category's own first item whenever it's `null` or stale (left over from
+switching category), so the detail pane is never empty — `faqTemplate()`
+calls it before rendering, `faqCategorySeg`'s own click handler resets
+`faqTopic = null` before re-rendering so switching category always
+lands back on that category's first item, not wherever the other
+category happened to leave off. Neither is tracked in browser history,
+same as before and same as Company Setup's own group→module drill-down
+— a plain re-render, not a second History API entry per click.
+
+**The Dashboard's own card strip is untouched** — still exactly 6 cards
+(5 Bulk + 1 combined "Settings"), since that's a separate showcase
+feature from the FAQ page's own internal navigation and the user never
+asked to change it. `openFaqTopic(id)` is the one place the two connect:
+called with a Bulk operation's id it sets `faqCategory = "bulk"`
+directly; called with `"settings"` (the Dashboard card's own id — there
+is no single `FAQ_TOPICS` entry by that id any more) it sets
+`faqCategory = "settings"` and resolves `faqTopic` to
+`SETTINGS_GROUPS[0]`'s id, so clicking that one card still lands
+somewhere real rather than an empty category.
+
+**A real mobile bug, found and fixed by the verification pass itself,
+not guessed at in advance**: `.faq-shell`'s base `align-items:
+flex-start` sizes a column-mode flex child to its own *content* width
+rather than stretching to fill — harmless above the existing 860px
+breakpoint, where the two columns sit side by side and share the row's
+width normally, but once collapsed to a single stacked column on
+mobile this let the wide `.preview-table` inside `.faq-detail-panel`
+push the whole page 1825px wide against a 390px viewport (measured via
+`document.documentElement.scrollWidth`), rather than the table getting
+its own internal horizontal scroll the way every other wide table in
+this app already does. Fixed with one added declaration inside the
+existing `@media (max-width: 860px)` block — `align-items: stretch` —
+so both the nav list and the detail panel are forced to the container's
+full width, letting `.preview-table-wrap`'s own `overflow-x: auto` do
+its job like it does everywhere else. Confirmed: `scrollWidth` back to
+exactly 390 in both themes after the fix.
+
+**Test fallout, `tests/faq.test.js` rewritten outright**, not patched —
+every old assertion depended on markup that no longer exists
+(`.dashboard-service-card`/`#faqBackLink` *inside* the FAQ page,
+6-card-index-then-detail flow). New blocks confirm: Bulk Operation
+selected by default with all 5 real operations listed and the first
+(Employee Add) already open with no click; clicking another item swaps
+the detail panel and the active state in place; toggling to Settings
+swaps the list to the real 6 groups with Company Settings open by
+default, prose (not a table) naming real modules; the Dashboard's own
+strip still shows exactly 6 cards and each one still lands on the right
+category/topic preselected; the sidebar item's own position is
+unchanged; and reopening the page via the sidebar after having drilled
+into Settings resets back to Bulk Operation, not wherever it was left.
+Confirmed by Playwright in both themes at 1440px and 390px. Full
+13-suite run green throughout.
+
+**Still open, per the user's own "pore boli"**: what each Settings
+group's own detail should actually contain (a per-module breakdown, the
+same way each Bulk operation gets a real column/rule table, or
+something else) — don't design or build this unprompted; ask first, the
+same discipline this whole feature has followed so far.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route
