@@ -6721,6 +6721,26 @@ card renders the real signed-in email with a matching avatar letter,
 sitting before Log out in document order. Full 13-suite run green — no
 test asserted on the removed page-head text.
 
+**"Get started" moved to the very bottom of the page, "Real usage"
+renamed to "User Statistics" (2026-09-30)** — two more direct requests
+against a screenshot with "Get started" boxed in red: "Get Started ta
+ei page er ekdom niche diba. ar real usage name change kore User
+Statistics diba" (put Get Started at the very bottom of this page, and
+rename "Real usage" to "User Statistics"). Both are pure reorders/
+renames in `dashboardTemplate()`/`dashboardUsageHtml()` — no new
+markup, no CSS changes: the "Get started" `.section` block (the
+Bulk/Settings routing cards) moved from the top of the template
+literal to after `${dashboardServiceStripHtml()}`, so the page now
+reads User Statistics → What we offer & FAQ → Get started, top to
+bottom; the `<h2 class="section-title">` text in `dashboardUsageHtml()`
+changed from "Real usage" to "User Statistics". Confirmed by Playwright
+in both themes at 1440px and 390px: the DOM order is correct, the
+heading text search finds "User Statistics" and no remaining "Real
+usage", and nothing clips or misaligns as a result of the reorder — the
+reordered sections are unrelated `.section` siblings, so moving one
+past the others needed no layout changes. Full 13-suite run green
+throughout (no test asserted on section order or the old heading text).
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route

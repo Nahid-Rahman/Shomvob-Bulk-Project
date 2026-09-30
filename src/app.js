@@ -4257,7 +4257,7 @@
 
     return `
       <div class="section">
-        <div class="section-head"><h2 class="section-title">Real usage</h2></div>
+        <div class="section-head"><h2 class="section-title">User Statistics</h2></div>
         <p class="section-note">Pulled straight from this tool's own activity log — each chart below has its own time-range filter.</p>
 
         <div class="numbers-addup-box">
@@ -4415,12 +4415,12 @@
        who's signed in now lives in the sidebar's own user card
        instead (see renderSidebar()), not repeated here too. */
     return `
+      ${dashboardUsageHtml()}
+      ${dashboardServiceStripHtml()}
       <div class="section">
         <div class="section-head"><h2 class="section-title">Get started</h2></div>
         ${dashboardBulkSettingsRowHtml()}
       </div>
-      ${dashboardUsageHtml()}
-      ${dashboardServiceStripHtml()}
     `;
   }
 
