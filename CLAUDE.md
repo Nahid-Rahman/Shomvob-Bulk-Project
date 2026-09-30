@@ -6912,6 +6912,41 @@ same way each Bulk operation gets a real column/rule table, or
 something else) — don't design or build this unprompted; ask first, the
 same discipline this whole feature has followed so far.
 
+**Two follow-up fixes the same day, from a screenshot with the toggle
+boxed in red and a reference screenshot of Company Setup's own
+Dev/Staging picker beside it**: "uporer section ta equal width e purata
+cover koro... ar overall page er width barao eto kom keno" (make the
+top section cover the full width evenly, like this reference; also the
+overall page width is too small).
+
+- **`#faqCategorySeg`'s own `max-width: 420px`** — the only thing
+  keeping the Bulk Operation/Settings toggle narrow, `.seg-fill` itself
+  already splits the two buttons evenly — is gone, modelled directly on
+  Company Setup's own `#setupCoEnvSeg` (Dev/Staging), which has no such
+  cap and simply fills its row. Verified: both buttons now measure
+  exactly equal width, spanning the full section.
+- **A new `.main-inner.faq-wide { max-width: 1400px; }`** — wider than
+  every other `.wide` page (1100px) — applied alongside `.wide` (not
+  instead of it, so this page keeps `.wide`'s own typography bumps too),
+  same "a distinct class rather than raising `.wide` itself" reasoning
+  `.welcome-wide` already established (`company-setup.test.js` asserts
+  an exact 1100px for that one). Reset to removed at the top of
+  `renderMain()` alongside `rickroll-layout`/`welcome-wide`, so it can
+  never leak onto another page; the `faq` branch adds both `wide` and
+  `faq-wide` together, and since both selectors carry identical
+  specificity, `faq-wide`'s own rule simply needs to come after
+  `.main-inner.wide`'s in `app.css` to win. Verified: `#mainContent`
+  reaches the true 1400px cap at a 1920px viewport (at 1440px it
+  correctly fills all the room actually left beside the sidebar, since
+  a `max-width` can't exceed that). The Bulk side's own 14-column table
+  still needs its own inner horizontal scroll even at this width — same
+  as every other wide `.preview-table` in this app, expected, not a
+  regression. Confirmed by Playwright in both themes at 1440px/1920px,
+  plus a 390px mobile check (`scrollWidth` exactly 390, no overflow —
+  the wider cap is simply unreachable below it, same as any other
+  `.main-inner` page). Full 13-suite run green throughout — neither fix
+  touched a class or id any test asserts on.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route

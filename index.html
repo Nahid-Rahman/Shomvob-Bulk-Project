@@ -465,6 +465,7 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
 }
 .main-inner.wide + .app-footer { max-width: 1100px; }
 .main-inner.welcome-wide + .app-footer { max-width: 1320px; }
+.main-inner.faq-wide + .app-footer { max-width: 1400px; }
 
 /* Company Setup only — its field-rows, textareas and tab strip actually
    use the extra room; the five generators keep the narrower, more
@@ -478,6 +479,19 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
    goes to the zigzag rows/meme column and the Scope checklist's own
    two-up field-row breathing more instead. */
 .main-inner.welcome-wide { max-width: 1320px; }
+
+/* The FAQ page's own two-level shell (2026-09-30) — flagged directly
+   against a screenshot as reading too narrow ("overall page er width
+   barao eto kom keno"): the Bulk side's own column/rule table has 14
+   real columns and was scrolling horizontally even at .wide's 1100px.
+   A distinct, wider-still class rather than raising .wide itself, same
+   reasoning as .welcome-wide's own note above — company-setup.test.js
+   asserts an exact 1100px for that one. Applied alongside .wide, not
+   instead of it, so this page keeps .wide's own typography bumps
+   (.wide .page-desc etc., below) — this rule only needs to come after
+   .main-inner.wide's own in source order to win on max-width, since
+   both selectors carry identical specificity. */
+.main-inner.faq-wide { max-width: 1400px; }
 
 /* Company Setup read noticeably lighter than the rest of the app at the
    shared classes' default sizes — bumped here, scoped to .wide so the
@@ -1687,7 +1701,13 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    of that category's own items on the left, and the selected item's
    detail on the right. Replaces the earlier 2026-09-29 card-grid index
    (.faq-index-grid) outright — nothing references that class any more. */
-.faq-category-seg { margin-bottom: 16px; max-width: 420px; }
+/* Full-width, evenly split — the same shape as Company Setup's own
+   #setupCoEnvSeg (Dev/Staging), which this was modelled on directly
+   after being flagged as too narrow ("uporer section ta equal width e
+   purata cover koro. example ei je [Environment]"). .seg-fill already
+   splits the two buttons evenly; the max-width this class used to carry
+   was the only thing keeping the whole control narrow. */
+.faq-category-seg { margin-bottom: 16px; }
 
 .faq-shell { display: flex; gap: 20px; align-items: flex-start; }
 .faq-nav-list {
@@ -4407,7 +4427,7 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
        rail, not this page's bigger, vertically-centred one). welcome-wide
        is reset the same way — only the Welcome branch below turns it
        back on. */
-    root.classList.remove("rickroll-layout", "welcome-wide");
+    root.classList.remove("rickroll-layout", "welcome-wide", "faq-wide");
 
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
@@ -4481,7 +4501,12 @@ const CUSTOM_DEDUCTION_NAMES = ["Late Fee", "Device Penalty"];
     if (currentOp === "faq") {
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media", "welcome-wide");
-      root.classList.add("wide");
+      /* Wider still than plain .wide (2026-09-30, direct feedback:
+         "overall page er width barao eto kom keno") — the Bulk side's
+         own 14-column table needed real room. Kept alongside .wide,
+         not instead of it, so this page keeps .wide's own typography
+         bumps too (see app.css). */
+      root.classList.add("wide", "faq-wide");
       root.innerHTML = faqTemplate();
       wireFaqEvents();
       return;

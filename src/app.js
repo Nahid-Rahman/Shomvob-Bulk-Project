@@ -635,7 +635,7 @@
        rail, not this page's bigger, vertically-centred one). welcome-wide
        is reset the same way — only the Welcome branch below turns it
        back on. */
-    root.classList.remove("rickroll-layout", "welcome-wide");
+    root.classList.remove("rickroll-layout", "welcome-wide", "faq-wide");
 
     if (currentOp === "welcome") {
       $("#actionBar").style.display = "none";
@@ -709,7 +709,12 @@
     if (currentOp === "faq") {
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media", "welcome-wide");
-      root.classList.add("wide");
+      /* Wider still than plain .wide (2026-09-30, direct feedback:
+         "overall page er width barao eto kom keno") — the Bulk side's
+         own 14-column table needed real room. Kept alongside .wide,
+         not instead of it, so this page keeps .wide's own typography
+         bumps too (see app.css). */
+      root.classList.add("wide", "faq-wide");
       root.innerHTML = faqTemplate();
       wireFaqEvents();
       return;
