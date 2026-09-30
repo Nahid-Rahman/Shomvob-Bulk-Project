@@ -6741,6 +6741,74 @@ reordered sections are unrelated `.section` siblings, so moving one
 past the others needed no layout changes. Full 13-suite run green
 throughout (no test asserted on section order or the old heading text).
 
+## Employee Add gets a configurable starting number; Attendance Add's holiday list is scoped to the range (2026-09-30)
+
+Two small, direct requests, given one after another before either was
+built (per this session's own "list everything, then build" discipline)
+— then "ei duita koro age" (do these two first).
+
+**Employee Add — "Starting number."** Employee ID/Biometric ID always
+sequenced from `0001`, confirmed correct for a brand-new company — but
+flagged directly as a real risk for a second run against the *same*
+company: "user je same company er jonno abar create korbe. so oi 1
+theke shuru korle duplicate porbe" (if the user generates again for the
+same company, starting from 1 again collides with IDs that already
+exist). The fix mirrors a pattern this app already had, not a new one —
+Attendance Add's own `idSourceMarkup()` "generate" mode has carried a
+"Start number" field (`genStart`, defaulting to 1, hint "Real accounts
+don't always start at 0001") since long before this session. Employee
+Add's own **Batch basics** section picked up the identical idea: a
+third field, "Starting number" (`#startNumberInput`, default `1`, min
+`1`), added to what was a 2-field `.field-row` — now a 3-column
+`.field-grid-3` (the same class Attendance's own generate-mode picker
+uses, already collapsing to 1 column under the existing mobile
+breakpoint, so no new CSS was needed). `generateWorkbookRows()` takes a
+new `startNumber` argument and sequences `pad4(start + i)` instead of
+always `pad4(i + 1)`; `renderIdPreview()`'s own 3 sample chips shift to
+match whatever's typed, live. Default stays `1`, so a plain Generate
+click with the field untouched produces byte-identical output to
+before this change — nothing about the default, single-run case
+changed. Verified end-to-end: Starting number 50 + count 10 produces a
+real downloaded file with Employee IDs `PREFIX0050`–`PREFIX0059`.
+
+**Attendance Add — the "Shomvob HR holidays" chip list is now scoped
+to the selected date range**, not every year `BD_HOLIDAYS` holds —
+direct feedback against a screenshot showing all 28 dates regardless
+of the From/To range picked above it: "ekhane user je date range
+select korbe only oi range er moddhe jeshob holiday porbe oigula
+dekhabe. kono holiday na thakle ekta msg dekhaba" (only show holidays
+that fall inside the selected range; show a message if none do).
+**Display-only fix, not a generation-logic change** — `govtHolidayList()`
+itself (used by `activeHolidaySet()`/`generateAttendanceRows()`) stays
+unscoped and unchanged, since `eachDate(att.from, att.to, ...)` already
+confines actual row generation to the range; the real bug was purely
+that `renderHolidays()` rendered every govt holiday regardless of
+range. Fixed by filtering the govt list a second time, after the
+existing `att.govtRemoved` filter, against `att.from`/`att.to` (both
+plain ISO `YYYY-MM-DD` strings from their own `<input type="date">`,
+so a lexical string comparison is exact — no date parsing needed). An
+empty result after filtering renders a plain message ("No Shomvob HR
+holidays fall inside this date range.") instead of an empty box.
+`renderHolidays()` is now also called from both `#fromDate`/`#toDate`'s
+own `input` handlers (it wasn't before — they only called
+`renderRangeTally()`/`updateSummary()`), so the chip list updates live
+as the range is edited, not just on the next holiday-mode toggle.
+Removing a chip (`att.govtRemoved`) is unaffected — it still matches by
+literal date string against the full list, so a removal made while one
+range is selected still holds if the range is later widened to include
+that date again. Verified end-to-end: Feb 1–15 2026 correctly shows
+only that window's own 3 real holidays (02-04/02-11/02-12); Jan 1–15
+2026 (a real gap in the calendar) shows the "no holidays" message; the
+full year reverts to all 28.
+
+Confirmed by Playwright in both themes at 1440px and 390px for both
+fixes — the 3-column Batch basics grid stacks cleanly on mobile, the
+Holiday section's chip list/empty-state message render correctly with
+no CSS changes needed (existing `.chip`/`.sub-note` classes, reused
+as-is). Full 13-suite run green throughout — no test asserted on an
+exact ID sequence starting at 1, or on the holiday chip count/text, so
+neither fix needed a test update.
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route

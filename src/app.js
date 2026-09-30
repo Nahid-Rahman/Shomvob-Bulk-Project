@@ -273,14 +273,15 @@
     return departmentState().final;
   }
 
-  function generateWorkbookRows(count, prefix, theme, finalDepartments) {
+  function generateWorkbookRows(count, prefix, theme, finalDepartments, startNumber) {
     const names = generateNames(theme, count);
     const usedEmails = new Set();
     const usedPhones = new Set();
     const runTag = randomTag(5);
+    const start = startNumber || 1;
     const rows = [HEADER];
     for (let i = 0; i < count; i++) {
-      const seq = pad4(i + 1);
+      const seq = pad4(start + i);
       const empId = prefix + seq;
       const bioId = prefix + "B" + seq;
       const name = names[i];
@@ -891,7 +892,7 @@
       <div class="section">
         <div class="section-head"><h2 class="section-title"><span class="section-num">1</span>Batch basics</h2></div>
         <p class="section-note">How many employees, and what their IDs should start with.</p>
-        <div class="field-row">
+        <div class="field-grid-3">
           <div class="field">
             <label for="countInput">Number of employees</label>
             <input type="number" id="countInput" min="10" max="300" value="50" />
@@ -903,6 +904,11 @@
             <input type="text" id="prefixInput" maxlength="8" placeholder="JHTY" value="JHTY" />
             <span class="hint">4 alphabetic characters — auto-uppercase</span>
             <span class="error-text" id="prefixError"></span>
+          </div>
+          <div class="field">
+            <label for="startNumberInput">Starting number</label>
+            <input type="number" id="startNumberInput" min="1" value="1" />
+            <span class="hint">Default 0001 — set this higher if this company already has IDs, so a re-run doesn't collide</span>
           </div>
         </div>
         <div class="preview-row" id="idPreview"></div>
@@ -939,6 +945,7 @@
   function wireEmployeeAddEvents() {
     const countInput = $("#countInput");
     const prefixInput = $("#prefixInput");
+    const startNumberInput = $("#startNumberInput");
 
     countInput.addEventListener("input", () => {
       validateCount();
@@ -951,6 +958,10 @@
       validatePrefix();
       renderIdPreview();
       updateSummary();
+    });
+    startNumberInput.addEventListener("input", () => {
+      startNumberInput.value = Math.max(1, parseInt(startNumberInput.value, 10) || 1);
+      renderIdPreview();
     });
 
     const themeGrid = $("#themeGrid");
@@ -1046,9 +1057,10 @@
 
   function renderIdPreview() {
     const prefix = /^[A-Z]{4}$/.test($("#prefixInput").value) ? $("#prefixInput").value : "JHTY";
+    const start = Math.max(1, parseInt($("#startNumberInput").value, 10) || 1);
     const box = $("#idPreview");
     box.innerHTML = "";
-    [1, 2, 3].forEach((n) => {
+    [start, start + 1, start + 2].forEach((n) => {
       const chip = document.createElement("span");
       chip.className = "chip accent";
       chip.textContent = `${prefix}${pad4(n)}  /  ${prefix}B${pad4(n)}`;
@@ -1314,8 +1326,9 @@
     }
     const count = parseInt($("#countInput").value, 10);
     const prefix = $("#prefixInput").value;
+    const startNumber = Math.max(1, parseInt($("#startNumberInput").value, 10) || 1);
     try {
-      const rows = generateWorkbookRows(count, prefix, nameThemes, finalDepts);
+      const rows = generateWorkbookRows(count, prefix, nameThemes, finalDepts, startNumber);
       const { wb, filename } = downloadWorkbook(rows, prefix);
       openGenerateCompleteModal("Employee Add file is ready!", `${filename} — ${count} employees, and you typed none of them.`, wb, filename);
     } catch (err) {
@@ -2262,24 +2275,38 @@
     const showCustom = att.holidayMode === "custom" || att.holidayMode === "govt_custom";
 
     if (showGovt) {
-      const govt = govtHolidayList().filter((h) => att.govtRemoved.indexOf(h.date) === -1);
+      /* Scoped to the selected date range, not every year BD_HOLIDAYS
+         holds — direct request, 2026-09-30: "only oi range er moddhe
+         jeshob holiday porbe oigula dekhabe" (only show holidays that
+         fall inside the selected range). govtHolidayList() itself stays
+         unscoped — activeHolidaySet()/generateAttendanceRows() need the
+         full set, since eachDate() is what actually confines generation
+         to the range; this filter is display-only. */
+      const rangeFrom = att.from, rangeTo = att.to;
+      const govt = govtHolidayList()
+        .filter((h) => att.govtRemoved.indexOf(h.date) === -1)
+        .filter((h) => (!rangeFrom || h.date >= rangeFrom) && (!rangeTo || h.date <= rangeTo));
       const box = document.createElement("div");
-      box.innerHTML = `
-        <p class="sub-note">Taken from Shomvob HR — <strong>${govt.length}</strong> dates. Don't want one? Hit its ×.</p>
-        <div class="preview-row">${govt
-          .map(
-            (h) =>
-              `<span class="chip removable ${h.approx ? "approx" : ""}" title="${escapeHtml(h.name)}">${h.date}<button type="button" class="chip-x" data-govt="${h.date}" title="Remove">×</button></span>`
-          )
-          .join("")}</div>`;
-      $all("button[data-govt]", box).forEach((b) => {
-        b.addEventListener("click", () => {
-          att.govtRemoved.push(b.dataset.govt);
-          renderHolidays();
-          renderRangeTally();
-          updateSummary();
+      if (govt.length) {
+        box.innerHTML = `
+          <p class="sub-note">Taken from Shomvob HR — <strong>${govt.length}</strong> dates in this range. Don't want one? Hit its ×.</p>
+          <div class="preview-row">${govt
+            .map(
+              (h) =>
+                `<span class="chip removable ${h.approx ? "approx" : ""}" title="${escapeHtml(h.name)}">${h.date}<button type="button" class="chip-x" data-govt="${h.date}" title="Remove">×</button></span>`
+            )
+            .join("")}</div>`;
+        $all("button[data-govt]", box).forEach((b) => {
+          b.addEventListener("click", () => {
+            att.govtRemoved.push(b.dataset.govt);
+            renderHolidays();
+            renderRangeTally();
+            updateSummary();
+          });
         });
-      });
+      } else {
+        box.innerHTML = `<p class="sub-note">No Shomvob HR holidays fall inside this date range.</p>`;
+      }
       wrap.appendChild(box);
     }
 
@@ -2394,11 +2421,13 @@
 
     $("#fromDate").addEventListener("input", (e) => {
       att.from = e.target.value;
+      renderHolidays();
       renderRangeTally();
       updateSummary();
     });
     $("#toDate").addEventListener("input", (e) => {
       att.to = e.target.value;
+      renderHolidays();
       renderRangeTally();
       updateSummary();
     });
