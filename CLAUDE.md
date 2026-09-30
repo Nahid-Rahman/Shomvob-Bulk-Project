@@ -707,6 +707,24 @@ than anything else in this codebase.
   names) mixed produced names from both pools in the same file, cycling
   the combined 35-name pool under 9 times rather than either alone
   needing 15-20 passes through itself.
+
+  **The numeric suffix itself was dropped for a cross-paired last name
+  instead, 2026-09-30 — direct feedback that numbered last names
+  ("Marquina 2") don't read as real test data.** Past the pool's own
+  size, a repeat now keeps its own first name/gender but borrows a
+  different, randomly-picked last name from the same (possibly merged)
+  pool instead of appending " 2"/" 3" — so a repeat still looks like a
+  plausible person rather than a numbered duplicate. The re-roll
+  explicitly avoids landing back on the character's own real last name
+  (so a repeat is never silently identical to its own first pass), but
+  doesn't otherwise dedupe against every other repeat already produced
+  this run — a small re-collision (two different repeats both landing
+  on the same borrowed surname) is possible and considered an
+  acceptable trade for not needing a growing "already used" set on top
+  of the existing per-row ID/email/phone dedup. `generateNames()`'s
+  cycle-1 pass is completely unchanged — the first, real pairing of
+  every character in the pool is untouched by this; only cycle 2+
+  (name reuse past the pool's own size) is affected.
 - Departments: 6 defaults (HR, Engineering/IT, Sales & Business,
   Marketing, Finance & Accounts, Operations) each with 4 default
   designations, toggleable per-department between "use these defaults"
@@ -720,7 +738,7 @@ than anything else in this codebase.
 |---|--------|------|
 | 1 | Employee ID* | `PREFIX0001` sequential, always starts at 0001 |
 | 2 | Biometric ID | `PREFIXB0001` (prefix + "B" + same sequence) |
-| 3–4 | First/Last Name* | from selected name source (Bangla pool = large first×last combo space, no repeats up to 300; theme pools = curated real character names, cycled with a numeric suffix on the surname past pool size) |
+| 3–4 | First/Last Name* | from selected name source (Bangla pool = large first×last combo space, no repeats up to 300; theme pools = curated real character names, cross-paired with a different last name from the same pool past pool size) |
 | 5 | Employment Type* | random: Permanent / In Probation / Intern only (Part Time, Contract deliberately excluded) |
 | 6 | Probation Period (Months)* | Permanent → 0; others → random 3–6 |
 | 7 | Joining Date* | weighted by year: ~60% previous year, ~25% current year (never future), ~15% two years ago |
@@ -1314,8 +1332,8 @@ file, not the sources):
     cd tests && npm run setup   # once
     npm test
 
-Eleven suites (`admin-panel.test.js` added 2026-09-25), 866 checks as
-of the Manage Users success-modal addition (2026-09-26) — this number drifts with every change, so treat it as
+Eleven suites (`admin-panel.test.js` added 2026-09-25), 867 checks as
+of the Employee Add name-cycling fix (2026-09-30) — this number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
 be checked from a single one. Its colour assertions read the computed

@@ -108,11 +108,20 @@
   /* Accepts either a single theme key (string) or several (an array/Set)
      — mixing themes, 2026-09-19, direct request: a big batch drawing from
      just one small pool (e.g. Money Heist's 15 names) cycles back through
-     it and starts appending "2"/"3" fairly quickly, and picking more than
-     one theme spreads the same batch across a bigger combined pool
-     instead. Bangla-only (the original default, and still the common
-     single-theme case) keeps its exact original behaviour — a fresh
-     unique combo per employee, no cycling suffix at all — untouched. */
+     it, and picking more than one theme spreads the same batch across a
+     bigger combined pool instead. Bangla-only (the original default, and
+     still the common single-theme case) keeps its exact original
+     behaviour — a fresh unique combo per employee, no cycling at all —
+     untouched.
+
+     Past the pool's own size, a repeat used to get a numeric suffix
+     ("Marquina 2") — flagged directly as a real problem (2026-09-30):
+     numbered last names don't read as real test data. Replaced with
+     cross-pairing instead — a repeat keeps its own first name/gender but
+     borrows a different last name at random from the same (possibly
+     merged) pool, so every repeat still looks like a plausible person
+     rather than a numbered duplicate, and no two repeats of the same
+     first name are nudged toward the same alternate last name either. */
   function generateNames(themeKeys, count) {
     const keys = Array.isArray(themeKeys) ? themeKeys : themeKeys instanceof Set ? Array.from(themeKeys) : [themeKeys];
     if (keys.length === 1 && keys[0] === "bangla") {
@@ -122,6 +131,7 @@
     keys.forEach((key) => {
       pool = pool.concat(key === "bangla" ? generateBanglaTriples(count) : THEME_POOLS[key]);
     });
+    const allLastNames = pool.map((entry) => entry[1]);
     const entries = [];
     const shuffled = shuffle(pool);
     let idx = 0,
@@ -132,7 +142,12 @@
         cycle++;
       }
       const [f, l, g] = shuffled[idx];
-      const last = cycle === 1 ? l : `${l} ${cycle}`;
+      let last = l;
+      if (cycle > 1 && allLastNames.length > 1) {
+        do {
+          last = choice(allLastNames);
+        } while (last === l);
+      }
       entries.push({ first: f, last, gender: g });
       idx++;
     }
