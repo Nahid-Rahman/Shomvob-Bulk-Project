@@ -4475,10 +4475,18 @@
     }
     const group = SETTINGS_GROUPS.find((g) => g.id === faqTopic);
     if (!group) return "";
+    const details = FAQ_SETTINGS_GROUP_DETAILS[group.id];
     return `
       <h2 class="section-title" style="margin-top:0">${escapeHtml(group.label)}</h2>
       <p class="section-note">${escapeHtml(FAQ_SETTINGS_SHARED.intro)}</p>
-      <p class="section-note" style="margin-top:10px"><strong>Modules in this group:</strong> ${group.modules.map((m) => escapeHtml(m.label)).join(", ")}</p>
+      <div class="preview-table-wrap" style="margin-top:14px">
+        <table class="preview-table">
+          <thead><tr><th>Column</th><th>What we do</th></tr></thead>
+          <tbody>
+            ${details.columns.map((c) => `<tr><td class="strong">${escapeHtml(c.name)}</td><td>${escapeHtml(c.rule)}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
       <div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">
         ${FAQ_SETTINGS_SHARED.prose.map((p) => `<p class="section-note" style="font-size:13.5px">${escapeHtml(p)}</p>`).join("")}
       </div>

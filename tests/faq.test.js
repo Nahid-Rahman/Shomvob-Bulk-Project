@@ -61,7 +61,7 @@ const { check, state } = makeChecker();
     await page.click('.faq-nav-item[data-faq-topic="assets_add"]');
     const text = await page.textContent("#faqDetailPanel");
     check("B shows the real topic title", text.includes("Assets Add"));
-    check("B names a real column rule (Asset Code)", text.includes("PREFIX0001") && text.includes("Asset Code"));
+    check("B names a real column rule (Asset Code)", text.includes("Asset Code") && text.includes("0001"));
     check("B renders a real column/rule table, not prose", (await page.locator(".preview-table").count()) === 1);
     check("B the clicked item is now the active one", (await page.locator(".faq-nav-item.active").textContent()) === "Assets Add");
     check("B no page errors", errs.length === 0, errs.join(" | "));
@@ -70,8 +70,9 @@ const { check, state } = makeChecker();
 
   {
     // C — switching the toggle to Settings swaps the left list to the
-    // real 6 SETTINGS_GROUPS, first one open by default, prose not a
-    // table (Settings has no per-column rules the way an operation does).
+    // real 6 SETTINGS_GROUPS, first one open by default, with a real
+    // per-field table (2026-09-30 — Settings got the same field-by-field
+    // depth Bulk operations already have, not just module names).
     const page = await browser.newContext().then((c) => c.newPage());
     const errs = watchPageErrors(page);
     await mockPublicStats(page);
@@ -90,7 +91,8 @@ const { check, state } = makeChecker();
     const text = await page.textContent("#faqDetailPanel");
     check("C names that group's own real modules", text.includes("Company Profile") && text.includes("Bank Info"));
     check("C mentions the real Run defaults shortcut", text.includes("Run defaults"));
-    check("C renders prose, not a column/rule table", (await page.locator(".preview-table").count()) === 0);
+    check("C now renders a real field table too, not just prose", (await page.locator(".preview-table").count()) === 1);
+    check("C the table names a real field (Legal Name)", (await page.locator(".preview-table").textContent()).includes("Legal Name"));
     check("C no page errors", errs.length === 0, errs.join(" | "));
     await page.close();
   }

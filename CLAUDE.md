@@ -6947,6 +6947,95 @@ overall page width is too small).
   `.main-inner` page). Full 13-suite run green throughout — neither fix
   touched a class or id any test asserts on.
 
+## Every FAQ field rewritten into plain-English narrative — Bulk and Settings (2026-09-30)
+
+The "still open" item from the FAQ redesign above — what each Settings
+group's own detail should contain — was answered the same day, but the
+real scope turned out to be bigger: the user first dictated a complete
+worked example of the *style* he wanted for every field on the whole
+page, not just Settings. His own Employee ID example: "first e 4 letter
+nibo random prefix, system ekta suggest korbe chaile user nijeo any 4
+letter dite pare. then koto gula employee seta input neyar por
+basically 2 ta option ashbe. default serial 0001 theke shuru hoye...
+ba user jodi same employee er jonno abar generate kore tokhon to 1
+theke shuru korle somossa. so user tokhon starting number chaile 1 er
+bodole onno number o dite parbe" — followed by the explicit brief:
+"evabe every single field ami description dibo jeno je coding ba eshob
+bujheo na se porleo bujhte pare... Plain simple english e likhba."
+
+**Every existing "rule" one-liner across the whole FAQ page was too
+terse for that bar** — e.g. Employee ID's old text was just "PREFIX0001,
+sequential, always starting at 0001," which states the mechanism but
+never explains *why* it matters or what a QA engineer should do about
+it (the Starting number field, built earlier the same day — see "Batch
+basics" above — exists specifically to solve the "regenerating for a
+company that already has IDs" problem the user's own example calls
+out). The fix, confirmed one operation at a time before being applied
+everywhere: rewrite every `rule` string in `FAQ_TOPICS` (`app-data.js`)
+into a full paragraph — what the field is, why it exists or matters,
+the real mechanism/default behind it, and a concrete example number
+where that helps a non-technical reader picture it. Drafted for
+Employee Add's 14 fields first and shown to the user for approval
+("hae thik ache" — yes, that's fine) before touching any other
+operation, then applied to all 5 Bulk operations' columns in one pass.
+
+**Then broadened to Settings in the same breath** — "tumi ekebare
+taile settings shoho kore felo" (go ahead and do it all at once,
+Settings included), answering the deferred question from the FAQ
+redesign's own "Still open" note above: each of the 6 real
+`SETTINGS_GROUPS` now gets the identical treatment, a real
+`.preview-table` of "Module — Field" rows (e.g. "Company Profile —
+Legal Name", "Attendance Policy — Title", "Late Arrival — Penalty
+Type"), not the old plain module-name list + 3 generic prose bullets.
+`FAQ_SETTINGS_GROUP_DETAILS` (`app-data.js`) is the new data structure
+— one entry per group id, each holding a `columns` array in the exact
+same shape `FAQ_TOPICS` already uses; `faqDetailBodyHtml()`'s Settings
+branch renders it through the identical `.preview-table-wrap` markup
+the Bulk branch already had, rather than inventing a second table
+shape. `FAQ_SETTINGS_SHARED.prose` is trimmed from 3 generic bullets to
+2 — the two facts a table can't show on its own (live dependency-
+checking, the "Run defaults" shortcut) — kept as a shared closing note
+under every group's table now that the table itself covers what the
+old "editable fields"/"six groups" bullets used to state.
+
+**Only real, user-facing editable fields are described — nothing
+invented.** Every one of the 24 real modules across the 6 groups was
+checked directly against its own template function in `app.js` before
+being written, matching this app's own "headline fields only" scoping
+already documented per module above (e.g. Leave Types only exposes
+Name/Sandwich Rule/Bridge as real toggles; Attendance Policy only
+exposes Title; Custom Addition/Deduction exposes Name/Type/Carry
+Forward) — a module with very little to configure (Holiday Calendar: a
+single sync button; Tax: a single enable/disable toggle) gets a short,
+honest row rather than padded, invented complexity. Real cross-module
+facts already documented elsewhere in this file carry through
+correctly — Configure Salary Components' own real ≥2-Active-components
+dependency, Late Arrival/Repeated Late Penalty's real "exactly one, not
+merely at least one" rule, Overtime's real dependency on Attendance
+Policy having overtime enabled, Custom Addition/Deduction's real
+10-field ceiling, Roster Pattern's real "one shared time slot, per-day
+assignment is a named phase-two item" limitation.
+
+**Test fallout**: `tests/faq.test.js` block B's Asset Code assertion
+was checking for the literal old text `"PREFIX0001"`, which the new
+paragraph doesn't repeat verbatim — updated to check for `"0001"`
+instead, still confirming the real mechanism is named. Block C's own
+"renders prose, not a column/rule table" assertion is inverted outright
+— Settings now *does* render a real table, same as Bulk — renamed and
+flipped to `=== 1`, with a new assertion added confirming a real field
+name (Legal Name) actually appears in it.
+
+Confirmed by Playwright in both themes at 1440px: Employee Add's table
+shows the new narrative text (mentioning "Starting number," not the old
+terse line); all 5 Bulk operations render full-paragraph content with
+no fragments; all 6 Settings groups render a real, non-empty field
+table (row counts: Company Settings 15, Employee Settings 6, Attendance
+Settings 2, Schedule Management 3, Leave Settings 6, Payroll Settings
+14) with the "Run defaults" note still present under each; a 390px
+mobile check on the widest table (Payroll Settings) showed zero
+horizontal page overflow. Full 13-suite run green throughout (FAQ grew
+from 31 to 32 checks).
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route
