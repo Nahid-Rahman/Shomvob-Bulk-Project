@@ -7098,6 +7098,78 @@ untouched by this mobile-only addition. Full 13-suite run green
 throughout both fixes — neither touched a class or id any test asserts
 on.
 
+## Self-service "Change Password" (2026-10-04)
+
+Direct request, after a real batch of 18 new real accounts was added
+through the Admin Panel's own "Create new user" form (same Edge
+Function/mechanism Admin Panel already documents above, just run
+against the live site for real): "password change korar ekta kisu kore
+deya jabe user ra jeno change korte pare?" — a way for any signed-in
+user to change their *own* password, not the existing Admin Panel
+feature (`adminUsersFetch("reset_password", ...)`, above), which is
+an **admin** acting on *someone else's* account through the
+service-role Edge Function.
+
+**Confirmed before building**: lives as a small "Change password" text
+link under the "Signed in as" email in the sidebar's own user card
+(`#sidebarUserCard`) — visible to any signed-in account, admin or not,
+not folded into Admin Panel; a real form (new password + confirm, each
+with the existing show/hide toggle), not a bare `window.prompt()` like
+the admin-side reset uses; and no current-password re-entry required,
+since the live, already-issued `setup.toolToken` already proves who
+this is — the same trust every other authenticated call in this file
+already extends to it.
+
+**Needs no Edge Function and no service-role key at all**, unlike
+Admin Panel's own `reset_password` action — Supabase Auth's plain
+`PUT /auth/v1/user` endpoint already accepts a user's own bearer token
+to change that same user's password. `changeMyPassword(newPassword)`
+(`app.js`, right beside `supabaseSignIn()`) is the whole mechanism: one
+`fetch` with `Authorization: Bearer ${setup.toolToken}` and the
+publishable `apikey`, same header shape every other Supabase call here
+already uses.
+
+`openChangePasswordModal()` follows `openSuccessModal()`'s/
+`askDiscard()`'s own established clone-and-replace pattern for its
+Cancel/Save buttons (so reopening the modal can't stack a duplicate
+handler from a previous open), client-side validates both fields are
+present, at least 6 characters, and match each other before ever
+calling the network (`#chpwError` names whichever check failed), and
+on success closes itself and opens the existing generic `#successModal`
+— "Password updated" — rather than a new, one-off success surface.
+The modal's own two show/hide toggle buttons are wired **once**, in
+`init()`, not inside `openChangePasswordModal()` — unlike Cancel/Save,
+they carry no per-open state to recapture, and this modal's markup is
+static (never torn down), so wiring them on every open would stack
+duplicate listeners instead of replacing anything, the same distinction
+`wirePasswordToggles(gate)`'s own one-time call already relies on for
+the login gate.
+
+**A real id collision, found by the test suite itself before this ever
+shipped**: the modal's first draft reused Company Profile's own `cp`
+prefix (`cpSaveBtn`, `cpError`, …) for "**c**hange **p**assword" — since
+this modal is static markup living outside `#mainContent`, it's always
+in the DOM alongside whichever settings module happens to be open, so
+the moment Company Setup's own Company Profile tab was showing,
+`#cpSaveBtn` resolved to *two* elements instead of one.
+`company-setup.test.js`'s own block I ("jumping back to Company
+Profile still works") caught this immediately — not a flaky race, a
+real collision. Renamed to a clearly distinct `chpw` prefix throughout
+(`chpwNewPass`/`chpwConfirmPass`/`chpwError`/`chpwCancelBtn`/
+`chpwSaveBtn`/`chpwTitle`) rather than guessing a narrower fix — worth
+remembering for any future static, always-mounted modal: check its own
+ids against every settings module's own short prefixes (`cp`, `bi`,
+`lt`, `lp`, …), not just against other modals.
+
+Confirmed end-to-end against the real live site, not just the mocked
+test suite: signed in as a real seeded account, changed its password
+through this exact flow, signed out, confirmed the *new* password
+really works for a real sign-in, then changed it back to the original
+— so the real account was left exactly as it started. Full 13-suite
+run green throughout (no test suite was added for this feature's own
+network call, same as every other real-write action in this app that
+only a live pass, not a mocked one, can truly confirm).
+
 ## Adding a sixth operation
 
 Nothing is outstanding, but if another operation is ever added, the route

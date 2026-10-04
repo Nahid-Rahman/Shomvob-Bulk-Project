@@ -600,9 +600,15 @@
           <span class="sidebar-user-info">
             <span class="sidebar-user-caption">Signed in as</span>
             <span class="sidebar-user-email">${escapeHtml(setup.toolEmail)}</span>
+            <button type="button" class="sidebar-user-action" id="sidebarChangePassBtn">Change password</button>
           </span>
         </div>
       `;
+      /* The card's own DOM is torn down and rebuilt on every render
+         (innerHTML=), so a fresh listener here is safe — no stacking
+         risk, same reasoning every other dynamically-rendered sidebar
+         button in this file already relies on. */
+      $("#sidebarChangePassBtn").addEventListener("click", openChangePasswordModal);
     } else {
       userCard.innerHTML = "";
     }
@@ -6018,6 +6024,30 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       throw new Error(data.error_description || data.msg || "Wrong email or password.");
+    }
+    return data;
+  }
+
+  /* Self-service password change (2026-10-04) — unlike Admin Panel's own
+     "Reset password" (an admin acting on someone else's account via the
+     service-role Edge Function), this is a signed-in account changing
+     its own: Supabase Auth's `PUT /auth/v1/user` already accepts a plain
+     user-issued bearer token for this, so it needs no Edge Function and
+     no service role at all — just the same `setup.toolToken` every other
+     authenticated call in this file already carries. */
+  async function changeMyPassword(newPassword) {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${setup.toolToken}`,
+      },
+      body: JSON.stringify({ password: newPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error_description || data.msg || "Couldn't update your password.");
     }
     return data;
   }
@@ -12563,6 +12593,69 @@
     freshOk.focus();
   }
 
+  /* Opened from the sidebar's own "Change password" link under "Signed
+     in as" — any signed-in account, not just an admin. No current-
+     password re-entry: the live `setup.toolToken` already proves who
+     this is, the same trust every other authenticated call in this
+     section already extends to it. */
+  function openChangePasswordModal() {
+    const modal = $("#changePasswordModal");
+    const newPass = $("#chpwNewPass");
+    const confirmPass = $("#chpwConfirmPass");
+    const err = $("#chpwError");
+    newPass.value = "";
+    confirmPass.value = "";
+    err.textContent = "";
+
+    const close = () => {
+      modal.hidden = true;
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+    };
+
+    const cancelBtn = $("#chpwCancelBtn");
+    const freshCancel = cancelBtn.cloneNode(true);
+    cancelBtn.replaceWith(freshCancel);
+    freshCancel.addEventListener("click", close);
+
+    const saveBtn = $("#chpwSaveBtn");
+    const freshSave = saveBtn.cloneNode(true);
+    saveBtn.replaceWith(freshSave);
+    freshSave.addEventListener("click", async () => {
+      err.textContent = "";
+      const p1 = newPass.value;
+      const p2 = confirmPass.value;
+      if (!p1 || !p2) {
+        err.textContent = "Both fields are needed.";
+        return;
+      }
+      if (p1.length < 6) {
+        err.textContent = "At least 6 characters, please.";
+        return;
+      }
+      if (p1 !== p2) {
+        err.textContent = "Those two don't match.";
+        return;
+      }
+      setBtnBusy(freshSave);
+      try {
+        await changeMyPassword(p1);
+        clearBtnBusy(freshSave);
+        close();
+        openSuccessModal("Password updated", "Your password has been changed — use it next time you sign in.");
+      } catch (e) {
+        clearBtnBusy(freshSave);
+        err.textContent = e.message;
+      }
+    });
+
+    document.addEventListener("keydown", onKey);
+    modal.hidden = false;
+    newPass.focus();
+  }
+
   function askDiscard(body, confirmLabel, onConfirm) {
     const modal = $("#discardModal");
     const ok = $("#discardOk");
@@ -12764,6 +12857,13 @@
     wireUnloadGuard();
     wireRickroll();
     wirePopstate();
+    /* The Change Password modal's own show/hide toggles are wired once
+       here, not inside openChangePasswordModal() — unlike that modal's
+       Cancel/Save buttons, the two toggle buttons carry no per-open
+       state to recapture, and this modal's markup is static (never torn
+       down), so wiring them on every open would stack duplicate
+       listeners instead of replacing anything. */
+    wirePasswordToggles($("#changePasswordModal"));
     /* Static, same on every page, set once rather than re-rendered by
        every page template — the year is the only moving part. */
     $("#appFooter").textContent = `© ${today.getFullYear()} Mahmudur Rahman Nahid — Made with !Love, not for !promotion.`;

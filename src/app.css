@@ -414,6 +414,25 @@ a:hover { color: var(--accent-strong); text-decoration: underline; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Self-service password change (2026-10-04) — a plain text link under
+   the signed-in email, not a bordered button; it's a secondary action
+   on a card whose main job is just naming who's signed in. var(--accent)
+   already reads fine on this card's dark background (the same token
+   .op-item[aria-current="true"] .op-icon uses elsewhere in this same
+   sidebar), so no new colour is needed. */
+.sidebar-user-action {
+  align-self: flex-start;
+  margin-top: 2px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.sidebar-user-action:hover { text-decoration: underline; }
 
 /* ---- Main ---- */
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
