@@ -6,23 +6,63 @@ here instead of only saying it out loud, and delete it once it's done
 (pull the latest before checking — another machine may have finished it,
 or added more).
 
-- **Session paused here, 2026-09-29 (end of day)** — "ami guide korbo.
-  tumi apatoto to do list update kore rakho... tumi git e shob update
-  kore rakho" (I'll guide the next steps myself; for now just keep this
-  list updated and make sure everything's pushed to git). Everything up
-  to and including this point is committed and pushed to `main`
-  (already live at the production URL) — nothing local, nothing
-  uncommitted. Two items are queued, both explicitly waiting on the
-  user's own direct guidance before any more code changes, not
-  something to start unprompted from a guess:
-  1. **A "What we offer & FAQ" polish pass** — "ektu FAQ ta ghoshamaja
-     kore" (polish the FAQ page up a bit). No specific issues named
-     yet — wait for the user to point at what to change (same
-     discipline as every other UI pass in this app) rather than
-     guessing at what "polish" means.
-  2. **The CXO report** (bullet right below) — still needs the user's
-     own concrete brief on which real numbers/graphs matter to that
-     audience before any drafting starts.
+- **Session paused here, 2026-10-04 (end of day)** — "git e sync koro
+  oi device eo ektu kaj korbo so update koro shob" (sync to git, I'll
+  work on the other device too). Everything up to and including this
+  point is committed and pushed to `main` (already live at the
+  production URL, `git fetch` confirms no divergence either way) —
+  nothing local, nothing uncommitted. Nothing is queued waiting on a
+  decision; the two 2026-09-29 items below are both now done:
+  1. ✅ **"What we offer & FAQ" polish pass — fully done, 2026-09-30.**
+     Rebuilt into a two-level shell (Bulk Operation/Settings toggle,
+     left item list, default-open detail — CLAUDE.md → "'What we offer
+     & FAQ' redesigned into a two-level shell"), then every field
+     description across all 5 Bulk operations *and* all 6 Settings
+     groups was rewritten into full plain-English narrative paragraphs
+     (CLAUDE.md → "Every FAQ field rewritten into plain-English
+     narrative"), plus a table-wrapping/mobile-column-width fix found
+     during verification.
+  2. ✅ **The CXO impact report — drafted and published, 2026-09-30.**
+     A 2-page artifact: real adoption numbers (pulled live from
+     Supabase at draft time), the confirmed By-hand/With-AI/Bulk-Forge
+     comparison table + chart, and the "4H 37M"/"55 Min" headline
+     figures already live on the Dashboard — deliberately did **not**
+     invent an aggregate "hours saved so far" claim from the still-tiny
+     real usage sample, leaning on the structural per-task comparison
+     instead. Link: https://claude.ai/artifact/TyRNnJUPVJ5BFi8GEwaLJp
+     — if real usage has grown meaningfully since 2026-09-30, consider
+     asking the user whether the real-numbers section is worth
+     refreshing before this goes in front of anyone.
+
+  **Other real work done this same session, not yet summarized
+  anywhere else in this file** (all in CLAUDE.md under their own dated
+  headers — searching this file's own headers by date finds all of
+  these):
+  - Dashboard: "Get started" moved to the very bottom of the page,
+    "Real usage" renamed to "User Statistics."
+  - Employee Add: a configurable "Starting number" field, so
+    regenerating for a company that already has real employee IDs
+    doesn't collide at `0001` again.
+  - Attendance Add: the "Shomvob HR holidays" chip list is now scoped
+    to the selected date range, not every year `BD_HOLIDAYS` holds.
+  - Employee Add (from the other machine, merged in cleanly): a
+    character-pool repeat past the pool's own size now borrows a
+    different real last name instead of appending a numeric suffix
+    ("Marquina 2" doesn't happen any more).
+  - **18 real team accounts added through the live Admin Panel**
+    (ashraful, zayed, galib, iqbal, jidny, mahpara, mostofa, nowshad,
+    shahriar, siam, tofayel, uzzal, wasi, dipu, habibur, rahatul,
+    tonmoy.barai, tushar) — `name@shomvob.com` / `nameislazy`, default
+    tier (Both operations, non-admin), confirmed against the real
+    account list afterward.
+  - **Self-service "Change Password"** — any signed-in account (not
+    just admin) can change its own password from a small link in the
+    sidebar's "Signed in as" card, no current-password re-entry needed.
+    See CLAUDE.md → "Self-service 'Change Password'" for the full
+    build, including a real id-collision the test suite itself caught
+    before this ever shipped. Confirmed end-to-end against the real
+    live site with a real account, then reverted that account back to
+    its original password.
 - **Welcome page confirmed 100% done, 2026-09-28** — every open item
   the "Not started" bullet below used to list against the pre-signin
   page is closed; see CLAUDE.md's own long revision history under
@@ -35,23 +75,12 @@ or added more).
   the Tiered Access journey; see the ✅ bullet further down and
   CLAUDE.md → "The post-login Dashboard" for the full build. **Nothing
   from the originally-dictated Tiered Access journey is outstanding
-  any more.** Next up is the CXO report below, once the user's ready
-  for it.
-- **A 2-page CXO impact report, requested by the user's lead
-  (2026-09-28), not started** — "amar lead ekta report chaise 2 page
-  er jekhane ami amar kaj er impact and etar jonno ki ki upokar
-  pacchi ki ki help hobe shob include kore dite bolse jeta CXO der
-  dekhabe... graph diye bujhano lagbe... 2 page max" (my lead wants a
-  2-page report covering my work's impact and what benefits it's
-  providing, to show the CXOs, with graphs — strict 2-page max).
-  Explicitly **deferred until after the Dashboard is built** — "Report
-  check to pore korbo aro" (I'll go through the report requirements
-  later). Whoever picks this up: don't start drafting without the
-  user's own concrete brief on what impact numbers/graphs to include —
-  this app's own real data (`audit_log`, the Welcome page's "So far,
-  for real"/"By the numbers" sections) is the obvious source, but
-  which figures matter to a CXO audience is a business call, not an
-  engineering one — ask rather than assume.
+  any more.**
+- ✅ **The 2-page CXO impact report, requested by the user's lead
+  (2026-09-28) — drafted and published 2026-09-30.** See the top
+  "Session paused" bullet above for the link and what it covers; don't
+  re-draft from scratch if this comes up again, just ask whether the
+  real-numbers section needs a refresh.
 - Report validation
 - Lead feedback, relayed directly (2026-09-24) — three related asks,
   **all need a real backend + database**, a genuine architecture change
