@@ -1372,7 +1372,21 @@ have read as greyed-out/broken and `disabled` inputs don't even fire
 most interaction events, where `readonly` only blocks editing. A small
 `.gate-card input[readonly]` rule (`app.css`) gives both a faint tinted
 background so the lock is visible at a glance, not just discoverable by
-trying to type. **This removed the one real scenario `employee.test.js`
+trying to type.
+
+**`#loginPass` now starts visible as plain text, not masked** — a
+same-day follow-up ("eta visible kore deyar kotha chilo as dummy pass"
+— this was supposed to show as visible, since it's a dummy password):
+there's nothing to hide here, the identical credential is already
+printed in plain text a few lines below in `#gateCreds`, so masking it
+by default only ever added a pointless extra click. `#loginPass` is now
+`type="text"` in the static markup, and its toggle button starts in the
+"already shown" state (the slash-eye icon, `aria-label="Hide password"`)
+rather than the "click to reveal" one — `wirePasswordToggles()` itself
+needed no change, since it already reads the input's *current* type on
+each click rather than assuming where it started.
+
+**This removed the one real scenario `employee.test.js`
 used to exercise via the gate** — typing a wrong password and
 confirming it's refused — since `page.fill()` throws on a `readonly`
 input outright; that block now asserts both fields are genuinely locked

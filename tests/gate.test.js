@@ -19,12 +19,18 @@ const { DEMO_LOGIN } = loadAppData(["DEMO_LOGIN"]);
   await mockPublicStats(page);
   await page.goto(PAGE);
 
-  /* Same show/hide toggle as Company Setup's password fields — added here
-     too for consistency, even though the credential is already printed in
-     plain text a few lines below (#gateCreds); that's the joke gate's
-     whole point, so the toggle is convenience, not necessity. */
-  check("starts masked", (await page.getAttribute("#loginPass", "type")) === "password");
+  /* Starts visible as plain text, not masked, 2026-10-05 — direct
+     feedback ("eta visible kore deyar kotha chilo as dummy pass" — this
+     was supposed to show as visible, since it's a dummy password):
+     there's nothing to hide here, the same credential is already
+     printed below in plain text (#gateCreds), so masking it by default
+     only added a pointless extra click. The show/hide toggle still
+     exists (consistency with Company Setup's own password fields), just
+     starts in its "already shown" state — click it to mask, not reveal. */
+  check("starts visible as plain text, not masked", (await page.getAttribute("#loginPass", "type")) === "text");
   check("the pre-filled value is the real demo password", (await page.inputValue("#loginPass")) === DEMO_LOGIN.password);
+  check("the toggle starts offering to hide it",
+    (await page.getAttribute('.pw-toggle[data-target="loginPass"]', "aria-label")) === "Hide password");
 
   /* Locked, 2026-10-05 — direct feedback, real people were typing their
      own real credentials into this gate hoping it's an actual login.
@@ -35,13 +41,13 @@ const { DEMO_LOGIN } = loadAppData(["DEMO_LOGIN"]);
   check("the pre-filled email is the real demo email", (await page.inputValue("#loginEmail")) === DEMO_LOGIN.email);
 
   await page.click('.pw-toggle[data-target="loginPass"]');
-  check("one click reveals it", (await page.getAttribute("#loginPass", "type")) === "text");
+  check("one click masks it", (await page.getAttribute("#loginPass", "type")) === "password");
   check("the value survives the switch", (await page.inputValue("#loginPass")) === DEMO_LOGIN.password);
   check("it matches the plain-text credential printed on the card", (await page.textContent("#gateCreds")).includes(DEMO_LOGIN.password));
-  check("the toggle now offers to hide it", (await page.getAttribute('.pw-toggle[data-target="loginPass"]', "aria-label")) === "Hide password");
+  check("the toggle now offers to show it", (await page.getAttribute('.pw-toggle[data-target="loginPass"]', "aria-label")) === "Show password");
 
   await page.click('.pw-toggle[data-target="loginPass"]');
-  check("a second click re-masks it", (await page.getAttribute("#loginPass", "type")) === "password");
+  check("a second click reveals it again", (await page.getAttribute("#loginPass", "type")) === "text");
 
   check("no page errors", errs.length === 0, errs.join(" | "));
 
