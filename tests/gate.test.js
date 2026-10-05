@@ -26,6 +26,14 @@ const { DEMO_LOGIN } = loadAppData(["DEMO_LOGIN"]);
   check("starts masked", (await page.getAttribute("#loginPass", "type")) === "password");
   check("the pre-filled value is the real demo password", (await page.inputValue("#loginPass")) === DEMO_LOGIN.password);
 
+  /* Locked, 2026-10-05 — direct feedback, real people were typing their
+     own real credentials into this gate hoping it's an actual login.
+     readonly, not disabled, so both fields stay fully legible rather
+     than reading greyed-out. */
+  check("email is locked against editing", (await page.getAttribute("#loginEmail", "readonly")) !== null);
+  check("password is locked against editing", (await page.getAttribute("#loginPass", "readonly")) !== null);
+  check("the pre-filled email is the real demo email", (await page.inputValue("#loginEmail")) === DEMO_LOGIN.email);
+
   await page.click('.pw-toggle[data-target="loginPass"]');
   check("one click reveals it", (await page.getAttribute("#loginPass", "type")) === "text");
   check("the value survives the switch", (await page.inputValue("#loginPass")) === DEMO_LOGIN.password);

@@ -1360,6 +1360,26 @@ There is deliberately **no appearance picker on the gate itself** — it
 lives in the sidebar, one click away, and a second copy on a card whose
 whole point is that it barely gates anything would be clutter.
 
+**Both `#loginEmail` and `#loginPass` are now locked (`readonly`),
+2026-10-05** — direct feedback, a real screenshot of visitors typing
+their own real company credentials into this gate, apparently hoping it
+was an actual login rather than the joke it is. Editing either field
+never did anything useful anyway (the check is always against
+`DEMO_LOGIN`, never whatever was typed), so this closes that confusion
+rather than any real security gap. `readonly`, not `disabled` — both
+stay fully legible and still submit/toggle normally; `disabled` would
+have read as greyed-out/broken and `disabled` inputs don't even fire
+most interaction events, where `readonly` only blocks editing. A small
+`.gate-card input[readonly]` rule (`app.css`) gives both a faint tinted
+background so the lock is visible at a glance, not just discoverable by
+trying to type. **This removed the one real scenario `employee.test.js`
+used to exercise via the gate** — typing a wrong password and
+confirming it's refused — since `page.fill()` throws on a `readonly`
+input outright; that block now asserts both fields are genuinely locked
+instead, and the pre-filled, correct credentials still sign in on their
+own exactly as before. `tests/gate.test.js` gained matching assertions
+for both fields.
+
 The **Log out** button in the sidebar footer is `location.reload()`. That
 is the honest implementation given nothing is persisted: it clears every
 pasted list, upload and shift assignment and the gate comes back on its

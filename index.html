@@ -2250,6 +2250,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .gate-card .field { margin-bottom: 12px; }
 .gate-btn { width: 100%; justify-content: center; margin-top: 4px; }
 
+/* Locked, 2026-10-05 — direct feedback, a real screenshot of people
+   typing their own real credentials into this gate hoping it's an
+   actual login: "email e touch na korte pare ar password... lock kore
+   dao jeno keu touch korte na pare." readonly keeps both fields fully
+   legible (never greyed down the way a disabled input reads) while
+   making them genuinely uneditable — a locked padlock cursor is the
+   only extra cue needed. */
+.gate-card input[readonly] {
+  background: var(--surface-2);
+  cursor: not-allowed;
+}
+
 .gate-creds {
   display: flex;
   flex-direction: column;
@@ -2353,12 +2365,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
     <div class="field">
       <label for="loginEmail">Email</label>
-      <input type="email" id="loginEmail" autocomplete="off" spellcheck="false" />
+      <input type="email" id="loginEmail" autocomplete="off" spellcheck="false" readonly title="Locked — this gate only works with the demo credentials shown below, typing your own won't do anything" />
     </div>
     <div class="field">
       <label for="loginPass">Password</label>
       <div class="pw-wrap">
-        <input type="password" id="loginPass" autocomplete="off" />
+        <input type="password" id="loginPass" autocomplete="off" readonly title="Locked — this gate only works with the demo credentials shown below, typing your own won't do anything" />
         <button type="button" class="pw-toggle" data-target="loginPass" aria-label="Show password" title="Show password">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>

@@ -39,12 +39,14 @@ const { check, state } = makeChecker();
   check("gate video is a separate asset, not inlined",
     vid.src === "assets/lazy_cat.mp4", vid.src);
 
-  /* the joke gate: a wrong password is refused, the right one is pre-filled */
-  await page.fill("#loginPass", "definitely-not-it");
-  await page.click("#loginBtn");
-  check("gate refuses a wrong password", await page.isVisible("#loginGate"));
-  check("gate says so", (await page.textContent("#loginError")).length > 0);
-  await page.fill("#loginPass", "amioneklazy");
+  /* the joke gate: both fields are locked now (2026-10-05, direct
+     feedback — real people were typing their own real credentials in
+     hoping this was an actual login), so there's no "type a wrong
+     password" scenario left to test from the UI; what's left to check
+     is that they're genuinely locked, and that the pre-filled, correct
+     credentials still sign in on their own. */
+  check("email is locked", await page.getAttribute("#loginEmail", "readonly") !== null);
+  check("password is locked", await page.getAttribute("#loginPass", "readonly") !== null);
   await signIn(page);
   check("gate clears with the pre-filled credentials", !(await page.locator("#loginGate").count()));
 
