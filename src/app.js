@@ -28,6 +28,11 @@
      always selected — the last remaining one can't be clicked off. */
   const nameThemes = new Set(["bangla"]);
   let customDeptCounter = 0;
+  /* Pay type — Monthly / Hourly / Mixed (2026-10-05, new real template
+     columns, see generateWorkbookRows() below). `ratio` is the % of a
+     Mixed batch that lands on Hourly, confirmed directly to mean exactly
+     that ("ratio mane hourly percentage... yes"). Monthly default. */
+  let empPay = { mode: "monthly", ratio: 50 };
 
   const departments = DEFAULT_DEPARTMENTS.map((d) => ({
     id: d.id,
@@ -226,6 +231,16 @@
     return 20000 + randInt(0, steps) * 500;
   }
 
+  /* An Hourly employee's own rate (2026-10-05, new real template
+     columns — "Pay Type"/"Hourly Rate" — found in a second, newer copy
+     of the employee bulk upload template). The real template's own data
+     validation caps this at ৳100,000, but the user dictated a tighter,
+     realistic range directly: ৳100–500, step ৳50. */
+  function hourlyRate() {
+    const steps = Math.floor((500 - 100) / 50);
+    return 100 + randInt(0, steps) * 50;
+  }
+
   function makeEmail(first, last, used, runTag) {
     const base = `${slug(first)}.${slug(last)}`;
     let email = `${base}.${runTag}@yopmail.com`;
@@ -251,7 +266,7 @@
 
   const HEADER = [
     "Employee ID*", "Biometric ID", "First Name*", "Last Name*", "Employment Type*",
-    "Probation Period (Months)*", "Joining Date*", "Gross Salary*", "Email", "Phone*",
+    "Probation Period (Months)*", "Joining Date*", "Pay Type", "Gross Salary*", "Hourly Rate", "Email", "Phone*",
     "Gender*", "Date of Birth*", "Department Name*", "Designation Name*",
   ];
 
@@ -295,12 +310,22 @@
     return departmentState().final;
   }
 
-  function generateWorkbookRows(count, prefix, theme, finalDepartments, startNumber) {
+  /* Pay type — Monthly / Hourly / Mixed (2026-10-05, direct instruction).
+     Monthly: Gross Salary filled, Hourly Rate blank — exactly the old
+     behaviour. Hourly: the mirror — Hourly Rate filled, Gross Salary
+     blank. Mixed: each row independently rolls Hourly at `ratio`%
+     (pctHit, same mechanism Attendance Add's own late/absent/early
+     percentages already use), Monthly otherwise. The Pay Type column
+     itself is always written as the literal string "Monthly"/"Hourly" —
+     confirmed directly, never left blank even though the real template
+     itself would accept a blank cell as "Monthly". */
+  function generateWorkbookRows(count, prefix, theme, finalDepartments, startNumber, payConfig) {
     const names = generateNames(theme, count);
     const usedEmails = new Set();
     const usedPhones = new Set();
     const runTag = randomTag(5);
     const start = startNumber || 1;
+    const pay = payConfig || { mode: "monthly", ratio: 50 };
     const rows = [HEADER];
     for (let i = 0; i < count; i++) {
       const seq = pad4(start + i);
@@ -311,14 +336,17 @@
       const probation = probationFor(employmentType);
       const joiningDate = randomJoiningDate();
       const dob = randomDOB(joiningDate);
-      const gross = grossSalary();
+      const isHourly = pay.mode === "hourly" || (pay.mode === "mixed" && pctHit(pay.ratio));
+      const payType = isHourly ? "Hourly" : "Monthly";
+      const gross = isHourly ? "" : grossSalary();
+      const hourly = isHourly ? hourlyRate() : "";
       const email = makeEmail(name.first, name.last, usedEmails, runTag);
       const phone = makePhone(usedPhones);
       const dept = choice(finalDepartments);
       const designation = choice(dept.designations);
       rows.push([
         empId, bioId, name.first, name.last, employmentType, probation,
-        fmtDate(joiningDate), gross, email, phone,
+        fmtDate(joiningDate), payType, gross, hourly, email, phone,
         name.gender === "M" ? "Male" : "Female", fmtDate(dob), dept.name, designation,
       ]);
     }
@@ -329,7 +357,7 @@
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = [
       { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 15 },
-      { wch: 14 }, { wch: 13 }, { wch: 13 }, { wch: 26 }, { wch: 15 },
+      { wch: 14 }, { wch: 13 }, { wch: 10 }, { wch: 13 }, { wch: 12 }, { wch: 26 }, { wch: 15 },
       { wch: 10 }, { wch: 13 }, { wch: 20 }, { wch: 22 },
     ];
     const wb = XLSX.utils.book_new();
@@ -917,7 +945,8 @@
             <div class="rule-row"><span class="rule-col">Probation Period</span><span class="rule-val">Permanent → 0 · others → random 3–6 months</span></div>
             <div class="rule-row"><span class="rule-col">Joining Date</span><span class="rule-val">~60% ${curYear - 1} · ~25% ${curYear} · ~15% ${curYear - 2}</span></div>
             <div class="rule-row"><span class="rule-col">Date of Birth</span><span class="rule-val">18–45 years old, always before Joining Date</span></div>
-            <div class="rule-row"><span class="rule-col">Gross Salary</span><span class="rule-val">৳20,000–150,000, step 500</span></div>
+            <div class="rule-row"><span class="rule-col">Gross Salary</span><span class="rule-val">৳20,000–150,000, step 500 — only when Pay Type is Monthly</span></div>
+            <div class="rule-row"><span class="rule-col">Hourly Rate</span><span class="rule-val">৳100–500, step 50 — only when Pay Type is Hourly</span></div>
             <div class="rule-row"><span class="rule-col">Email</span><span class="rule-val">firstname.lastname.xxxxx@yopmail.com — xxxxx is a per-run tag so two different generates never collide</span></div>
             <div class="rule-row"><span class="rule-col">Phone</span><span class="rule-val">880 + BD mobile format, 13 digits, unique</span></div>
             <div class="rule-row"><span class="rule-col">Gender</span><span class="rule-val">matches the generated name</span></div>
@@ -958,7 +987,22 @@
       </div>
 
       <div class="section">
-        <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Department &amp; designation</h2></div>
+        <div class="section-head"><h2 class="section-title"><span class="section-num">3</span>Pay type</h2></div>
+        <p class="section-note">Most employees are salaried (Monthly). Pick Hourly to generate an hourly rate instead, or Mixed for a blend of both.</p>
+        <div class="seg" id="payTypeSeg">
+          <button type="button" data-mode="monthly" aria-pressed="${empPay.mode === "monthly"}">Monthly</button>
+          <button type="button" data-mode="hourly" aria-pressed="${empPay.mode === "hourly"}">Hourly</button>
+          <button type="button" data-mode="mixed" aria-pressed="${empPay.mode === "mixed"}">Mixed</button>
+        </div>
+        <div class="field" id="payRatioField" style="${empPay.mode === "mixed" ? "" : "display:none;"}margin-top:12px">
+          <label for="payRatioInput">Hourly share (%)</label>
+          <input type="number" id="payRatioInput" min="0" max="100" value="${empPay.ratio}" />
+          <span class="hint">This % of employees end up Hourly; the rest are Monthly</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title"><span class="section-num">4</span>Department &amp; designation</h2></div>
         <p class="section-note">Pick or add departments, then set the designations for each. At least one designation in one department is needed.</p>
         <div class="bulk-row">
           <span class="bulk-label">Shortcut</span>
@@ -1022,6 +1066,17 @@
         updateSummary();
       });
       themeGrid.appendChild(card);
+    });
+
+    $all("#payTypeSeg button").forEach((b) => {
+      b.addEventListener("click", () => {
+        empPay.mode = b.dataset.mode;
+        $all("#payTypeSeg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        $("#payRatioField").style.display = empPay.mode === "mixed" ? "" : "none";
+      });
+    });
+    $("#payRatioInput").addEventListener("input", (e) => {
+      empPay.ratio = clampPct(e.target.value);
     });
 
     $("#deptSelectAll").addEventListener("click", () => {
@@ -1364,7 +1419,7 @@
     const prefix = $("#prefixInput").value;
     const startNumber = Math.max(1, parseInt($("#startNumberInput").value, 10) || 1);
     try {
-      const rows = generateWorkbookRows(count, prefix, nameThemes, finalDepts, startNumber);
+      const rows = generateWorkbookRows(count, prefix, nameThemes, finalDepts, startNumber, empPay);
       const { wb, filename } = downloadWorkbook(rows, prefix);
       openGenerateCompleteModal("Employee Add file is ready!", `${filename} — ${count} employees, and you typed none of them.`, wb, filename);
     } catch (err) {

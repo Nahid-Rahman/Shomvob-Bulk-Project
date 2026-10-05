@@ -1098,7 +1098,8 @@ than anything else in this codebase.
   and "custom list"; plus unlimited custom departments (free-text name +
   free-text designation list, add/remove rows)
 
-**Generated per row — 14 columns, must exactly match the
+**Generated per row — 16 columns (14 originally, Pay Type/Hourly Rate
+added 2026-10-05, see below), must exactly match the
 `Employees_List_Upload` sheet/header format of Shomvob's real template:**
 
 | # | Column | Rule |
@@ -1109,12 +1110,14 @@ than anything else in this codebase.
 | 5 | Employment Type* | random: Permanent / In Probation / Intern only (Part Time, Contract deliberately excluded) |
 | 6 | Probation Period (Months)* | Permanent → 0; others → random 3–6 |
 | 7 | Joining Date* | weighted by year: ~60% previous year, ~25% current year (never future), ~15% two years ago |
-| 8 | Gross Salary* | random ৳20,000–150,000, step 500 |
-| 9 | Email | `firstname.lastname.xxxxx@yopmail.com`, lowercase, numeric-suffix deduped within a run, `xxxxx` a per-run random tag (see below) |
-| 10 | Phone* | `880` + `1` + operator digit (3–9) + 8 digits = 13 digits, deduped |
-| 11 | Gender* | matches the picked name's tagged gender (no "Prefer not to say") |
-| 12 | Date of Birth* | age 18–45 relative to joining year, always before Joining Date |
-| 13–14 | Department/Designation* | one dept picked at random from the user's configured set, one designation from that dept's list |
+| 8 | Pay Type | user picks Monthly (default) / Hourly / Mixed for the whole batch; always written as the literal word, never blank |
+| 9 | Gross Salary* | random ৳20,000–150,000, step 500 — only on a Monthly row, blank on an Hourly one |
+| 10 | Hourly Rate | random ৳100–500, step 50 — only on an Hourly row, blank on a Monthly one (the exact mirror of Gross Salary) |
+| 11 | Email | `firstname.lastname.xxxxx@yopmail.com`, lowercase, numeric-suffix deduped within a run, `xxxxx` a per-run random tag (see below) |
+| 12 | Phone* | `880` + `1` + operator digit (3–9) + 8 digits = 13 digits, deduped |
+| 13 | Gender* | matches the picked name's tagged gender (no "Prefer not to say") |
+| 14 | Date of Birth* | age 18–45 relative to joining year, always before Joining Date |
+| 15–16 | Department/Designation* | one dept picked at random from the user's configured set, one designation from that dept's list |
 
 Output: single sheet `Employees_List_Upload`, row 1 = exact template
 header labels (with `*` on required columns), data from row 2 (no
@@ -1700,7 +1703,7 @@ file, not the sources):
     npm test
 
 Thirteen suites (`faq.test.js` and `dashboard.test.js` added 2026-09-29),
-926 checks as of the Employee Add name-cycling fix (2026-09-30) — this
+938 checks as of the Employee Add Pay Type feature (2026-10-05) — this
 number drifts with every change, so treat it as
 a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
 contexts, one per OS colour scheme, because "auto follows the OS" cannot
@@ -7169,6 +7172,90 @@ really works for a real sign-in, then changed it back to the original
 run green throughout (no test suite was added for this feature's own
 network call, same as every other real-write action in this app that
 only a live pass, not a mocked one, can truly confirm).
+
+## Employee Add gets Pay Type / Hourly Rate — two new real template columns (2026-10-05)
+
+The real Shomvob template changed — the user supplied a second, newer
+copy (`employee_bulk_upload_template.xlsx`) and two real columns had
+appeared since the one this app was originally built against:
+**Pay Type** (`Monthly`/`Hourly`, optional in the template, sits right
+after Joining Date) and **Hourly Rate** (optional, sits right after
+Gross Salary, validated >0 and ≤100,000). The template's own instruction
+text read as contradictory at first glance — Gross Salary's header
+still carries a `*` but its own comment says "Required for Monthly.
+Optional for Hourly," and Hourly Rate's comment says the mirror — so
+the real generation rule was confirmed directly with the user rather
+than guessed from the ambiguous template text, dictated one condition
+at a time:
+
+- **Monthly** (the default, unchanged from before this feature):
+  Gross Salary filled exactly as always (৳20,000–150,000, step 500),
+  Hourly Rate left blank.
+- **Hourly**: the exact mirror — Hourly Rate filled (৳100–500, step
+  50, the user's own dictated range — tighter than the template's own
+  100,000 ceiling, chosen to read as realistic rather than merely
+  valid), Gross Salary left blank.
+- **Pay Type itself is never left blank** — confirmed directly
+  ("'Hourly' ar 'Monthly' hobe input"), even though the real template
+  would accept an empty cell there as meaning Monthly. Every row writes
+  the literal word.
+
+**A real UI control, not a hidden generation-time coin flip** — a
+3-way `.seg` toggle (Monthly default, Hourly, Mixed), placed as its own
+"Pay type" section between Name source and Department & designation
+("name ar department er majhkhane"), confirmed exactly there before
+building. **Mixed** reveals a ratio input (default 50%, confirmed to
+mean "% of the batch that lands Hourly, the rest Monthly") — each row
+independently rolls Hourly at that percentage via `pctHit()`, the same
+mechanism Attendance Add's own late/absent/early percentages already
+use, not a fresh roll mechanism invented for this.
+
+**Mechanism**: `generateWorkbookRows()` takes a new `payConfig` argument
+(`{mode, ratio}`, defaulting to `{mode:"monthly", ratio:50}` when
+omitted, so the one call site simply always passes the real
+module-level `empPay` state object) — per row, `isHourly = mode ===
+"hourly" || (mode === "mixed" && pctHit(ratio))`, and both Gross
+Salary/Hourly Rate are generated or left `""` off that single boolean,
+never independently. `hourlyRate()` is the new sibling to the existing
+`grossSalary()`, same shape (a `randInt` across a fixed step). `HEADER`
+gained both columns in their real template positions (index 7 and 9),
+and `downloadWorkbook()`'s `ws["!cols"]` widened from 14 to 16 entries
+to match — a mismatched `!cols` length doesn't error, it just silently
+mis-widths every column after the point they diverge, so this needed
+fixing in lockstep with `HEADER`, not as an afterthought.
+
+**Test fallout, `employee.test.js`** — every column-index assertion
+past Joining Date shifted by 2 (Email `r[8]`→`r[10]`, Phone `r[9]`→
+`r[11]`, Department/Designation `r[12]/r[13]`→`r[14]/r[15]`); "14
+columns" became "16 columns," plus a new header-shape assertion
+confirming Pay Type/Gross Salary/Hourly Rate sit at the real indices
+7/8/9. New coverage added, not just the index shift: Monthly-default
+behavior (every row literally "Monthly," Gross Salary real and in
+range, Hourly Rate blank); switching to Hourly mode end-to-end (every
+row "Hourly," Gross Salary blank, Hourly Rate real and in range);
+and Mixed mode pinned to a 100% ratio (deterministic — every row still
+lands Hourly — the same "test the Mixed branch actually fires, don't
+rely on a mid-range roll being flaky-proof" discipline this file
+already uses elsewhere for a percentage-driven branch). Full 13-suite
+run green throughout.
+
+**`FAQ_TOPICS`' own Employee Add column table got both new fields too**
+(`app-data.js`), same plain-English narrative depth every other field
+there already has (2026-09-30's own rewrite) — not a terser stub, since
+nothing in this app's own documentation discipline carves out an
+exception for a newly-added column.
+
+**Deliberately not touched**: `OPERATION_CELL_ESTIMATE.employee_add`
+(still `4200`, "14 columns x 300 rows") and `OPERATION_BLURBS
+.employee_add.cost` (still "14 columns x 300 rows") — both feed the
+Welcome page's and Dashboard's own "estimated time saved" math, and
+changing either without the user's own explicit confirmation would be
+exactly the kind of silent number change this app's own discipline
+(`WELCOME_VS_AI_SAVED_MIN`'s own comment, among others) holds itself
+against. Worth noting if asked: a real row only ever has one of Gross
+Salary/Hourly Rate filled (never both), so a literal 16-cells-per-row
+count would actually overstate it slightly — revisit only if the user
+wants that math updated too.
 
 ## Adding a sixth operation
 

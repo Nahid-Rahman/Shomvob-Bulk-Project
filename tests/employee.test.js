@@ -80,27 +80,41 @@ const { check, state } = makeChecker();
   const E = await generate(page, XLSX, "employee");
 
   check("sheet name", E.sheet === "Employees_List_Upload", E.sheet);
-  check("14 columns", E.header.length === 14, String(E.header.length));
+  check("16 columns", E.header.length === 16, String(E.header.length));
+  check("header carries the two new Pay Type/Hourly Rate columns in the right place",
+    E.header[7] === "Pay Type" && E.header[8] === "Gross Salary*" && E.header[9] === "Hourly Rate",
+    E.header.slice(6, 10).join(","));
   check("25 rows", E.rows.length === 25, String(E.rows.length));
   check("IDs sequential from 0001",
     E.rows[0][0] === "QATE0001" && E.rows[24][0] === "QATE0025",
     E.rows[0][0] + ".." + E.rows[24][0]);
-  check("emails unique", new Set(E.rows.map((r) => r[8])).size === 25);
-  check("phones unique", new Set(E.rows.map((r) => r[9])).size === 25);
+  check("emails unique", new Set(E.rows.map((r) => r[10])).size === 25);
+  check("phones unique", new Set(E.rows.map((r) => r[11])).size === 25);
   check("only the chosen department and designation",
-    E.rows.every((r) => r[12] === "Engineering/IT" && r[13] === "QA Engineer"));
+    E.rows.every((r) => r[14] === "Engineering/IT" && r[15] === "QA Engineer"));
   check("filename", /^QATE_employee_bulk_upload_\d{8}\.xlsx$/.test(E.suggested), E.suggested);
+
+  /* ---------- Pay Type (2026-10-05) — Monthly is the default, matching
+     the old behaviour exactly: Gross Salary always filled, Hourly Rate
+     always blank, Pay Type literally "Monthly" on every row ---------- */
+  check("Pay Type defaults to Monthly on every row",
+    E.rows.every((r) => r[7] === "Monthly"), E.rows[0][7]);
+  check("Monthly rows have a real Gross Salary, within the real range",
+    E.rows.every((r) => typeof r[8] === "number" && r[8] >= 20000 && r[8] <= 150000 && r[8] % 500 === 0),
+    String(E.rows[0][8]));
+  check("Monthly rows leave Hourly Rate blank",
+    E.rows.every((r) => r[9] === undefined || r[9] === ""), String(E.rows[0][9]));
 
   /* ---------- E2. emails carry a per-run tag, so two separate Generate
      clicks (2026-09-22, direct request — the name pools are finite, so
      the same combo eventually recurs across unrelated files) never
      collide even with the exact same inputs ---------- */
   check("E email format carries a per-run tag",
-    E.rows.every((r) => /^[a-z]+\.[a-z]+\.[a-z0-9]{5}@yopmail\.com$/.test(r[8])),
-    E.rows[0][8]);
+    E.rows.every((r) => /^[a-z]+\.[a-z]+\.[a-z0-9]{5}@yopmail\.com$/.test(r[10])),
+    E.rows[0][10]);
   const E2 = await generate(page, XLSX, "employee-2");
-  const emailsE = new Set(E.rows.map((r) => r[8]));
-  const overlap = E2.rows.filter((r) => emailsE.has(r[8]));
+  const emailsE = new Set(E.rows.map((r) => r[10]));
+  const overlap = E2.rows.filter((r) => emailsE.has(r[10]));
   check("E2 a second run with identical inputs shares no email with the first",
     overlap.length === 0, `${overlap.length} shared`);
 
@@ -298,6 +312,37 @@ const { check, state } = makeChecker();
   check("both selected themes' names actually appear in the same file", moneyHeistHit && strangerThingsHit);
   check("mixing produced a wider spread of last names than either 15- or 20-name pool alone",
     lastNames.size > 20, String(lastNames.size));
+
+  /* ---------- Pay Type — Monthly / Hourly / Mixed (2026-10-05, new real
+     template columns) ---------- */
+  await page.click('#payTypeSeg button[data-mode="hourly"]');
+  check("Hourly mode presses the Hourly segment",
+    (await page.locator('#payTypeSeg button[data-mode="hourly"]').getAttribute("aria-pressed")) === "true");
+  check("Hourly mode keeps the ratio field hidden (it's Mixed-only)",
+    (await page.locator("#payRatioField").evaluate((el) => el.style.display)) === "none");
+  await page.fill("#countInput", "20");
+  await page.fill("#prefixInput", "HOUR");
+  const H = await generate(page, XLSX, "employee-hourly");
+  check("Hourly mode: every row reads Hourly", H.rows.every((r) => r[7] === "Hourly"), H.rows[0][7]);
+  check("Hourly mode: Gross Salary is left blank",
+    H.rows.every((r) => r[8] === undefined || r[8] === ""), String(H.rows[0][8]));
+  check("Hourly mode: Hourly Rate is real, within ৳100-500 step 50",
+    H.rows.every((r) => typeof r[9] === "number" && r[9] >= 100 && r[9] <= 500 && r[9] % 50 === 0),
+    String(H.rows[0][9]));
+
+  /* Mixed, ratio pinned to 100% — deterministic (every row should land
+     Hourly), so this confirms the Mixed branch itself actually fires
+     rather than silently falling through to Monthly, without relying on
+     luck the way a mid-range ratio would. */
+  await page.click('#payTypeSeg button[data-mode="mixed"]');
+  check("Mixed mode reveals the ratio field",
+    (await page.locator("#payRatioField").evaluate((el) => el.style.display)) !== "none");
+  check("ratio defaults to 50", (await page.inputValue("#payRatioInput")) === "50");
+  await page.fill("#payRatioInput", "100");
+  await page.fill("#prefixInput", "MIXP");
+  const MX = await generate(page, XLSX, "employee-mixed-pay");
+  check("Mixed at 100% ratio: every row still lands Hourly",
+    MX.rows.every((r) => r[7] === "Hourly"), MX.rows[0][7]);
 
   check("no page errors", pageErrors.length === 0, pageErrors.join(" | "));
 
