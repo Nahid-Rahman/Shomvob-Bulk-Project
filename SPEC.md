@@ -1183,6 +1183,59 @@ values, fixed-preset modules send the real name/description rather than
 anything generated, hand-edited fields survive a re-render and reach the
 request, and every module's tab picks up a done marker.
 
+## Attendance update (Preview) — DRAFT decisions, discussion in progress (2026-10-06)
+
+Not built yet. Being dictated one deduction type at a time; build only
+after the user says the whole discussion is done. Lives in the Preview
+page "Attendance update"; the live Attendance Add stays untouched until
+this is ready to replace it.
+
+### Overall shape
+- Page starts by asking **what are we generating**: Standard / Deduction
+  (pick a type) / Combination (later, built last). One form: common inputs
+  (Employee IDs, date range, weekend, holidays, shifts, time format) shared
+  across scenarios, then the chosen scenario's own inputs. *(Proposed by
+  Claude over separate tabs; awaiting explicit confirmation.)*
+- **Standard** = today's Attendance Add flow (lateness included, for
+  companies with no deductions), except **overtime moves to the Reward
+  scenario**.
+- Each deduction type is built on its own first; combinations at the end.
+- Output: the attendance .xlsx **plus a PDF report** (this is TODO.md's
+  "Report validation" item). PDF via vendored jsPDF, inlined like SheetJS
+  *(proposed; awaiting confirmation)*. No employee names (ID source has none).
+
+### Deduction type 1 — Late Arrival Penalty (Aggregate / Repeated) — discussion closed
+Real system settings (Payroll Settings → Deduction Rules): Late Arrival
+Threshold (Maximum Late Days Per Month, T), Late Arrival Penalty or
+Repeated Late Arrival Penalty (never both), "Apply penalty after every N
+late days", deduction source order (salary/leave) — the amount is NOT our
+concern.
+- Inputs: T (optional), penalty type Aggregate or Repeated, N, Violator %,
+  Boundary %.
+- **Aggregate rule:** `penalty = max(0, floor((late − T) / N))` per month.
+  T=2, N=3: 1st penalty on the 5th late day, 2nd on the 8th, 3rd on the 11th.
+- **Repeated rule:** T late days per month are forgiven (need not be
+  consecutive, threshold counted once a month); after that every N
+  consecutive *working-day* lates = 1 penalty; weekends/holidays don't break
+  a streak; 6 consecutive with N=3 = 2 penalties.
+- Violators = `ceil(total × Violator %)`. Each violator, **every month**,
+  gets a random 1–3 penalties' worth of late days (late count built so the
+  rule yields exactly that). If 3 doesn't fit the month's working days the
+  random max drops (1–2); if even 1 doesn't fit, block with a named reason.
+- **Boundary group** (separate Boundary % input, outside the violator %):
+  exactly `T+N−1` late days per month → 0 penalty, for boundary testing.
+- Everyone else: never late, check-in within grace (9:00 + 10 min grace →
+  by 9:10). In this scenario everyone is present every working day (no
+  absences).
+- PDF: header (scenario, T, N, range, %s, date), summary (counts, penalties
+  per month), violators per month (ID, month, late count, late dates with In
+  time, expected penalty), boundary section last (ID, month, late days,
+  expected penalty 0). *(Proposed; awaiting confirmation.)*
+
+### Still to discuss
+Absent Deduction, Cutoff Breach Penalty, Absent After Breach Penalty, then
+the Reward scenario (overtime, attendance bonus), then combinations.
+
 ## Outstanding
 
 Nothing — every module in every settings group is built. Two to three
