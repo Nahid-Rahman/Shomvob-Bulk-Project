@@ -1253,6 +1253,26 @@ concern). **No threshold** (T = 0).
   assumption. Handling real leave (upload the leave export, or fetch via the
   API) is a future TODO.
 
+### Shift check-in bands (real time slot, confirmed 2026-10-06)
+A real time slot has Start, End, Grace (minutes), Half day (hours), and
+optional **Lateness thresholds**: **Late cutoff** and **Absent after**, both
+fixed clock times (not offsets). Example slot 09:00–18:00, grace 15, late
+cutoff 09:30, absent after 10:00:
+
+| Check-in | Status |
+|---|---|
+| 09:00 – 09:15 | On time |
+| 09:16 – 09:30 | Late (counts toward the monthly late tally) |
+| 09:31 – 10:00 | Cutoff breach (charged per day, not in the late tally) |
+| 10:01 onwards | Absent-after breach (charged per day, still present and paid for hours worked) |
+
+- The system **truncates seconds**: 09:15:59 is still On time, 09:16:00 is
+  Late; same at every band edge (09:30:59 / 09:31:00, 10:00:59 / 10:01:00).
+  Boundary rows use these exact edges (with seconds in the seconds formats).
+- The generator's shift input needs two new optional fields per shift: Late
+  cutoff and Absent after. Without them the Cutoff / Absent-after scenarios
+  are blocked with a named reason (the system itself won't apply them).
+
 ### Still to discuss
 Cutoff Breach Penalty, Absent After Breach Penalty, then
 the Reward scenario (overtime, attendance bonus), then combinations.
