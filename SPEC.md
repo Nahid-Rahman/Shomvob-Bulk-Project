@@ -1244,8 +1244,8 @@ concern). **No threshold** (T = 0).
   group with **N−1** absences/month, everyone else present every working day
   within grace. Repeated = N consecutive working-day absences, weekends/
   holidays don't break the streak.
-- Formula *(awaiting confirmation)*: `penalty = floor(absent / N)`; N=3 →
-  1st penalty on the 3rd absent day, 2nd on the 6th.
+- Formula (confirmed): `penalty = floor(absent / N)`; N=3 → 1st penalty on
+  the 3rd absent day, 2nd on the 6th, 3rd on the 9th. Discussion closed.
 - An absent day = **no row** for that employee on a working day.
 - "Without notice" = no approved leave on that day. The generator only knows
   IDs, so it **assumes the range has no approved leave** (option a, chosen
