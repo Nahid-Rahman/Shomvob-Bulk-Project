@@ -19,6 +19,12 @@ or added more).
   coalesce((select preview from public.user_access where lower(email) =
   lower(auth.jwt() ->> 'email')), false) $$;` + `grant execute on function
   public.my_preview() to authenticated;`
+- **Future (Attendance update, Absent Deduction):** the generator assumes the
+  date range has no approved leave, so the PDF's expected absent penalties
+  can be off if the test company already has approved leave on a generated
+  absent day. Later: let the user upload the company's leave export (skip
+  those dates), or fetch leave via the real API. User asked for this to be
+  kept on the list (2026-10-06). See SPEC.md → "Attendance update (Preview)".
 - **Session paused here, 2026-10-04 (end of day)** — "git e sync koro
   oi device eo ektu kaj korbo so update koro shob" (sync to git, I'll
   work on the other device too). Everything up to and including this

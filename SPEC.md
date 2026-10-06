@@ -1235,8 +1235,26 @@ concern.
   time, expected penalty), boundary section last (ID, month, late days,
   expected penalty 0). (Confirmed.)
 
+### Deduction type 2 — Absent Deduction (Aggregate / Repeated)
+Real setting: "Absent without notice for N days" + optional "Repeated
+Absent Penalty"; same deduction source order block as Late (amount not our
+concern). **No threshold** (T = 0).
+- Same shape as Late Arrival: Violator %, `ceil`, every month, random 1–3
+  penalties (max drops if it doesn't fit, block if 1 doesn't), auto boundary
+  group with **N−1** absences/month, everyone else present every working day
+  within grace. Repeated = N consecutive working-day absences, weekends/
+  holidays don't break the streak.
+- Formula *(awaiting confirmation)*: `penalty = floor(absent / N)`; N=3 →
+  1st penalty on the 3rd absent day, 2nd on the 6th.
+- An absent day = **no row** for that employee on a working day.
+- "Without notice" = no approved leave on that day. The generator only knows
+  IDs, so it **assumes the range has no approved leave** (option a, chosen
+  2026-10-06); the UI shows a short hint and the PDF header states the
+  assumption. Handling real leave (upload the leave export, or fetch via the
+  API) is a future TODO.
+
 ### Still to discuss
-Absent Deduction, Cutoff Breach Penalty, Absent After Breach Penalty, then
+Cutoff Breach Penalty, Absent After Breach Penalty, then
 the Reward scenario (overtime, attendance bonus), then combinations.
 
 ## Outstanding
