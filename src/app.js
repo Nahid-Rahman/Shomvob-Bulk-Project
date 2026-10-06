@@ -802,6 +802,14 @@
       wireAdminAuditEvents();
       return;
     }
+    if (currentOp === "preview_attendance") {
+      $("#actionBar").style.display = "flex";
+      root.classList.remove("has-media", "wide");
+      root.innerHTML = attendanceUpdateTemplate();
+      wireAttendanceUpdateEvents();
+      updateSummary();
+      return;
+    }
     if (isPreviewOp(currentOp)) {
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media", "wide");
@@ -1498,7 +1506,9 @@
     to: "",
 
     shiftCount: 1,
-    shifts: [{ in: "09:00", out: "17:00", ids: [] }],
+    /* cutoff/absentAfter/halfDay are only read by Attendance update
+       (Preview) — the real time slot's optional lateness thresholds. */
+    shifts: [{ in: "09:00", out: "17:00", ids: [], cutoff: "", absentAfter: "", halfDay: 4 }],
     grace: 15,
     searchText: [],
     focusSearch: -1,
@@ -1545,12 +1555,14 @@
 
   /* Renders a minute-of-day in whichever of the template's accepted formats
      the user picked. Values past midnight wrap, which is what a shift that
-     crosses midnight needs. Seconds are random when the format shows them. */
-  function formatTime(min, fmtId) {
+     crosses midnight needs. Seconds are random when the format shows them,
+     unless `sec` pins them (Attendance update's band-edge rows need an
+     exact :00 or :59 — the real system truncates seconds). */
+  function formatTime(min, fmtId, sec) {
     const t = ((Math.round(min) % 1440) + 1440) % 1440;
     const h = Math.floor(t / 60);
     const mm = String(t % 60).padStart(2, "0");
-    const ss = String(randInt(0, 59)).padStart(2, "0");
+    const ss = String(sec == null ? randInt(0, 59) : sec).padStart(2, "0");
     if (fmtId === "h24") return `${String(h).padStart(2, "0")}:${mm}`;
     if (fmtId === "h24s") return `${String(h).padStart(2, "0")}:${mm}:${ss}`;
     const ap = h < 12 ? "AM" : "PM";
@@ -1681,21 +1693,35 @@
     return att.ids.filter((id) => !taken.has(id));
   }
 
+  /* Overtime only exists on the live Attendance Add page — Attendance
+     update (Preview) moved it to the future Reward scenario, and the two
+     pages share `att`, so a stale `otEnabled` must not leak across. */
+  function attOtActive() {
+    return att.otEnabled && currentOp !== "preview_attendance";
+  }
+
   /* With a single shift there is nothing to decide — everyone is in it. */
   function singleShift() {
     return att.shiftCount === 1;
   }
 
   function effectiveShifts() {
-    if (singleShift()) return [{ in: att.shifts[0].in, out: att.shifts[0].out, ids: att.ids.slice() }];
-    return att.shifts.map((sh) => ({ in: sh.in, out: sh.out, ids: sh.ids.slice() }));
+    if (singleShift()) return [{ ...att.shifts[0], ids: att.ids.slice() }];
+    return att.shifts.map((sh) => ({ ...sh, ids: sh.ids.slice() }));
   }
 
   function syncShiftCount() {
     const n = att.shiftCount;
     while (att.shifts.length < n) {
       const prev = att.shifts[att.shifts.length - 1];
-      att.shifts.push({ in: prev ? prev.in : "09:00", out: prev ? prev.out : "17:00", ids: [] });
+      att.shifts.push({
+        in: prev ? prev.in : "09:00",
+        out: prev ? prev.out : "17:00",
+        ids: [],
+        cutoff: prev ? prev.cutoff : "",
+        absentAfter: prev ? prev.absentAfter : "",
+        halfDay: prev ? prev.halfDay : 4,
+      });
     }
     if (att.shifts.length > n) att.shifts.length = n;
     att.searchText.length = n;
@@ -1751,7 +1777,7 @@
               ? start + att.grace + randInt(1, 60)
               : start + randInt(-10, att.grace);
             outMin =
-              att.otEnabled && att.otMax.weekday > 0 && pctHit(att.otPct.weekday)
+              attOtActive() && att.otMax.weekday > 0 && pctHit(att.otPct.weekday)
                 ? end + randInt(Math.min(45, att.otMax.weekday * 60), att.otMax.weekday * 60) /* real overtime, not a 1-minute token */
                 : pctHit(att.earlyPct)
                   ? end - randInt(15, 60) /* leaves 15–60 minutes before shift end */
@@ -1760,7 +1786,7 @@
             /* weekend and holiday produce nothing unless this employee is
                one of the overtime cases — and then the whole attendance is
                overtime, starting at the shift's normal start time. */
-            if (!att.otEnabled) return;
+            if (!attOtActive()) return;
             const max = att.otMax[type];
             if (!(max > 0) || !pctHit(att.otPct[type])) return;
             inMin = start;
@@ -2133,7 +2159,7 @@
     });
     const working = days - weekendDays - holidayDays;
 
-    const otOn = (kind) => att.otEnabled && att.otMax[kind] > 0 && att.otPct[kind] > 0;
+    const otOn = (kind) => attOtActive() && att.otMax[kind] > 0 && att.otPct[kind] > 0;
     const usable = working + (otOn("weekend") ? weekendDays : 0) + (otOn("holiday") ? holidayDays : 0);
 
     return { days, weekendDays, holidayDays, working, usable };
@@ -2200,7 +2226,7 @@
             <label>In</label><input type="time" data-shift="${i}" data-side="in" value="${sh.in}" />
             <label>Out</label><input type="time" data-shift="${i}" data-side="out" value="${sh.out}" />
           </div>
-        </div>`;
+        </div>${currentOp === "preview_attendance" ? shiftThresholdsHtml(sh, i) : ""}`;
       $all("input[type=time]", card).forEach((inp) => {
         /* Update the labels in place rather than re-rendering — a re-render
            would rip out the very input being typed into. */
@@ -2217,6 +2243,13 @@
           updateSummary();
         });
       });
+      const halfDayInput = $("input[data-side=halfDay]", card);
+      if (halfDayInput) {
+        halfDayInput.addEventListener("input", (e) => {
+          att.shifts[i].halfDay = Math.max(0, parseFloat(e.target.value) || 0);
+          updateSummary();
+        });
+      }
       list.appendChild(card);
     });
   }
@@ -2713,6 +2746,688 @@
       }
       const { wb, filename } = downloadAttendanceWorkbook(rows);
       openGenerateCompleteModal("Employee Attendance Add file is ready!", `${filename} — ${rows.length - 1} attendance rows.`, wb, filename);
+    } catch (err) {
+      console.error(err);
+      showToast("Couldn't generate the file. The console has the details.", true);
+    }
+  }
+
+  /* ================= Attendance update (Preview) =================
+
+     The next version of Attendance Add, built behind Preview access
+     until it can replace it. Shares `att` (IDs, range, shifts, weekend,
+     holidays, format) and every render*() helper with the live page;
+     only the scenario on top is its own. Rules confirmed one by one with
+     the user — SPEC.md → "Attendance update (Preview)":
+     - Standard = today's flow minus overtime (moved to a future Reward
+       scenario).
+     - Deduction = attendance built to trip ONE payroll deduction rule:
+       a Violator % breaks it every month, a few auto-picked Boundary
+       employees stop exactly one step short, everyone else is on time
+       every working day. No PDF here — expected penalties belong to the
+       future Report validator. */
+
+  const attx = {
+    mode: "standard", // "standard" | "deduction"
+    type: "late", // one of ATTENDANCE_DEDUCTION_TYPES
+    late: { thresholdOn: true, threshold: 2, repeated: false, n: 3, pct: 50 },
+    absent: { repeated: false, n: 3, pct: 50 },
+    cutoff: { repeated: false, pct: 50 },
+    absent_after: { repeated: false, pct: 50 },
+  };
+
+  function shiftThresholdsHtml(sh, i) {
+    return `
+      <div class="field-grid-3 shift-thresholds">
+        <div class="field">
+          <label>Late cutoff</label>
+          <input type="time" data-shift="${i}" data-side="cutoff" value="${escapeHtml(sh.cutoff || "")}" />
+          <span class="hint">Optional. Check-ins after it are a cutoff breach</span>
+        </div>
+        <div class="field">
+          <label>Absent after</label>
+          <input type="time" data-shift="${i}" data-side="absentAfter" value="${escapeHtml(sh.absentAfter || "")}" />
+          <span class="hint">Optional. Check-ins after it are an absent-after breach</span>
+        </div>
+        <div class="field">
+          <label>Half day (hours)</label>
+          <input type="number" data-shift="${i}" data-side="halfDay" min="0.5" max="12" step="0.5" value="${sh.halfDay}" />
+          <span class="hint">Absent-after check-ins stay before start + this</span>
+        </div>
+      </div>`;
+  }
+
+  /* Minute-of-day marks for one shift, every threshold moved past the
+     start when the shift crosses midnight (a 22:00 shift's 22:30 cutoff
+     stays 22:30, its 00:30 cutoff becomes 24:30). null = not set. */
+  function shiftBands(sh) {
+    const start = parseHM(sh.in);
+    let end = parseHM(sh.out);
+    if (start == null || end == null) return null;
+    if (end <= start) end += 1440;
+    const rel = (hm) => {
+      let v = parseHM(hm);
+      if (v == null) return null;
+      if (v < start) v += 1440;
+      return v;
+    };
+    return {
+      start,
+      end,
+      graceEnd: start + att.grace,
+      cutoff: rel(sh.cutoff),
+      absentAfter: rel(sh.absentAfter),
+      halfDayEnd: start + Math.round((sh.halfDay || 0) * 60),
+    };
+  }
+
+  /* Working days (not weekend, not holiday) grouped by calendar month —
+     every deduction rule here is counted per month. */
+  function workingDaysByMonth() {
+    const holidays = activeHolidaySet();
+    const weekend = new Set(att.weekend);
+    const months = new Map();
+    eachDate(att.from, att.to, (d) => {
+      const ds = fmtDate(d);
+      if (holidays.has(ds) || weekend.has(d.getDay())) return;
+      const key = ds.slice(0, 7);
+      if (!months.has(key)) months.set(key, []);
+      months.get(key).push(ds);
+    });
+    return months;
+  }
+
+  function monthLabel(key) {
+    const [y, m] = key.split("-");
+    return new Date(+y, +m - 1, 1).toLocaleString("en", { month: "long", year: "numeric" });
+  }
+
+  function attxThreshold() {
+    return attx.late.thresholdOn ? attx.late.threshold : 0;
+  }
+
+  /* What one employee needs in one month, as either `scatter` (that many
+     special days anywhere) or `blocks` (runs laid out in order with at
+     least one ordinary working day between them, so consecutive-day rules
+     count exactly what we meant). `k` = penalties for late/absent, breach
+     days for cutoff/absent_after; ignored for the boundary role. */
+  function deductionSpec(type, role, k) {
+    const cfg = attx[type];
+    if (type === "late" || type === "absent") {
+      const T = type === "late" ? attxThreshold() : 0;
+      const N = cfg.n;
+      if (!cfg.repeated) return { scatter: role === "boundary" ? T + N - 1 : T + k * N };
+      /* Repeated: the T forgiven days are single, non-adjacent days first
+         (so they can never form a streak), then the runs. */
+      const singles = new Array(T).fill(1);
+      const runs = role === "boundary" ? (N > 1 ? [N - 1] : []) : new Array(k).fill(N);
+      return { blocks: singles.concat(runs) };
+    }
+    if (role === "boundary") return { scatter: 1 };
+    if (!cfg.repeated) return { scatter: k };
+    /* Repeated breach = one charge per run of consecutive breach days, so
+       the 4–5 breach days come as two runs (2+2, 2+3 or 3+2). */
+    return { blocks: shuffle([2, k - 2]) };
+  }
+
+  function specSize(spec) {
+    if (spec.scatter != null) return spec.scatter;
+    return spec.blocks.reduce((a, b) => a + b, 0) + Math.max(0, spec.blocks.length - 1);
+  }
+
+  /* k values to try for a violator, most first: 1–3 penalties for
+     late/absent, 4–5 breach days for cutoff/absent_after. */
+  function violatorKs(type) {
+    return type === "late" || type === "absent" ? [3, 2, 1] : [5, 4];
+  }
+
+  function largestFittingK(type, W) {
+    return violatorKs(type).find((k) => specSize(deductionSpec(type, "violator", k)) <= W) || null;
+  }
+
+  /* Slot indices (into that month's working-day list) for one spec. */
+  function placeSpec(spec, W) {
+    if (spec.scatter != null) {
+      return shuffle(Array.from({ length: W }, (_, i) => i)).slice(0, spec.scatter).sort((a, b) => a - b);
+    }
+    const blocks = spec.blocks;
+    if (!blocks.length) return [];
+    let slack = W - specSize(spec);
+    const gaps = new Array(blocks.length + 1).fill(0);
+    while (slack-- > 0) gaps[randInt(0, blocks.length)]++;
+    const out = [];
+    let pos = gaps[0];
+    blocks.forEach((len, i) => {
+      for (let j = 0; j < len; j++) out.push(pos + j);
+      pos += len + 1 + gaps[i + 1];
+    });
+    return out;
+  }
+
+  /* Who plays which part — deterministic counts, random people. */
+  function deductionRoleCounts(total) {
+    const violators = Math.ceil((total * attx[attx.type].pct) / 100);
+    const left = total - violators;
+    const boundary = left > 0 ? Math.min(left, Math.min(3, Math.max(1, Math.ceil(total * 0.1)))) : 0;
+    return { violators, boundary, clean: total - violators - boundary };
+  }
+
+  function attendanceUpdateProblems() {
+    const out = attendanceProblems();
+    if (out.length || attx.mode !== "deduction") return out;
+    const type = attx.type;
+    const cfg = attx[type];
+    const typeLabel = ATTENDANCE_DEDUCTION_TYPES.find((t) => t.id === type).label;
+
+    if (!(cfg.pct >= 1)) out.push("Violator % needs to be at least 1 — otherwise nobody breaks the rule");
+    if ((type === "late" || type === "absent") && !(cfg.n >= 1)) out.push(type === "late" ? "Apply penalty after every N late days needs N of at least 1" : "Absent without notice for N days needs N of at least 1");
+
+    /* The thresholds this rule needs must exist on every shift, and the
+       bands they make must actually have room in them. */
+    const shiftsToCheck = singleShift() ? [att.shifts[0]] : att.shifts;
+    shiftsToCheck.forEach((sh, i) => {
+      const name = singleShift() ? "The shift" : `Shift ${i + 1}`;
+      const b = shiftBands(sh);
+      if (!b) return;
+      if (b.cutoff != null && b.cutoff <= b.graceEnd) out.push(`${name}'s late cutoff has to be after its grace period ends`);
+      if (b.cutoff != null && b.absentAfter != null && b.absentAfter <= b.cutoff) out.push(`${name}'s absent-after time has to be after its late cutoff`);
+      if (b.cutoff == null && b.absentAfter != null && b.absentAfter <= b.graceEnd) out.push(`${name}'s absent-after time has to be after its grace period ends`);
+      if (type === "cutoff" && b.cutoff == null) out.push(`${typeLabel} needs a late cutoff on ${name.toLowerCase()}`);
+      if (type === "absent_after") {
+        if (b.absentAfter == null) out.push(`${typeLabel} needs an absent-after time on ${name.toLowerCase()}`);
+        else if (b.absentAfter + 1 > b.halfDayEnd - 1) out.push(`${name}'s half day ends before its absent-after time — no room for a late check-in`);
+      }
+    });
+    if (out.length) return out;
+
+    /* Every month in the range must fit at least the smallest violator
+       month and the boundary month — never quietly generate less. */
+    const months = workingDaysByMonth();
+    for (const [key, days] of months) {
+      const W = days.length;
+      if (!largestFittingK(type, W)) {
+        const need = specSize(deductionSpec(type, "violator", violatorKs(type).slice(-1)[0]));
+        out.push(`${monthLabel(key)} has ${W} working day${W === 1 ? "" : "s"} in this range — a violator needs at least ${need}`);
+        break;
+      }
+      const roles = deductionRoleCounts(singleShift() ? att.ids.length : assignedIdSet().size);
+      const bNeed = specSize(deductionSpec(type, "boundary", 0));
+      if (roles.boundary && bNeed > W) {
+        out.push(`${monthLabel(key)} has ${W} working day${W === 1 ? "" : "s"} in this range — the boundary check needs ${bNeed}`);
+        break;
+      }
+    }
+    return out;
+  }
+
+  /* One check-in, as {min, sec}. `kind`: "ontime" | "late" | "cutoff" |
+     "absent_after" | "boundary"; `edge` pins the band's first second. */
+  function deductionInTime(type, b, kind, edge) {
+    const between = (lo, hi) => ({ min: randInt(lo, Math.max(lo, hi)), sec: null });
+    if (kind === "ontime") return between(b.start - 10, b.graceEnd);
+    if (kind === "boundary") {
+      if (type === "cutoff") return { min: b.cutoff, sec: 59 }; // last second before a cutoff breach
+      return { min: b.absentAfter, sec: 59 }; // absent_after: last second before the breach
+    }
+    if (kind === "late") {
+      if (edge) return { min: b.graceEnd + 1, sec: 0 };
+      const hi = b.cutoff != null ? b.cutoff : b.absentAfter != null ? b.absentAfter : b.graceEnd + 60;
+      return between(b.graceEnd + 1, hi);
+    }
+    if (kind === "cutoff") {
+      if (edge) return { min: b.cutoff + 1, sec: 0 };
+      return between(b.cutoff + 1, b.absentAfter != null ? b.absentAfter : b.cutoff + 30);
+    }
+    // absent_after: up to the last second before half day
+    if (edge) return { min: b.absentAfter + 1, sec: 0 };
+    return between(b.absentAfter + 1, b.halfDayEnd - 1);
+  }
+
+  function generateDeductionRows() {
+    const type = attx.type;
+    const rows = [ATTENDANCE_HEADER.slice()];
+    const fmt = att.timeFormat;
+    const shifts = effectiveShifts();
+    const allIds = [];
+    shifts.forEach((sh) => sh.ids.forEach((id) => allIds.push(id)));
+
+    const order = shuffle(allIds);
+    const counts = deductionRoleCounts(allIds.length);
+    const role = new Map();
+    order.forEach((id, i) => {
+      if (i < counts.violators) role.set(id, "violator");
+      else if (i < counts.violators + counts.boundary) role.set(id, "boundary");
+    });
+
+    /* id -> Map(date -> { edge }) of the special days, planned per month. */
+    const months = workingDaysByMonth();
+    const special = new Map();
+    role.forEach((r, id) => {
+      const plan = new Map();
+      months.forEach((days) => {
+        const W = days.length;
+        let spec;
+        if (r === "boundary") spec = deductionSpec(type, "boundary", 0);
+        else {
+          const kmax = largestFittingK(type, W);
+          const ks = violatorKs(type).filter((k) => k <= kmax);
+          spec = deductionSpec(type, "violator", choice(ks));
+        }
+        placeSpec(spec, W).forEach((slot, i) => plan.set(days[slot], { edge: r === "violator" && i === 0 }));
+      });
+      special.set(id, plan);
+    });
+
+    const holidays = activeHolidaySet();
+    const weekend = new Set(att.weekend);
+    eachDate(att.from, att.to, (date) => {
+      const ds = fmtDate(date);
+      if (holidays.has(ds) || weekend.has(date.getDay())) return; // no overtime here: nothing on these days
+      shifts.forEach((sh) => {
+        const b = shiftBands(sh);
+        if (!b) return;
+        sh.ids.forEach((id) => {
+          const plan = special.get(id);
+          const sp = plan ? plan.get(ds) : null;
+          let kind = "ontime";
+          if (sp) {
+            if (type === "absent") return; // absent = no row at all
+            kind = role.get(id) === "boundary" && type !== "late" ? "boundary" : type;
+          }
+          const t = deductionInTime(type, b, kind, sp && sp.edge);
+          const outMin = b.end + randInt(0, 10);
+          rows.push([id, ds, formatTime(t.min, fmt, t.sec), formatTime(outMin, fmt)]);
+        });
+      });
+    });
+    return rows;
+  }
+
+  function attendanceUpdateTemplate() {
+    const fmtCards = TIME_FORMATS.map(
+      (f) =>
+        `<button type="button" class="theme-card" data-fmt="${f.id}" aria-pressed="${f.id === att.timeFormat}">
+           <div class="theme-card-title">${f.label}</div><div class="theme-card-sub">${f.sub}</div>
+         </button>`
+    ).join("");
+    let n = 0;
+    const num = () => `<span class="section-num">${++n}</span>`;
+    const isDed = attx.mode === "deduction";
+
+    const typeChoices = ATTENDANCE_DEDUCTION_TYPES.map(
+      (t) =>
+        `<label class="choice ${attx.type === t.id ? "on" : ""}"><input type="radio" name="attxType" value="${t.id}" ${attx.type === t.id ? "checked" : ""} /><span class="choice-text"><strong>${t.label}</strong><span>${t.sub}</span></span></label>`
+    ).join("");
+
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Preview · Bulk operation · 02</span>
+        <h1 class="page-title">Attendance update</h1>
+        <p class="page-desc">Plain day-to-day attendance, or attendance built on purpose to trip one of the payroll deduction rules. Work in progress — only Preview accounts see this.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}What are we generating?</h2></div>
+        <p class="section-note">Standard is an ordinary month. Deduction makes some people break one rule, on purpose, every month.</p>
+        <div class="seg" id="attxModeSeg">
+          <button type="button" data-mode="standard" aria-pressed="${!isDed}">Standard</button>
+          <button type="button" data-mode="deduction" aria-pressed="${isDed}">Deduction</button>
+          <button type="button" data-mode="combination" disabled title="Several rules at once — coming later">Combination · later</button>
+        </div>
+        ${isDed ? `<div class="choice-list" id="attxTypeChoices" style="margin-top:14px">${typeChoices}</div>` : ""}
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Employee IDs</h2></div>
+        <p class="section-note">Whose attendance this is for. Paste them, generate them, or pull them from a file.</p>
+        ${idSourceMarkup(att)}
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Date range</h2></div>
+        <p class="section-note">Which days to cover.${isDed ? " Every deduction rule is counted per calendar month, and the rule is broken in every month of the range." : ""}</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="fromDate">From</label>
+            <input type="date" id="fromDate" value="${att.from}" />
+          </div>
+          <div class="field">
+            <label for="toDate">To</label>
+            <input type="date" id="toDate" value="${att.to}" />
+          </div>
+        </div>
+        <div id="rangeTally"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Shifts</h2></div>
+        <p class="section-note">How many shifts there are, and when each one starts and ends. Late cutoff and absent after mirror the real time slot's lateness thresholds.</p>
+        <div class="field-grid-2">
+          <div class="field">
+            <label for="shiftCount">How many shifts</label>
+            <input type="number" id="shiftCount" min="1" max="10" value="${att.shiftCount}" />
+            <span class="hint">1 to 10</span>
+          </div>
+          <div class="field">
+            <label for="graceInput">Grace period (minutes)</label>
+            <input type="number" id="graceInput" min="0" max="120" value="${att.grace}" />
+            <span class="hint">Nobody counts as late until this runs out</span>
+          </div>
+        </div>
+        <div class="shift-list" id="shiftList"></div>
+      </div>
+
+      <div class="section" id="assignSection">
+        <div class="section-head"><h2 class="section-title">${num()}Who works which shift</h2></div>
+        <p class="section-note">Search and click, or drag them out of the pool into a shift.</p>
+        <div id="assignWrap"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Weekend</h2></div>
+        <p class="section-note">Which days your weekend falls on. Nothing is recorded on those.</p>
+        <div class="day-row" id="dayRow"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Holiday</h2></div>
+        <p class="section-note">Whether any holidays fall inside the range.</p>
+        <div class="choice-list" id="holidayChoices">
+          <label class="choice ${att.holidayMode === "govt" ? "on" : ""}"><input type="radio" name="hmode" value="govt" ${att.holidayMode === "govt" ? "checked" : ""} /><span class="choice-text"><strong>Shomvob HR holidays</strong><span>Built-in list, straight from Shomvob HR</span></span></label>
+          <label class="choice ${att.holidayMode === "govt_custom" ? "on" : ""}"><input type="radio" name="hmode" value="govt_custom" ${att.holidayMode === "govt_custom" ? "checked" : ""} /><span class="choice-text"><strong>Shomvob HR holidays + your own dates</strong><span>The built-in list, plus dates of your own</span></span></label>
+          <label class="choice ${att.holidayMode === "custom" ? "on" : ""}"><input type="radio" name="hmode" value="custom" ${att.holidayMode === "custom" ? "checked" : ""} /><span class="choice-text"><strong>Custom dates only</strong><span>Only the dates you add</span></span></label>
+          <label class="choice ${att.holidayMode === "none" ? "on" : ""}"><input type="radio" name="hmode" value="none" ${att.holidayMode === "none" ? "checked" : ""} /><span class="choice-text"><strong>No holiday</strong><span>Every day is a working day, weekends aside</span></span></label>
+        </div>
+        <div id="holidayWrap"></div>
+      </div>
+
+      ${isDed ? deductionSettingsHtml(num()) : `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Percentages</h2></div>
+        <p class="section-note">What share of people turn up late, don't turn up, and leave early. Overtime isn't here any more — it moves to a Reward scenario later.</p>
+        <div class="field-grid-3">
+          <div class="field">
+            <label for="latePct">Late (%)</label>
+            <input type="number" id="latePct" min="0" max="100" value="${att.latePct}" />
+          </div>
+          <div class="field">
+            <label for="absentPct">Absent (%)</label>
+            <input type="number" id="absentPct" min="0" max="100" value="${att.absentPct}" />
+          </div>
+          <div class="field">
+            <label for="earlyPct">Early check-out (%)</label>
+            <input type="number" id="earlyPct" min="0" max="100" value="${att.earlyPct}" />
+          </div>
+        </div>
+      </div>`}
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Time format</h2></div>
+        <p class="section-note">How In/Out Time gets written. The template takes all four.</p>
+        <div class="fmt-grid" id="fmtGrid">${fmtCards}</div>
+      </div>
+    `;
+  }
+
+  function deductionSettingsHtml(numHtml) {
+    const type = attx.type;
+    const cfg = attx[type];
+    const label = ATTENDANCE_DEDUCTION_TYPES.find((t) => t.id === type).label;
+    const seg = (aggLabel, repLabel) => `
+      <div class="field">
+        <label>Penalty type</label>
+        <div class="seg seg-fill" id="attxRepeatSeg">
+          <button type="button" data-rep="no" aria-pressed="${!cfg.repeated}">${aggLabel}</button>
+          <button type="button" data-rep="yes" aria-pressed="${cfg.repeated}">${repLabel}</button>
+        </div>
+      </div>`;
+    const pctField = `
+      <div class="field">
+        <label for="attxPct">Violators (%)</label>
+        <input type="number" id="attxPct" min="1" max="100" value="${cfg.pct}" />
+        <span class="hint">Share of employees who break the rule, rounded up</span>
+      </div>`;
+    let fields = "";
+    if (type === "late") {
+      fields = `
+        <div class="field-grid-2">
+          <div class="field">
+            <label>Late Arrival Threshold</label>
+            <div class="seg seg-fill" id="attxThresholdSeg">
+              <button type="button" data-th="off" aria-pressed="${!cfg.thresholdOn}">Off</button>
+              <button type="button" data-th="on" aria-pressed="${cfg.thresholdOn}">On</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="attxThreshold">Maximum late days per month</label>
+            <input type="number" id="attxThreshold" min="0" max="31" value="${cfg.threshold}" ${cfg.thresholdOn ? "" : "disabled"} />
+            <span class="hint">Late days forgiven each month</span>
+          </div>
+        </div>
+        <div class="field-grid-3">
+          ${seg("Aggregate", "Repeated")}
+          <div class="field">
+            <label for="attxN">Apply penalty after every</label>
+            <input type="number" id="attxN" min="1" max="31" value="${cfg.n}" />
+            <span class="hint">late days${cfg.repeated ? ", in a row (weekends and holidays don't break a run)" : ""}</span>
+          </div>
+          ${pctField}
+        </div>`;
+    } else if (type === "absent") {
+      fields = `
+        <div class="field-grid-3">
+          ${seg("Aggregate", "Repeated")}
+          <div class="field">
+            <label for="attxN">Absent without notice for</label>
+            <input type="number" id="attxN" min="1" max="31" value="${cfg.n}" />
+            <span class="hint">days${cfg.repeated ? ", in a row (weekends and holidays don't break a run)" : ""}</span>
+          </div>
+          ${pctField}
+        </div>
+        <p class="sub-note">Assumes nobody has approved leave in this range. An absent day on approved leave isn't "without notice", so it wouldn't be penalised.</p>`;
+    } else {
+      fields = `
+        <div class="field-grid-2">
+          ${seg("Every breach day", "Repeated breach")}
+          ${pctField}
+        </div>
+        <p class="sub-note">Needs ${type === "cutoff" ? "a late cutoff" : "an absent-after time"} on every shift (section above). The real system skips this rule on a shift without one.</p>`;
+    }
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${numHtml}${escapeHtml(label)}</h2></div>
+        <p class="section-note">Match these to the company's Payroll Settings → Deduction Rules.</p>
+        ${fields}
+        <div id="attxRuleTally" style="margin-top:12px"></div>
+      </div>`;
+  }
+
+  /* Plain-English read-back of what the chosen numbers will produce. */
+  function renderDeductionTally() {
+    const box = $("#attxRuleTally");
+    if (!box) return;
+    const type = attx.type;
+    const cfg = attx[type];
+    const total = singleShift() ? att.ids.length : assignedIdSet().size;
+    const roles = deductionRoleCounts(total);
+    let rule = "";
+    if (type === "late" || type === "absent") {
+      const T = type === "late" ? attxThreshold() : 0;
+      const word = type === "late" ? "late" : "absent";
+      rule = cfg.repeated
+        ? `${T ? `${T} ${word} day${T === 1 ? "" : "s"} forgiven, then ` : ""}every ${cfg.n} ${word} days in a row = 1 penalty`
+        : `1st penalty on the ${ordinal(T + cfg.n)} ${word} day, 2nd on the ${ordinal(T + 2 * cfg.n)}`;
+      rule += ` · violators get 1–3 penalties a month · boundary: ${type === "late" ? `${T + cfg.n - 1} late days` : `${cfg.n - 1} absent days`}${cfg.repeated ? " (one short run)" : ""}, 0 penalties`;
+    } else {
+      rule = `${cfg.repeated ? "1 charge per run of breach days in a row" : "every breach day = 1 charge"} · violators breach 4–5 days a month${cfg.repeated ? " in 2 runs" : ""} · boundary: 1 day a month one second short`;
+    }
+    /* Three separate pills, not one long one — a single mono pill broke
+       mid-phrase at 390px. */
+    box.innerHTML =
+      `<span class="tally ok"><strong>${roles.violators}</strong> violators</span> ` +
+      `<span class="tally"><strong>${roles.boundary}</strong> boundary</span> ` +
+      `<span class="tally"><strong>${roles.clean}</strong> on time</span>` +
+      `<p class="sub-note" style="margin-top:8px">${escapeHtml(rule.charAt(0).toUpperCase() + rule.slice(1))}. Everyone is present every working day.</p>`;
+  }
+
+  function ordinal(n) {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+
+  function rerenderAttendanceUpdate() {
+    $("#mainContent").innerHTML = attendanceUpdateTemplate();
+    wireAttendanceUpdateEvents();
+    updateSummary();
+  }
+
+  function wireAttendanceUpdateEvents() {
+    bindIdSource(att, () => {
+      const pool = new Set(att.ids);
+      att.shifts.forEach((sh) => {
+        sh.ids = sh.ids.filter((id) => pool.has(id));
+      });
+      renderAssign();
+      renderDeductionTally();
+      updateSummary();
+    });
+    wireIdSourceSeg();
+
+    $all("#attxModeSeg button[data-mode]").forEach((b) => {
+      if (b.disabled) return;
+      b.addEventListener("click", () => {
+        if (attx.mode === b.dataset.mode) return;
+        attx.mode = b.dataset.mode;
+        rerenderAttendanceUpdate();
+      });
+    });
+    $all("#attxTypeChoices input[name=attxType]").forEach((r) => {
+      r.addEventListener("change", () => {
+        attx.type = r.value;
+        rerenderAttendanceUpdate();
+      });
+    });
+
+    $("#fromDate").addEventListener("input", (e) => {
+      att.from = e.target.value;
+      renderHolidays();
+      renderRangeTally();
+      updateSummary();
+    });
+    $("#toDate").addEventListener("input", (e) => {
+      att.to = e.target.value;
+      renderHolidays();
+      renderRangeTally();
+      updateSummary();
+    });
+    $("#shiftCount").addEventListener("input", (e) => {
+      att.shiftCount = Math.min(10, Math.max(1, parseInt(e.target.value, 10) || 1));
+      syncShiftCount();
+      renderShifts();
+      renderAssign();
+      renderDeductionTally();
+      updateSummary();
+    });
+    $("#graceInput").addEventListener("input", (e) => {
+      att.grace = Math.max(0, parseInt(e.target.value, 10) || 0);
+      updateSummary();
+    });
+    $all("#holidayChoices input[name=hmode]").forEach((r) => {
+      r.addEventListener("change", () => {
+        att.holidayMode = r.value;
+        $all("#holidayChoices .choice").forEach((c) => c.classList.toggle("on", c.contains(r) && r.checked));
+        renderHolidays();
+        renderRangeTally();
+        updateSummary();
+      });
+    });
+
+    if (attx.mode === "standard") {
+      [["latePct", "latePct"], ["absentPct", "absentPct"], ["earlyPct", "earlyPct"]].forEach(([id, key]) => {
+        $("#" + id).addEventListener("input", (e) => {
+          att[key] = clampPct(e.target.value);
+          updateSummary();
+        });
+      });
+    } else {
+      const cfg = attx[attx.type];
+      $all("#attxRepeatSeg button").forEach((b) => {
+        b.addEventListener("click", () => {
+          cfg.repeated = b.dataset.rep === "yes";
+          rerenderAttendanceUpdate();
+        });
+      });
+      $all("#attxThresholdSeg button").forEach((b) => {
+        b.addEventListener("click", () => {
+          attx.late.thresholdOn = b.dataset.th === "on";
+          rerenderAttendanceUpdate();
+        });
+      });
+      const numInput = (id, apply) => {
+        const el = $("#" + id);
+        if (!el) return;
+        el.addEventListener("input", (e) => {
+          apply(e.target.value);
+          renderDeductionTally();
+          updateSummary();
+        });
+      };
+      numInput("attxThreshold", (v) => (attx.late.threshold = Math.max(0, parseInt(v, 10) || 0)));
+      numInput("attxN", (v) => (cfg.n = Math.max(0, parseInt(v, 10) || 0)));
+      numInput("attxPct", (v) => (cfg.pct = clampPct(v)));
+    }
+
+    $all("#fmtGrid button").forEach((b) => {
+      b.addEventListener("click", () => {
+        att.timeFormat = b.dataset.fmt;
+        $all("#fmtGrid button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        updateSummary();
+      });
+    });
+
+    renderIdPanel();
+    renderRangeTally();
+    renderShifts();
+    renderAssign();
+    renderDays();
+    renderHolidays();
+    renderDeductionTally();
+  }
+
+  function updateAttendanceUpdateSummary() {
+    const problems = attendanceUpdateProblems();
+    const summary = $("#actionSummary");
+    const btn = $("#generateBtn");
+    if (problems.length) {
+      summary.textContent = problems[0];
+      btn.disabled = true;
+      return;
+    }
+    const assigned = singleShift() ? att.ids.length : assignedIdSet().size;
+    let days = 0;
+    eachDate(att.from, att.to, () => days++);
+    const scenario = attx.mode === "deduction" ? ATTENDANCE_DEDUCTION_TYPES.find((t) => t.id === attx.type).label : "Standard";
+    summary.innerHTML = `<strong>${assigned}</strong> employees · <strong>${days}</strong> days · <strong>${att.shiftCount}</strong> shift · ${escapeHtml(scenario)}`;
+    btn.disabled = false;
+  }
+
+  function handleAttendanceUpdateGenerate() {
+    const problems = attendanceUpdateProblems();
+    if (problems.length) {
+      showToast(problems[0], true);
+      return;
+    }
+    try {
+      const rows = attx.mode === "deduction" ? generateDeductionRows() : generateAttendanceRows();
+      if (rows.length < 2) {
+        showToast("That produced no rows at all — check the percentages and the date range.", true);
+        return;
+      }
+      const { wb } = downloadAttendanceWorkbook(rows);
+      const slug = attx.mode === "deduction" ? `${attx.type}${attx[attx.type].repeated ? "_repeated" : ""}` : "standard";
+      const filename = `attendance_${slug}_bulk_upload_${fmtDate(today).replace(/-/g, "")}.xlsx`;
+      openGenerateCompleteModal("Attendance update file is ready!", `${filename} — ${rows.length - 1} attendance rows.`, wb, filename);
     } catch (err) {
       console.error(err);
       showToast("Couldn't generate the file. The console has the details.", true);
@@ -5868,6 +6583,7 @@
 
   function updateSummary() {
     if (currentOp === "attendance_add") return updateAttendanceSummary();
+    if (currentOp === "preview_attendance") return updateAttendanceUpdateSummary();
     if (currentOp === "leave_balance_add") return updateLeaveSummary();
     if (currentOp === "payroll_field_add") return updatePayrollSummary();
     if (currentOp === "assets_add") return updateAssetsSummary();
@@ -5876,6 +6592,7 @@
 
   function handleGenerate() {
     if (currentOp === "attendance_add") return handleAttendanceGenerate();
+    if (currentOp === "preview_attendance") return handleAttendanceUpdateGenerate();
     if (currentOp === "leave_balance_add") return handleLeaveGenerate();
     if (currentOp === "payroll_field_add") return handlePayrollGenerate();
     if (currentOp === "assets_add") return handleAssetsGenerate();

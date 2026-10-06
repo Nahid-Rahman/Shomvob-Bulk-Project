@@ -806,6 +806,16 @@ const PREVIEW_TOOLS = [
   { id: "preview_report", label: "Report" },
 ];
 
+/* Attendance update (Preview) — the four payroll deduction rules it can
+   build attendance for, matching Payroll Settings → Deduction Rules in the
+   real system. Rules per type live in SPEC.md → "Attendance update". */
+const ATTENDANCE_DEDUCTION_TYPES = [
+  { id: "late", label: "Late Arrival Penalty", sub: "Late more often than the monthly allowance" },
+  { id: "absent", label: "Absent Deduction", sub: "Absent without notice" },
+  { id: "cutoff", label: "Cutoff Breach Penalty", sub: "Check-in after the shift's late cutoff" },
+  { id: "absent_after", label: "Absent After Breach Penalty", sub: "Check-in after the shift's absent-after time" },
+];
+
 /* The ~20 settings modules, two levels deep — confirmed with the user
    2026-09-09 against real screenshots of the actual HRIS admin (not
    invented): a group is a tabbed page (mirrors "Company Settings" and

@@ -303,6 +303,14 @@ accepts; if a real upload fails, fix against that error's actual text.
   `rangeDayCounts()` shared with the tally). `BD_HOLIDAYS` is 2026 only, read off
   Shomvob's own HR calendar; the holiday chip list is scoped to the chosen date range
   (display-only; generation was always range-bound).
+- **Attendance update (Preview, 2026-10-06)** — the next Attendance Add, on the Preview
+  page `preview_attendance`; rules in SPEC.md → "Attendance update (Preview)". Shares `att`
+  and every `render*()` helper with the live page (live page unchanged: `attOtActive()` keeps
+  overtime live-only, shift threshold fields render only on the Preview page). Own state
+  `attx`; "What are we generating?" Standard (today's flow minus overtime) / Deduction (Late
+  Arrival, Absent, Cutoff Breach, Absent After Breach; Aggregate or Repeated) / Combination
+  (later). Deduction = Violator % breaks the rule every month, an auto boundary group stops
+  one step short, everyone else on time; no PDF (moved to the future Report validator).
 - **Assets Add** — sheet `Assets_List_Upload`, 7 columns (3 required). Asset Type is a
   free category, not derived from name; Asset Image always blank; descriptions paired
   with names in `DEFAULT_ASSET_TYPES` (custom names get none); employee IDs optional;
@@ -440,7 +448,7 @@ Calls a real Shomvob dev/staging API and writes into a real test company.
     cd tests && npm run setup   # once
     npm test
 
-14 suites, ~980 checks (a drifting snapshot): employee, attendance, assets, leave,
+15 suites, ~1020 checks (a drifting snapshot): employee, attendance, attendance-update, assets, leave,
 payroll, appearance (two colour-scheme contexts; reads computed background channels, not
 hexes), company-setup (mocks every network call via `page.route()`), gate (only suite
 inspecting the gate DOM), back-navigation, tiered-access, admin-panel, preview, dashboard, faq.

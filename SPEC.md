@@ -1183,12 +1183,26 @@ values, fixed-preset modules send the real name/description rather than
 anything generated, hand-edited fields survive a re-render and reach the
 request, and every module's tab picks up a done marker.
 
-## Attendance update (Preview) — DRAFT decisions, discussion in progress (2026-10-06)
+## Attendance update (Preview) — built 2026-10-06 (Standard + 4 single deductions)
 
-Not built yet. Being dictated one deduction type at a time; build only
-after the user says the whole discussion is done. Lives in the Preview
-page "Attendance update"; the live Attendance Add stays untouched until
-this is ready to replace it.
+Built on the Preview page "Attendance update" (`attendanceUpdateTemplate()`,
+`generateDeductionRows()`); the live Attendance Add stays untouched until
+this replaces it. Reward (overtime, attendance bonus) and Combination are
+deferred to the Report part ("eta report er part e korbo"); Combination is
+shown as a disabled "Combination · later" button. Tests:
+`tests/attendance-update.test.js`.
+
+**Implementation choices Claude made (not dictated — change freely):**
+defaults Violator 50% (the user's own example), T=2 / N=3 (from the
+screenshots); Violator % below 1 is blocked (would just be a plain file);
+filename `attendance_{standard|late|absent|cutoff|absent_after}[_repeated]_bulk_upload_{YYYYMMDD}.xlsx`;
+late check-ins stay below the shift's late cutoff (or absent-after, else
+grace+60 min); cutoff breaches run up to the absent-after time (else
+cutoff+30 min); each violator-month's first special day sits on the band's
+first second (09:16:00 / 09:31:00 / 10:01:00); a cutoff/absent-after time
+inside grace, or absent-after not after cutoff, is blocked. The page's
+default range (month start → today) can be too short for a deduction — it
+blocks with the month named.
 
 ### Overall shape
 - Page starts by asking **what are we generating**: Standard / Deduction

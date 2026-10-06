@@ -6,19 +6,19 @@ here instead of only saying it out loud, and delete it once it's done
 (pull the latest before checking — another machine may have finished it,
 or added more).
 
-- **2026-10-06 — Preview access built (committed; push only after the SQL below
-  is run on Supabase, else Admin Save breaks).** New `user_access.preview` flag +
-  `my_preview()` RPC, sidebar "Preview" section, Admin Users checkbox. Its two entries
-  are empty placeholders: **Attendance update** and **Report**. Next, in order:
-  (1) **Report** first (user's own order) — ask what "Report validation" means, nothing
-  is dictated yet; (2) then Attendance generation upgrade — wait for the full list of
-  changes before building. Supabase SQL (user runs it in the dashboard; MCP can't reach
-  the org): `alter table public.user_access add column if not exists preview boolean
-  not null default false;` + `create or replace function public.my_preview() returns
-  boolean language sql stable security definer set search_path = public as $$ select
-  coalesce((select preview from public.user_access where lower(email) =
-  lower(auth.jwt() ->> 'email')), false) $$;` + `grant execute on function
-  public.my_preview() to authenticated;`
+- **2026-10-06 — Preview access + Attendance update built, both live.**
+  Preview: `user_access.preview` + `my_preview()` (SQL already run by the
+  user), sidebar "Preview" section, Admin Users checkbox. **Attendance
+  update** (Preview page) is built: Standard + the 4 single deductions
+  (Late Arrival, Absent, Cutoff Breach, Absent After Breach — Aggregate or
+  Repeated), rules in SPEC.md → "Attendance update (Preview)". Next, in
+  order: (1) the **Report** part — the Report validator (expected penalties
+  per ID, boundary checks; moved out of bulk), plus Reward (overtime,
+  attendance bonus) and Combination, which the user put under the Report
+  part — nothing about it is dictated yet, ask first; (2) once that's done,
+  Attendance update replaces the live Attendance Add (ask before swapping).
+  The user (mahmudur@shomvob.com) still needs Preview ticked on their own
+  account in Admin → Users (or the SQL upsert) to see these pages.
 - **Future (Attendance update, Absent Deduction):** the generator assumes the
   date range has no approved leave, so the PDF's expected absent penalties
   can be off if the test company already has approved leave on a generated
