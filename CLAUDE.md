@@ -25,6 +25,14 @@ rules only; put narrative/changelog detail in HISTORY.md (and only if worth keep
 - **Reply to the user in Banglish** (Bengali script doesn't render in their terminal).
   **All product UI copy is English** — dry, lightly self-deprecating tone; never put
   Banglish in the product.
+- **`mahmudur@shomvob.com` gets every access, always** (2026-10-06): any new tier, flag,
+  role or gated page must include the user's own account — set it in the same SQL you hand
+  over. The Supabase MCP usually can't reach the Shomvob SQA org, so write the SQL for the
+  user to run in the dashboard (SQL Editor → New query) and wait for "done" before pushing
+  code that depends on it (e.g. a new column a Save writes).
+- **Discussion before build:** for a new feature the user explains it fully in chat first
+  and takes decisions one at a time; record each decision in SPEC.md as you go (pushed, so
+  the other machine has it), and build only when told.
 - **Confirm rules, never assume.** The user dictates each operation's generation rules
   and business numbers himself, one at a time. Don't invent business numbers/rules.
 - **Wait for the full feedback list.** When the user is marking up screenshots, don't
@@ -466,7 +474,9 @@ selector disappear, update the test like-for-like rather than loosening it.
 Phase 1 (5 operations) complete and accepted by the real importer. Phase 2 (Company
 Setup, all 6 groups / ~24 modules incl. Schedule Management) complete and verified live
 against real staging companies. Phase 3 (Tiered Access: audit log, admin panel, tiers,
-Dashboard, FAQ, Back/Forward, Change Password) complete. A CXO impact-report artifact was
+Dashboard, FAQ, Back/Forward, Change Password) complete. Phase 4 (2026-10-06): Preview
+access + Attendance update (Standard + 4 deductions) built behind Preview; the Report
+validator is next (see TODO.md's top note). A CXO impact-report artifact was
 drafted (see TODO.md). Next work is user-directed; check `TODO.md`.
 Features of note not described above: self-service **Change Password**
 (`changeMyPassword()` → Supabase `PUT /auth/v1/user` with the user's own token, modal

@@ -6,82 +6,67 @@ here instead of only saying it out loud, and delete it once it's done
 (pull the latest before checking — another machine may have finished it,
 or added more).
 
-- **2026-10-06 — Preview access + Attendance update built, both live.**
-  Preview: `user_access.preview` + `my_preview()` (SQL already run by the
-  user), sidebar "Preview" section, Admin Users checkbox. **Attendance
-  update** (Preview page) is built: Standard + the 4 single deductions
-  (Late Arrival, Absent, Cutoff Breach, Absent After Breach — Aggregate or
-  Repeated), rules in SPEC.md → "Attendance update (Preview)". Next, in
-  order: (1) the **Report** part — the Report validator (expected penalties
-  per ID, boundary checks; moved out of bulk), plus Reward (overtime,
-  attendance bonus) and Combination, which the user put under the Report
-  part — nothing about it is dictated yet, ask first; (2) once that's done,
-  Attendance update replaces the live Attendance Add (ask before swapping).
-  The user (mahmudur@shomvob.com) still needs Preview ticked on their own
-  account in Admin → Users (or the SQL upsert) to see these pages.
-- **Future (Attendance update, Absent Deduction):** the generator assumes the
-  date range has no approved leave, so the PDF's expected absent penalties
-  can be off if the test company already has approved leave on a generated
-  absent day. Later: let the user upload the company's leave export (skip
-  those dates), or fetch leave via the real API. User asked for this to be
-  kept on the list (2026-10-06). See SPEC.md → "Attendance update (Preview)".
-- **Session paused here, 2026-10-04 (end of day)** — "git e sync koro
-  oi device eo ektu kaj korbo so update koro shob" (sync to git, I'll
-  work on the other device too). Everything up to and including this
-  point is committed and pushed to `main` (already live at the
-  production URL, `git fetch` confirms no divergence either way) —
-  nothing local, nothing uncommitted. Nothing is queued waiting on a
-  decision; the two 2026-09-29 items below are both now done:
-  1. ✅ **"What we offer & FAQ" polish pass — fully done, 2026-09-30.**
-     Rebuilt into a two-level shell (Bulk Operation/Settings toggle,
-     left item list, default-open detail — CLAUDE.md → "'What we offer
-     & FAQ' redesigned into a two-level shell"), then every field
-     description across all 5 Bulk operations *and* all 6 Settings
-     groups was rewritten into full plain-English narrative paragraphs
-     (CLAUDE.md → "Every FAQ field rewritten into plain-English
-     narrative"), plus a table-wrapping/mobile-column-width fix found
-     during verification.
-  2. ✅ **The CXO impact report — drafted and published, 2026-09-30.**
-     A 2-page artifact: real adoption numbers (pulled live from
-     Supabase at draft time), the confirmed By-hand/With-AI/Bulk-Forge
-     comparison table + chart, and the "4H 37M"/"55 Min" headline
-     figures already live on the Dashboard — deliberately did **not**
-     invent an aggregate "hours saved so far" claim from the still-tiny
-     real usage sample, leaning on the structural per-task comparison
-     instead. Link: https://claude.ai/artifact/TyRNnJUPVJ5BFi8GEwaLJp
-     — if real usage has grown meaningfully since 2026-09-30, consider
-     asking the user whether the real-numbers section is worth
-     refreshing before this goes in front of anyone.
+- **Session paused here, 2026-10-06 (end of day)** — "onno machine e
+  continue korbo" (continuing on the other machine). Everything below is
+  committed and pushed to `main` and live; nothing local, nothing
+  uncommitted. **On the other machine:** `git pull`, then `python build.py`
+  (only needed after editing `src/`), `cd tests && npm run setup` once if
+  Playwright isn't installed there, `npm test` (15 suites, all green at
+  push time). Auto-memory does NOT travel between machines — every durable
+  rule from it is now in CLAUDE.md → "Working rules".
 
-  **Other real work done this same session, not yet summarized
-  anywhere else in this file** (all in CLAUDE.md under their own dated
-  headers — searching this file's own headers by date finds all of
-  these):
-  - Dashboard: "Get started" moved to the very bottom of the page,
-    "Real usage" renamed to "User Statistics."
-  - Employee Add: a configurable "Starting number" field, so
-    regenerating for a company that already has real employee IDs
-    doesn't collide at `0001` again.
-  - Attendance Add: the "Shomvob HR holidays" chip list is now scoped
-    to the selected date range, not every year `BD_HOLIDAYS` holds.
-  - Employee Add (from the other machine, merged in cleanly): a
-    character-pool repeat past the pool's own size now borrows a
-    different real last name instead of appending a numeric suffix
-    ("Marquina 2" doesn't happen any more).
-  - **18 real team accounts added through the live Admin Panel**
-    (ashraful, zayed, galib, iqbal, jidny, mahpara, mostofa, nowshad,
-    shahriar, siam, tofayel, uzzal, wasi, dipu, habibur, rahatul,
-    tonmoy.barai, tushar) — `name@shomvob.com` / `nameislazy`, default
-    tier (Both operations, non-admin), confirmed against the real
-    account list afterward.
-  - **Self-service "Change Password"** — any signed-in account (not
-    just admin) can change its own password from a small link in the
-    sidebar's "Signed in as" card, no current-password re-entry needed.
-    See CLAUDE.md → "Self-service 'Change Password'" for the full
-    build, including a real id-collision the test suite itself caught
-    before this ever shipped. Confirmed end-to-end against the real
-    live site with a real account, then reverted that account back to
-    its original password.
+  **Done this session:**
+  1. **Preview access** — a testing-only access level. `user_access.preview`
+     (boolean, default false) + SECURITY DEFINER RPC `my_preview()` (the user
+     ran the SQL in the Supabase dashboard; the Supabase MCP can't reach the
+     org). Sidebar gets a "Preview" section (WIP pills) only for flagged
+     accounts; Admin → Users has a Preview checkbox (table + create form).
+     Entries: **Attendance update** (built) and **Report** (empty
+     placeholder page). CLAUDE.md → "Auth, tiers, admin" has the details.
+  2. **Attendance update** (Preview page) — built: "What are we
+     generating?" Standard / Deduction / Combination (disabled, later).
+     Standard = old flow minus overtime. Deduction = 4 single types (Late
+     Arrival, Absent, Cutoff Breach, Absent After Breach), each Aggregate
+     or Repeated. Every rule was dictated one by one — SPEC.md →
+     "Attendance update (Preview)" has all of them plus the small choices
+     Claude made itself (marked "change freely"). `tests/attendance-update.test.js`.
+  3. The user's own account needs Preview ticked (Admin → Users) to see
+     these pages, if not done yet.
+
+  **Next, in this order (user's own order):**
+  1. **The Report part** — nothing is dictated yet, start by asking. What
+     is already decided: it's the TODO's old "Report validation" item; the
+     PDF that was first planned inside the attendance generator moved here
+     ("bulk e only bulk er task thakuk") — expected penalties per ID per
+     month, late/absent/breach dates with In time, a boundary-check section
+     last (SPEC.md keeps those "(For the Report validator)" lines); the
+     user also put **Reward** (overtime, attendance bonus) and
+     **Combination** (several deductions at once) under this part. jsPDF
+     (vendored + inlined like SheetJS) was agreed for a PDF, parked until
+     this discussion. Open questions to ask: what the validator takes as
+     input (our generated xlsx? the system's own payroll/attendance
+     report? both, and compare?), and what it outputs.
+  2. After that: Attendance update replaces the live Attendance Add —
+     ask before swapping.
+
+  **Noticed, not asked for (ask before doing):** the real Payroll Settings →
+  Deduction Rules UI has moved on from what Company Setup's Late Arrival /
+  Absent Deduction modules send — it now has a "Deduction source order"
+  (salary first / leave first) and an ordered multi-leave-type list, and
+  two new rules (Cutoff Breach, Absent After Breach) that Company Setup
+  doesn't configure at all; the real time slot also has Late cutoff /
+  Absent after fields. Raised once in chat, no answer yet.
+
+  Older: the 2-page CXO impact report (2026-09-30) is at
+  https://claude.ai/artifact/TyRNnJUPVJ5BFi8GEwaLJp — if asked again, ask
+  whether its real-numbers section needs a refresh rather than redrafting.
+- **Future (Attendance update, Absent Deduction):** the generator assumes the
+  date range has no approved leave, so the expected absent penalties (in
+  the future Report validator) can be off if the test company already has
+  approved leave on a generated absent day. Later: let the user upload the
+  company's leave export (skip those dates), or fetch leave via the real
+  API. User asked for this to be kept on the list (2026-10-06). See SPEC.md
+  → "Attendance update (Preview)".
 - **Welcome page confirmed 100% done, 2026-09-28** — every open item
   the "Not started" bullet below used to list against the pre-signin
   page is closed; see CLAUDE.md's own long revision history under
