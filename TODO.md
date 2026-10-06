@@ -30,8 +30,7 @@ or added more).
      or Repeated. Every rule was dictated one by one — SPEC.md →
      "Attendance update (Preview)" has all of them plus the small choices
      Claude made itself (marked "change freely"). `tests/attendance-update.test.js`.
-  3. The user's own account needs Preview ticked (Admin → Users) to see
-     these pages, if not done yet.
+  3. The user's own account has Preview ticked (confirmed 2026-10-06).
 
   **Next, in this order (user's own order):**
   1. **The Report part** — nothing is dictated yet, start by asking. What
