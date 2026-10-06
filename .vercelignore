@@ -10,3 +10,5 @@ tests/
 
 # src/ is intentionally NOT excluded — index.html inlines all of it, so
 # hiding the sources would achieve nothing.
+
+docs/

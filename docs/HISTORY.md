@@ -1,0 +1,7320 @@
+# Bulk Forge — full history archive (not auto-loaded)
+
+This is the complete, unabridged old CLAUDE.md as of 2026-10-06: every revision, bug story, live-pass finding and the reasoning behind each decision. `CLAUDE.md` now holds only the durable rules; **grep this file by heading or keyword when you need the "why" or the exact past behaviour of a feature** (e.g. `grep -n "^##" docs/HISTORY.md`). Do not append new work here unless it is a genuine bug story worth keeping; durable rules go in CLAUDE.md.
+
+---
+
+# Bulk Forge — project context for Claude Code
+
+## What this is
+A reusable, single-page web app for Shomvob's QA team. It generates
+QA-ready bulk-upload Excel (.xlsx) files for various company operations.
+The user (QA engineer) picks an operation, fills a few input fields, and
+the app generates a valid .xlsx matching Shomvob's real upload template
+for that operation — entirely client-side, in the browser.
+
+Repo layout: `index.html` is the pre-built, self-contained deployable
+file; `src/` holds the editable source (`app.css`, `app.js`,
+`app-data.js`, `part1.html`); `vendor/` holds the SheetJS library;
+`build.py` assembles `src/` + `vendor/` into `index.html`. Run
+`python3 build.py` after any edit under `src/`.
+
+**`TODO.md`** (2026-09-24) is a shared, cross-machine task list — a note
+made on one machine only survives past that session if it's written
+there and pushed; check it at the start of a session and keep it current
+as items are done or added, same discipline as everything else here.
+
+## Architecture decisions (already made, don't relitigate)
+- **No backend, no database, no Supabase.** Every generation is random,
+  in-memory, stateless — nothing needs to persist across sessions or be
+  shared between users. Deploy target is Vercel as a plain static site
+  (framework preset "Other", no build command, output directory `.`).
+- **SheetJS `xlsx.mini.min.js`** (not `xlsx.full.min.js`) is vendored and
+  inlined into `index.html` via `<script>`. The full build embeds legacy
+  codepage tables containing literal U+FFFD characters that some strict
+  UTF-8 validators reject (this broke publishing to Claude Artifacts) —
+  mini avoids that and is 1/4 the size. Only basic write support
+  (`aoa_to_sheet`, `book_new`, `book_append_sheet`, `writeFile`) is
+  needed, which mini fully supports.
+- **No `<script src="https://cdn...">` for anything** — everything is
+  inlined so the page has zero external dependencies except the Google
+  Fonts stylesheet link (IBM Plex Sans / IBM Plex Mono).
+- **One exception to inlining: `assets/lazy_cat.mp4`**, the video on the
+  login card. It is 1.4MB, so a data URI would put ~1.9MB of base64 ahead
+  of the login screen and nothing would paint until it all arrived. It is
+  referenced by relative path instead, which still works when `index.html`
+  is opened straight off disk and lets the video stream and cache on its
+  own. So `index.html` plus `assets/` travel together now. The logo stays
+  inlined — at 5.5KB it costs nothing.
+- File download works via plain `XLSX.writeFile()` (creates a Blob +
+  triggers an anchor click) — this only works because the page is served
+  from a normal origin (Vercel), not inside a sandboxed iframe. Keep it
+  this way; don't add any capability-gated download API.
+
+## Design system (in src/app.css)
+
+**Shomvob brand palette.** The tokens are the values Shomvob's own site
+ships: brand green `#28a143` (with `#208136` / `#186129` for hover and
+text-on-light), gold `#edb713`, ink `#262823`, canvas `#f7faf8`, pill
+`#eff7f1`, destructive `#dc2626`.
+
+The app originally used a burnt-copper palette chosen *specifically to
+avoid green*, so that the accent could never be mistaken for a semantic
+success colour. Since the brand is green, that separation is impossible,
+and it is resolved the other way: **there is exactly one green.** Accent
+and success both come from the brand family, gold carries warning, red
+carries danger. In this app "ok" only ever means "input accepted", so
+brand green reads correctly there. Don't reintroduce a second green.
+
+Shomvob's site is light-only, so the dark-theme values are derived — a
+brighter brand green (`#3dbf5a`) on a green-leaning near-black. Full
+light/dark support via CSS custom properties (`:root`,
+`prefers-color-scheme: dark`, and `[data-theme]` overrides); every colour
+lives in those three token blocks, so a rebrand is one edit. The only
+hard-coded colour outside them is `#fff` on the error toast.
+
+**Appearance picker** — three states in the sidebar footer: Auto, Light,
+Dark. It is called *appearance*, not *theme*, because `.theme-card` is
+Employee Add's name-theme picker and the two are unrelated; keep the
+names apart. Auto means **no `data-theme` attribute at all**, which is
+what the `prefers-color-scheme` block expects and is the behaviour the
+page had before the control existed — so adding the switch took nothing
+away. `wireAppearance()` in `src/app.js` owns it.
+
+Two things about it that look like duplication but are not:
+
+- **A tiny inline script at the very top of `src/part1.html` reads the
+  stored value before the stylesheet.** `app.js` runs at the end of the
+  body, and by then a stored "light" on a dark-mode machine would have
+  painted dark and would visibly flip. That script is the only place in
+  the app that repeats a key name (`bulkforge-appearance`); it earns it.
+- **This is the one thing the app persists.** The "nothing survives a
+  reload" rule is about generated input, which is data; the appearance is
+  a display preference. Every `localStorage` access is wrapped in
+  `try`/`catch` because a locked-down browser throws rather than
+  returning null.
+
+Adding the switch also exposed two controls that had **never been styled
+at all** — `input[type="email"]`, `input[type="password"]` (the login
+card) and `input[type="file"]` (both upload screens). The selector list
+only covered `text`, `number`, `date` and `time`, so those three were the
+browser's own white boxes. On the light theme that passed for correct,
+which is why it went unnoticed for so long. If you add an input of a new
+type, add it to that selector list.
+
+**Every `<a>` had the same gap, found the same way, later** (2026-09-11,
+user screenshot: "← Back to Company Setup" glaring blue against the dark
+sidebar): none of this app's four anchors (`#setupBackToModules`, the two
+"create the defaults at once →" links, `.dep-shortcut`) ever set a
+colour, only inline layout — so all four rendered in the browser's
+default link blue, on both themes, in every context they appear
+(including inside `.dep-shortcut`'s own warning-coloured notice box,
+where inherited `color` doesn't win over the UA stylesheet's `a:link`
+rule either). One rule fixes all of them and any future one: plain
+`a { color: var(--accent); text-decoration: none; }` +
+`a:hover { color: var(--accent-strong); text-decoration: underline; }`
+in `app.css`, rather than a colour on each anchor individually.
+
+Typography: IBM Plex Sans (headings/body) + IBM Plex Mono (data/IDs/
+code-like values) — unchanged, and not matched to Shomvob's own fonts.
+
+Layout: fixed dark sidebar (operation switcher) + scrollable main panel
+with card sections + sticky bottom action bar. Keep new operations
+visually consistent — reuse the existing `.section`, `.field`, `.chip`,
+`.dept-card`, `.seg`, `.tally`, `.preview-table` patterns rather than
+inventing new component styles per operation.
+
+## Responsive design (2026-09-27)
+
+**Every new UI built from here on must be checked at a real mobile
+width, not just assumed to reflow correctly** — direct, standing
+instruction, given right after a mobile audit turned up two real bugs
+that had been invisible until that point: "ekhon theke jai e korbo
+amra responsiveness korbo" (from now on, whatever we build, we'll do
+responsiveness), "kisu kisu khetre pasha pashi problem hole upor nich
+korba" (if side-by-side causes a problem in some cases, stack it
+top-to-bottom instead). This is now a durable rule for this codebase,
+not a one-off fix — the same weight as the architecture decisions
+above.
+
+**`src/part1.html` had no `<meta name="viewport">` tag at all, found
+live when asked directly "amader pura application ta ki responsive?"**
+(is our whole application responsive?). This is the one prerequisite
+every other responsive fix in this app depends on: without it, a real
+mobile browser renders the page at a virtual ~980px desktop-width
+viewport and zooms the whole thing out to fit the screen, so **none of
+this app's own `@media` breakpoints (1100px/900px/860px/759px/640px,
+already scattered through `app.css` for the sidebar collapse, Company
+Setup's wide column, the Welcome page's zigzag rows, theme-pool grids,
+etc.) had ever actually been able to fire on a real device** — they
+were all silently inert. Added `<meta charset="utf-8">` +
+`<meta name="viewport" content="width=device-width, initial-scale=1">`
+to the very top of `src/part1.html` (there is no explicit `<head>`
+anywhere in this file, same as the favicon/title before it — the
+browser infers one). Zero effect on desktop rendering; the only thing
+this changes is that mobile browsers now actually honour the CSS pixel
+widths this app's own breakpoints were already written against.
+
+**Two real, previously-invisible bugs surfaced the moment the
+breakpoints actually started firing**, both found by screenshotting
+the app end-to-end at a real phone width (390×844) rather than
+guessing:
+
+1. **`.appearance-float`'s `position: fixed` pill drifted over
+   scrolling content on mobile.** Harmless on desktop, where the
+   sidebar is always its own independent `height: 100vh` column and
+   nothing ever scrolls under that top-right corner — but the existing
+   `@media (max-width: 860px)` rule already stacks the sidebar above
+   the main content into one long page scroll, so this pill stayed
+   glued to the viewport corner and drifted over whatever content
+   happened to scroll underneath it (confirmed via screenshot: it sat
+   directly on top of the Welcome page's own meme placeholder mid-
+   scroll). Fixed by dropping it back into normal document flow at this
+   same breakpoint — `.appearance-float { position: static; align-
+   self: center; margin: 14px 0; }` — so it now renders in its own
+   real DOM position (right after `</aside>`, before `<main>`) and
+   scrolls away with the sidebar it already sits next to in the
+   markup, rather than fighting for the same visual space as whatever
+   is currently scrolled into view. The desktop fixed-pill behaviour
+   (deliberately "always visible", see "Sidebar branding" → the
+   Appearance picker's own history) is completely untouched above this
+   breakpoint.
+2. **The Rickroll page's own 2-column split never collapsed to one
+   column under 1100px, despite CLAUDE.md's own prior claim that it
+   did** (see "The Rickroll" section below — "All three reset to the
+   ordinary single-column mobile behaviour under 1100px" was true for
+   two of the three overrides, not this one). Root cause: CSS
+   specificity, not source order — `.main-inner.has-media.rickroll-
+   layout` (three classes, defined unconditionally) always outranks
+   `.main-inner.has-media` (two classes, the shared shell's own
+   mobile-collapse rule, defined inside `@media (max-width: 1100px)`)
+   regardless of which one appears later in the stylesheet, since a
+   media query grants no extra specificity of its own — so the
+   Rickroll page's own 2-column grid silently never yielded to the
+   shared collapse, and rendered as two cramped, barely-legible
+   columns on a phone width instead of the single readable column
+   every other operation's video rail already gets. Fixed by adding a
+   matching three-class override, `.main-inner.has-media.rickroll-
+   layout { grid-template-columns: minmax(0, 1fr); }`, inside the same
+   `@media (max-width: 1100px)` block that already resets
+   `.rickroll-col` — equal specificity now, so normal source-order
+   cascade decides, the same way the two rules right above it already
+   rely on. **Worth remembering for any future page-specific override
+   class layered on top of a shared responsive class**: a mobile
+   override must match or exceed the specificity of whatever it's
+   meant to override, or it can silently never apply — exactly this
+   shape, just not yet caught, is a real risk anywhere else in this
+   app that follows the same "shared shell class + a page-specific
+   modifier class" pattern.
+
+Confirmed by Playwright screenshot at 390×844 across the Welcome page,
+Employee Add, Admin Panel (Manage Users + Audit Log), Company Setup
+(group grid + a module tab) and the Rickroll page, both before and
+after each fix — full 11-suite run green throughout, since neither
+fix touches any element ids/classes any existing test asserts on.
+
+**Wide data tables (Manage Users, Audit Log) are deliberately left as
+horizontal-scroll on mobile, not redesigned into a stacked card-per-row
+layout** — `.preview-table-wrap`'s existing `overflow-x: auto` already
+makes them usable (scrollable) rather than clipped or broken, and a
+full per-row card redesign is a much larger, separate task than this
+audit's own scope. Revisit only if a real mobile Admin Panel workflow
+turns out to need it — this app's own primary users are QA engineers,
+most likely working from a desktop in practice.
+
+## Operations — all 5 built
+
+The app opens on a **Welcome page**, not on an operation: a deliberately
+tongue-in-cheek landing view ("this exists for people who cannot face
+typing 4,200 cells — i.e. everyone") with a two-panel meme, three stat
+tiles and a clickable card per operation. It is `currentOp === "welcome"`,
+rendered by `welcomeTemplate()`, with the action bar hidden; its sidebar
+entry lives in `#homeNav`, above the "Operations" label, and is wired in
+`renderSidebar()`.
+
+**Renamed from "Dashboard" to "Welcome" in the sidebar, 2026-09-27** —
+direct request: both this pre-signin landing page and whatever a signed-
+in visitor sees afterward (today, the same page again — the real
+post-login destination, TODO.md's still-unbuilt "Welcome/tier routing
+page," doesn't exist yet) were being called "Dashboard" in conversation,
+which is confusing once that second page actually gets built. The fix is
+scoped to naming only: the sidebar label (`renderSidebar()`, `#homeNav`)
+now reads "Welcome" instead of "Dashboard," and every test selector that
+clicked `.op-item:has-text("Dashboard")` was updated to match
+(`employee.test.js`, `company-setup.test.js`). `currentOp === "welcome"`
+itself was already named right and needed no change. The page's own body
+copy ("Dear certified lazy" / "This one is for you.") already reads as a
+welcome, not a dashboard, so nothing there needed touching. **"Dashboard"
+is now free to mean the real post-login page**, once it's built — that
+page doesn't exist yet and this rename doesn't build it, it only clears
+the name for it. (Same day, `TODO.md`'s own step 5 was updated to
+match — the post-login routing page it dictates is called "Dashboard"
+there now too, not "Welcome page.")
+
+**Welcome page rewritten through discussion, not handed over as a
+finished spec, then built (2026-09-27)** — structure was worked out and
+confirmed *before* any copy was drafted: three written sections, none
+carrying a literal header (confirmed directly — no "Problem
+Statement"/"Offer"/"Scope" label anywhere on the page, just a short
+badge in the same voice as the original "Dear certified lazy"):
+
+- **Reason** (badge "Dear certified lazy", moved down from the old
+  hero) — *why* this exists. Not the generic "QA needs test data" the
+  page used to open with — the real, richer reason, given directly:
+  devs don't prepare their own test data (they beg QA or hack together
+  a few fake employees), and almost nobody spins up their own company
+  for testing — properly configuring one by hand (departments, leave,
+  payroll) takes ~2–2.5 hours even with AI helping, so everyone just
+  shares one or two accounts instead, and constantly tweaking a shared
+  company breaks its own data sanity (a renamed department here, a
+  deleted leave type there) until tests fail for reasons nobody can
+  explain.
+- **Offer** (badge "Your prayers, answered (mostly)") — what it
+  actually does, in two halves: **Bulk** generates the QA-ready files
+  themselves (mentions the real workflow explicitly — download that
+  company's own template, paste the generated rows in, upload; also
+  that every "prompt-engineer ChatGPT for fake HR data" trick anyone's
+  ever used is already built in here, so nobody has to write that
+  prompt again) and **Settings** ("Run defaults" configuring a whole
+  fresh company in one run instead of two-plus hours of manual clicks)
+  — directly closing the two pains named in Reason.
+- **Scope** (badge "The fine print") — deliberately honest about what
+  "one click" doesn't mean: a plain two-column checklist (✅ Automated
+  vs. 🤚 Still you — you still download the template, still click
+  Upload yourself, still decide what you're actually testing), closing
+  on "So yes, one click. Just not zero clicks. We're a bulk forge, not
+  a mind reader" — same "no, but" honesty as the Rickroll.
+
+**Laid out as a deliberate zigzag, not three stacked blocks**: Reason's
+copy sits left of a meme, Offer's sits right of one (`.welcome-row` /
+its mirrored `.welcome-row-reverse` modifier — a column-order flip, not
+a second grid), and Scope is full-width with **no meme at all** —
+confirmed directly rather than assumed, since a third meme in a row
+would flatten the zigzag into wallpaper, and Scope's own sobering,
+honest tone reads better set apart from the other two's rhythm. The
+existing Hackerman GIF (already licensed for exactly this use, see this
+file's own note on that reversal) is reused as Offer's meme; Reason's
+own meme is a plain, unmistakable placeholder (`.meme-placeholder`,
+dashed border, "🖼️ meme placeholder") — no real image chosen for that
+slot yet, thought about and deferred rather than guessed at.
+
+A big, centered **"Welcome to Shomvob Bulk Forge"** headline
+(`.welcome-headline`) now opens the page — the old `.welcome-title`
+h1 ("This one is for you.") is gone outright, not kept alongside it.
+The 3-step how-row is now **sticky** (`.how-row-sticky`, `position:
+sticky; top: 0`, its own opaque background so scrolling content
+doesn't show through underneath it) — confirmed directly, so the
+"Sign in → Pick → Generate" steps stay visible while reading through
+Reason/Offer/Scope rather than scrolling away with the old hero.
+"By the numbers" and "So far, for real" (above) keep their existing
+order, now sitting after Scope rather than right under the hero —
+Scope's own "what's automated" claim reads better followed immediately
+by *how much* that saves (the estimate) and then *how much it's
+actually saved* (the real number), a deliberate estimate-then-real
+progression.
+
+Every test selector that depended on the old markup was updated, not
+worked around: `.welcome-hero` → `.welcome-row` (`employee.test.js`),
+`.welcome-title` → `.welcome-headline` (`employee.test.js`,
+`back-navigation.test.js`, `tiered-access.test.js`) — both were used
+purely as "did the Welcome page render" readiness checks, so the
+rename is a like-for-like swap, not a loosened assertion. Confirmed by
+Playwright screenshot in both light and dark (zigzag rows, the
+placeholder box, the Scope checklist card, and the sticky how-row
+mid-scroll all render correctly with no new hex values — every colour
+here comes from existing tokens) and by a direct scroll-position check
+that `.how-row-sticky` really does stay pinned at `top: 0` rather than
+just looking plausible in a static screenshot.
+
+**Given its own, wider-still column and a coloured headline the same
+day, on direct feedback against a real 1920px-wide screenshot** ("eto
+jayga tomar khoroch korte koshto lagtese" — are you finding it hard to
+spend that much space — plus a request to make the headline text
+"aesthetic," in Shomvob's own brand colour): even Company Setup's own
+1100px `.wide` still left wide gutters on a real, wide monitor, so
+Welcome gets a genuinely distinct, wider class — `.welcome-wide`
+(1320px) — rather than a raised `.wide` itself, since
+`company-setup.test.js` asserts an exact 1100px width for that one and
+raising it would have been a silent, unrelated regression for every
+other page that reuses it. `.welcome-headline` is now
+`var(--accent-strong)` — the one brand green, plain and solid rather
+than a gradient/glow treatment, matching this app's own restraint about
+decorative chrome (see "Colour pass" under Phase 2, and the per-module
+icon's own "large decorative mark" cautionary tale) rather than
+reaching for something flashier.
+
+**This flipped which page is "the wide one" for the first time** —
+Welcome's new 1320px is now wider than Company Setup's 1100px, the
+exact reverse of what `company-setup.test.js`'s own "L" block used to
+assert ("Company Setup gets the wider column, nothing else does").
+Fixed by asserting both pages' own known, fixed pixel widths (1100 /
+1320) directly rather than a relative "wider than X" comparison that
+assumed one of them was still the narrow baseline — neither is, any
+more.
+
+**A real, confirmed layout bug in the zigzag rows, found the same day
+from a follow-up screenshot with the gap itself circled** ("ki kora
+lagbe bujhso alignment e?"): widening the page exposed a dead gap
+between the Reason row's text and its meme, and an even bigger one
+between the Offer row's text and the row's own right edge. This
+session's own first attempt at the wider column had guessed that
+growing `.welcome-row`'s meme column (296px → 380px) would use the
+freed-up space — **that reasoning was wrong, and said so once the
+actual bug was found**: a `minmax(0, 1fr)` text column stretches to
+fill whatever width the row has left over, but `.welcome-lede`'s own
+text sits at its own capped 58ch width *inside* that track and doesn't
+fill it — the leftover track space is exactly the dead gap in the
+screenshot, and it has nothing to do with the meme column's own size
+either way. Fixed properly by giving the text column `minmax(0, 58ch)`
+directly — the same unit the text's own cap already uses, so the track
+is never bigger than the text actually is — and sizing `.welcome-row`
+itself to `width: fit-content` (with `max-width: 100%` as the only
+safety net, so a narrower viewport still shrinks it rather than
+overflowing) instead of guessing a pixel max-width for the row. Verified
+directly: a real bounding-box measurement of `.welcome-copy` and its own
+`.welcome-lede` now returns the exact same width in both rows, meaning
+zero leftover track space either side of the meme. The mobile
+breakpoint's own single-column override (`.welcome-row,
+.welcome-row-reverse { grid-template-columns: 1fr; }`) picked up an
+explicit `width: 100%` alongside it — `fit-content` on a lone `1fr`
+track (no second, definitely-sized track to size against) doesn't
+mean the same thing as it does with two fixed-unit tracks, so the
+stacked mobile layout needed its own explicit full-width rather than
+inheriting the desktop rule's sizing intent by accident. Confirmed with
+a real screenshot at 390px — the whole page still stacks and fills the
+viewport correctly.
+
+**Four more issues, all marked directly on screenshots and batched into
+one fix on purpose** ("aro dei then ekebare koro" — mark more, then do
+them all at once), the same day:
+
+1. **Reason/Offer's own left/right edges didn't line up with Scope/"By
+   the numbers"/"So far, for real" below them.** The three lower
+   sections are plain `.section` cards (full `.main-inner` width); Reason
+   and Offer were a separately `width: fit-content`-sized, centred grid
+   (this file's own prior alignment fix, above) — two different sizing
+   rules on the same page, so their edges drifted apart the moment the
+   page itself got wide enough for the difference to show.
+2. **Reason and Offer didn't read as their own distinct sections at
+   all**, unlike the three below them — no border, no card, just a bare
+   row, so the two blurred into one continuous block.
+3. **The sticky how-row visibly overlapped page content while
+   scrolling** — page content peeking through on every side of the
+   pills, not just a z-index issue. Debugged directly (a real
+   `getBoundingClientRect()` + `getComputedStyle()` check, not guessed):
+   `.how-row-sticky`'s `background: var(--canvas)` computed to fully
+   transparent, because **`--canvas` was never actually defined
+   anywhere in this file** — the real page-background token is `--bg`.
+   An invalid custom property doesn't fall back to "no rule"; it falls
+   back to the property's own initial value, which for `background` is
+   transparent — so this bar had no opaque backing at all, the entire
+   time it existed. Fixed by pointing it at the token that's actually
+   defined.
+4. **The meme should sit centred within its section's own width**, not
+   pinned to one edge with dead space beside it.
+
+Items 1 and 2 turned out to share one root fix: **Reason and Offer are
+now plain `.section` elements too** (`<div class="section welcome-row">`
+alongside the existing `.welcome-row` grid classes), the exact same
+card Scope/"By the numbers"/"So far, for real" already are — same
+border, background and full `.main-inner` width automatically, no
+special sizing rule of Reason/Offer's own left to drift out of sync.
+The `width: fit-content` centring trick this file documented as *the*
+fix for the earlier text-vs-meme gap bug is gone — once the row is a
+full-width `.section`, the text column would leave the same dead gap
+beside it all over again unless something else absorbs the extra room,
+which is exactly item 4: the meme column changed from a fixed `340px`
+back to `1fr` (so it takes whatever's left in the now-full-width
+section), but the meme *itself* stays capped at `max-width: 340px` and
+is centred inside that leftover space (`justify-self: center`) rather
+than stretching to fill it or pinning to the row's outer edge. The
+text column's own `minmax(0, 58ch)` sizing (unchanged from the prior
+fix) still means the text never leaves a gap on *its* side either way.
+
+Confirmed by Playwright screenshot in both light and dark at 1920px —
+all five sections now share identical left/right edges, Reason/Offer
+read as clearly separate bordered cards, the meme sits centred with
+room on both sides rather than jammed against one, and the sticky
+how-row's background is solid (`rgb(247, 250, 248)` in light —
+confirmed via `getComputedStyle`, not just eyeballed) with zero page
+content visible through it while scrolled.
+
+**A dozen more items, marked directly on screenshots one at a time —
+confirmed to hold all of them until told to build, then batched into
+one pass (2026-09-27)**: "ekhono issue ase, ami bola sesh hobar por
+korte bolbo then korba" — more issues exist, I'll say when I'm done
+listing them, then you build — after this session had once started
+building before the list was finished. Waited for "okay ano tomar tai
+thik ase... apatoto egula fix koro" before touching any code.
+
+1. **The 3-step how-row is no longer sticky** — reversed the same
+   feature this file documented adding a few sections above, on direct
+   instruction ("ei 3 ta ekhono sticky") once it read as more trouble
+   than it was worth in practice. `how-row-sticky` and its own CSS block
+   (`position:sticky`, the `--canvas`/`--bg` fix above) are deleted
+   outright, not disabled — nothing references either any more.
+2. **The Hackerman meme is now centred vertically, not just
+   horizontally, within Offer's own (taller) card** — `align-self:
+   center` added alongside the existing `justify-self: center`; the text
+   column keeps its own top-aligned `align-self: start` (inherited from
+   the row's `align-items: start`), so only the meme moves, not the
+   prose beside it. Verified directly: a bounding-box measurement of the
+   meme against its own card returns an identical gap above and below
+   (89.9375px each).
+3. **"Welcome to Shomvob Bulk Forge!"** — an exclamation mark added, and
+   the sidebar/login card's own "Lazy" logo tile
+   (`__SHOMVOB_LOGO_LAZY__`, already built for the favicon, see "Sidebar
+   branding" above) now sits beside the headline in a small white tile
+   (`.welcome-headline-logo`, the same "white ground needs a white
+   backing on dark theme too" reasoning `.brand-logo-wrap` already holds
+   itself to, just smaller — 40px, not 92px). Confirmed the build-time
+   `__SHOMVOB_LOGO_LAZY__` token substitution works from inside an
+   `app.js` template literal, not just `part1.html` directly — `build.py`
+   replaces tokens on the final assembled string, after `app.js` is
+   already embedded in it, so this was never actually scoped to one file.
+4. **"So far, for real" gets a third real stat**: how many settings
+   modules got automated into real companies, alongside the existing
+   file count and time-saved tiles. Backed by a second narrow public
+   RPC, `public.public_settings_save_count()` — same shape and same
+   `anon`-safe reasoning as `public_generate_counts()` above, just a
+   bare count of `settings_save` events instead of a per-module tally,
+   since nothing more granular was asked for here. `.stat-row`'s own
+   plain 3-column default (no modifier needed) fit this without any new
+   CSS.
+5. **`.welcome-foot`'s own `max-width: 62ch` is gone** — found live from
+   a screenshot with the misalignment itself arrowed: every `.section`
+   card above it spans the full page width, but this one line wrapped
+   narrower than all of them and never lined up on the right edge.
+6. **Reason/Offer's text:meme ratio is now a deliberate 70:30**, not the
+   ad-hoc `minmax(0, 58ch)`-vs-`1fr` split this file settled on earlier
+   the same day — direct instruction ("70-30 rakhba, lowest 65-35"),
+   after the earlier split visually read closer to an even 50/50 (a
+   large, mostly-empty meme *column* even though the meme *image* itself
+   stayed modestly sized within it). `grid-template-columns: minmax(0,
+   7fr) minmax(0, 3fr)` (mirrored for Offer) replaces the ch-based
+   column; `.welcome-lede`'s own 58ch reading-width cap is lifted
+   specifically inside these two rows (`.welcome-row .welcome-lede {
+   max-width: none }`) so the text genuinely fills its 70% share instead
+   of leaving the exact dead-gap bug this file already fixed once
+   elsewhere, just reappearing at a different ratio.
+7. **Both sticky-bar buttons renamed** — "Auto setup my company & bulk
+   upload" → "Auto setup company and bulk data", "Sign In for Real" →
+   "Sign In to Bulk Forge" — and, once shortened, asked to both read on
+   one line at equal height/weight ("jayga to asei" — there's room).
+   **A real, multi-layered CSS bug surfaced while chasing this, not a
+   simple text-wrap fix**: `.welcome-bar`'s own `align-items: stretch`
+   never actually wins the cascade — a later `.action-bar { align-items:
+   center }` rule, equal specificity (one class each), wins by source
+   order — so `.welcome-bar-actions` has always sized to fit-content,
+   never the full bar width. A `flex-grow: 1` button inside that
+   auto-width container has no definite space to grow into, which
+   degenerated into each button wrapping onto its *own row* the moment
+   its flex-basis grew past whatever the ambiguous auto-width happened
+   to resolve to — not the original, simpler symptom (text wrapping
+   inside one button) it first looked like. Fixed without touching the
+   cascade bug itself (which would also change how `.welcome-bar-note`
+   lays out, never reported broken, so left alone): `.welcome-bar-actions`
+   got its own explicit `max-width: 610px; margin: 0 auto` and
+   `flex-wrap: nowrap`, and each button a fixed `flex: 0 1 300px` (grow
+   0, not 1) — a size big enough to hold "Auto setup company and bulk
+   data" on one line (it measures ~225px of actual text plus 40px of
+   side padding) without depending on how much space an ambiguous parent
+   width offers to grow into. Mobile gets `flex-wrap: wrap` and
+   `flex-basis: 100%` back, so the pair still stacks sensibly on a
+   narrow screen instead of overflowing at a fixed 300px each.
+8. **`.welcome-lede`'s colour is `var(--text)` now, not
+   `var(--text-muted)`** — direct request ("font weight ba arektu uzzol
+   kora jay?"), scoped to this one class rather than a page-wide bump so
+   genuinely secondary text elsewhere (`.section-note`, `.stat-label`)
+   keeps the hierarchy that muted colour exists for in the first place.
+
+**"By the numbers" was explicitly left alone** ("apatoto thak, ami
+chinta kore guchay dibo ki ki rakhba" — leave it for now, I'll work out
+what belongs there myself) — don't touch its content without being
+asked again specifically.
+
+Confirmed by Playwright screenshot in both themes, at both 1920px and a
+390px mobile width, plus direct bounding-box/computed-style checks for
+the meme centring and the button sizing (not just eyeballed) — full
+11-suite run green throughout.
+
+**"By the numbers" got asked about again the next day, revised into a
+real redesign, not just left as noted — direct feedback against a
+screenshot: "ei section ta onek khet ar complex lagtese."** The actual
+cause, worked out through discussion rather than guessed at: **"Cells
+per operation" and "Minutes saved per operation" were two separate bar
+charts showing the same ranking twice** — minutes is just cells x a
+fixed rate (`WELCOME_SECONDS_PER_CELL`), so the two lists were always
+going to have identical relative bar lengths, just different units,
+which read as confusing duplication rather than two distinct facts.
+
+Rebuilt as two columns instead of three, once the user proposed the
+actual shape directly: **"What it does"** (a plain bulleted list, no
+bars — the 5 Bulk operations and the 6 real `SETTINGS_GROUPS` groups,
+read live from `OPERATIONS`/`SETTINGS_GROUPS` rather than a duplicated
+string list) and **"Time saved"** (real minutes — Bulk and Settings
+each as their *own* `barListHtml()` call, not one shared scale).
+**Deliberately not one combined chart**, flagged directly before
+building: Bulk's own minutes run into the thousands (a whole file's
+worth of manual typing) while a single Settings group's is tens of
+minutes (clicking through admin screens) — a ~100x gap that would make
+every Settings bar an invisible sliver next to Bulk's on one shared
+axis. "Built from scratch vs. filled into an export" (the old 3rd
+column) is gone outright, not folded in — it was never load-bearing to
+either the original complaint or the new shape, and a 3rd chart just
+for that distinction would have reintroduced the same "onek khet"
+problem this rebuild exists to fix.
+
+**A new number needed for this: how much a Settings group saves,
+which nothing in this app had ever estimated before** (only Bulk's
+per-operation cells-to-seconds math existed). The user dictated real,
+considered per-module estimates rather than have Claude guess a
+business number — the same "confirm rules, never assume" discipline
+this whole project holds itself to — based on each real admin screen's
+actual field count and whether it loops a real bulk create:
+
+| Settings group | Real basis | Minutes |
+|---|---|---|
+| Company Settings | Profile 3–4min + Bank Info 3min + Locations 3min + 5 departments x 1min + (5 x ~3.5 designations) x 1min | 32 |
+| Employee Settings | Custom Fields 1min + Required Documents 1min (neither has a real bulk default, so one of each) | 2 |
+| Attendance Settings | Attendance Policy 2min | 2 |
+| Schedule Management | Roster + Roster Pattern combined | 3 |
+| Leave Settings | 3 leave types x 2min + Leave Policy 2min + Holiday Calendar 1min | 9 |
+| Payroll Settings | General 2 + Salary (Components/Configure) 3–4 + Deduction (Late Arrival/Absent) 1–3 + Bonus (Types/Policy) 4 + Custom Addition/Deduction 3 + Tax 1 | 19 |
+
+`SETTINGS_GROUP_TIME_ESTIMATE` (`app-data.js`) holds these, mirroring
+`OPERATION_CELL_ESTIMATE`'s own shape. **Two of Payroll's 11 modules —
+Overtime and Attendance Bonus — were never given an explicit number in
+the dictation**; folded into Payroll's own 19-minute total as a
+judgment-call estimate (~2min, ~1.5min) consistent with the granularity
+of everything else in that row, flagged back to the user rather than
+silently absorbed — revisit if a real number for either surfaces later.
+Total across all 6 groups (~67 min) lines up plausibly against the
+Reason section's own already-confirmed "two to two-and-a-half hours"
+figure for the *whole* company (Bulk's own manual-typing time filling
+the rest of that range) — a sanity check, not a claim the two numbers
+were derived from each other.
+
+Confirmed by a fresh Playwright screenshot at 1440px: both bar lists
+render at readable, proportional widths within their own scale, the
+list column shows all 5 Bulk operations and 6 Settings groups correctly
+sourced from live data, and the section reads as two clear halves
+rather than three cramped ones. Full 11-suite run green throughout —
+no test referenced the removed columns' own text.
+
+**Revised a second time the same day** — a real ordering bug, then a
+real framing fix, both direct feedback:
+
+1. **Row-order mismatch, flagged with two crossing arrows on a
+   screenshot** ("eta ekhono make sense kortese na"): "What it does"
+   listed items in `OPERATIONS`'/`SETTINGS_GROUPS`' own declared
+   order, while `barListHtml()` always sorts its own rows descending
+   by value — so the two columns showed the same 5-and-6 items in two
+   *different* orders (Assets Add sat last on the left but first/
+   biggest on the right), reading as if the labels and bars didn't
+   correspond at all. Fixed first by sorting "What it does" the
+   identical descending-by-minutes way the bar list already sorts
+   itself, so row 1 of one column is always row 1 of the other.
+2. **The per-group Settings bars themselves didn't hold up, flagged
+   right after** ("settings e merge kore dekhabo venge na dekhe...
+   2-3 min er jonno khub ekta impact bujha jay na" — show it merged,
+   not broken out; 2-3 minutes a group doesn't read as impactful on
+   its own). Settings' own 6 bars (2/2/3/9/19/32 min) are gone,
+   replaced by one merged `.stat-tile` — the same 67-minute total,
+   just not sliced into pieces small enough to each look trivial. The
+   "What it does" Settings list went back to `SETTINGS_GROUPS`' own
+   declared order — there's no longer a second bar list on the right
+   for it to stay row-aligned with, so the sort from fix 1 has nothing
+   left to correspond to on this side.
+3. **Bulk's own metric changed too, second half of the same message**
+   ("per 50 entry er jonno kottuk data bachtese bulk e ota dekhao" —
+   show how much is saved per 50 entries, for Bulk). The old
+   full-batch totals (`OPERATION_CELL_ESTIMATE`, each operation's own
+   max — up to Assets Add's 5,000-row ceiling, 2,917 min) are gone
+   from this chart specifically (the constant itself is untouched,
+   still used by "Team activity"'s real estimated-time-saved tile) —
+   replaced by a new `OPERATION_CELLS_PER_ENTRY` (`app-data.js`, cells
+   per single row: Employee Add 14, Attendance Add 4, Leave Balance
+   Add 1 — only "Already Used Leave" is actually written per row —
+   Payroll Custom Field Add 8, Assets Add 7, each read straight off
+   the matching `OPERATION_BLURBS` cost line) x a fixed 50 entries x
+   the same `WELCOME_SECONDS_PER_CELL` rate. A fixed basis instead of
+   each operation's own max batch size is the same yardstick for all
+   five, rather than a number dominated by whichever operation happens
+   to allow the biggest batch — this also reorders the bar list
+   itself (Employee Add 58 min now leads, not Assets Add), a direct
+   consequence of the metric change, not a separate fix. Bulk stays
+   its own bar list, unlike Settings — 5 genuinely different-shaped
+   operations read fine side by side; 6 nearly-equal small numbers
+   didn't.
+
+Confirmed by Playwright screenshot in both light and dark: the Bulk
+bar list now ranges 4–58 min (was 46–2,917) and both "What it does"
+columns line up row-for-row with their own "Time saved" side where one
+still exists; the Settings stat tile reads `~67 min` with no new hex
+values (`.stat-tile`/`.stat-value`/`.stat-label`, reused as-is from
+"So far, for real"'s own tiles). Full 11-suite run green throughout.
+
+**The Settings "What it does" list was still 6 separate bullets, boxed
+on a follow-up screenshot** ("eitar ekta combined name dao" — give
+this a combined name): naming Settings' own time as one merged stat
+(above) but still listing its 6 groups one bullet each on the left was
+half-finished — the same "merge it, don't show it broken up" reasoning
+from the fix above, just not yet carried over to this side. The 6-item
+`<ul>` is now a single line, read live from `SETTINGS_GROUPS` (each
+group's own label with a trailing " Settings" trimmed off,
+`.replace(/ Settings$/, "")`), not a hardcoded string — renamed once
+more the same day, direct instruction ("Company's Settings Setup ei
+name dao"), to the line's current wording, `"Company's Settings Setup
+— Company, Employee, Attendance, Schedule Management, Leave,
+Payroll"`. Bulk's own 5-item list is untouched — it wasn't the one
+boxed, and 5 genuinely distinct operations read fine itemized the way
+6 nearly-equal Settings groups didn't.
+
+**That combined line then needed real alignment against the stat tile
+beside it, not just approximate spacing** — a follow-up screenshot
+boxed both the Settings line and its neighbouring `~67 min` tile
+together, with an arrow pointing up: "lekha ta majh align koro daan
+pash er date er sathe. lagle data te jemon ekta alada shade e diso ota
+dao" (centre this text against the data on the right; give it a
+similar shaded box too, if needed). The Settings row is now its own
+`.field-row` (`numbers-settings-row`), separate from the Bulk row
+above it — splitting what was one shared two-column `.field` (Bulk
+then Settings stacked inside each column) into two independent grid
+rows was the actual fix, not a manual margin guess: a CSS Grid row
+always sizes both its cells to the tallest one, so the left
+`.numbers-settings-box` (new — same border/background/radius as
+`.stat-tile`, the "shade" asked for) and the right `.stat-tile`
+genuinely share one height, and both use `flex; align-items:center` (`
+justify-content:center` for the tile's own value+label stack) to
+centre their own content inside it, rather than sitting top-aligned in
+a taller box. Confirmed by screenshot in both light and dark — the two
+boxes measure identical heights, no new hex values.
+
+**Rebuilt a third time the same day — the most important feedback of
+the whole pass, asked directly rather than fixed on the first guess**
+("kontar jonno koto value dekhaba" wasn't answered by Claude alone;
+"tomar kono idea ache jeta nile ekta ordinary user o bujhbe" — do you
+have an idea that would make even an ordinary user understand this —
+was asked back first). Revision #2's per-50-entries bar chart
+(58/33/29/17/4 min, a cells-x-seconds-per-cell formula) was the
+underlying problem: a formula-derived number, however internally
+consistent, doesn't read as *real* the way a dictated one does. Claude
+proposed three directions (a before/after comparison, a relatable
+time analogy, a "Nx faster" multiplier); the user picked before/after,
+then — rather than have Claude invent the "before" numbers from
+another formula — dictated them himself, operation by operation,
+confirmed one at a time, the same "confirm rules, never assume"
+discipline this whole project already holds itself to: how long 50
+entries actually takes fully by hand, how long with AI's help, and how
+long with Bulk Forge. `OPERATION_TIME_COMPARISON`/
+`SETTINGS_TIME_COMPARISON`/`WELCOME_OPERATION_ORDER` (`app-data.js`)
+hold these, replacing `OPERATION_CELLS_PER_ENTRY` and
+`SETTINGS_GROUP_TIME_ESTIMATE` outright (both deleted, not left dead):
+
+| Operation (50 entries) | By hand | With AI | Bulk Forge |
+|---|---|---|---|
+| Employee Add | 75–80 min | 10 min | 1 min |
+| Attendance Add | 80 min | 15 min | 2 min |
+| Leave Balance Add | 5–10 min | 5 min | 2 min |
+| Assets Add | 60–65 min | 5–7 min | 1 min |
+| Payroll Custom Field Add | 20 min | 5 min | 1 min |
+| Settings (whole company) | 37 min | *(no AI figure)* | ~1 min |
+
+**Settings has no "with AI" column, on purpose** — AI can't click
+through a company's own admin screens the way it can help type out
+rows of fake data, so a 3-way comparison would have been dishonest
+here. Its old merged `~67 min` stat tile (the sum of 6 per-group
+estimates) is a flat, directly dictated `37 min` now, not a formula
+total — "eta 37 min koro 67 er jaygay" — with the tile's own "min"
+capitalised to "Min" the same message also asked for ("Min er M boro
+haat er dao"), and a new line under it naming the Bulk Forge side too
+("Run defaults instead: ~1 min", `.numbers-bulkforge-line`), so
+Settings now reads as the same real comparison the Bulk side does
+rather than one number with nothing to measure it against.
+
+**The Bulk list is a real 3-column `.preview-table` now, not a bar
+chart** — reused as-is (Admin Panel's/Leave Balance's/Payroll's own
+component, not a new one). A bar's only real job is ranking, and
+ranking was never actually the point here; the numbers themselves (a
+Bulk Forge column reading "1 min" next to a By-hand column reading
+"75–80 min") are what a normal user can feel, which a bar's relative
+width never quite managed. **Row order is a fixed, dictated sequence**
+(`WELCOME_OPERATION_ORDER`: Employee Add, Attendance Add, Leave
+Balance Add, Assets Add, Payroll Custom Field Add) — not `OPERATIONS`'
+own declared order (which has Payroll before Assets) and not sorted by
+any value — applied to both the "What it does" list and the table, so
+the two always agree by construction rather than needing the
+descending-by-value sort revision #2 built (and this revision
+deletes) to keep them in sync.
+
+**A brand-new second section, "Add it all up,"** is the direct answer
+to a follow-up ask: run 50 of each Bulk operation plus one Settings
+"Run defaults," what's the real combined gap? `minutesMid()` turns
+each dictated `[low, high]` range into a real number (a single-value
+operation is just `[80, 80]`, midpoint 80); the section computes two
+totals live from the same source data, not a fresh guess — the "der-
+arai ghonta" (1.5–2.5 hours) figure the user had been estimating by
+feel came out noticeably lower than the real math once it existed, and
+he confirmed the real number rather than keeping the guess. Two totals,
+not one, since they're genuinely different claims:
+
+- **vs fully manual** (5 ops + Settings): `(sum of By-hand midpoints +
+  37) − (sum of Bulk Forge times + 1)` ≈ **4h 37m saved** — includes
+  Settings, since nobody's typing through 20 admin screens with AI's
+  help either.
+- **vs AI** (5 ops only): `(sum of With-AI midpoints) − (sum of Bulk
+  Forge times)` ≈ **34 min saved** — Bulk-only, the one place AI
+  genuinely competes.
+
+`formatHoursMinutes()` renders the first as `4h 37m` (over an hour) and
+the second as plain `34 min` (under one), same h/m-vs-plain-minutes
+convention `publicGenerateStatsHtml()`'s own tile already uses. Reuses
+`.stat-row`/`.stat-tile` as-is (`class="stat-row stat-row-2"` — a real
+bug caught in the first screenshot pass: `.stat-row-2` alone has no
+`display: grid` of its own, that comes from the base `.stat-row`
+class, so the two tiles rendered stacked instead of side-by-side until
+both classes were applied together, matching how `.stat-row-4` is
+already used elsewhere).
+
+**"So far, for real"'s own "By operation" breakdown (a bar list under
+its 3 stat tiles) is gone**, same pass — boxed on a screenshot with no
+further explanation needed. `byOperation` is no longer collected in
+`loadPublicGenerateStats()` either, since nothing else read it.
+
+**Two more items from the same list, both cosmetic, both on the
+Welcome page's other two sections:**
+
+- **Scope's own badge, "The fine print," read too formal next to
+  Reason's "Dear certified lazy" and Offer's "Your prayers, answered
+  (mostly)"** — direct feedback ("beshi formal lagtese. funny kisu
+  koro baki gular moto"). Renamed to **"Not actually magic"** — Claude's
+  own pick, not dictated, chosen to echo the section's own closing line
+  ("So yes, one click. Just not zero clicks. We're a bulk forge, not a
+  mind reader.") — the same propose-and-land-on-one latitude past
+  creative calls in this app have had (the 15th theme pool, "Friends,"
+  picked freely the same way).
+- **Reason's own meme slot — a plain dashed-border placeholder for its
+  whole life, deliberately left that way pending a real choice** — is
+  filled: `assets/crying_cat_ok.mp4`, a real Tenor clip (a crying cat
+  giving a thumbs up, "OK" text and all), the user's own link. The
+  first fetch from that link resolved to a *different* cat entirely (no
+  "OK" text, no thumbs up, confirmed by extracting frames across the
+  whole 9-second clip, not just the first one) — flagged back rather
+  than used blind; the user's own call was to use it anyway ("tumi link
+  er tai nao latest ta" — take whatever's actually there). Same
+  `<video loop muted playsinline autoplay>`/`.meme-img` treatment as
+  every other clip in this app. `.meme-placeholder` and its two child
+  classes are deleted outright, not left dead, since nothing else
+  reused that "hasn't been picked yet" shape.
+
+Confirmed by Playwright screenshot in both light and dark, no page
+errors: the comparison table renders all 5 operations in the fixed
+order with real By-hand/With-AI/Bulk-Forge values, the Settings tile
+reads `~37 Min` with the Run-defaults line under it, "Add it all up"
+shows `4h 37m`/`34 min` side by side once the `stat-row-2` bug above
+was caught and fixed, both memes play, and the new Scope badge renders
+correctly. Full 11-suite run (866 checks) green throughout — no test
+asserted on any of the removed bar-chart/By-operation/placeholder
+markup, so nothing needed updating on the test side.
+
+**Every stat-label description across the whole app was still
+lowercase-first, boxed with 5 arrows on a follow-up screenshot** ("shob
+boro haat er diye shuru korba" — start all of them with a capital
+letter): all 10 `.stat-label` spans in `app.js` — "Add it all up"'s own
+2, "So far, for real"'s 3, and "Team activity"'s 4 (not visible in that
+screenshot, admin-only, but the same class everywhere it appears) — now
+read "Saved versus…"/"Real bulk files generated"/"Tool sign-ins"/etc.
+`company-setup.test.js`'s own "BS" block asserted the old lowercase
+text verbatim (`.includes("tool sign-ins")` etc.) and had to be updated
+to match — a real, caught-before-push regression, not a style-only
+change with no test impact.
+
+**Revised a 4th time minutes later, same day, two more direct
+corrections against the very next screenshot.** First: "table tai pura
+section e hobe. otai shundor lagtese" (the table alone will be the
+whole section, that's what looks nicest) — the "What it does" bullet
+list is gone outright (the table's own Operation column already names
+every row) and Settings' own separate 2-column row (the "Company's
+Settings Setup" box + its own `~37 Min` stat tile) is folded into the
+*same* table as a final row — "Settings (whole company)" with a `—` in
+the With-AI column, since AI can't click through admin screens. The
+6-group breakdown that used to live in that box is now a plain caption
+under the table instead. Second: "ekhon ekdom alada section banaiso
+keno? eta ei section er moddhei just alada shade e dekhate bolsi" (why
+a whole separate section here — I said to show it inside this same
+section, just in a different shade) — "Add it all up" was never meant
+to be its own `.section` card, the way revision #3 had just built it.
+`.numbers-addup-box` (`app.css`) is the "different shade" instead — a
+`var(--accent-soft)`-tinted panel sitting *inside* "By the numbers",
+not a second bordered card, with `.stat-tile`'s own white/dark surface
+reading as a real card-on-tint contrast against it, no changes needed
+there. The whole section is one `.section` again, the same way it was
+before revision #2 ever split it into two.
+
+Confirmed by a second Playwright screenshot pass, both themes: one
+`.preview-table` now holds all 6 rows (5 Bulk + Settings), the caption
+line names all 6 Settings groups, and `.numbers-addup-box` renders as a
+visibly tinted panel with two full-contrast `.stat-tile`s sitting on
+top of it — no new hex values in either theme. Full 11-suite run green
+throughout, including the corrected "BS" assertions above.
+
+**"Add it all up"'s own "vs AI" figure got a 5th revision, same day**
+("eta 55 Min koro. ar Hour Min er H and M boro haat er koro" — make
+this 55 Min, and capitalise the H/M in Hour/Min). Two changes:
+
+- `formatHoursMinutes()`'s own output capitalised — `"4h 37m"` →
+  `"4H 37M"`, `"34 min"` → the same function's under-an-hour branch,
+  now `"N Min"` not `"N min"` — matching the Settings tile's own
+  `~37 Min` capitalisation from the message before this one.
+- **The "vs AI" figure is now a flat, directly dictated `55`**
+  (`WELCOME_VS_AI_SAVED_MIN`, `app-data.js`), not the live `AI total −
+  Bulk Forge total` computation (`34`) the table's own per-operation
+  numbers produce. Asked directly rather than assumed which one to
+  change: revise an operation's own AI estimate so the math produces
+  55, or just set the shown figure directly — the user's own call was
+  the second. The "vs fully manual" figure right next to it
+  (`vsManualSaved`) is untouched, still a real live computation from
+  the same per-operation table — only this one figure is now fixed,
+  and the code says so directly rather than leaving a future reader to
+  wonder why the table's own numbers don't sum to what's shown.
+
+Confirmed by screenshot: the box now reads `4H 37M` / `55 Min` side by
+side. Full 11-suite run green — no test referenced either exact string.
+
+**Each Bulk row's own `(50 entries)` caption reworded to `(Per 50
+entries)` the next day** — direct question ("50 entries ki grammatically
+correct na Per 50 entries hobe?"), agreed and fixed: the column values
+are a rate (how long 50 entries takes), not a fixed quantity label, so
+"Per 50 entries" reads correctly where "50 entries" alone read like a
+bare count. Settings' own `(whole company)` caption is untouched — that
+one's already a rate-free, one-time description and never had this
+issue.
+
+**"So far, for real" — a genuinely public, real (not estimated) usage
+stat, added the same day.** `welcomeChartsHtml()`'s own "By the numbers"
+section was always explicit that its numbers are a static *estimate*,
+not real usage — asked directly where a *real* number should live, and
+confirmed: on the Welcome page itself, public, no sign-in needed, not
+folded into "Team activity" (which stays admin-only, with per-company
+detail this new one deliberately doesn't carry).
+
+The catch: the Welcome page renders before any real sign-in has
+happened, so this can't reuse `audit_log`'s existing admin-gated
+SELECT policy (`audit_log_select_admins`) — that table's real rows
+carry `company_name`/`user_email`, which must stay private. Solved with
+a narrow new SQL function, `public.public_generate_counts()`
+(`SECURITY DEFINER`, same shape as `is_admin()`/`my_tier()`), which
+returns *only* a `{module_id, count}` tally of `bulk_generate` events —
+no name, no email, no timestamp — and is granted `EXECUTE` to `anon` as
+well as `authenticated`, unlike every other function in this project.
+`audit_log`'s own real SELECT policy is untouched; this is a second,
+narrower read path onto the same table, not a widening of the first
+one. Confirmed end-to-end with a real, unauthenticated `curl` call
+(anon key only, no bearer token from any real session) before any
+client code was written — returns exactly the aggregate shape, nothing
+sensitive.
+
+`loadPublicGenerateStats()`/`publicGenerateStatsHtml()` (`app.js`) reuse
+the exact same `OPERATION_CELL_ESTIMATE`/`WELCOME_SECONDS_PER_CELL` cost
+math `summarizeAuditRows()`/`welcomeChartsHtml()` already use — a real
+count multiplied by the same per-operation cell estimate, not a fresh
+number invented for this. Fires unconditionally in `wireWelcomeEvents()`
+(no `setup.toolToken` check, unlike the admin-only fetch right next to
+it) and re-renders `#mainContent` directly when it resolves, same
+`currentOp !== "welcome"` guard against a stale response landing on a
+page the visitor has since left.
+
+**A real, confirmed test-infrastructure problem, found and fixed before
+this ever reached a committed test.** Every other Supabase call in this
+app fires from an explicit, later user action (a click), which gives a
+Playwright test plenty of time to call `page.route()` after
+`page.goto(PAGE)` and still intercept it — the established pattern
+`mockToolSignIn()` already relies on. This fetch is different: it fires
+the instant the page's own inline `<script>` runs, before Playwright's
+`page.goto()` even resolves. Verified directly with a throwaway script
+(not committed): a `page.route()` for this exact URL, registered
+*right after* `await page.goto(PAGE)`, was already too late — the real
+request had gone out to the live Supabase project and come back with a
+`200` before `goto()` returned control to the test. Left unmocked, every
+one of this suite's ~150 `page.goto(PAGE)` calls across all 11 files
+would have hit real, live infrastructure on every run — exactly what
+`company-setup.test.js`'s own "mocks every network call... rather than
+touching the real Supabase project" discipline exists to prevent.
+
+Fixed by moving the mock *before* the navigation instead of after:
+`mockPublicStats(page)` (`tests/lib.js`) registers the route, and is now
+called immediately before all 31 real `page.goto(PAGE)` call sites
+across every test file (most of them inside a handful of shared helpers
+— `gotoAttendance()`, `gotoAssets()`, `gotoSetup()`/`toGrid()` — so this
+touched far fewer places than 31 individual edits). Confirmed by a
+second throwaway script that a route registered this way reliably wins:
+fed it a deliberately implausible mocked count (999999) and confirmed it
+rendered, proving the mock — not a live response — is what the page
+actually shows in tests. **Worth remembering for any future feature that
+fires a real network call unconditionally on page load, rather than
+from a click**: it needs mocking *before* `page.goto()`, not after, and
+that's the one call-timing exception to how every other mock in this
+suite is set up.
+
+**Two more small fixes the same day, from a fresh screenshot after
+syncing to a second machine** — the batched pass above (item 7) renamed
+the sticky bar's own button "Sign In for Real" → "Sign In to Bulk
+Forge", but the how-row's own step 1 label ("Sign in for real") was
+never updated to match, so the two disagreed on-screen. `.how-row`
+also had no `justify-content`, so it read left-aligned under the
+already-centred headline above it — inconsistent with `.welcome-
+headline-row`'s own `justify-content: center`. Both fixed together:
+`.how-row` gets `justify-content: center`; step 1's text now reads
+"Sign in to Bulk Forge", byte-for-byte matching the button.
+
+**Logo bigger, Reason's own opening line reworded, 2026-09-28** — two
+more direct asks against a screenshot with the logo circled: it read too
+small next to the big headline, and "Here's what actually happens: a
+dev needs test data..." read as an oddly formal preamble rather than a
+natural hook. `.welcome-headline-logo` grew from 40px to 56px (padding
+8px, was 6px, so the white tile still frames it proportionally).
+Reworded, after weighing two directions and picking the wrier one:
+"Nobody wants to prep their own test data. Ever. A dev needs some, so
+they beg QA to make it, or grumble their way through three fake
+employees themselves." — drops the "Here's what actually happens:"
+framing device entirely rather than softening it, landing the same
+"nobody actually does this" point as its own punchy opening beat
+instead of a stated premise.
+
+Two things about it worth keeping:
+
+- **All UI copy is English**, with a dry, lightly self-deprecating tone
+  and the occasional emoji on a toast. The operation pages were originally
+  written in Banglish and were converted on 2026-09-08 — don't reintroduce
+  it. Banglish stays in conversation with the user, not in the product.
+- **Its numbers are real** — card costs come from each operation's own
+  limits and the sample account's 110 employees, and the hero's 5h 50m is
+  4,200 cells at five seconds each. They live in `OPERATION_BLURBS`
+  (`src/app-data.js`) rather than in markup, so keep them honest if a
+  limit changes.
+- **The `<figure class="meme">` slot is the user's to fill.** What sits
+  there now — a drawn spreadsheet window, `employees_FINAL_v7_use_this
+  .xlsx`, caret blinking in an empty cell, "4,197 cells to go / 2:14 AM"
+  — is a placeholder he intends to replace with his own meme. Don't
+  iterate on it unprompted.
+
+  If he supplies an image: the page is self-contained apart from the
+  font, so either drop the file in the repo root and reference it
+  (fine on Vercel, but `index.html` stops being standalone), or have
+  `build.py` inline it as a base64 data URI, which keeps that property.
+  Prefer the second.
+
+All five operations in the sidebar (`OPERATIONS` in `src/app-data.js`) are
+implemented and tested. `renderMain()` in `src/app.js` routes each one; the
+"Coming soon" placeholder it still contains is now unreachable, kept for
+whenever a sixth operation is added.
+
+Two of the five build a file from scratch against a blank template
+(Employee Add, Attendance Add, Assets Add); two fill values into the
+system's own export and must not disturb anything else (Leave Balance,
+Payroll Custom Field). Knowing which kind you are looking at matters more
+than anything else in this codebase.
+
+### Employee Add — full spec (built, tested, do not change without asking)
+
+**User inputs:**
+- Number of employees: integer, min 10, max 300
+- Employee ID prefix: exactly 4 letters, auto-uppercased on input
+- Name source: Default (random Bangla names) or a character theme —
+  Game of Thrones / Harry Potter / Marvel / DC / Games Character, plus 8
+  more added 2026-09-19 on direct request ("sobai like korse and sobai
+  aro name pool add er request korse" — this was the single most-liked
+  feature, and the most-requested addition): Squid Game, Stranger
+  Things, Money Heist, Breaking Bad, Anime Characters, Cricketers,
+  Footballers, WWE / UFC Athletes, and a 9th the same day once the user
+  noticed 14 left the grid's last row one short of full — **Friends**,
+  picked freely rather than requested, for exactly that reason (picked
+  via `THEME_POOLS` in `src/app-data.js`, `.theme-grid`'s wrapping
+  3-column layout needed no change to hold 15 cards instead of 6, and
+  now fills the grid evenly at 5 full rows). Same `[First, Last, Gender]`
+  shape as every existing pool, including the same "invent a plausible
+  two-token split for a single-name character" trick the `games` pool
+  already used (`Master`/`Chief`, `Solid`/`Snake`) where a real one
+  wasn't confidently known — Money Heist's codenamed characters use
+  their real in-show identities instead (`Sergio`/`Marquina` for The
+  Professor, `Silene`/`Oliveira` for Tokyo, etc.), since a heist show
+  revealing real names *is* the character-name knowledge this feature
+  trades on, the same way GoT/HP pools do. **A "Bangla movie/natok
+  characters" pool and a "DCU universe" pool were asked for too but
+  deliberately not added yet** — flagged back to the user rather than
+  guessed: locally-specific Bangla drama/film character names carry a
+  real risk of being wrong in a way this app's international pools
+  don't, and a nine-Gunn-verse-plus-classics reading of "DCU" would have
+  overlapped several entries already in the existing `dc` pool verbatim
+  (`Amanda Waller`, `Rick Flag`, `Guy Gardner`, `Clark Kent`, `Bruce
+  Wayne`, `Diana Prince`) — worth resolving with the user rather than
+  shipping a near-duplicate pool or a guessed local one.
+
+  **Name source became multi-select the same day** — direct request:
+  for a big batch, drawing from just one small pool (Money Heist's 15
+  names, say) starts cycling back through it and appending a numeric
+  suffix fairly quickly; picking more than one theme spreads the same
+  batch across a bigger combined pool instead, so any one theme repeats
+  less. `nameTheme` (a single string) became `nameThemes` (a `Set`,
+  module-level state, same as before) — clicking a `.theme-card` now
+  toggles its membership instead of exclusively selecting it, and at
+  least one theme always stays selected (clicking the last remaining one
+  off is a no-op, the same "can't configure your way to nothing"
+  discipline Employee Add's own department/designation picker already
+  holds itself to). `generateNames()` takes either a single key or a
+  collection now: **Bangla-only keeps its exact original behaviour** — a
+  freshly generated, unique combo per employee, no cycling suffix at
+  all — since that's still the common single-theme case and nothing
+  about it needed to change; picking Bangla *alongside* other themes (or
+  two or more non-Bangla themes together) merges every selected theme's
+  pool into one array first (Bangla contributes a fresh batch of unique
+  combos sized to the requested count, generated via the same
+  once-nothing-more logic, just handed back as raw triples instead of
+  objects) and shuffle-cycles through the combined pool exactly the way
+  a single non-Bangla theme already did. The summary bar's own wording
+  (`nameThemeSummaryLabel()`) joins up to 3 selected labels with " + " and
+  falls back to "N themes mixed" past that, so picking most of the 15
+  doesn't run the whole label off the edge of the bar. Verified end-to-
+  end: 300 employees from Money Heist (15 names) + Stranger Things (20
+  names) mixed produced names from both pools in the same file, cycling
+  the combined 35-name pool under 9 times rather than either alone
+  needing 15-20 passes through itself.
+
+  **The numeric suffix itself was dropped for a cross-paired last name
+  instead, 2026-09-30 — direct feedback that numbered last names
+  ("Marquina 2") don't read as real test data.** Past the pool's own
+  size, a repeat now keeps its own first name/gender but borrows a
+  different, randomly-picked last name from the same (possibly merged)
+  pool instead of appending " 2"/" 3" — so a repeat still looks like a
+  plausible person rather than a numbered duplicate. The re-roll
+  explicitly avoids landing back on the character's own real last name
+  (so a repeat is never silently identical to its own first pass), but
+  doesn't otherwise dedupe against every other repeat already produced
+  this run — a small re-collision (two different repeats both landing
+  on the same borrowed surname) is possible and considered an
+  acceptable trade for not needing a growing "already used" set on top
+  of the existing per-row ID/email/phone dedup. `generateNames()`'s
+  cycle-1 pass is completely unchanged — the first, real pairing of
+  every character in the pool is untouched by this; only cycle 2+
+  (name reuse past the pool's own size) is affected.
+- Departments: 6 defaults (HR, Engineering/IT, Sales & Business,
+  Marketing, Finance & Accounts, Operations) each with 4 default
+  designations, toggleable per-department between "use these defaults"
+  and "custom list"; plus unlimited custom departments (free-text name +
+  free-text designation list, add/remove rows)
+
+**Generated per row — 16 columns (14 originally, Pay Type/Hourly Rate
+added 2026-10-05, see below), must exactly match the
+`Employees_List_Upload` sheet/header format of Shomvob's real template:**
+
+| # | Column | Rule |
+|---|--------|------|
+| 1 | Employee ID* | `PREFIX0001` sequential, always starts at 0001 |
+| 2 | Biometric ID | `PREFIXB0001` (prefix + "B" + same sequence) |
+| 3–4 | First/Last Name* | from selected name source (Bangla pool = large first×last combo space, no repeats up to 300; theme pools = curated real character names, cross-paired with a different last name from the same pool past pool size) |
+| 5 | Employment Type* | random: Permanent / In Probation / Intern only (Part Time, Contract deliberately excluded) |
+| 6 | Probation Period (Months)* | Permanent → 0; others → random 3–6 |
+| 7 | Joining Date* | weighted by year: ~60% previous year, ~25% current year (never future), ~15% two years ago |
+| 8 | Pay Type | user picks Monthly (default) / Hourly / Mixed for the whole batch; always written as the literal word, never blank |
+| 9 | Gross Salary* | random ৳20,000–150,000, step 500 — only on a Monthly row, blank on an Hourly one |
+| 10 | Hourly Rate | random ৳100–500, step 50 — only on an Hourly row, blank on a Monthly one (the exact mirror of Gross Salary) |
+| 11 | Email | `firstname.lastname.xxxxx@yopmail.com`, lowercase, numeric-suffix deduped within a run, `xxxxx` a per-run random tag (see below) |
+| 12 | Phone* | `880` + `1` + operator digit (3–9) + 8 digits = 13 digits, deduped |
+| 13 | Gender* | matches the picked name's tagged gender (no "Prefer not to say") |
+| 14 | Date of Birth* | age 18–45 relative to joining year, always before Joining Date |
+| 15–16 | Department/Designation* | one dept picked at random from the user's configured set, one designation from that dept's list |
+
+Output: single sheet `Employees_List_Upload`, row 1 = exact template
+header labels (with `*` on required columns), data from row 2 (no
+instruction/placeholder row — this is a ready-to-upload file). Filename:
+`{PREFIX}_employee_bulk_upload_{YYYYMMDD}.xlsx`.
+
+Already validated (Playwright, 25-row and 300-row batches): ID/email/
+phone uniqueness, employment-type↔probation linkage, joining-date↔DOB
+ordering, salary rounding, department↔designation consistency.
+
+**Emails carry a per-run random tag, added 2026-09-22 — a real,
+foreseen bug, caught before it happened rather than reported live**
+("sooner or later employee email duplicate khabe" — direct observation
+that the name pools are finite, so this was only a matter of time).
+`makeEmail()`'s dedup `Set` (`usedEmails`
+in `generateWorkbookRows()`) only ever existed for the lifetime of one
+`Generate` click — real, but only a within-file guarantee, since this
+app keeps no memory between runs by design (see "Architecture decisions"
+above). The name pools are finite — the theme pools especially so, some
+under 20 entries — so the exact same `firstname.lastname@yopmail.com`
+was always going to recur across two unrelated files sooner or later,
+and the real HRIS likely enforces email uniqueness on import. Two
+options were weighed: persisting a "used emails" list (in localStorage
+or otherwise) would only protect one browser/machine, and quietly breaks
+the explicit "nothing persists across sessions" architecture rule — not
+worth it for a partial fix. Went with `randomTag(5)` instead: a 5-character
+base36 string rolled once per `Generate` click (`runTag`), appended to
+every email that run — `firstname.lastname.xxxxx@yopmail.com`, the
+existing numeric-suffix dedup still applying *within* a run exactly as
+before, just ahead of the tag (`firstname.lastname2.xxxxx@...`). No
+persisted state, no cross-run memory needed — the tag alone makes two
+separate runs landing on the same email effectively impossible.
+Verified by test (`employee.test.js`, block E2): two back-to-back
+Generate clicks with identical inputs (same count, prefix, department,
+theme) share zero emails.
+
+**Nothing the user configured may be quietly skipped.** This is the rule
+the whole app is now held to, not just one screen: if a choice cannot be
+honoured, generating is blocked and the reason names what is wrong. It
+started on the card-based screens (Employee Add's departments, Assets
+Add's types), where **a ticked card with nothing selected inside it** was
+dropped from the output silently — you could tick three departments, get
+one in the file, and never learn why. `departmentState()` and
+`assetTypeState()` split the configured cards into `final` and
+`incomplete`, and the warning names the incomplete ones. Blank custom
+rows are filtered out rather than counted, since an empty "Add
+designation" row was putting an empty string into a required column.
+
+An audit on 2026-09-09 found three more of the same class in Attendance
+Add, all now blocked with a named reason (see that section). When adding
+an operation, assume this class of bug is present until you have checked
+for it: for every input the user can fill, ask what happens if it is
+half-filled, and make sure the answer is a message rather than a smaller
+file.
+
+Each of those screens also has bulk shortcuts — a labelled strip above the
+list for the whole section, and a per-card button beside the mode toggle.
+They are deliberately a different shape from the controls they act on so
+they don't read as one more option.
+
+### Employee Attendance Add — built, tested, do not change without asking
+
+Four required columns (`Employee ID*`, `Date*`, `In Time*`, `Out Time*`)
+on a sheet named `Attendance_Bulk_Import`. Full rules live in `SPEC.md`;
+the parts that are easy to get wrong:
+
+- **Overtime is not a column.** The file only carries In and Out, so
+  overtime is what pushes Out Time past the shift's end.
+- **Absence and weekends are expressed as no row**, never a blank one —
+  which also keeps all four required columns filled on every row written.
+- **Early check-out is its own %, default 5 — added 2026-09-21, direct
+  request** ("amader early check out er frequency ektu beshi lagtese" —
+  the real observed rate read too high). Before this there was no early-
+  checkout scenario at all: an ordinary weekday's Out Time was always
+  `end + randInt(0, 10)`, never earlier than shift end. `att.earlyPct`
+  (a plain percentage, same shape as `latePct`/`absentPct`) now sits
+  between the overtime check and the ordinary case in the weekday Out
+  Time branch: `pctHit(att.earlyPct) ? end - randInt(15, 60) : end +
+  randInt(0, 10)` — mirrors Late's own 1–60-minute spread in the
+  opposite direction, just floored at 15 rather than 1 so an early row
+  reads as a real early departure, not noise. Mutually exclusive with
+  overtime (checked first in the ternary) — an employee can't both work
+  overtime and leave early the same day, which the branch order already
+  guarantees.
+- **Weekday overtime also got a floor, same day, same conversation**
+  ("OT hishabe jader nichi, ora jeno min 45 min kore" — whoever's
+  counted as on overtime should do at least 45 minutes of it): the
+  weekday branch's own `randInt(1, otMax.weekday * 60)` had the identical
+  shape as the weekend/holiday bug above — down to a 1-minute token —
+  just never surfaced by the real importer's rejection, since it's added
+  on top of an already-hours-long shift and so never dropped the row's
+  *total* duration under 15 minutes. Floored the same way:
+  `randInt(Math.min(45, otMax.weekday * 60), otMax.weekday * 60)`.
+- **Weekends and holidays produce nothing** unless overtime is on and the
+  employee falls in that day type's overtime percentage; then the whole
+  attendance is overtime, In at shift start and Out at start + overtime.
+- **Lateness is measured from the end of the grace period**, not the shift
+  start.
+- **A shift may cross midnight**; it stays one row, dated by the day it
+  started, and its Out Time reads earlier than its In Time.
+- **An employee left off every shift is an error, not a dropped row.**
+  With more than one shift you could paste 20 IDs, assign 3, and get a
+  3-employee file with no warning. Likewise a shift with nobody on it, and
+  a range whose every day is a weekend or holiday with overtime off —
+  which used to pass the gate and fail on a toast after the click.
+  `attendanceProblems()` catches all three; `rangeDayCounts()` is the
+  shared helper that says how many days of a range could yield a row at
+  all, and `renderRangeTally()` reads the same numbers so the tally and
+  the gate can never disagree.
+- `BD_HOLIDAYS` in `app-data.js` is **2026 only, and read off Shomvob's
+  own HR system** (Holiday Management → 2026 → All → Active) — not a
+  government gazette, because the company's calendar is what the test data
+  has to match. Nothing in it is a guess. The draft it replaced had the
+  Eid ranges too short and was missing Election Day, Shab e-Barat,
+  Muharram, Chaitra Sankranti and Student-People Uprising Day outright.
+  Adding a year is one more key; a range in a year with no key gets no
+  holidays and the UI says so.
+- **A weekend/holiday overtime row's duration must be at least 15
+  minutes — a real bug, found live 2026-09-21** on a real bulk upload
+  ("Duration must be at least 15 minutes! (found 20 times)", the real
+  importer's own rejection). `generateAttendanceRows()`'s weekend/holiday
+  branch built the whole row's duration from a single `randInt(1, max *
+  60)` — unlike a weekday's overtime, which is added on top of an
+  already-hours-long shift and so is never at risk, this is the row's
+  *entire* In-to-Out span, and could roll as low as 1 minute. Fixed with
+  a floor of **2 hours**, not just clearing the 15-minute cliff — direct
+  follow-up request the same day ("min 2-3 hrs jeno shift time thake") —
+  a bare 15-minute floor technically passes the real importer but still
+  reads as an unrealistic token punch, not an actual worked shift:
+  `randInt(Math.min(120, max * 60), max * 60)`. The `Math.min` falls back
+  to whatever the configured max allows when it's under 2 hours (the
+  weekend/holiday max defaults to 4h, so the common case is a 2-4h range)
+  rather than erroring — `att.otMax[type]` is a plain UI-entered integer
+  hour count, nothing stops a user setting it to 1.
+
+### Assets Add — built, tested, do not change without asking
+
+Blank template, so rows are generated. Sheet `Assets_List_Upload`, seven
+columns of which three are required. Full rules in `SPEC.md`; the traps:
+
+- **Asset Type is a free category, not derived from the name.** The
+  template's own example rows deliberately mismatch the two (a monitor
+  typed as `Printers`), which is how we know.
+- **Asset Image is always blank** — a placeholder URL would only put a
+  broken image link into the system.
+- **Descriptions are paired with names** in `DEFAULT_ASSET_TYPES`, so the
+  two columns always agree. A user's custom name gets no description
+  rather than an invented one.
+- **Employee IDs are optional here.** Both assignment columns are optional
+  in the template, so with no IDs every asset comes out unassigned.
+- **70-80% of assets get assigned**, drawn per batch from
+  `ASSETS_ASSIGNED_BAND`, with no input to control it. An unassigned row
+  leaves *both* the employee ID and the date blank.
+- The type/name cards reuse Employee Add's department/designation classes
+  on purpose; keep them looking alike.
+
+## Per-operation media rail
+
+An operation page can carry a video in a sticky right-hand rail: the form
+scrolls on the left at ~65% of the width, the clip holds the middle of the
+viewport on the right. Wired through `OPERATION_MEDIA` in `src/app-data.js` — one entry per
+operation id, and **an operation with no entry gets no rail and keeps its
+full 760px form**, so a page can be left without one and nothing else
+changes. `paintOperation()` in `src/app.js` decides which shell to render.
+All five are filled: `assets/op_<operation_id>.mp4`, the user's own clips.
+
+Clip shape does not matter — the frame takes the rail's width and its
+height follows the video's aspect, so portrait (720x1280) and landscape
+(848x642) both sit centred with nothing cropped or stretched. Name files
+without `#` or spaces: `#` starts a URL fragment and would silently
+truncate the `src`.
+
+Three things it is easy to break:
+
+- **The rail must be shorter than the box it sits in.** At the very end of
+  a scroll a sticky element gets lifted by its own containing block; the
+  slack between `.op-media`'s height and `.op-media-frame`'s
+  `max-height` is what stops the clip being cut off when that happens.
+  Verified at 1440x900, 1280x900 and 1366x768 — 0px clipped at every
+  scroll position.
+- **Below 1100px the split collapses** back to a single 760px column with
+  the clip beneath, because the form needs its width back before the video
+  does.
+- Videos are separate files in `assets/`, never data URIs.
+  **Deliberately do *not* honour `prefers-reduced-motion` — reversed
+  2026-09-12, direct user instruction** ("eta continues play hoitei
+  thakbe without sound. shob page e jekhane ase" — this must keep
+  playing continuously, muted, on every page it appears): `paintOperation()`
+  originally paused these clips and swapped in native controls under
+  reduced motion, mirroring the login gate's own clip (below). Found live
+  — the user's own machine/browser has reduced motion on, so every
+  operation page's rail video sat paused on frame one with a control bar
+  showing, read as "the loop is broken" rather than "this respected an
+  accessibility setting nobody here was deliberately testing for." Fixed
+  by deleting that whole block from `paintOperation()` — these five
+  clips are now always `loop muted playsinline autoplay`, unconditionally,
+  same as before the setting was ever handled. **The login gate's own cat
+  video got the identical fix the same day, once flagged as missed** ("login
+  page miss korse") — its matching block in `wireLogin()` (`#gateVideo`)
+  is gone too; see the login gate section below.
+
+## The login gate is a joke, not a control
+
+`#loginGate` in `src/part1.html` covers the app on load and clears when the
+form is submitted with the credentials in `DEMO_LOGIN`
+(`src/app-data.js`) — which are printed on the card, pre-filled into the
+inputs, and readable in the page source. That is the gag: the app is about
+not doing tedious things, so it does the typing for you.
+
+**Never present it as security, and never put anything behind it that
+would matter if bypassed.** It gates nothing: every file the app makes is
+random test data generated in the visitor's own browser. The card says so
+in its own footnote — keep that line.
+
+The card sits on the left with the user's own cat video
+(`assets/lazy_cat.mp4`) on the right; they stack under 860px. The video is
+always muted, looping and autoplaying. **It used to hold the first frame
+and gain controls under `prefers-reduced-motion: reduce`** — removed
+2026-09-12, the same day and the same fix as the operation media rail's
+five clips above, once the user pointed out this one had been missed
+("login page miss korse"). Same reasoning both times: the user's own
+reduced-motion setting was on, so the clip sat paused with a control bar
+rather than looping, and per direct instruction it should just keep
+playing. The `wireLogin()` block that swapped in `controls`/paused it is
+deleted outright, matching `paintOperation()`'s fix exactly.
+
+Nothing is persisted, so a reload asks again; one click clears it. (The
+appearance choice is the sole exception, and it is not behind the gate.)
+Tests call `signIn(page)` from `tests/lib.js` straight after `page.goto`.
+
+**`#loginPass` has the same show/hide toggle as Company Setup's password
+fields** (2026-09-10, `pwFieldMarkup()`'s markup hand-written into
+`part1.html` since the gate is static shell, not JS-templated; wired via
+`wirePasswordToggles(gate)` in `wireLogin()`). Consistency rather than
+necessity — the credential is already printed in plain text a few lines
+down in `#gateCreds`. Tested in `tests/gate.test.js`, the one suite that
+inspects the gate's own DOM before signing in.
+
+There is deliberately **no appearance picker on the gate itself** — it
+lives in the sidebar, one click away, and a second copy on a card whose
+whole point is that it barely gates anything would be clutter.
+
+**Both `#loginEmail` and `#loginPass` are now locked (`readonly`),
+2026-10-05** — direct feedback, a real screenshot of visitors typing
+their own real company credentials into this gate, apparently hoping it
+was an actual login rather than the joke it is. Editing either field
+never did anything useful anyway (the check is always against
+`DEMO_LOGIN`, never whatever was typed), so this closes that confusion
+rather than any real security gap. `readonly`, not `disabled` — both
+stay fully legible and still submit/toggle normally; `disabled` would
+have read as greyed-out/broken and `disabled` inputs don't even fire
+most interaction events, where `readonly` only blocks editing. A small
+`.gate-card input[readonly]` rule (`app.css`) gives both a faint tinted
+background so the lock is visible at a glance, not just discoverable by
+trying to type.
+
+**`#loginPass` now starts visible as plain text, not masked** — a
+same-day follow-up ("eta visible kore deyar kotha chilo as dummy pass"
+— this was supposed to show as visible, since it's a dummy password):
+there's nothing to hide here, the identical credential is already
+printed in plain text a few lines below in `#gateCreds`, so masking it
+by default only ever added a pointless extra click. `#loginPass` is now
+`type="text"` in the static markup, and its toggle button starts in the
+"already shown" state (the slash-eye icon, `aria-label="Hide password"`)
+rather than the "click to reveal" one — `wirePasswordToggles()` itself
+needed no change, since it already reads the input's *current* type on
+each click rather than assuming where it started.
+
+**This removed the one real scenario `employee.test.js`
+used to exercise via the gate** — typing a wrong password and
+confirming it's refused — since `page.fill()` throws on a `readonly`
+input outright; that block now asserts both fields are genuinely locked
+instead, and the pre-filled, correct credentials still sign in on their
+own exactly as before. `tests/gate.test.js` gained matching assertions
+for both fields.
+
+The **Log out** button in the sidebar footer is `location.reload()`. That
+is the honest implementation given nothing is persisted: it clears every
+pasted list, upload and shift assignment and the gate comes back on its
+own, rather than hiding the app over live state.
+
+## Guarding work in progress
+
+**Switching operations loses nothing.** Each operation's state lives in a
+module-level object (`att`, `leave`, `payroll`, `assets`, `departments`)
+and the form is rebuilt from it, so a pasted ID list, an uploaded file and
+every shift assignment all survive a round trip — verified by test. So
+there is deliberately **no** warning when navigating between pages; it
+would be a false alarm.
+
+What does throw work away is a reload or closing the tab, since nothing is
+persisted apart from the appearance choice. Two guards, both keyed on
+`hasUnsavedWork()`:
+
+- **Log out** opens the "Hey Lazy!" dialog (`#discardModal`) when there is
+  work. The safe button takes focus and Escape backs out, so a stray
+  keypress cannot cost anything. `leavingOnPurpose` is set before the
+  reload so the unload guard doesn't ask a second time.
+- **Reload / tab close** goes through `beforeunload`. **The browser shows
+  its own wording there and will not accept ours** — that is a deliberate
+  anti-phishing restriction, so "Hey Lazy!" cannot appear on that one. All
+  we control is whether it asks at all.
+
+**`hasUnsavedWork()` didn't know Company Setup existed, found live
+2026-09-11.** It only ever checked the five generators' own state
+(`leave`/`payroll`/`att`/`assets`/`departments`) — being signed into
+Company Setup, tool-level or all the way to a connected company, never
+made it true on its own. So a stray reload while just browsing settings
+tabs (nothing actively mid-save) silently dropped straight back to the
+very first joke-gate screen with **no warning at all**, forcing all
+three logins to be redone — exactly the annoyance the memory-only-tokens
+design (above) accepts as a cost of a *deliberate* reload, not one that
+should also strike silently on an accidental one. Split into
+`hasGeneratorWork()` (the original five-generator check) and
+`hasUnsavedWork()` (`hasGeneratorWork() || !!setup.toolToken`), so both
+guards above now also arm as soon as the tool sign-in succeeds — before
+a company is even connected, since redoing *that* login is already the
+cost being warned about. Log out's dialog body picks the accurate
+wording for whichever condition is actually true (generator work takes
+priority if, rarely, both are); `beforeunload` doesn't need to, since the
+browser supplies its own text either way.
+
+**Log out stopped actually logging out the moment tool-session
+persistence was added, and nobody caught it until the Dashboard
+redesign made the leftover state impossible to miss — a real,
+confirmed bug, fixed 2026-09-25.** `wireLogout()`'s reload was always
+the "honest implementation given nothing is persisted" (as the opening
+line of this section still claims) — true when it was written, but
+`TOOL_SESSION_KEY` started persisting in `sessionStorage` that same day
+(2026-09-11, "Two logins, not one" above), and a plain
+`window.location.reload()` does **not** clear `sessionStorage` — that's
+the whole point of using it over `localStorage`'s longer lifetime, not
+a gap in a reload. So `init()` just restored the exact same tool
+session right back on the reload Log out triggered, every time — Log
+out looked like it did nothing, or worse, looked broken, since nothing
+in the UI told you it had even tried. Found live: "ami login na kore
+logout korsi. but still dekhacche log in asi" (I logged out without
+[re-]logging in, but it still shows signed in). Company Setup's own
+"Sign out" (`#setupSignOutBtn`) never had this bug — it already called
+`clearToolSession()` directly, no reload involved. Fixed by having
+`wireLogout()` call `clearToolSession()` and `clearLastSetupSession()`
+too, right before the reload, on both paths (the direct reload and the
+"Hey Lazy!"-confirmed one) — so the reload that follows is actually
+into a clean, signed-out state, the same guarantee Sign out already
+gave. `employee.test.js`'s own "discarding clears everything" check
+(block right after "Escape keeps the work too") needed a matching
+update — before this fix, a bare `.op-item` click right after this
+Log out worked *only because* the leaked tool session kept the sidebar
+visible; now it correctly goes through `goToOp()`, which signs back in
+for real, matching what every other post-signout navigation in this
+app already has to do.
+
+## Sidebar branding
+
+The Shomvob HR logo appears in two places: the sidebar head (logo tile,
+then **Bulk Forge** / "for Shomvob HRIS") and the login card (tile beside
+"**Bulk Forge** for Shomvob HRIS"). The sidebar shape follows Shomvob's
+own admin sidebar, which is what the user asked for. It briefly lived on
+the dashboard body too; that was removed, because two copies of one logo
+within a few hundred pixels read as duplication rather than design.
+
+`assets/shomvob_hr_logo.png` is **unmodified artwork** — the user's own
+file, trimmed of its blank canvas and quantised, nothing else. Two things
+follow from what it is:
+
+- It came as a **JPG with a white ground and no alpha**, so it sits on a
+  white tile rather than being keyed transparent. Keying would eat the
+  white gaps inside the mark and halo the thin wordmark. On the dark
+  sidebar the tile reads as deliberate; on the white login card it gets a
+  border so it still reads as a tile.
+- The source held only **95x88 px of actual mark** inside a 200x200
+  canvas, so it is shown at 92px. Much smaller and its built-in "Shomvob
+  HR" wordmark turns to mush. If a higher-resolution or SVG version turns
+  up, swapping the file is the whole job.
+
+The "Lazy" stamp is a separate CSS layer hanging off the tile's corner,
+never burned into the image.
+
+`build.py` inlines the PNG as a base64 data URI through the
+`__SHOMVOB_LOGO__` token. That is the mechanism to reuse for any future
+binary asset: add it to `INLINE_ASSETS` in `build.py` and reference the
+token from the sources. `index.html` stays self-contained that way.
+
+**The browser tab itself had no favicon at all until 2026-09-25** —
+direct request, from a screenshot of a generic globe icon sitting among
+a real tab bar of real product icons. `<link rel="icon" ...>` in
+`src/part1.html`'s own head content (there is no explicit
+`<html>`/`<head>` wrapper anywhere in this file — the browser infers
+one from `<title>`/`<link>` appearing before any body content, same as
+the existing `<title>` and Google Fonts `<link>` already relied on)
+reuses the same `INLINE_ASSETS` build-time-substitution mechanism as
+the sidebar/login-card logo above, not a second, unrelated technique.
+
+**Points at a second, composited asset, not the bare logo — direct
+follow-up the same day** ("amader ei lazy logo ta dao," with a
+screenshot circling the sidebar's full tile: logo *and* the tilted
+"Lazy" stamp together): the first pass used `__SHOMVOB_LOGO__` alone,
+which is correct for the sidebar/login-card renders (that stamp is a
+separate CSS layer hanging off the tile, per this section's own note
+above) but reads as a half-finished favicon on its own — a
+`<link rel="icon">` can't host a live CSS overlay the way an `<img>`
+inside `.brand-logo-wrap` can. `assets/shomvob_hr_logo_lazy.png` is a
+new, flattened composite — the same base logo plus a baked-in "LAZY"
+badge, positioned bottom-right and rotated to match `.brand-stamp`'s
+own colours (`--accent`/`--accent-strong`) and roughly its angle,
+generated once with Pillow (not committed as a script, since this asset
+never needs regenerating unless the source logo itself changes) rather
+than hand-drawn. `__SHOMVOB_LOGO_LAZY__` is a second `INLINE_ASSETS`
+entry, `src/part1.html`'s favicon link points at it instead of the bare
+logo token — the sidebar/login-card `<img>` renders are untouched,
+still `__SHOMVOB_LOGO__` plus their own live `.brand-stamp`, since
+those already show the real thing correctly.
+
+## Sidebar icons
+
+Each operation carries a line icon matching the equivalent item in
+Shomvob's own admin sidebar: a grid for the dashboard, two people for
+employees, a clock for attendance, a calendar for leave, a dollar sign for
+payroll, a monitor for assets. They live in `OP_ICONS` (`src/app.js`) as
+raw SVG path data, drawn by hand rather than pulled from an icon library —
+the page ships no external assets. `opIcon(id)` falls back to the old
+`.op-dot` when an id has no icon, so a new operation renders sensibly
+before you draw one for it.
+
+## App-wide footer (2026-09-15)
+
+One line at the bottom of every page's own scrollable content —
+`#appFooter`, a static sibling of `#mainContent` inside `.main-scroll`
+in `part1.html`, so it's never re-rendered per page the way `#mainContent`
+itself is; `init()` sets its text once, the only moving part being the
+year (`today.getFullYear()`). Direct request, wording confirmed exactly:
+"© {year} Mahmudur Rahman Nahid — Made with !Love, not for !promotion."
+— the `!` is a deliberate programmer's-negation joke on both words, in
+keeping with the app's existing dry, self-deprecating tone (see
+"Operations" above); don't "fix" it into plain English.
+
+Pulled up into `.main-inner`'s own generous 140px bottom padding
+(`margin-top: -100px` on `.app-footer`) rather than adding yet more
+empty space below it — sits just under the last real content on every
+page, before the fixed `.action-bar` (a normal flex sibling of
+`.main-scroll`, not overlapping it, so there was never a stacking
+concern). Matches `.main-inner`'s own max-width, including the `.wide`
+variant (`.main-inner.wide + .app-footer` selector) so it lines up with
+Company Setup's wider column too. Plain `var(--text-faint)`, no new
+colour — reads correctly in light/dark/auto for free.
+
+**Rebuilt into a real sticky footer, 2026-09-26** — the `-100px`
+pull-up above was never an actual "stick to the bottom" mechanism, just
+a fixed-distance nudge that happened to land near the true viewport
+bottom on every page that existed at the time, because all of them had
+enough content to roughly fill the viewport. The Admin Panel's own
+short pages (a small table, nothing else) broke that assumption —
+found live, direct feedback: "eita to ekta footer er moto act korar
+kotha... eta emne upre uthe ashe keno" (this is supposed to act like a
+footer, why does it float up like this) — the footer sat right under
+the card instead of pinned to the bottom, on every page short enough to
+expose the gap. Fixed the standard way rather than special-casing the
+short pages: `.main-scroll` is now `display: flex; flex-direction:
+column`, `.main-inner` gets `flex: 1 0 auto` (always claims at least
+the remaining vertical space, pushing `#appFooter` — a normal
+`flex-shrink: 0` sibling — down to the true bottom on a short page) and
+the old negative margin/140px padding hack is gone, replaced with
+ordinary padding on both. A page tall enough to scroll is unaffected —
+`.main-inner` simply grows past that minimum with its own real content,
+the footer still following directly after it exactly as before.
+Verified with Playwright screenshots on both a short page (Admin Users)
+and a tall one (Employee Add) — the tall page's footer sits below the
+fold exactly as it always has, only reachable by scrolling, and the
+short page's footer now sits at the true bottom of the viewport instead
+of floating up under the card.
+
+## Generate now opens a modal instead of downloading immediately (2026-09-15)
+
+Direct request, all five generators: clicking Generate used to call
+`XLSX.writeFile()` straight away (an immediate browser download) plus a
+success toast. Now it builds the workbook exactly as before, but shows
+`#generateCompleteModal` (title, the same details text the toast used
+to carry, and a fixed quote — "Learn from the ones that came before,
+and lay the trail, for the ones who come after.", no attribution given)
+with a **Download Now** button that's the one place `XLSX.writeFile()`
+still gets called. The sidebar's own button is renamed from "Generate
+Excel file" to plain **"Generate File"**, since generating and
+downloading are no longer the same click.
+
+**Closing without downloading discards it, on purpose** — confirmed
+directly rather than assumed: "close dile...notun generate korte hobe?"
+(if you close, does it need a fresh generate?) — yes, and that's fine,
+since every one of these five operations already regenerates from
+scratch in a couple of seconds on every click; there was never a
+"resume the last one" concept anywhere else in this stateless app, and
+inventing one here just for this modal wasn't worth it.
+
+**Mechanism**: each of the five `downloadXWorkbook()` functions
+(`downloadWorkbook`, `downloadAttendanceWorkbook`, `downloadLeaveWorkbook`,
+`downloadPayrollWorkbook`, `downloadAssetsWorkbook`) now *builds* the
+workbook and returns `{ wb, filename }` instead of calling
+`XLSX.writeFile()` itself; each `handleXGenerate()` passes that pair to
+the new shared `openGenerateCompleteModal(title, bodyText, wb, filename)`
+instead of `showToast()` on success — validation-failure and error
+toasts are untouched, only the success path changed. `openGenerateCompleteModal()`
+mirrors `askDiscard()`'s own clone-and-replace pattern (`button.cloneNode`
++ `replaceWith`) so a second Generate click can't stack handlers from
+the first, and the same Escape-to-close wiring.
+
+**`tests/lib.js`'s shared `generate()` helper updated to match** — it
+used to click `#generateBtn` and wait directly for the browser's own
+`download` event; now it clicks Generate, waits for `#gcDownloadBtn` to
+become visible, then clicks *that* before waiting for the download.
+Fixed in the one shared place all five suites call through, so no
+per-suite test changes were needed — confirmed by the full run staying
+at the exact same check counts (46/39/51/21/34) as before this change.
+
+**The sidebar's own Generate button, and the modal's quote box, both
+iterated further two days later (2026-09-17):**
+
+- **`#generateBtn`'s icon** (`part1.html`, static markup — this button
+  isn't templated in JS) **was still a download arrow**, which now reads
+  wrong: clicking it opens the "file ready" modal above, it doesn't
+  download anything itself any more. Swapped for a plain document/file
+  icon (a page outline with a folded corner and two content lines) —
+  `#gcDownloadBtn` inside the modal keeps its own `↓` character, since
+  *that* button genuinely does download.
+- **A quote was added to `#generateCompleteModal` itself**, on the same
+  idea "Run defaults"' own modal quote panel was built on (above) — and
+  went through three back-and-forth layout passes the same day before
+  landing:
+  1. First pass: matched "Run defaults" exactly — `.modal-card-split` +
+     a `.modal-quote-panel` side column, quote text and attribution
+     added ("Learn from the ones that came before, and lay the trail,
+     for the ones who come after." — Clair Obscure: Expedition 33, no
+     attribution originally, added this same pass).
+  2. Feedback ("quote ta pashe na, nicha thakle valo hoy" — below, not
+     beside) was read as "drop the boxed treatment entirely" — walked
+     back to a plain divider line under the body with the quote text
+     under that, no background or border at all.
+  3. **That reading was wrong, corrected the same day**: the actual ask
+     was to keep the same bordered/tinted box `.modal-quote-panel`
+     already used, just stacked under the body instead of beside it —
+     not to remove the box. Landed on `.modal-quote-box` (`app.css`) —
+     the same `var(--accent-soft)` background and rounded corners as the
+     side panel, `margin-top: 16px` instead of a `border-left`, no
+     separate divider line needed once the box itself supplies the
+     visual break. This is the version still live — `generateCompleteModal`
+     in `part1.html` keeps this quote as static markup (like "Run
+     defaults"' own panel, no state, never templated in JS), while
+     `#generateBtn`'s icon and `.modal-quote-box`'s CSS are the two
+     pieces that actually persisted through all three passes.
+
+## Deployment
+
+**Live at https://shomvob-bulk-project.vercel.app** — Vercel project
+`nahidsmrahman/shomvob-bulk-project`, connected to this GitHub repo, so
+**every push to `main` deploys to production automatically** (verified: a
+push produced a new Production deployment ~35s later). Nothing needs
+running by hand.
+
+It is a plain static site: framework preset "Other", no build command,
+output directory `.`. `index.html` is already built and self-contained, so
+there is nothing to compile — this is why there must never be a
+`package.json` at the repo root (Vercel would try to build it). The test
+tooling keeps its own `package.json` inside `tests/` for exactly that
+reason. **Do remember to run `python build.py` before pushing**, since it
+is `index.html` that ships, not `src/`.
+
+Two Vercel quirks worth knowing. The clean production domain is public,
+but per-deployment URLs (`...-<hash>-nahidsmrahman.vercel.app`) sit behind
+Vercel Authentication and 302 to an SSO page — that is the default
+protection, not a misconfiguration. And `vercel link` writes a
+`.env.local` containing a `VERCEL_OIDC_TOKEN`; `.gitignore` covers it via
+`.env*`, and it must stay that way.
+
+`.vercelignore` keeps `CLAUDE.md` and `SPEC.md` out of the deployment.
+They describe Shomvob's internal template structures, business rules and
+test-account data, and a `*.vercel.app` URL is guessable and indexable.
+`src/` is deliberately *not* excluded — `index.html` inlines all of it
+anyway, so hiding it would achieve nothing.
+
+**`vercel.json` added 2026-09-19, headers only** — a follow-up to the
+stored-XSS fix above, from the same security review, asked for directly
+("ar ki ki korte paro etar security bulletproof korte"). Sets a
+`Content-Security-Policy` plus `X-Frame-Options: DENY`,
+`X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-
+cross-origin`, and a `Permissions-Policy` disabling camera/mic/geolocation
+— none of which this app uses. **Honest about what this CSP does and
+doesn't buy**: `script-src` has to allow `'unsafe-inline'`, since the
+entire app is one inlined `<script>` in `index.html` with no build step
+to generate per-request nonces (a static nonce baked into a file built
+once and served to everyone would be visible in "view source" and
+protect nothing) — so this CSP does **not** block a *new* injected
+`<script>` or `onerror=` handler from executing, the way the escaping
+fix above does. What it *does* do, and does for real: **`connect-src`
+is locked to exactly the real hosts this app ever legitimately talks
+to** — `dev.api-hr.shomvob.com`, `staging.api-hr.shomvob.com`, and this
+project's own Supabase project — so even if some *future* bug
+reintroduced an injection point, a browser enforcing this header would
+refuse any `fetch`/`XHR`/`sendBeacon`/image-ping an injected script
+tried to make to an attacker's own domain, cutting off the exfiltration
+step even if the injection itself succeeded. `frame-ancestors 'none'`
+also closes the clickjacking gap noted in the same review — a
+meta-tag CSP can't set this directive at all, which is the reason this
+needed a real `vercel.json` header rather than another `<meta>` tag in
+`part1.html`. This file only adds response headers — no `builds`,
+`framework`, or `buildCommand` key — so it does not change how Vercel
+serves this as a plain static site, and doesn't reintroduce the
+"there must never be a `package.json` at the repo root" problem above,
+since it isn't one.
+
+## Tests
+
+`tests/` holds browser tests that drive the built `index.html` in Chromium,
+fill each form, download the generated `.xlsx` and assert on its contents.
+Run them after any change under `src/` (build first — they test the built
+file, not the sources):
+
+    python build.py
+    cd tests && npm run setup   # once
+    npm test
+
+Thirteen suites (`faq.test.js` and `dashboard.test.js` added 2026-09-29),
+938 checks as of the Employee Add Pay Type feature (2026-10-05) — this
+number drifts with every change, so treat it as
+a last-known snapshot, not a promise. `appearance.test.js` is the odd one: it opens two
+contexts, one per OS colour scheme, because "auto follows the OS" cannot
+be checked from a single one. Its colour assertions read the computed
+background's average channel rather than an exact hex, so a palette tweak
+does not fail a test about the switch working. `company-setup.test.js`
+mocks every network call (`page.route()`) rather than touching the real
+Supabase project or either Shomvob environment. `gate.test.js` is the
+only suite that inspects the login gate's own DOM before signing in —
+every other suite clears it immediately via `signIn(page)`.
+
+Each assertion maps to a rule in `SPEC.md`; if one fails, check `SPEC.md`
+before changing the test.
+
+`watchPageErrors(page)` in `tests/lib.js` collects console and request
+failures for the "no page errors" check. It ignores failures of the Google
+Fonts stylesheet — the page's one external dependency, which has failed a
+whole suite on a network hiccup — while still failing on a broken local
+asset, since resource failures are judged by URL. Don't widen that filter
+to cover `assets/`. The test tooling lives entirely inside `tests/`,
+including its `package.json` — a `package.json` at the repo root would make
+Vercel try to build what is deliberately a no-build static site.
+
+### Leave Balance Add — built, tested, do not change without asking
+
+The odd one out: it generates almost nothing. The user uploads the
+system's own export (sheet `Leave_Balance_Already_Used_Upda` — that name
+is truncated at Excel's 31-char limit and must be reproduced as-is), and
+every column except `Already Used Leave` is carried through untouched,
+row order included. Full rules in `SPEC.md`; the traps:
+
+- **Read, don't invent.** Employee IDs, names, leave types and allocations
+  all come from the uploaded sheet. Leave types are configured per company
+  — the sample account had one called "Fight With Voldemort" — so they can
+  never be hardcoded, and employee IDs follow no single prefix pattern.
+- **`Already Used < Total Allocated + Earned Leave`**, strictly. Used
+  leave is *not* bounded by earned leave; the real export broke that on
+  361 of 550 rows.
+- **Values are half steps** (0.5), and are scaled by how far into the
+  calendar year today is — January small, October large.
+- **An update may only increase.** A row that already carries a value must
+  come back larger; a row already at its ceiling comes back untouched and
+  is counted in the report rather than clamped.
+
+### Payroll Custom Field Add — built, tested, do not change without asking
+
+Fills in the system's own export, same shape of problem as Leave Balance.
+Sheet `Custom Add-Deduct`. Columns A and B are Employee ID and Name;
+everything after them is a custom field the company configured. Full rules
+in `SPEC.md`; the traps:
+
+- **Field names are read from the header and reproduced verbatim.** The
+  real export's names contain typos (`Maintainance`, `Quiditch`) — do not
+  hardcode them and do not correct them. The count of fields varies too.
+- **The sign is a `(+)`/`(-)` suffix on the header**, so it is parsed for
+  display only and written values stay positive. Both signs draw from the
+  same user-supplied amount range.
+- **Coverage is a percentage applied per cell**, not per employee. That is
+  deliberate: it means some employees come out entirely zero, which the
+  user explicitly asked for.
+- **A cell that already has a value is never touched**, so re-running on a
+  partly filled file cannot undo earlier work.
+- **The output reuses the uploaded filename** — it carries a company code
+  (`H`) that cannot be derived.
+
+## Inspecting a template
+
+`python tools/probe_xlsx.py <template.xlsx>` dumps sheets and visibility,
+head cells with number formats, data validations (dropdown sources and
+date/number constraints), comments, freeze panes and merged ranges. Needs
+openpyxl. Use openpyxl rather than SheetJS for this — SheetJS cannot read
+data validations, which is exactly where dropdown option lists live.
+
+## Where this stands — phase 1 complete (2026-09-09)
+
+All five operations are built, tested and pushed — 224 browser checks
+across six suites. The app is feature-complete against the five templates
+the user supplied.
+
+The holiday table is the user's own HR calendar rather than our draft, so
+nothing in the app is knowingly guessed.
+
+**The generated files have been uploaded into the real Shomvob HRIS and
+the importer accepted them** — the user did that himself on 2026-09-09 and
+reported no errors. That was the project's largest unknown for its whole
+life: every rule here was inferred from a template and confirmed in
+conversation, and the test suite could only ever prove a file matched its
+template's *shape*, never that the importer would take it. It now has.
+
+So the rules in `SPEC.md` are no longer only "what the user told us" —
+they are what the system actually accepts. Treat that as the strongest
+evidence in the repo, and don't relitigate a rule against a fresh reading
+of a template. If a real upload ever does fail, fix against that error's
+actual text rather than re-deriving from the template.
+
+Phase 1 is closed. Phase 2 — Company Setup — started 2026-09-09; see its
+own section below. Its scope came from a separate conversation with the
+user; don't assume the rest of it from what phase 1 contained.
+
+## Phase 2 — Company Setup (started 2026-09-09)
+
+Phase 1 generates files for a human to upload by hand. Phase 2 is a
+different kind of thing: a sidebar page, under **Setup** rather than
+**Operations**, that calls a real Shomvob environment's own API directly
+and writes into a real test company — departments, designations,
+branches, leave types, payroll configuration, and eventually the rest of
+what a fresh company needs before anyone can use it. `currentOp ===
+"company_setup"`, routed in `renderMain()` like any other page, but nothing
+else about it is like the other five.
+
+**This is the one part of the app that is not risk-free**, and every
+decision below follows from that one fact.
+
+### Two logins, not one
+
+The section is gated twice, and the two gates are not the same kind of
+thing:
+
+1. **Bulk Forge's own sign-in** — email + password, checked against
+   Supabase Auth (`supabaseSignIn()`). This is what decides *who may open
+   this section at all* — nothing more; it no longer touches which
+   environment anything talks to (see below). Sign-up is switched
+   off on the Supabase project (`Authentication → Sign In / Providers →
+   Allow new users to sign up`, unchecked), so passing this gate really
+   means "someone added this email in the Supabase dashboard by hand" —
+   nothing in this repo controls that list, and nothing here should try
+   to.
+2. **The real company login** — once step one passes, a second form asks
+   for a company-admin email + password, checked by the actual Shomvob
+   dev or staging server (`companySignIn()`, `POST {apiBase}/auth/login`).
+   This is what decides *what the section can actually do*: there is no
+   separate permission model layered on top of it. Whatever that account
+   can do through the real HRIS is exactly what this page can do on its
+   behalf, no more — the page inherits the account's permissions rather
+   than asserting any of its own. **This form also picks which real
+   server it's checked against** (dev/staging, via the same `.seg`
+   control used elsewhere, e.g. the ID-source picker) — moved here from
+   step one, 2026-09-26, see "Two servers, fixed at build time" below.
+
+The company token is **never written to storage** — no `localStorage`,
+no cookie, no `sessionStorage`. A reload clears it unconditionally,
+every time, on purpose. The tool token's story is more complicated —
+see below; it *is* persisted now, as of 2026-09-11.
+
+**Both tokens were tried in `sessionStorage` for a few hours on
+2026-09-10** — so a reload wouldn't force two real passwords to be
+retyped, which had been flagged as a real workflow cost. Reverted the
+same day, on further reflection from the same conversation: the joke
+gate in front of this whole section is exactly that, a joke — one
+click, credentials printed on the card. If the two *real* logins
+(Supabase tool sign-in, real company admin) survive a reload too, the
+section's actual security boundary quietly becomes "is the tab still
+open," which isn't a call Bulk Forge should make on the user's behalf.
+Both logins went back to memory-only, gone on any reload.
+
+**Revisited narrower on 2026-09-11**, after "no warning at all on
+reload" (below) was found and fixed and the user asked for this
+directly: being signed into the *tool* only ever decided who may open
+this section at all — an allowlist check against Supabase, never
+forwarded to any real Shomvob endpoint. Persisting just that one
+doesn't touch the boundary the 2026-09-10 reversal was protecting,
+because the *company* login is what actually grants access to do
+anything to a real company, and it's still never persisted — a restored
+tool session lands directly on "Sign in as the company" (step two)
+instead of the dashboard, with that step's fields unconditionally
+empty, every time. `TOOL_SESSION_KEY` (`sessionStorage` again, never
+`localStorage`, so it's gone once the tab/browser actually closes, not
+indefinitely) carries `toolEmail`/`toolToken`/`env`/`expiresAt` — the
+last checked against Supabase's own token lifetime on restore rather
+than treated as good forever. Saved in `wireSetupSignIn()`'s own success
+handler; restored in `init()`, before the first render, which is also
+what sets `currentOp = "company_setup"` so the restored session opens
+directly on this section rather than the dashboard. `clearToolSession()`
+is called only from Sign out (never Disconnect, which is meant to leave
+the tool session alone and only end the company one) — signing out for
+real should not quietly come back on the next reload.
+
+**What's kept in a separate, token-free key regardless**
+(`SETUP_LAST_SESSION_KEY`, `saveLastSetupSession()`/
+`loadLastSetupSession()`/`clearLastSetupSession()`): which
+company/environment was last connected, and which modules were actually
+saved there (`doneModules`, as a plain array — no tokens, nothing that
+grants access on its own). Two things use it:
+
+- **`lastSessionNoticeHtml()`**, shared by both login-step templates
+  (originally step-one-only; since a reload increasingly lands directly
+  on step two now, step two needed to be able to show it too) — when
+  this key is present, shows a named reminder: "You were connected to
+  **X** on Y before — sign in with the same company account to pick up
+  where you left off." So losing the company connection reads as an
+  explained, expected thing rather than an unexplained blank form.
+- **Reconnecting to the exact same company on the exact same
+  environment** restores `doneModules`, so the green dots reappear and a
+  batch of real writes doesn't lose its own progress indicator just
+  because the session that made them ended. Reconnecting to a
+  *different* company gets a clean 0/N, on purpose — done-dots from one
+  company are meaningless for another. `saveLastSetupSession()` is
+  called from `wireSetupGroupPage()` rather than `renderSetupBody()`,
+  because every module's own save handler re-renders by calling that
+  function directly — it's the one place guaranteed to run right after
+  `doneModules` actually changes. Both Sign out and Disconnect call
+  `clearLastSetupSession()`, so the marker doesn't linger to (mis)inform
+  whoever signs in next.
+
+### Two servers, fixed at build time, never a text field
+
+`ENVIRONMENTS` in `src/app-data.js` is the complete list — `dev` and
+`staging`, each with its own `apiBase`. **There is no third option and no
+field anywhere to type a URL into.** Adding an environment, or ever
+pointing this at production, means editing that file and running
+`python build.py`, not something that can happen by clicking around the
+page. This is deliberate: a tool whose whole second half is "write data
+into a real company" should not have a path from "I mistyped a URL" to
+"I just flooded production."
+
+**Moved from step one to step two, 2026-09-26** — direct request
+("ekhon ota company login er shomoy diba" — now give it during the
+company login instead). The environment only ever decided which real
+Shomvob server *step two's own login* is checked against, so asking
+for it during step one (Bulk Forge's own tool sign-in, before the
+company account is even typed in) was one step earlier than it needed
+to be. `setup.env` itself, `ENVIRONMENTS`, the "no third option, no
+field to type a URL into" discipline above — none of that changed,
+only which step's template renders the `.seg` (`#setupCoEnvSeg` now,
+was `#setupEnvSeg`) and wires its click handler
+(`wireSetupCompanyLogin()` now, was `wireSetupSignIn()`). Switching
+Dev/Staging on step two updates that step's own note text (which names
+the environment twice, "The company-admin login for the X company...
+checked by the real Shomvob X server") and the persistent strip
+without a full re-render — snapshotting nothing, since the click
+handler only ever touches the seg's own `aria-pressed` state, the note
+text and the strip, exactly the same "don't lose a hand-typed value to
+a re-render" discipline every toggle in this file already holds itself
+to, just achieved here by not re-rendering at all rather than by
+re-reading inputs first. `#setupEnvSeg`'s own equal-width CSS rule
+(`app.css`, "Dev is a third the width of Staging otherwise") moved to
+`#setupCoEnvSeg` alongside it — missed on the first pass, caught by
+this file's own test (`tests/company-setup.test.js`, block B) failing
+on exactly that check.
+
+**Reordered the same day, direct follow-up from a screenshot** (a red
+box drawn around the Environment control: "eta niche dao creds er" —
+put this below the credentials): the picker had landed above
+Email/Password on step two, mirroring where it sat on step one before
+the move — but this step's own natural reading order is "who are you
+logging in as, then which server" the same way every other real
+credential form in this app reads top-to-bottom. Environment is now
+the last field before Continue, Email/Password lead. Purely a markup
+reorder in `setupCompanyLoginTemplate()` — same ids, same click
+handler, same "no full re-render" behaviour, nothing else about the
+feature changed.
+
+The environment picked in step two is shown for the rest of the session
+in a persistent strip above the page body (`#setupStatusBar`,
+`setupStatusBarHtml()`) — an `.env-badge`, coloured by environment (`--env-
+dev` / `--env-staging` tokens in `src/app.css`, blue and purple). Those
+are new hues, not reused from the existing palette: not the app's one
+green (reserved for accent/success), not the warning gold, not the danger
+red — an environment is an identity, not a verdict, and needed to read as
+clearly different from all three of those as it does from the other
+environment. The strip is meant to answer "which server am I about to
+touch" without having to scroll up, which is the whole reason it lives
+outside `#setupBody` and survives every step past the first.
+
+**Revised the same way twice, on user feedback (2026-09-10):** the strip
+originally trailed the company name and role at the end, after the
+tool's own sign-in email, and sat under a static "Company Setup" title +
+"Sign in here first, then sign in again..." paragraph that never
+changed once you'd done exactly that. Both were flagged as clutter once
+actually connected and looking at a module: the instructional paragraph
+is stale advice for a step already finished, and the strip buried the
+one thing that matters most for safety — which real company you're
+about to write into — behind your own email address.
+
+Fixed by making the whole `.page-head` (`setupPageHeadHtml()`) render
+nothing once `setup.toolToken` exists — it only ever earns its place
+pre-login — and reordering the strip so the environment badge and
+company name (with a small building icon, `SETTINGS_GROUP_ICONS.company`
+reused at 15px) lead at full weight, with the tool's own email pushed to
+the far side via a flexible spacer and shown small and muted next to
+Sign out. Both are re-rendered from `renderSetupBody()` now, alongside
+the strip, so they react immediately to sign-in/sign-out without needing
+a page navigation away and back.
+
+**The "Connected" banner (`setupConnectedTemplate()`), same day:** two
+more things flagged on the same screenshot. First, "Disconnect this
+company" used `.tiny-btn` — a dashed border, muted text, the app's
+generic low-emphasis style used everywhere for things like Regenerate —
+which read as a caption rather than a clickable action sitting inside a
+solid green banner. Given its own `.disconnect-btn` instead: a solid
+border, filled surface background, and a hover state that inverts to a
+solid green fill, so it reads as a real button without touching
+`.tiny-btn` and changing how every other Regenerate/retry button in the
+section looks. Second, the banner's "Signed in to **X** on Y, as **Z**."
+was a run-on sentence for exactly the three facts that matter — reused
+the `.rule-row`/`.rule-col`/`.rule-val` label:value pattern already
+built for Employee Add's "Fixed generation rules" list (`CLAUDE.md` →
+Operations) instead of inventing a new table component, so Company /
+Environment / Role now read as a short stacked list.
+
+**Merged into the persistent strip entirely, same day, on further user
+feedback:** the exact duplication flagged above — this banner and the
+statusbar above it stating the same three facts twice in a row — was
+called out directly once both were visible on one screenshot, alongside
+a second ask: keep the reminder visible on *every* Company Setup screen,
+not just the group grid. Both are solved by the same fix. There is now
+exactly one persistent strip (`setupStatusBarHtml()`, still the same
+`#setupStatusBar` div outside `#setupBody`), and it renders one of two
+shapes depending on state: the plain one-line strip (env + tool email +
+Sign out) before a company is connected, since there's nothing to
+confirm yet, or the full "Connected" banner (env/company/role rows +
+Disconnect *and* Sign out side by side) once one is. `setupConnectedTemplate()`
+(the group grid's own template) no longer renders a banner at all — just
+the hint line and cards — since the persistent strip now covers it, on
+the grid and on every module page alike. The Disconnect button's click
+handler moved from `wireSetupConnected()` (grid-only) into
+`renderSetupBody()` itself, next to Sign out's, since the banner it
+lives in is now wired on every render regardless of which page is
+showing.
+
+### The Supabase project itself
+
+Project `Shomvob Bulk Generation`, org `Shomvob SQA` (a shared team
+account, not any one person's). `SUPABASE_URL` and `SUPABASE_ANON_KEY` in
+`src/app-data.js` are the **publishable** key — safe in a public page by
+design, since it identifies the project rather than authorizing anything
+by itself. The `service_role` key must never appear anywhere in this
+repo; it bypasses the row-level security this project doesn't even need
+yet, since there are no tables — this integration only ever uses the Auth
+service.
+
+The project has no tables and doesn't need any: the "allowlist" *is* the
+Supabase user list. Anyone the user adds by hand in the dashboard
+(Authentication → Users) can sign in; nobody else can, because sign-up is
+off. If an audit log of who ran what against which environment is ever
+wanted, that would need a table and RLS — deliberately not built yet,
+since nothing past step one currently needs one.
+
+**Allowlist admin done directly via SQL against this Supabase project
+(2026-09-19), not just the dashboard.** Two real logins were
+troubleshot this way, both via `mcp__claude_ai_Supabase__execute_sql`
+against project `wtlaiidtiugxirqcxjzw`:
+
+- `tamjida@shomvob.com` — added via the dashboard's "Add user", but the
+  email came back unconfirmed and couldn't sign in until
+  `UPDATE auth.users SET email_confirmed_at = now(), confirmed_at =
+  now() WHERE email = '...'` was run directly. (Adding via the
+  dashboard with "Auto Confirm User" checked avoids this step going
+  forward.)
+- `tanvir@shomvob.com` — confirmed and structurally identical to two
+  known-working accounts (not banned, not deleted, `provider =
+  "email"`, valid hash present), yet still couldn't sign in. Since SQL
+  can't verify whether a password matches a bcrypt hash, the working
+  fix was to just reset it to match what the user was actually typing:
+  `UPDATE auth.users SET encrypted_password = extensions.crypt('<the
+  password>', extensions.gen_salt('bf')), updated_at = now() WHERE
+  email = '...'` — `pgcrypto` is enabled on this project
+  (`extensions` schema) and its `crypt()`/`gen_salt('bf')` is the same
+  bcrypt scheme Supabase Auth itself uses, so this is a safe, real fix,
+  not a workaround that half-works.
+
+**New users can be created the same way, in bulk, without touching the
+dashboard at all** — the user asked directly ("ami tomake user list
+dile add kore dite parba na?") and confirmed this is now the expected
+path going forward: hand over email+password pairs, they get inserted
+straight into `auth.users` via SQL with `email_confirmed_at` already
+set (so no separate confirm step is needed), rather than clicked
+through the dashboard's "Add user" form one at a time.
+
+### CORS
+
+Supabase's Auth endpoint sends its own CORS headers for every project, so
+step one works from the deployed Vercel origin with nothing extra. Step
+two does not: `dev.api-hr.shomvob.com` and `staging.api-hr.shomvob.com`
+each need to answer the page's origin's requests, which is a change on
+their side, not this repo's. `companySignIn()` cannot tell an actual
+network failure apart from a CORS rejection — `fetch` throws the same
+generic error for both — so it assumes CORS, since that is the likelier
+story for a server that already answers Postman fine, and says so rather
+than showing a bare "network error".
+
+### A 401 gets a named message, not the server's raw string (2026-09-10)
+
+Every module's save call, and `fetchCompanyResource()`'s dependency
+checks, otherwise show the real server's own `message` verbatim on
+failure — deliberate, same discipline as the two logins, so whatever
+Shomvob's API actually says is what a QA engineer sees. That discipline
+has one carve-out: a plain `401` is never shown as the server wrote it.
+
+Found live: a real staging company token expired mid-session, and
+Designation Management showed the server's own `"Unauthorized access!"`
+behind a `loadError` state whose only control was "Try again" — which
+could only ever fail again, since retrying sends the same stale token.
+Every module's save function and `fetchCompanyResource()` now check
+`res.status === 401` *before* their own success-code check and throw a
+named message instead: `"Your session with this company may have
+expired — use \"Disconnect this company\" above and sign in again."` —
+pointing at the one control that actually fixes it (in the persistent
+strip, visible on every page since the same day's earlier fix), rather
+than a retry that can't.
+
+**Deliberately not applied to `supabaseSignIn()`/`companySignIn()`** —
+the two login functions themselves. A `401` *during login* is a
+completely ordinary wrong-password response, already handled correctly
+("Wrong email or password."); showing "your session expired" there would
+be actively wrong, since there was never a session to expire yet. The
+fix is scoped to the ~22 functions that call a real endpoint *using* an
+already-issued `companyToken`, never to the two calls that issue one.
+
+### Navigation model for the settings modules (confirmed & built 2026-09-09)
+
+Settled before any module was built, because it changes what "add a
+module" means: **the ~20 settings modules are a free-pick grouped grid
+in the main content area, never a sidebar submenu and never a numbered
+wizard.** Two levels, both implemented:
+
+- **The sidebar stays exactly one line — "Company Setup" — forever.**
+  Nesting ~20 items under it (mirroring the Postman collection's own
+  `00_/01_/02_.../03_...` folder numbering) was the instinctive first
+  idea and was rejected: it would make Setup's sidebar footprint dwarf
+  every one of the five Operations, and it breaks the one rule the
+  sidebar has held since phase 1 — it switches top-level pages, never a
+  page's internal workflow.
+- **Level 1 — the group grid.** Once connected, `setupConnectedTemplate()`
+  renders one card per entry in `SETTINGS_GROUPS`
+  (`src/app-data.js`) — **Company Settings, Employee Settings,
+  Attendance Settings, Leave Settings, Payroll Settings** (this order,
+  direct request 2026-09-14 — `SETTINGS_GROUPS`' array order is the only
+  thing that decides it, so reordering the cards is just reordering that
+  array) — each showing an `n/total done` count for the session
+  (`groupDoneCount()`), and always laid out in a single row
+  (`grid-template-columns: repeat(SETTINGS_GROUPS.length, 1fr)`, set
+  inline rather than a fixed number, so it stays one row whatever the
+  count is — falls back to wrapping under 900px, where equal-width
+  columns stop being legible). **Clicking a card opens that group**;
+  there is no *enforced* order (nothing blocks opening Payroll Settings
+  before Leave Settings), the array order is purely the grid's
+  left-to-right reading order. (Offboarding filled this slot in the first
+  draft and was wrong — it isn't one of the real Settings groups in the
+  Postman collection; Attendance Settings is, and had been missed
+  entirely. Corrected 2026-09-09.)
+
+  **All 5 group labels finally match the real Postman collection's own
+  folder names, 2026-09-14** ("Attendance Leave Payroll er sathe Settings
+  word ta nai" — flagged directly, from a screenshot). The collection's
+  top-level Settings folders are literally named "Company Settings",
+  "Employee Settings", "Attendance Settings", "Leave Settings", "Payroll
+  Settings" (confirmed by reading `HRIS_Collection_sanitized_for_other_pc.json`
+  directly) — `SETTINGS_GROUPS`' own labels for the last three had
+  drifted to the bare "Attendance"/"Leave"/"Payroll" at some point and
+  were never caught, despite "Attendance Settings" being named correctly
+  in this very file's own prose (above) the whole time. Every existing
+  `.settings-card:has-text('Payroll')`-style test selector still matches
+  fine, since Playwright's `:has-text()` is substring, not exact — only
+  the one test asserting the exact label array needed updating.
+- **Level 2 — a group's own tabbed page**, added the same day after
+  comparing two real screenshots of the actual HRIS admin (its "Company
+  Settings" and "Org Structure" pages both use exactly this pattern —
+  recreated from that source, not invented): `setupGroupPageTemplate()`
+  shows a `.settings-tabs` strip of every module in the group, and
+  `wireSetupGroupPage()` switches between them on click with no
+  requirement to visit them in any order. A tab whose module was saved
+  this session carries a small green dot. Modules with no code behind
+  them yet render `settingsComingSoonHtml()` — the same honest
+  placeholder unbuilt operations get in `renderMain()`, just scoped to
+  one tab instead of a whole page.
+- **Only a genuine data dependency blocks a module, and only that one
+  module** — checked live against the real company (e.g. Designation
+  needs a Department to exist, Leave Policy needs a Leave Type), never
+  by position in a list. A blocked module shows one line naming what's
+  missing plus a shortcut straight to that specific module, not a tour
+  of unrelated ones. Most of the ~20 modules have no dependency at all
+  and simply open. (Not yet needed by Company Profile, which has none —
+  first real use will be whichever module needs it first.)
+- The mockup that settled level 1 (three states of the grid plus an
+  explicitly-rejected linear-wizard alternative, shown side by side) is
+  worth keeping as a reference if this gets relitigated:
+  https://claude.ai/code/artifact/192ba11b-5e7c-43ce-99a1-f0550e8a09bc
+
+**Company Setup gets a wider content column than the five generators**
+(`.main-inner.wide`, 1100px vs. the default 760px) — its field-rows,
+textareas and tab strip actually use the room; the generators keep the
+narrower column they were designed for readability at. `renderMain()`
+adds the `wide` class only on the `company_setup` branch and every other
+branch removes it (`paintOperation()` removes it for the five
+operations, the welcome and coming-soon branches remove it directly), so
+it can never leak onto another page.
+
+**Every button in this section that makes a real network call** —
+sign in, the company login, Company Profile's Save — shows a spinner
+plus one line from `BUSY_MESSAGES` (`app-data.js`), picked at random via
+`setBtnBusy()`/`clearBtnBusy()` in `app.js`, so a real wait always gets
+a moment of the app's own voice instead of a bare disabled button. Kept
+mostly English per the "no Banglish in the product" rule, except one
+entry kept verbatim as a deliberate wink rather than dropped outright.
+**Reversed 2026-09-13:** Regenerate has no real wait — it's synchronous,
+no network call — and for the first three days of this section that was
+the reason it got no spinner at all: the busy state was reserved for
+places with an actual delay to fill. In practice a re-roll can land on
+values that look similar to the old ones (same bank name, same policy
+number range), so a click with truly zero feedback read as "did this do
+anything?" — reported directly by the user. Every Regenerate button now
+goes through `wireRegenerate()` in `app.js`: it shows a spinner + "Regenerating…"
+for a minimum of `REGENERATE_MIN_MS` (1000ms) before the real re-roll and
+re-render run, even though the re-roll itself is instant. This is a
+deliberately fake wait, unlike every other spinner in this section, which
+is why it's its own small helper rather than reusing `setBtnBusy()` —
+that pair is reserved for calls with a real network wait to fill.
+
+**Colour pass (2026-09-09):** the first build of this section leaned on
+plain white/grey/black and read as flat next to the rest of the app.
+Fixed by reusing existing tokens and patterns rather than inventing
+new ones — `SETTINGS_GROUP_ICONS`/`settingsGroupIcon()` draws one accent-
+green line icon per group card (Leave and Payroll reuse their operation
+icons outright); each card's done count is the app's existing `.tally`
+component (`.tally.ok` once every module in the group is done) instead
+of plain grey text; the "Connected" banner reuses the same success-soft
+treatment `.tally.ok`/`.validation-banner` already use for status
+elsewhere, rather than a plain white `.section`; and the active tab's
+label is accent-coloured. Deliberately did *not* add a left-border
+accent stripe on the cards — that's the one AI-slop container pattern
+this app's own design guidance calls out to avoid.
+
+A same-day follow-up: the shared `.page-desc`/`.section-note`/`.tally`
+classes read noticeably lighter here than the rest of Company Setup
+warranted. Sizes and weights are bumped via `.wide .page-desc` /
+`.wide .section-note` / `.wide .tally` / `.wide .settings-card-name` /
+`.wide .settings-tab` — scoped to the `wide` class so the five
+generators, which share those same base classes, keep the weights they
+were designed at. `.wide` only ever applies to Company Setup, so this
+can't leak.
+
+**Per-module icon (2026-09-10, revised same day):** each of the 21
+settings modules carries its own small icon at the right end of its
+content card's own header row (`SETTINGS_MODULE_ICONS`/
+`settingsModuleIconHtml()` in `app.js`) — a bank icon for Bank Info, a
+map pin for Locations, a percent sign for Tax, and so on, one distinct
+glyph per module rather than reusing its group's icon. Injected **once,
+centrally**, in `setupGroupPageTemplate()`: every module template's
+returned HTML, whichever of its own states
+(ready/loading/error/blocked-on-dependency) is currently rendering, ends
+its section-head with the same literal `</h2></div>`, so a single
+`body.replace("</h2></div>", ...)` right after `handler.template()` runs
+plants the right module's icon as the header's second flex child —
+`.section-head`'s own `justify-content: space-between` puts it at the
+far right for free — without editing all 21 templates individually.
+Themeable for free — the SVG uses `stroke="currentColor"` with no fill,
+`.module-icon` sets `color: var(--accent)` at a low opacity, so it reads
+correctly in light, dark and auto without a single hex value; verified
+with Playwright screenshots in both `colorScheme: "light"` and `"dark"`
+contexts.
+
+**First attempt, dropped the same day:** the very first version was a
+large, low-opacity watermark absolutely positioned in the card's
+bottom-right corner. Two things about it didn't hold up once actually
+looked at: bottom-anchoring put it below the fold on every card taller
+than one screen (most of them), so it was essentially never seen, and
+`overflow: hidden` on the card sliced a visible chunk off it on cards
+where it wasn't. The header-row icon fixes both by construction — a
+normal flex child has nothing to clip and can't end up below the fold,
+since the header is the first thing rendered when a tab opens. Worth
+remembering if a "watermark" idea comes up again for this app: a large
+decorative background mark and "always inside a scrollable, variable-
+height card" don't mix well.
+
+### "Go to next settings" (2026-09-12)
+
+One tab over within the *current* group, never across into the next
+group, and absent entirely on a group's own last module — there's
+nothing to go to from there. Rendered in `setupGroupPageTemplate()`,
+outside the module's own `body` (unlike the per-module icon above,
+there's no single common closing pattern across all 21 templates to
+`replace()` on, and a page-level "next" control doesn't need to live
+inside the card anyway): `group.modules[modIndex + 1]` decides whether
+`#setupNextModuleBtn` renders at all, and its own label always names the
+specific module it goes to ("Go to next settings: Bank Info →"), not a
+generic "Next." Wired once in `wireSetupGroupPage()`, same
+`isBulkRunActive()` guard every other navigation here already has —
+mid-bulk-run, a click on it is ignored exactly like a tab click would
+be, rather than needing its own separate mid-run guard.
+
+### Company Setup escapes every rendered string now — a real stored-XSS fix (2026-09-19)
+
+Found during a full security review requested directly by the user,
+covering the complete codebase rather than a diff: Phase 1 (the five
+original generators) has always run every user/file-supplied string
+through `escapeHtml()` (app.js, defined once, used 26 times there)
+before it goes into `innerHTML`. **Company Setup — roughly 5,800 lines,
+built entirely after Phase 1 — never called it once.** Every Name/Title/
+Legal Name/Bank Name/Address/… input's `value="..."`, every module's
+`.error`/`.ok` line, `setup.companyName`, `createdListHtml()`'s tags,
+every bulk list's row name and department-group heading, the Leave
+Policy checkable list's leave-type names, and every "already has
+values"/"already exists" notice that names a real fetched field or
+record — all interpolated raw.
+
+**Why this was a real vulnerability, not a theoretical one:** a
+department, leave type, designation, or custom field name is not just
+displayed once where it's typed — it's saved to the real company via
+`POST`, then **read back** by this app's own existing-checks, "already
+has values" notices, dependency dropdowns, and the Leave Policy list,
+every time anyone reopens that module for that company. So a payload
+doesn't need to be planted through Bulk Forge at all: anyone with
+ordinary access to the *real* Shomvob product can name a department or
+leave type with a script-bearing payload, and it executes the next time
+any Bulk Forge operator — potentially someone with company-admin access —
+opens that module for that company, in the same page holding that
+operator's live, authenticated bearer token. The tool-level session
+(`TOOL_SESSION_KEY`) sits in plain `sessionStorage`, directly readable by
+an injected script; the company bearer token itself is a closed-over
+variable, but every API call in this file uses the bare global `fetch`
+(no captured reference), so an injected script overriding `window.fetch`
+can intercept it the next time any Save runs. This is a genuine
+privilege-escalation chain, not a defacement bug — confirmed against
+the real code, not asserted from theory.
+
+**What this fix does *not* touch:** the app's own environment
+allowlist — `ENVIRONMENTS` (`app-data.js`) still hardcodes only `dev`
+and `staging`, no production URL exists anywhere in this codebase, and
+that (not this fix) is what keeps a full compromise of this tool from
+ever being able to reach real Shomvob production. This fix closes the
+path to compromising a live session against whichever dev/staging
+company is connected.
+
+**Mechanism:** `escapeHtml()` was made defensive first
+(`String(s == null ? "" : s).replace(...)` instead of `(s || "")
+.replace(...)`) — several Company Setup fields are genuine JS numbers
+(latitude, a salary percentage), not strings, and the original version
+throws on anything without its own `.replace()` method. With that in
+place, every render site was wrapped: field `value=`/`<textarea>`
+content, every `.error`/`.ok` line, `createdListHtml()`, `bulkStatusHtml()`
+and `bulkListTemplate()`'s row name/group heading, every "already has
+values" existing-check notice (including one real fallback path in
+Payroll General's cycle label that rendered the raw API value verbatim
+whenever it didn't match one of the 3 known cycle names), and the
+handful of `setup.companyName`/`setup.toolEmail` renders in the
+persistent strip and last-session notice. Deliberately **not** applied
+at the point a field's value is *constructed* (e.g. `legalName =
+\`${setup.companyName} ${suffix}\``) — only at the point it's
+*rendered* — escaping earlier would corrupt the actual value sent to
+the real API, which is a functional bug in its own right, not a fix.
+
+**Verified directly, not just reasoned about:** a real Playwright run
+saved a department named `Evil"><img src=x onerror="…">` through the
+single-item form, then separately fed the identical string back through
+a mocked `GET /departments/active` (standing in for someone else having
+planted it via the real product) into the Designation dependency
+dropdown. In both cases the payload rendered as inert literal text —
+`escapeHtml`'s output confirmed character-for-character in the DOM,
+zero `<img>` elements created, the `onerror` handler never fired. Full
+8-suite regression (566+ checks) still green — nothing changed about
+what any module actually sends to the real API, since numbers and
+already-legitimate short names contain none of the 5 characters
+`escapeHtml` touches.
+
+**A second, exhaustive pass the same day found one more spot**: the
+persistent strip's Role row ran the real login response's `data.user
+.type` through `formatRoleLabel()` (a plain title-case transform) but
+never through `escapeHtml()` afterward — same category as everything
+above, just missed in the first pass since it's a *derived* string
+(passed through a formatting function first) rather than a raw field.
+Fixed the same way (`escapeHtml(formatRoleLabel(setup.companyUserType))`).
+Confirmed nothing legitimate breaks from any of this: a company/
+department name containing an apostrophe, an ampersand, and a double
+quote (`O'Brien & Sons "HR" Dept`) round-trips through both the
+persistent strip's display and every Name input's `value=` exactly
+byte-for-byte — `escapeHtml`'s HTML-entity encoding is decoded back to
+the original characters by the browser the moment it renders, so this
+is purely an output-safety measure with no visible effect on correctly-
+typed real data.
+
+### A clear (×) button on every text/number field (2026-09-11)
+
+Requested directly, once real-API testing started turning up fields the
+UI marks as needed (or that the ported script always fills) that the
+real server may not actually enforce — Locations' `officeName`→`name`
+and Attendance Policy's `shifts`/`weekendDays` (both above) were found
+by a manual `curl` session, not by clicking around this app, precisely
+because there was no way to send a field empty from the UI itself.
+`wireFieldClearButtons()` (`app.js`) fixes that: every text/number input
+inside a settings module's `.field` gets a small `×` (reusing `.chip-x`'s
+existing hover/opacity treatment, not a new style) that empties it and
+refocuses it, so a QA engineer can clear a field by hand and click Save
+to see whether the real API actually rejects it.
+
+**Wired once, centrally, in `wireSetupGroupPage()`** — the same shape as
+`settingsModuleIconHtml()`'s injection above: cover every module without
+editing all ~20 templates individually, and automatically cover any
+module added later. Query is scoped to `#setupBody .field input[type=
+'text'], ...[type='number']`, so it only ever touches settings-module
+fields, never the two login gates' email/password inputs (a different
+type, and outside `#setupBody` besides) or any of the five generators'
+own inputs (a completely different part of the page, never rendered
+through this function). Re-wired after every render like everything
+else here, so no stale button survives a Regenerate or a tab switch —
+confirmed by test that the button count doesn't grow across re-renders.
+
+**Purely a UI convenience, deliberately.** It only empties the input's
+`value`; it does not touch what a module's own save function sends. A
+cleared field goes over the wire exactly the way that module's existing
+`read*Form()`/`save*()` already handles an empty string — e.g. Company
+Profile's `tegNo` goes as `""`, Bank Info's `accountNumber` (converted
+with `Number()` at send time) would go as `0`. That inconsistency is
+each module's own pre-existing send-time behaviour, unchanged by this
+feature — the button's only job is letting a real empty value reach
+whichever logic was already there, not to invent a uniform "omit this
+key" behaviour on top of it.
+
+Lives at Company Settings → Company Profile, the group's default tab.
+`PATCH {apiBase}/company-profile` with `Authorization: Bearer
+{setup.companyToken}` — the first real write this app has ever made
+into an actual company. Every field is generated, none typed by hand;
+the generation logic is the Postman collection's own pre-request
+script, ported field-for-field rather than redesigned (`app-data.js`
+holds the pools verbatim: `COMPANY_LEGAL_SUFFIXES`,
+`COMPANY_INDUSTRY_PAIRS`, `COMPANY_DOMAIN_EXTENSIONS`,
+`COMPANY_DESCRIPTION_TEMPLATES`, `COMPANY_MISSION_TEMPLATES`,
+`COMPANY_VISION_TEMPLATES`; `generateCompanyProfileFields()` in
+`app.js` is the port).
+
+- **`legalName` comes from the real connected company's own name**
+  (`setup.companyName`, from the company login response) plus a random
+  suffix — never a value the visitor typed, same principle as the
+  company login itself deciding which company this is.
+- **`tegNo`'s real meaning is unknown to everyone who has touched
+  it** — the Postman script's own author admitted as much in its
+  comments, and the user doesn't know either. A real staging company
+  was found holding free text there (`NOMUGGLESALLOWED`), so the field
+  isn't validated as numeric server-side; the 13-digit dummy pattern is
+  kept anyway because it reads as a plausible registration number for
+  QA data, which a joke string doesn't.
+- **`industry`/`businessType` are a paired pool**, so a generated
+  company never lands on an incoherent combination — the same
+  defensive shape as Employee Add's gender matching its picked name.
+- **Fields stay editable after generating.** Regenerate re-rolls
+  everything; nothing stops fixing one field by hand before Save
+  (verified by test: whatever is in the inputs at Save time is what
+  gets sent, not the last-generated object).
+- **Company Logo is deliberately left out**, on the user's call
+  (2026-09-09) — it is a multipart file upload (`PUT
+  {apiBase}/company/profile-picture`), not generated data, and doesn't
+  fit this module's shape. Revisit later; don't build it as a side
+  effect of touching this module again.
+- Success is the server's own `"Company profile saved successfully"`;
+  failure shows the server's own `message` verbatim, same discipline as
+  the two logins.
+
+**Module dispatch is a lookup table, not a growing ternary chain**
+(added alongside the second module): `SETTINGS_MODULE_HANDLERS` in
+`app.js` maps a module id to its `{template, wire}` pair;
+`setupGroupPageTemplate()`/`wireSetupGroupPage()` fall through to
+`settingsComingSoonHtml()` for any id with no entry. Adding a module
+means adding one entry here, not another branch.
+
+### Bank Info — second settings module (built 2026-09-10)
+
+Company Settings → Bank Info. `POST {apiBase}/company-bank-informations/save`,
+same shape as Company Profile — ported verbatim from the Postman
+collection's pre-request script (`BANK_NAMES`, `BANK_SHORT_CODE_MAP`,
+`MFS_CODES` in `app-data.js`; `generateBankInfoFields()` in `app.js`).
+Two things this endpoint does differently from Company Profile, both
+confirmed against the collection rather than assumed:
+
+- **Success is `201`, not `200`.** `saveBankInfo()` checks
+  `res.status !== 201` explicitly rather than `!res.ok` — a real `200`
+  here would mean something changed upstream and should fail loudly, not
+  be treated as success by accident. Tested: a mocked `200` is treated as
+  a rejection.
+- **`accountNumber` goes over the wire as a JSON number, not a string** —
+  the collection's own request body has it unquoted. Kept as a string in
+  the form (so it edits like every other field) and converted with
+  `Number()` only inside `saveBankInfo()` at send time. Tested: the
+  request actually sent carries a JS `number`, not a numeric string.
+
+`npsbCode`/`beftnCode` are derived from the same bank via
+`bankShortCodeFor()` (`{shortCode}ACT` / `{shortCode}BFT`), so they never
+disagree about which bank they belong to — same paired-field discipline
+as Company Profile's industry/businessType. The map's codes are the
+Postman script's own, not always the bank's real published abbreviation
+(`"Agrani Bank"` → `"AGRANI"`, not any official short form) — kept as-is,
+since matching the script matters more than matching the bank.
+
+### Fixed the same day: per-module state was never cleared on Sign out/Disconnect
+
+Found while adding the third module. `companyProfile.fields` (and
+`bankInfo.fields`) are only ever (re)generated when null — so
+disconnecting from company A and connecting to company B left company
+A's generated values sitting in the form, unregenerated, until someone
+happened to click Regenerate. `resetModuleState()` now wipes every
+module's cache (fields, fetched dependency data, in-flight error/ok
+text) from both `#setupSignOutBtn` and `#setupDisconnectBtn`. **A new
+module's state object goes on this list — it's easy to forget precisely
+because the bug it causes is silent.** Tested: disconnecting Hogwarts
+and connecting Wayne Enterprises regenerates a fresh, correctly-prefixed
+`legalName` rather than keeping Hogwarts's.
+
+### Locations, Department Management, Designation Management (built 2026-09-10)
+
+**The "Locations" entry below describes a module that no longer
+exists** — replaced entirely on 2026-09-24 by Location Types + Locations
+(a different real API the product moved to; see that section further
+down). Kept here as an accurate historical record of what was built and
+why, not as current behaviour — Department Management and Designation
+Management, below, are both still exactly as described.
+
+All three in Company Settings, all ported verbatim from the Postman
+collection. **"Locations" is the real product's own label for this
+screen** (2026-09-09 admin screenshot); the Postman folder calls the same
+endpoint "Branch Management" — confirmed, not left as a guess.
+
+- **Locations (superseded 2026-09-24)** — `POST /company/branches`. `isGeolocation` is a real
+  either/or: off sends `latitude`/`longitude`/`radiusInMeters` as `null`
+  (not zero, not omitted), on sends real numbers offset from Baridhara
+  DOHS (`BARIDHARA_BASE_LATITUDE`/`_LONGITUDE`, the script's own
+  reference point). Toggling it in the UI regenerates or nulls those
+  three fields live; tested both directions send the right JS types.
+  **A real bug, found and fixed 2026-09-10** in a live verification pass
+  against Shomvob staging (real, temporary company-admin credentials,
+  used only in-memory for that session and never written to any file):
+  the Postman collection's own script sends `officeName`, but the real
+  API rejects it outright ("property officeName should not exist") and
+  wants `name`. Kept `officeName` as the internal field name everywhere
+  else in this module (the pool, the label, the state) since it's a
+  clearer label than a bare "name" for a branch — `saveBranch()` renames
+  it to `name` only at the point of building the actual request body.
+  **`Has Geolocation`'s Yes/No toggle, fixed 2026-09-12** (user
+  screenshot, first-page-by-first-page UI pass): as the only control in
+  a full-width `.field`, it read as a small pill floating in a mostly-
+  empty row. Constrained to half width first (same `max-width:calc(50% -
+  8px)` already used for Radius/MFS Code elsewhere), then given
+  `.seg-fill` — a new opt-in modifier class, not a change to `.seg`'s own
+  default — so Yes and No each stretch to fill half of that box evenly
+  instead of hugging its left edge. `.seg-fill` is meant to be reused
+  anywhere else a segmented control is the only thing in a field with
+  real width to fill; applied to Custom Fields' three toggles the same
+  way the next day (below).
+- **Department Management** — `POST /departments`. `code`,
+  `parentId`, `businessLineId`, `departmentHeadId` are fixed values the
+  script always sends, never generated. The script also de-duplicates
+  department names against a per-company tracking list across repeated
+  CI runs — that's Postman's own test-fixture bookkeeping and doesn't
+  apply to a single generate-one-at-a-time settings module, so it wasn't
+  ported.
+- **Designation Management — the first module with a real
+  dependency.** `POST /designations` needs a department to attach to,
+  and the Postman collection enforces exactly this on itself (its own
+  "Get Active Departments" script throws "Age Get Active Departments API
+  run korte hobe" if none exist) — this app checks the same thing live
+  (`fetchCompanyResource("/departments/active")`) rather than assuming.
+  Zero departments → `dependencyNoticeHtml()`, a shortcut straight to
+  Department Management, nothing else touched. The check result is
+  cached for the rest of the company session (`companyDesignation.
+  departments`) so reopening the tab doesn't re-fetch every time — and
+  `saveDepartmentModule()` explicitly invalidates that cache the moment
+  a department is actually saved, so creating one and coming straight
+  back to Designation shows the real, current list without a reload.
+  Tested end-to-end: empty → shortcut → save a department → cache
+  invalidates → real department list appears → pick one → the picked
+  department, not the first one, is what's actually sent.
+
+### "Create the defaults" — bulk mode for Department and Designation (2026-09-10)
+
+Requested directly: a QA engineer setting up a fresh test company was
+recreating Employee Add's own 6 default departments (`DEFAULT_DEPARTMENTS`
+in `app-data.js` — HR, Engineering/IT, Sales & Business, Marketing,
+Finance & Accounts, Operations) and their 4 designations each by hand,
+one save at a time. Both modules now also offer "Or create the
+default(s) at once →", a link that swaps the module's whole template
+into a review list — `companyDepartment.bulk`/`companyDesignation.bulk`,
+`null` in normal single-item mode, `{ items, running, stopRequested }`
+once entered.
+
+**Given real visual weight and moved above the single-item form, not
+just below Save (2026-09-11, user feedback from a first-page-by-first-
+page UI pass):** it used to be a small 12.5px text link tucked under
+`createdListHtml()`, easy to miss entirely next to a filled green Save
+button — wrong for what this app's whole premise is ("this exists for
+people who cannot face typing 4,200 cells"), since the bulk shortcut
+*is* the lazy path and deserves to read as the headline option, not a
+footnote. Now a real button (`.bulk-shortcut-btn` in `app.css` — filled
+soft-accent surface, bordered, hover-inverts solid, same shape as
+`.disconnect-btn`'s "look like a real action, not `.tiny-btn`'s caption"
+fix), sitting right under the section-note, before the single-item
+field. That field's own label now reads "Or just this one — Department
+Name" / "…Designation Name", so the manual path explicitly frames itself
+as the alternative rather than the default reading order implying it's
+the primary one.
+
+- **The list is the run log.** Each item shows its own status inline —
+  not started, creating (spinner), done, or failed with the server's own
+  message — because this is the **first place in Company Setup that
+  loops writes**, the exact risk flagged and deliberately deferred when
+  Company Profile was first built ("some of this already happened on a
+  real server and leaving now doesn't undo it"). `runBulkSequential()`
+  (shared by both modules) creates one at a time, never in parallel, so
+  a mid-list failure — a duplicate name, most likely on a second run —
+  doesn't take down the rest, and each item's real response is seen
+  rather than assumed.
+- **Every item stays individually toggleable**, default all-selected,
+  with a select-all/deselect-all shortcut — tested that unchecking one
+  before creating sends exactly the rest, not all 6/24, and that the
+  unchecked item's row never leaves its starting "not started" state.
+- **Confirmed genuinely broken against a real company, found live
+  2026-09-12: Create had no disabled state once a run finished.** A
+  completed run left every item "done" but the Create button sitting
+  there fully clickable, with nothing telling it that clicking again
+  would just resend the same creates — confirmed live, an accidental
+  second click sent 3 duplicate real `leave-types` POSTs into a real
+  staging company. Fixed at the shared level (`bulkListTemplate()`/
+  `runBulkSequential()`, so this protects Department, Designation *and*
+  Leave Types' bulk mode below, all three at once): a `pendingCount`
+  (selected items not already `"done"`) drives both the button's label
+  and its `disabled` state, a `"done"` item's checkbox is disabled too
+  so it can't be re-selected, and `runBulkSequential()` itself now skips
+  any item already `"done"` regardless — belt and suspenders, so even a
+  forced click (devtools, or a future caller) can't resurrect a
+  duplicate create.
+- **A finished run read as inert rather than a success, 2026-09-12**
+  (user feedback on a screenshot of exactly this state: "kisu ekta
+  dekhao, ektu mora mora lagtese" — show something, this feels
+  lifeless): every row already carried its own small green "done," but
+  with the Create button disabled and every checkbox greyed out, the
+  whole card had nothing that read as a positive result at a glance.
+  Fixed once more at the shared `bulkListTemplate()` level, so Department,
+  Designation and Leave Types' bulk mode all picked it up together: a new
+  `allDone` check (every item `"done"` or `"skipped"`, at least one
+  actually `"done"`, and the run not currently in progress) renders a
+  `.validation-banner.success` — the existing warning-coloured
+  `.validation-banner` component, given a plain success-coloured
+  modifier rather than a new banner shape — reading "All N created
+  successfully." right under the list. Deliberately **not** shown when
+  any item `"failed"`: that row already carries its own visible message,
+  and a blanket success banner sitting above a failed one would
+  contradict it rather than reinforce it.
+- **Stop, checked between items, never mid-request.** The closest thing
+  to a cancel this needs: clicking it lets whichever item is already in
+  flight finish normally (a half-sent write would be worse than an extra
+  one), then halts before the next. Tested with an artificially slowed
+  mock response.
+- **Navigating away mid-run is blocked centrally**, in
+  `wireSetupGroupPage()`'s tab/back-link/dep-shortcut handlers
+  (`isBulkRunActive()`), rather than disabling each control — the list's
+  own re-render is keyed off whichever module is currently active, so
+  switching tabs mid-run would point its progress updates at the wrong
+  module. Not extended to Sign out/Disconnect — those already clear
+  everything unconditionally everywhere else in this section, and
+  choosing to sign out mid-run is a deliberate act, not an accidental
+  click.
+- **Designation's bulk list is built from this company's *real*
+  departments themselves** (`companyDesignation.departments`, the same
+  live check the single-item form already depends on) — **not** from
+  walking the fixed 6-name `DEFAULT_DEPARTMENTS` list and matching each
+  against the real one by name, which is what it did when first built
+  and is **confirmed genuinely wrong, found live 2026-09-12**: a company
+  whose department names don't happen to match those 6 exactly — any
+  custom department, the normal case, not the exception — got a wall of
+  rows shown "skipped," and none of its real departments got a bulk
+  designation option at all. `designationDefaultBulkItems(depts)` now
+  walks the real fetched list instead: a real department whose name
+  matches a known default still gets that default's own curated 4 titles
+  (kept for the realism it was built for), any other real department —
+  however many, whatever they're named — gets `DESIGNATION_NAMES`'s 4
+  generic titles instead. Every row is now for a department that
+  genuinely exists, so there's nothing left to skip; the shortcut
+  button's own label names this company's real department count rather
+  than a hardcoded 6. Same "never silently incomplete" rule the
+  card-based screens in Employee Add already hold themselves to, applied
+  here for the first time to a live dependency instead of a static input
+  — just applied correctly this time, not to a fixed list standing in
+  for the real one.
+- Both bulk creates reuse the exact same `saveDepartmentModule()`/
+  `saveDesignation()` functions the single-item flow calls — a bulk item
+  is not a different kind of write, just one driven from a list instead
+  of a form. A successful bulk department run also invalidates
+  Designation's dependency cache, same as a single department save.
+
+Shared infrastructure added alongside these: `fetchCompanyResource()`
+(the GET-with-bearer-token counterpart to every module's save call) and
+`dependencyNoticeHtml()` (the calm inline notice + shortcut), used by
+Designation today and meant for whichever module needs a dependency
+check next (Leave Policy on Leave Type looks like the next one, from the
+Postman collection's own shape).
+
+### Two more reminders users asked for directly (2026-09-10)
+
+Both flagged on the same real-usage screenshot, after the "create the
+defaults" feature landed and a QA engineer was actually running batches
+through it.
+
+**Which specific module is done, not just a count.** A group card's
+`n/total done` tally never said *which* of the total were the done
+ones — checking meant clicking in. Each card
+(`setupConnectedTemplate()`) now also renders one small dot per module
+in that group (`.settings-card-dot`, grey by default, filled
+`var(--success)` once `setup.doneModules.has(m.id)`), with the module's
+own label on `title` so hovering (or a screen reader) names it without
+needing all of Payroll's 11 labels to fit inside one card at that width.
+Purely a read of the same `doneModules` set the tab strip already
+tracks — no new state, just a second place it's shown.
+
+**A visible "what did I actually create" list, for every module where
+Save makes a brand-new named record rather than editing one in place.**
+A company can end up with several Departments, Leave Types, Custom
+Fields, Bonus Types and so on — `doneModules` only ever said "at least
+one exists," never which ones, and there was no way to tell without
+re-checking the real company. Each of the 11 modules that create a
+distinct named record each save (Locations, Department Management,
+Designation Management, Custom Fields, Required Documents, Leave Types,
+Leave Policy, Salary Components, Bonus Types, Bonus Policy, Custom
+Addition/Deduction) now carries its own `createdNames` array, pushed to
+on every successful save — the single-item form **and** a bulk run push
+to the exact same array, so switching between the two doesn't lose
+track of anything. `createdListHtml()` renders it as a plain, growing
+list of tags under the Save button once it's non-empty. Modules that
+configure one company-wide setting rather than a list of named things
+(Company Profile, Bank Info, Payroll General, Late Arrival, Absent
+Deduction, Overtime, Attendance Bonus, Tax, Attendance Policy,
+Configure Salary Components) deliberately don't get one — there's
+nothing to list, just one thing to have done or not. Cleared by
+`resetModuleState()` on Sign out/Disconnect, same as every other
+per-module cache, so a new company starts with an empty list rather
+than the last one's.
+
+### Custom Fields, Required Documents (built 2026-09-10)
+
+Both Employee Settings, both ported the same way as everything above.
+
+- **Custom Fields** — `POST /company-settings/employee-custom-fields`.
+  `fieldName`/`type` still start as a paired pool (`CUSTOM_FIELD_PRESETS`)
+  on generate/Regenerate, so a fresh field never starts on an incoherent
+  combination — but per user request (2026-09-11, the first of a planned
+  module-by-module pass converting "fully randomised" into "sensible
+  default the user can override"), **Type is now a real `<select>`**
+  (`CUSTOM_FIELD_TYPES`), not free text next to a name the user could
+  only hand-edit and risk a typo on. Changing it live re-derives
+  `enableFilter` (force `false` off `checkbox`/`enum`, the only types the
+  real API allows it for) and `choices` (defaults to a plain 3-item
+  placeholder list when switching *into* `enum` with none yet, cleared
+  when switching away) rather than requiring a full Regenerate. `status`
+  now defaults to `"Active"` on generate rather than a coin flip, and
+  **`enableFilter` now defaults to `false` unconditionally too**
+  (2026-09-12, same request extended to this field) rather than a 50/50
+  roll on `checkbox`/`enum` types — matches the same "don't randomise a
+  deliberate choice" instinct, the existing Yes/No toggle is what lets it
+  be turned on. `Name` stays a random starting value the visitor can type
+  over, unchanged. **All three toggles here** (`Enable Filter`/
+  `Shown As Column`/`Status`) **also got the `.seg-fill` treatment**
+  (2026-09-12, same fix as Locations' `Has Geolocation` above) — each now
+  splits its field's full width evenly between its two choices instead
+  of sitting as a small pill hugging the left edge of mostly empty space.
+  **Fixed the same day, found while editing this exact function:** none
+  of this module's toggle handlers (`enableFilter`/`shownAsColumn`/
+  `status`) snapshotted the Field Name or Choices inputs before
+  re-rendering — the same class of bug Attendance Policy's weekend
+  toggle had (CLAUDE.md flagged it as "worth a pass if it's ever
+  reported" when that one was fixed). `snapshotInputs()` in
+  `wireCustomFieldEvents()` now reads both back into the cached fields
+  object before every re-render this module triggers, including the new
+  Type select's own.
+- **Required Documents** — `POST /required-documents`. Nothing unusual
+  in the body shape; the one thing confirmed rather than assumed was
+  that `status` goes over lowercase (`"active"`/`"inactive"`), unlike
+  Custom Fields' status casing — checked against the literal collection
+  body rather than copied from the sibling module. `status` defaults to
+  `"active"` on generate now (2026-09-12, same "don't randomise a
+  deliberate choice" pass as Custom Fields) rather than a coin flip
+  between the two; `Type`/`Status`/`Is Required` all got `.seg-fill` too,
+  same layout fix as Locations/Custom Fields above. **Found and fixed
+  the same class of bug while in there**: none of the three toggle
+  handlers snapshotted Document Name before re-rendering, so a hand-typed
+  name typed just before any toggle click was silently lost — the same
+  bug Attendance Policy's weekend toggle and Custom Fields' toggles had.
+
+### Leave Types, Leave Policy (built 2026-09-10)
+
+Both in the Leave group. This pair is the most complex port so far, and
+came with a deliberate scoping decision, not an oversight:
+
+- **Leave Types** — `POST /leave-types`, one of 6 kinds
+  (`LEAVE_TYPE_KINDS`): 4 normal (Annual, Sick, Casual, Unpaid-style) and
+  2 special-entitlement (Maternity, Paternity — fixed gender/marital
+  eligibility, a fixed per-instance day cap, no sandwich/bridge/reset
+  rules at all). The kind picker swaps the whole detail section rather
+  than showing every field for every kind, since a special-entitlement
+  kind's normal-leave toggles (`consecutiveLimit`, `monthlyLimit`,
+  `sandwichRuleEnabled`, `isBridge`, `isLeaveReset`) are always forced
+  `false` server-side-equivalent in the script, not user choices.
+  **Only headline fields are exposed as editable inputs** — the rest of
+  each kind's ~15-field body is still generated correctly per the ported
+  script (`generateNormalLeaveTypeBody()`/`generateSpecialLeaveTypeBody()`)
+  but not surfaced as its own row. This was a conscious call given how
+  large the real body is, not a corner cut by accident — flagged to the
+  user as one of the areas most likely to need a rework pass once tested
+  against a real environment.
+  **Which fields count as "headline," revised 2026-09-12 per direct user
+  instruction** ("ei part ta uthao... only Sandwich ar bridge ta niye
+  ashba"): `Consecutive Day Limit`/`Monthly Limit`/`Carry Forward` — the
+  original three exposed toggles — went back to being purely internal
+  (generated, not shown), and **`Sandwich Rule`/`Bridge` took their
+  place** as the real toggles instead, each revealing its own real sub-
+  fields only once turned on: Sandwich → `sandwichMode`, `sandwich
+  IncludeWeekend`, `sandwichIncludeHoliday` (all three, confirmed with
+  the user — `sandwichIncludeCompanyEvent` stays internal-only since the
+  script itself never varies it, always `false`); Bridge → `bridgeMode`.
+  `prorataCalculation` now defaults `true` unconditionally (was a coin
+  flip) — not exposed as its own toggle, just a fixed default per the
+  user's ask. **`sandwichRuleEnabled`/`isBridge` themselves also default
+  `false` now** (were a coin flip too, on a third pass of the same
+  request) — both toggles start off, same "don't randomise a deliberate
+  choice" instinct as everything else fixed this way, the user turns
+  either on by hand when a test actually needs it.
+
+  **Redesigned the same day, on a second round of user feedback** ("UI
+  valo hoy ni" — the first pass, plain Yes/No `.seg` + a bare `<select>`,
+  didn't read well) **against a screenshot of the real product's own
+  Sandwich Leave / Bridge Leave settings screens**: each is now its own
+  `.rule-card` — an icon, title, description and a real sliding toggle
+  switch (`.switch`, new — this app had no toggle-switch component
+  before), matching the reference's card shape exactly. Once on, an
+  "Action Policy" section shows the two real choices as side-by-side
+  cards — reusing `.choice` (Attendance Add's own holiday-source radio
+  picker) rather than inventing a second card component, just laid out
+  via a new `.rule-choice-row` instead of `.choice-list`'s stacked
+  default — `sandwichMode`/`bridgeMode`'s `"optional"` maps to
+  "Permission Based" (notify the approver, no auto-deduct) and
+  `"direct_cut"`/`"direct"` maps to "Count Automatically" (auto-deduct),
+  named and worded to match the real screenshot. Sandwich alone also
+  gets an "Applicability Scope" box (`.rule-scope-box`, new) with two
+  real checkboxes — "Apply to Weekends"/"Apply to Public Holidays" —
+  for `sandwichIncludeWeekend`/`sandwichIncludeHoliday`, again matching
+  the reference layout rather than the first pass's plain Yes/No pairs.
+  **Found and fixed the same class of bug again while rewriting this
+  exact block**: none of the toggle/radio/checkbox handlers snapshotted
+  Name before re-rendering — same bug as Attendance Policy, Custom
+  Fields and Required Documents before it.
+  **"Create the default 3" (2026-09-12):** most companies only ever need
+  Annual/Casual/Sick to start, and don't need the other kinds' random
+  combinations at all — confirmed via a real payload the user supplied
+  showing every optional field at a fixed off/default value (`prorata
+  Calculation: true`, everything else `false`/its own default, `isLeave
+  Reset: true` with `leaveResetCycle: "calendar_year"`), not a per-kind
+  random roll. `generateDefaultLeaveTypeBody(kind)` returns exactly that
+  shape with only `name` varying; `leaveTypeDefaultBulkItems()` walks
+  `["annual", "casual", "sick"]` against `LEAVE_TYPE_KINDS`. Same bulk UI
+  shape as Department/Designation — `.bulk-shortcut-btn` above the
+  single-item form, `bulkListTemplate()`/`runBulkSequential()` reused as-
+  is, `isBulkRunActive()` and `resetModuleState()` both extended to know
+  about `leaveType.bulk`. Deliberately **not** matched against real,
+  already-existing leave types the way Designation's bulk list matches
+  real departments — these 3 are a fixed, known-good shape to *create*,
+  not something to reconcile against what a company already has.
+  **The Kind dropdown dropped entirely, 2026-09-12** — direct user
+  instruction, working one change at a time rather than pattern-matched
+  ("eta kono pattern wise hobe na"): asked why both a Kind `<select>`
+  and a Name field existed showing the same value by default; told Kind
+  picked a behavioural template while Name was the literal string sent,
+  independently editable; user's call was "drop down baad dao, name
+  input korar field thakbe" — remove the dropdown, keep only a free-text
+  Name input, with the leave type still created (Sandwich/Bridge
+  settings included) based on whatever name is typed. Flagged that this
+  makes Maternity/Paternity (the two special-entitlement kinds)
+  unreachable from this form and asked whether a separate path was
+  needed; confirmed not — "oigula rare case, lagle nijera banay nibe"
+  (those are a rare case, the user will create them by hand if ever
+  needed). `generateSpecialLeaveTypeBody()` is deleted rather than left
+  dead, since nothing calls it any more; `generateLeaveTypeBody()` now
+  takes no argument and always returns the normal shape
+  (`genderEligibility`/`maritalStatusEligibility: "all"`,
+  `specialEntitlementEnabled: false`) — a random one of the 4 non-
+  special `LEAVE_TYPE_KINDS` names is still used as a purely cosmetic
+  starting `name`, same as any other module's "random starting value the
+  visitor can type over." `LEAVE_TYPE_KINDS` itself is untouched and
+  still holds all 6 entries (including maternity/paternity) — "Create
+  the default 3" above still reads it directly by id, unaffected by any
+  of this; only the single-item UI stops branching on it. The `#ltKind`
+  change handler, the dead `#ltInstancesSeg`/`#ltDocSeg` wiring, and
+  `kindId` on both the module's state object and `resetModuleState()`
+  are all gone along with it.
+  **Locked to the exact "Create the default 3" payload, same day, right
+  after the Kind dropdown was removed** — direct user instruction:
+  "Accrual Start... default From Joining date hobe. ar leave reset o
+  calender year. basically Default 3 ta leave e jemne payload disilam
+  exact oitai hobe. just user sandwich ar bridge ta manipulate korte
+  parbe." `accrualStartType`/`accrualStartMonths` and `leaveResetCycle`
+  were never their own fields — generated internally by the old
+  `generateNormalLeaveTypeBody()`, randomised between `joining_date`/
+  `confirmation_date`/`custom` and `calendar_year`/`employee_anniversary`/
+  `custom_date` respectively (along with consecutive/monthly/backdated/
+  document/carry-forward, also random 50/50 rolls each). All of that is
+  gone: `generateLeaveTypeBody()` now calls `generateDefaultLeaveTypeBody()`
+  directly (same fixed shape "Create the default 3" already used —
+  accrual from Joining Date, reset on the Calendar Year, every other
+  optional field off/default) rather than maintaining a second generator
+  that drifted from it. `generateNormalLeaveTypeBody()` is deleted, not
+  left dead, since this was its only caller. Sandwich/Bridge remain the
+  only two fields a user actually manipulates, exactly as asked — Name is
+  typed, everything else is now identical every time Regenerate is
+  clicked.
+- **Leave Policy** — `POST /leave-policies`, the second real dependency
+  (after Designation→Department): needs at least one Leave Type to exist
+  (`fetchCompanyResource("/leave-types")`), same
+  `dependencyNoticeHtml()`/cache-invalidate-on-save pattern, and
+  `saveLeaveType()` nulls `leavePolicy.leaveTypes` on success exactly the
+  way `saveDepartmentModule()` nulls `companyDesignation.departments`.
+  `departmentIds` is sent empty (company-wide) — there's no per-
+  department targeting UI here, matching the "headline fields only"
+  scoping above.
+  **"Create the default policy," 2026-09-12** — direct user instruction:
+  "amra leave type e default 3 ta leave create korte disilam. oi 3 ta
+  diyei leave policy default create korar ekta option diba. 12 din kore
+  ekektay." Unlike Leave Types/Department/Designation's own bulk mode,
+  there's nothing to loop here — a policy is one `POST` bundling every
+  included leave type, so this isn't a multi-item run list, just a second
+  fixed shape (`generateDefaultLeavePolicyFields()`) that a
+  `.bulk-shortcut-btn` (`#lpDefaultBtn`) loads into the same single-item
+  form — Save afterward is the same button, same call. Bundles this
+  company's *real* Annual/Casual/Sick leave types
+  (`LEAVE_POLICY_DEFAULT_NAMES`, matched against the real fetched list by
+  their literal `name` — the exact 3 "Create the default 3" on Leave
+  Types always creates), each at `12` days — confirmed directly with the
+  user rather than assumed. **Hidden entirely, not shown-disabled, unless
+  all 3 real names exist** (`leavePolicyDefaultAvailable()`) — confirmed
+  with the user to hide rather than silently build a 1- or 2-type policy
+  from whichever subset exists, the same "never silently incomplete"
+  instinct Designation's bulk list already holds itself to for a live
+  dependency. Matching is by name, so it only reliably finds leave types
+  made by the "Create the default 3" button itself — since the Kind
+  dropdown was removed (above), a leave type made through the
+  single-item form can carry any typed name, and won't match unless it
+  happens to read "Annual Leave"/"Casual Leave"/"Sick Leave" verbatim.
+
+  **The whole single-item form redesigned the same day, right after the
+  shortcut above shipped** — direct user instruction against a real
+  admin-screen screenshot ("Configure Leave Types"), plus a follow-up
+  screenshot flagging the Active/Inactive toggle specifically ("active
+  inactive shoman koro… UI valo lagtese na"). The old version picked a
+  *random subset* of this company's real leave types (minimum 3) with a
+  randomised `category`/`days` each, shown as small read-only `.tally`
+  chips — confirmed with the user this both looked bad and didn't match
+  how the real screen works. Now:
+  - **Every real leave type this company has is always listed** — not a
+    sample — each its own row (`.lp-leave-row`, a new bordered-list
+    component modelled directly on the reference screenshot; kept
+    separate from the existing `.bulk-list`/`.bulk-row` used for
+    Department/Designation/Leave Types' own bulk mode rather than reused,
+    since `.bulk-row` already carries an unrelated second meaning
+    elsewhere in `app.css` — a third meaning on the same class would only
+    make that existing collision worse).
+  - **Each row is individually checkable, default checked** — unchecking
+    one is what excludes it from the policy; confirmed directly ("checkbox
+    diba, oita default checked thakbe… uncheck korle policy te include
+    hobe na"). `included` is UI-only bookkeeping on `leavePolicy.fields
+    .leaveTypes[i]` and is never itself sent — `readLeavePolicyForm()`
+    filters out every unchecked entry and strips the flag back out when
+    building the real request body, the same "read what's actually on
+    screen at Save time" discipline every other module already follows
+    for its own hand-edited fields.
+  - **Each row also gets its own real Days input, defaulting to `12`, not
+    a random pick from a pool any more** — confirmed directly ("days er
+    alada ekta input box, default 12, user chaile change korbe").
+  - **Category is gone from the UI entirely** — confirmed directly
+    ("category dekhanor dorkar nai") — every included entry now sends a
+    flat `"Standard"`, dropping the old rule that forced a
+    special-entitlement leave type (`seMaxDaysPerInstance` set) into
+    `"Special"` with its own fixed day count. That old rule doesn't
+    silently linger anywhere: a special-entitlement leave type is now
+    just another row, unchecked or edited like any other, at the plain
+    12-day default unless the visitor changes it. `LEAVE_POLICY_CATEGORIES`/
+    `LEAVE_POLICY_STANDARD_DAYS` are deleted from `app-data.js` rather
+    than left unused, since nothing reads either any more.
+  - **Regenerate is gone** — confirmed directly ("na regenerate apatoto
+    lagbe na etay") — with every real leave type always listed and days
+    defaulting to a fixed 12 rather than a pool pick, there was nothing
+    left for it to re-roll. `generateDefaultLeavePolicyFields()` now
+    builds on the exact same full-list shape as the normal generator, just
+    starting with only Annual/Casual/Sick checked and every other real
+    leave type this company has unchecked, rather than building a
+    separate, shorter list — one shape, not two.
+  - **Active/Inactive got the same `.seg-fill` treatment** as Locations/
+    Custom Fields/Required Documents above, once flagged on a screenshot
+    as sitting lopsided in its box.
+  - **Found and fixed the same class of bug while rebuilding this exact
+    template**: the Status toggle re-renders the whole tab body, so its
+    handler now snapshots `#lpName`'s live value into `leavePolicy.fields
+    .name` first — same bug as Attendance Policy/Custom Fields/Required
+    Documents/Leave Types before it. The per-row checkbox/day inputs
+    don't need their own snapshot for this: their `change`/`input`
+    listeners already write straight into `leavePolicy.fields.leaveTypes`
+    on every edit, so by the time Status is clicked they're already
+    current — tested that unchecking a row, editing another row's days,
+    and hand-typing a new Name all survive a Status click intact.
+
+  **A real bug, found live the same day, right after this redesign
+  shipped: a newly created leave type never appeared in the list.**
+  Reported step by step by the user — a company sat at 4 real leave
+  types (the default 3, plus one made by hand through the single-item
+  Leave Types form), but Leave Policy kept showing only 3. Root cause:
+  `leavePolicy.leaveTypes` (the dependency cache — the real fetched list
+  used both for the "does at least one exist" check and to build the row
+  list) is correctly invalidated (`= null`) the moment a leave type is
+  saved, both from the single-item form and from "Create the default 3"
+  — but `leavePolicy.fields`, the **already-generated** list of rows
+  built from whatever `leaveTypes` looked like at the time, was not.
+  `leavePolicyTemplate()`'s `if (!leavePolicy.fields) leavePolicy.fields
+  = generateLeavePolicyFields(...)` guard only regenerates when `fields`
+  itself is `null` — so reopening the tab correctly refetched the real,
+  now-4-item `leaveTypes`, and then rendered straight from the *stale*
+  3-item `fields` anyway, since that guard saw a non-null object and
+  skipped regenerating. Exactly the shape of bug `resetModuleState()`
+  already guards against for Sign out/Disconnect (a derived `fields`
+  object surviving a cache invalidation it was built from) — just not
+  caught here since this dependency's `fields` is also rebuilt from a
+  live list, unlike, say, Designation's, which only checks a plain
+  count. Fixed by nulling `leavePolicy.fields` alongside every
+  `leavePolicy.leaveTypes = null`: the single-item Save success handler,
+  the bulk-create success handler, and the dependency-load retry button
+  (found while fixing the other two — the identical stale-`fields`-
+  survives-a-refetch shape, just on the error→retry path instead of the
+  save→invalidate one). Reproduced and verified against a mocked server
+  that starts at 3 leave types and grows to 4 mid-session — the 4th
+  didn't appear before the fix and does after, on all three sites.
+
+### Holiday Calendar — Leave's third module (built 2026-09-12)
+
+Requested directly ("aro thakar kotha na, at least holiday calendar er
+ta") — the collection's "Sync Holiday's" request under Leave Settings
+had never gotten a module at all, missed the same way Attendance
+Settings was originally missed from the group list (2026-09-09).
+`GET /leave-management/holidays/public/sync` — genuinely unlike every
+other module in this app: a bare GET, no body, no query params, no
+pre-request script in the collection at all. There's nothing to
+generate or configure. Per the user directly, the whole module is "does
+this need syncing? yes → hit the API" — built as exactly that: one
+button (`holidayCalendarTemplate()`/`syncHolidays()`), no fields, no
+`createdNames` list (same reasoning as Company Profile/Tax/Attendance
+Policy — one company-wide thing to have done, not a list of named
+records). Same shape as Tax (a single real-write action button) except
+a `GET` checked for a plain `200`, not Tax's `PATCH`/`200` or every
+create module's `POST`/`201` — this endpoint doesn't create anything,
+so `201` would be the wrong signal to check for. No confirmed real
+admin-screen label exists for this screen (unlike Locations); "Holiday
+Calendar" is the user's own name for it, used as-is rather than
+guessed at further.
+
+Attendance group's only module. `POST /attendance/policy/create` — and
+the one place the collection's own static body tab is actively
+misleading: it shows a bare `{}`, with a comment saying to leave it that
+way, because a pre-request script calls `pm.request.body.update()` and
+overwrites it at request time. The script's own version of the real body
+— title, description, 1-3 shifts, weekend days, overtime config, early
+check-in limit, break config — was ported first and confirmed broken
+against the real API the same day (below).
+
+One real bug found and fixed while the shifts/weekendDays version of this
+module still existed: toggling weekend days re-rendered the whole tab
+body, and the input's `value=` attribute was sourced from the cached
+fields object — so a hand-edited title typed just before a weekend click
+was silently overwritten by the last-generated title on re-render. Fixed
+at the time by having the weekend handler read `$("#apTitle").value` into
+the fields object before re-rendering, the same discipline Save already
+used. The weekend toggle no longer exists (below), but **this same class
+of bug likely exists in any other module whose seg-toggle handler
+re-renders without first snapshotting sibling text-input values** (e.g.
+Locations' geo toggle) — not audited across the whole app, since nothing
+else surfaced it under test; worth a pass if it's ever reported.
+
+**Confirmed genuinely broken against the real API, 2026-09-10** (live
+verification pass, real temporary company-admin credentials, never
+written to any file): `POST /attendance/policy/create` rejected `shifts`
+and `weekendDays` outright as unknown properties, and — once those were
+dropped — rejected the request again with `"Max check-out limit (0
+minutes) must be equal to or greater than the maximum overtime duration
+(120 minutes)"`, naming a required field the ported script had no concept
+of at all.
+
+**Fixed the same day**, once the user supplied a known-good real payload
+and a screenshot of the actual "Create Default Attendance Policy" admin
+screen (no Postman collection update was ever found — this module's real
+shape simply isn't in that collection anywhere). Both confirmed: this is
+a single company-wide policy, not a per-shift one — **`shifts` and
+`weekendDays` don't exist in the real shape at all**, not "wrong," just
+absent. Two fields replace them, both new concepts the ported script had
+no idea existed:
+
+- **`maxCheckOutLimit`** (top-level, minutes) — the admin screen's "Max
+  Check-out Limit" Hour+Mins fields, siblings of "Early Check-in Limit"
+  (`earlyCheckInLimit`, unchanged). Generated from
+  `ATTENDANCE_MAX_CHECKOUT_LIMITS`, clamped up to
+  `overtimeConfigs.maxOvertimeMinutes` when `hasMaxOvertime` is set — the
+  real API's own rule, confirmed by the error text above, is that this
+  can never be smaller than the max overtime duration.
+- **`fixedBreakSettings`** (`{ fixedBreakEnabled, durationMinutes }`) —
+  the admin screen's "Deduct Break Configuration" toggle ("Choose how
+  break time will impact the total working hours"), a sibling of
+  `breakConfig`'s own "Break Time Configuration" toggle, not a field
+  inside it. `durationMinutes` defaults to `60` when off, matching the
+  real payload's own default.
+
+`overtimeConfigs`/`earlyCheckInLimit`/`breakConfig` keep the script's
+exact original shape — confirmed correct against the real payload, so
+those were never the problem. `generateAttendancePolicyFields()` in
+`app.js` and the `ATTENDANCE_*` pools in `app-data.js` reflect the fixed
+shape; `generateShiftTime()` and the shift/weekend pools are gone
+entirely rather than left unused. Same "headline fields only" scoping as
+before: only `title` is exposed as an editable input (there's nothing
+left to toggle now that weekend days don't exist), everything else is
+generated correctly per the rules above and shown read-only as a row of
+summary chips instead of the old per-shift tally row.
+
+**Every optional flag fixed to a deliberate default, 2026-09-14 (direct
+request), replacing the section above's original random rolls**: Overtime,
+Break and Deduct Break all default off; `earlyCheckInLimit`/
+`maxCheckOutLimit` both default to a fixed 120 minutes rather than a pool
+pick (the "must be ≥ max overtime duration" rule above no longer applies
+day-to-day since overtime defaults off). `ATTENDANCE_OVERTIME_MAX_MINUTES`/
+`_COOLDOWN_MINUTES`/`_SLOT_MINUTES`/`ATTENDANCE_EARLY_CHECKIN_LIMITS`/
+`ATTENDANCE_MAX_CHECKOUT_LIMITS`/`ATTENDANCE_FIXED_BREAK_MINUTES` are all
+gone from `app-data.js` — nothing left reads them. Because Overtime now
+always defaults off, Payroll → Overtime's own dependency on an Attendance
+Policy having overtime enabled (below) is never satisfied by this
+module's default alone; that's expected, not a regression — see "Run
+defaults" further down.
+
+**The generated title/description dropped their random number the same
+day** ("default run er khetre just office standard policy rakho, number
+ta dorkar nai" — a real staging screenshot showed `Office Standard Policy
+49207`, and the trailing digits weren't wanted): `title` is now always
+the literal `"Office Standard Policy"`, description always `"Default
+attendance policy for standard working hours"`, with no `Date.now()`-
+based suffix. `title` stays the one editable field, same as before —
+Regenerate now leaves it unchanged too, since there's nothing left on it
+to re-roll.
+
+### Payroll — all 11 modules (built 2026-09-10)
+
+Every module in the Postman collection's own "Payroll Settings" folder,
+ported the same way as everything above. Four real dependencies live in
+this group alone — more than the rest of the app combined:
+
+- **General** — `POST /payroll/configuration/payroll-cycle`. Cycle is
+  weighted (`PAYROLL_CYCLE_OPTIONS`: 55% calendar month, 40% fixed date,
+  5% bi-weekly, via `weightedChoice()`), but **only Regenerate rolls it**
+  — the very first load always opens on Calendar Month rather than a
+  random pick, on the user's own request (2026-09-13): a first
+  impression of "the tool defaults to some random cycle" read as
+  confusing, but Regenerate re-rolling the cycle along with everything
+  else is exactly the behaviour wanted. `generatePayrollGeneralFields
+  (payrollCycle)` takes an optional cycle now — pass one explicitly
+  (initial load passes `"calendar_month"`, the seg click handler passes
+  whichever button was clicked) and it's used as-is; call it with nothing
+  (Regenerate does) and it rolls a fresh weighted pick instead.
+  Fixed-day/bi-weekly-date fields still roll exactly as the script
+  branches on them. **`thresholdRuleEnabled` defaults off now, not a coin
+  flip** (2026-09-14, direct request — confirmed against a real body,
+  `{"payrollCycle":"calendar_month","thresholdRuleEnabled":false}`): it
+  used to be `Math.random() < 0.5` for `calendar_month`/`fixed_date`, with
+  `thresholdDays`/`thresholdNotifyEmployee`/`thresholdNotifyHr`/
+  `thresholdLogDecisions` only ever filled in when it rolled true. Same
+  "don't randomise a deliberate choice" instinct as everything else fixed
+  this way — the sub-fields are simply never sent now, matching the exact
+  body above. No dependency.
+- **Salary Components** — `POST /payroll/configuration/salary-components`.
+  4 fixed presets (Medical/House Rent/Mobile/Internet Allowance) — the
+  collection's own 4 separate requests, not a generated name.
+  Tax-countability and pro-rata start from the script's own weighted
+  roll; Status defaults to Active outright, not a roll at all — **a real
+  bug, found live 2026-09-13**: at the original 90/10 weighted roll, a
+  single-item save or one item inside a "Create the default 3" bulk run
+  could land on Inactive with nothing on screen saying so, and an
+  Inactive component is invisible to every Active-only dependency check
+  downstream — Configure Salary Components' own ≥2-Active gate, and its
+  default filler below. Traced from a real screenshot: a company whose
+  "Create the default 3" run had silently produced an Inactive Medical/
+  House Rent/Internet fell back to unrelated pre-existing components
+  instead. As of 2026-09-13 all three (Status included) are still real
+  Yes/No/Active/Inactive seg toggles (`#scStatusSeg`/`#scTaxSeg`/
+  `#scProrataSeg`) a QA engineer can flip by hand before saving — only
+  the starting value for Status is no longer random. No dependency.
+  **"Create the
+  defaults" bulk mode added 2026-09-13**, on the user's own request, offering Medical/House Rent/
+  Internet — Mobile Allowance is deliberately left out of the shortcut,
+  same as Leave Types leaves Maternity/Paternity out of "Create the
+  default 3"; still reachable through the single-item form's own
+  Component dropdown. Same shape as Department/Designation/Leave Types'
+  own bulk mode: `loadSalaryComponentExisting()` checks the company's
+  real existing components first (`GET
+  /payroll/configuration/salary-components?limit=100`, no status filter,
+  so an existing Inactive one still counts) and
+  `salaryComponentDefaultBulkItems()` marks a name that already exists as
+  skipped, same "never offer a duplicate-name POST" discipline. A
+  successful create (single-item or bulk) invalidates both its own
+  existing-check cache and Configure Salary Components' dependency
+  cache, same as a real department save invalidates Designation's.
+- **Configure Salary Components — the third real dependency.**
+  `PUT /payroll/configuration/non-paygrade-structure` needs **2** Active
+  salary components, not 1 — the collection's own script throws without
+  both. `dependencyNoticeHtml("second Active Salary Component", ...)` is
+  phrased around the count rather than reused verbatim from the "at
+  least one" wording every other dependency notice uses, since "doesn't
+  have a X yet" reads wrong when one already exists. Splits always sum to
+  100 (`SALARY_STRUCTURE_SPLITS`, the script's own fixed table).
+  **A named default filler, 2026-09-13 (direct request):** when the
+  connected company has all 3 of Salary Components' own "Create the
+  default 3" — Medical, House Rent and Internet Allowance, matched by
+  literal name — this uses exactly those 3 rather than 2 random ones:
+  Basic 60%, two of the three at 15% each, the third at 10% (60+15+15+10
+  = 100). `generateSalaryStructureFields()` checks for all 3 by name
+  first; a company without all 3 (differently-named components, say)
+  falls back to the original random-2-of-whatever-exists behaviour
+  unchanged, so the module still generates something rather than having
+  nothing to offer. Regenerate re-rolls which two of the three land on
+  15% in the default-filler case, same as it re-rolls the split and pair
+  in the fallback case. **Every percentage is a real editable number
+  input now, not read-only tally text** (2026-09-13, same "let the user
+  override the generated default" freedom Leave Policy's own Days input
+  already has) — Basic and each component's percentage
+  (`#ssBasicPct`/`#ssCompPct{i}`) can be hand-edited before Save;
+  `readSalaryStructureForm()` reads whatever's currently in those inputs
+  at save time, keyed back to the right `salaryComponentId` by array
+  index rather than trusting anything in the DOM to identify which
+  component a row is. The save handler writes the read values back into
+  `companySalaryStructure.fields` before the request, so a failed save
+  re-renders with whatever was typed still in place rather than reverting
+  to the last-generated numbers.
+  **Confirmed genuinely broken against the real API, 2026-09-11, fixed
+  the same day:** this dependency could never actually unblock, no matter
+  how many Active salary components a company had. `fetchCompanyResource()`
+  assumed every list endpoint answers with a flat array at `data.data` —
+  true for `/departments/active`, `/leave-types` and
+  `/bonus/configuration/types` (checked against the real API, all three
+  correct), but `/payroll/configuration/salary-components` is the one
+  paginated endpoint (the only caller passing `limit`/`status` query
+  params) and wraps the real array one level deeper, as
+  `data.data.components` alongside its own `metadata`. Against the flat-
+  array assumption that's not an array, so it silently returned `[]` —
+  the module never saw the Active components that genuinely existed.
+  Found on a real staging company created specifically for a live pass
+  through every settings module (2026-09-11) — the existing test's own
+  mock for this endpoint used a flat array too, which is exactly why it
+  never caught this; fixed to mock the real wrapped shape. Fixed by
+  having `fetchCompanyResource()` fall back to `data.data.components`
+  when `data.data` itself isn't an array, rather than special-casing this
+  one caller — if a second paginated dependency check is ever added with
+  a *different* wrapper key, this fallback will need widening, not
+  assumed to already cover it.
+- **Late Arrival, Absent Deduction** — both need ≥1 Leave Type, reusing
+  the existing dependency shape but each with its **own** independent
+  fetch/cache (`lateArrival`/`absentDeduction`, sharing
+  `loadLeaveTypeDependencyInto(state)`) — tested that saving one doesn't
+  invalidate or interfere with the other's cache. **Both default off now,
+  2026-09-13 (direct request).** Late Arrival's `latePenaltyEnabled` and
+  `repeatedLatePenaltyEnabled` used to be forced into an exclusive pair —
+  one always rolled true via negation, so there was never an "off" state
+  at all — now both default `false` and are independent real Yes/No
+  toggles (`#laPenaltySeg`/`#laRepeatedPenaltySeg`); nothing stops both,
+  either, or neither being on. Absent Deduction's `ruleBasedOn` was a coin
+  flip between its two values with the same problem — defaults to
+  `"total_absent_days"` now, with a single "Repeated Absent Penalty"
+  toggle (`#adRuleSeg`) switching it to `"consecutive_absent_days"`.
+- **Bonus Types** — `POST /bonus/configuration/types`. 4 fixed presets
+  (Eid/Bangla New Year/Special/Inactive Test Bonus), only icon
+  randomised. No dependency. **"Create the defaults" bulk mode added
+  2026-09-13**, direct request, offering Eid Bonus and Bangla New Year
+  Bonus — Special Bonus and Inactive Test Bonus deliberately left out of
+  the shortcut, same as Salary Components leaves Mobile Allowance out of
+  its own "create the default 3"; still reachable through the
+  single-item form's Bonus Type dropdown. Same shape as every other bulk
+  mode: `loadBonusTypeExisting()` checks the company's real existing
+  types first (`GET /bonus/configuration/types`, a flat array, no query
+  params — unlike Salary Components' paginated one) matched by literal
+  `typeName`, and a name that already exists is marked skipped rather
+  than offered again. A successful create (single-item or bulk)
+  invalidates Bonus Policy's dependency cache, same as a bonus type
+  always has.
+
+  **Test gotcha found while building this:** GET and POST share the
+  exact same URL here (`/bonus/configuration/types`), unlike Salary
+  Components' distinct query strings — several existing test blocks
+  routed non-POST requests through `route.continue()` on the assumption
+  nothing but the header render ever GETs this path. Once this module
+  started GETting it in the background, those blocks' own `continue()`
+  sent a real, unmocked request to a fake `.shomvob.com` host and hung
+  the whole run rather than failing fast. Fixed by having every route
+  handler on this path answer GET with a real (mocked) response instead
+  of forwarding it.
+- **Bonus Policy — the fourth real dependency.** `POST
+  /bonus/configuration/policies` needs ≥1 Bonus Type. The collection's
+  own fully-specified example hardcodes Eid Ul Fitr's bonus type and a
+  fixed 50%/Gross — generalised here to whichever bonus type the company
+  actually has (this module lets the visitor's data decide, rather than
+  assuming Eid exists), with name and bonus percentage left editable.
+  **"Create the default 3" added 2026-09-13, direct request** ("2 eid er
+  jonno 40% kore, bangla new year er jonno 20%"): Eid Ul Fitr Bonus
+  Policy and Eid Ul Adha Bonus Policy both at 40%, Bangla New Year Bonus
+  Policy at 20% — the two Eid policies both attach to the one real "Eid
+  Bonus" type, since there's only one Eid bonus TYPE but two festivals
+  each get their own POLICY against it (`BONUS_POLICY_DEFAULT_ITEMS` in
+  `app-data.js`). paymentMethod/tenure are fixed for the bulk shape
+  (off-cycle, no tenure gate), same "headline fields only" discipline as
+  Leave Types' own "Create the default 3". A default item whose bonus
+  type doesn't exist yet in this company shows disabled and skipped with
+  the reason named (`bonusPolicyDefaultBulkItems()`) — e.g. Bangla New
+  Year's policy is skipped, explained, if only Eid Bonus has been
+  created — rather than just not appearing, same "never silently
+  incomplete" rule the whole app holds itself to. **Unlike every other
+  "create the defaults" shortcut, this one has no existing-check against
+  real duplicates** — there's no known GET endpoint for listing a
+  company's existing bonus policies (only for bonus types), so a second
+  run risks a real duplicate-name POST; the server's own rejection
+  surfaces that the same way any other save failure does.
+- **Overtime — the fifth real dependency, found live 2026-09-10, fixed
+  2026-09-11.** `POST /payroll/configuration/overtime`. Regular overtime
+  is always enabled; weekend and holiday are independently rolled (80%
+  enabled each), each with its own Fixed Rate/Multiplier choice, ported
+  from the script's own nested `buildSpecialOvertimeBlock()` logic.
+  Documented as "no dependency" when built — **found live, 2026-09-10,
+  that this isn't quite true**: the real API rejected a structurally-
+  correct request with `"Enable overtime on an attendance policy first.
+  Without it no overtime is recorded, so these payroll settings would
+  never pay out."` A real cross-group dependency on Attendance Policy
+  having overtime enabled, unlike any other dependency in this app which
+  are all within-group. Left unmodeled at the time since the Postman
+  collection has no GET endpoint anywhere for attendance policies to
+  check against, unlike Designation→Department or Leave Policy→Leave
+  Type. **Fixed 2026-09-11**: `GET /attendance/policies` — not in the
+  collection at all, found by probing plausible paths against the real
+  staging API (`/attendance/policy`, `/attendance/policy/list` etc. all
+  404, this one 200) — answers with a flat array of the company's
+  policies, each carrying `overtimeEnabled` directly, so the same
+  `fetchCompanyResource()`/`dependencyNoticeHtml()` pattern applies after
+  all. Zero policies with overtime enabled → blocked with a shortcut to
+  Attendance Policy, same shape as every other dependency notice.
+  Attendance Policy's own save success invalidates this cache
+  (`overtime.policies = null`), same as Department invalidates
+  Designation's.
+- **Attendance Bonus** — `POST /payroll/configuration/attendance-bonus`.
+  One quirk kept deliberately rather than "fixed": the script always
+  sends `calculations.enabled: "Disable"` regardless of the outer
+  `attendanceBonusEnabled` — the collection's own comment flags this as
+  intentional API behaviour, not a script bug, so it's ported as-is. No
+  dependency.
+- **Custom Addition/Deduction** — `POST /payroll/configuration/custom-fields`.
+  Name pools paired by type (`CUSTOM_ADDITION_NAMES`/`CUSTOM_DEDUCTION_NAMES`)
+  so an Addition never gets a Deduction-shaped name; switching type
+  re-rolls the name from the right pool. No dependency. **Reordered and
+  Carry Forward given a real toggle, 2026-09-14 (direct request):** Name
+  now leads the field row with Type beside it (was the other way round);
+  Carry Forward was read-only tally text showing a coin flip with no way
+  to change it — now a `#cadCarrySeg` Yes/No toggle, same shape as every
+  other exposed toggle in this section, wired to snapshot Name first so
+  clicking it can't lose a hand-typed value. Switching Type still
+  regenerates the whole fields object (name + carryingNext both re-roll
+  from the new type's pool), unchanged — only Carry Forward's own toggle
+  and Regenerate change it independently of that.
+- **Tax — the one place the collection genuinely stops short.**
+  `PATCH /payroll/configuration/tax-rules/toggle/Enable` is an
+  enable/disable toggle, full stop — there is no endpoint anywhere in the
+  collection for creating an actual tax bracket or rule. This is exactly
+  the "Payroll needs a new API" gap the user predicted before this group
+  was built (2026-09-10, ahead of time). Built as exactly what exists,
+  with the gap named in the module's own on-page copy rather than an
+  invented body papering over it.
+
+`weightedChoice(options)` (`app.js`) is new shared infrastructure — every
+Payroll module whose script weights its own random choices uses it
+rather than reimplementing the roll.
+
+**`.seg-fill` reached the rest of the app, 2026-09-13.** General's Cycle
+seg, Salary Components' Status seg and Custom Addition/Deduction's Type
+seg were the only `.seg` controls left anywhere in Company Setup still
+hugging their own left edge instead of filling the field — everywhere
+else (Locations, Custom Fields, Required Documents, Leave Policy) had
+already gotten this treatment across 2026-09-10/12. Direct user request
+("joto jaygay ase thik koro" — fix it wherever it still exists); all
+three now carry `.seg-fill` too.
+
+### "Run defaults" — per-group and whole-company orchestration (2026-09-14)
+
+Requested directly, and described as one of "two big tasks" left: going
+into each of the ~20 settings modules one at a time and clicking its own
+"Create the default(s)" was exactly the kind of tedium this whole app
+exists to remove. Two triggers, same machinery underneath (all in
+`app.js`, no new file):
+
+- **`findSettingsModule(id)`** looks up a module's label/group by id.
+- **`MODULE_DEFAULT_RUNNERS`** has one entry per settings module — 22
+  small `runDefaultX()` functions, one per module, each doing exactly
+  what that module's own "Create the default(s)" flow already does: a
+  bulk sequential create for the 6 modules that have one (Department,
+  Designation, Leave Types, Salary Components, Bonus Types, Bonus
+  Policy), or a single generate+save for every other module. Same
+  success side effects as each module's own click handler (`doneModules`,
+  `createdNames`, dependency-cache invalidation) — this isn't a second
+  way to create a record, only a second trigger for the first one, so
+  nothing here duplicates business logic, just calls straight into the
+  existing `generateXFields()`/`saveX()`/bulk-item functions directly
+  instead of through that module's own tab UI.
+- **`runDefaultsSequential(runState, rerender)`** walks a list of module
+  ids one at a time (never in parallel, same discipline
+  `runBulkSequential()` already holds itself to for a single module's own
+  bulk create). A module already in `setup.doneModules` is skipped before
+  its runner is ever called — **the direct request this satisfies**: "2
+  of 5 done, click the 3rd, only the remaining 3 run." It's also what
+  makes Stop-then-resume free — re-clicking Start after a Stop only
+  touches whatever hasn't settled (done/skipped/failed) yet, checked at
+  the top of the loop before the `doneModules` check even runs.
+- **`SETTINGS_GROUPS`' own array order is already the dependency-safe
+  order** every real cross-module dependency in this app needs
+  (Department before Designation, Leave Types before Leave Policy,
+  Salary Components before Configure Salary Components, Bonus Types
+  before Bonus Policy — all already true of the existing module-within-
+  group order from when each group was first built) — so a per-group run
+  just walks that group's own module list top to bottom, no separate
+  ordering table to maintain.
+
+**Two triggers, both confirmed with the user before building:**
+
+- **"Run this group's defaults"** (`#groupRunEnterBtn`) sits at the top
+  of a group's own tab page, above the tab strip.
+- **"Run every default"** (`#masterRunEnterBtn`) sits at the top of the
+  group grid page. **Deliberately a curated subset, not literally every
+  module** — the user's own explicit list, given after the per-group
+  button was built and tested: Company Settings (Company Profile, Bank
+  Info, Locations, Department, Designation), Attendance Policy, Schedule
+  Management (Create Roster, Create Roster Pattern — added 2026-09-24,
+  direct request: "ei schedule management ta Standard setup e add koro
+  attendance er pore," placed right where the group itself already sits
+  in `SETTINGS_GROUPS`, between Attendance and Leave), Leave (Leave
+  Types, Leave Policy, Holiday Calendar), and 6 of Payroll's 11 (General,
+  Salary Components, Configure Salary Components, Bonus Types, Bonus
+  Policy, Tax) — 17 modules total, in `MASTER_RUN_MODULE_IDS`. **Employee
+  Settings (Custom Fields, Required Documents) and Payroll's Late
+  Arrival/Absent Deduction/Overtime/Attendance Bonus/Custom
+  Addition-Deduction are deliberately left out of the master run** — a
+  per-group run still covers all of them, only the whole-company one is
+  scoped down.
+
+**Shows as a modal, not a page swap — reworked the same day, direct
+request** ("ekta modal type open kore dekhaba je konta konta run hocche
+and sesh hole success"): the first version of this feature replaced the
+group's tab page (or the group grid) with the run list, the same "swap
+the whole body" shape the single-module bulk lists already use. Redone as
+`#runDefaultsModal`, a static shell in `part1.html` (same `.modal`/
+`.modal-card` component `#discardModal`/"Hey Lazy!" already uses, its own
+wider variant — `.modal-card-wide`, 560px — since a module list needs more
+room than a sentence) that opens as an overlay *on top of* whichever page
+triggered it, rather than replacing it. `openRunModal(runState, title,
+note)` fills in the title/note and un-hides the modal;
+`renderRunModalBody(runState)` re-renders only the modal's own list/
+banner/actions on every tick `runDefaultsSequential()` fires — the page
+behind it is untouched throughout the run, and gets exactly one fresh
+render (`renderSetupBody()`) when `closeRunModal()` runs, so done dots
+and group-card tallies pick up whatever the run just did without being
+fought over on every single item. `runState.groupHeadings` (`true` only
+for the master run) decides whether `defaultRunRowsHtml()` groups its
+rows by group label (`.bulk-group-label`, the same grouped-list shape
+Designation's own bulk list already uses) — reused from `.bulk-row`/
+`bulkStatusHtml()`, just with no checkbox, since nothing here is
+individually selectable; everything not already done simply runs. A
+finished run shows the same `.validation-banner.success` shape
+Department/Designation/Leave Types' own bulk mode already uses
+("Finished — N run, N skipped, N failed."), and the modal's own
+close/back button reads "Close" once everything has settled or "← Back"
+while it hasn't.
+
+**Three more polish items, same day, from a screenshot of the modal in
+use:**
+
+- **Each row is numbered** (`.section-num`, the same small accent badge
+  every module's own header already uses for its number, reused here
+  rather than inventing a second numbering style) — a running 1-based
+  index across the whole list, continuing straight through group
+  headings in the master run rather than resetting per group, since it's
+  showing the actual order things run in, not a per-group count.
+- **The gap between the module list and the "Finished" banner was too
+  tight** ("ekdom border er sathe lege gese" — right up against the
+  border) — `.modal-run-list` picked up its own small bottom margin and
+  the banner's `margin-top` went from 14px to 20px, so the two read as
+  distinct rather than glued together.
+- **Same complaint again, a follow-up screenshot, on the master run's
+  group headings this time** ("ar tomake na bollam egula ekdom gaye
+  lagayona" — didn't I already say don't let these touch): a group with
+  only 1-2 modules (Attendance Settings, just Attendance Policy) read as
+  glued to the previous group's last row, only the background tint
+  telling the two apart. `.modal-run-list .bulk-group-label:not
+  (:first-child)` now gets its own `margin-top` and `border-top` — every
+  group but the very first gets real separation from whatever came
+  before it. Scoped to `.modal-run-list` specifically so Designation's
+  own grouped bulk list (the same `.bulk-group-label` class, built
+  2026-09-10) is untouched.
+- **The module list's own scrollbar, and a widened modal with a quote
+  panel** — two asks on the same screenshot: hide the visible scrollbar
+  on a long run's list, and "right e modal ta boro kore ektu ekta quote
+  dite chaitesilam" (widen the modal and put a quote on the right).
+  `.modal-run-list` gets `scrollbar-width: none` (Firefox) plus a
+  `::-webkit-scrollbar { display: none }` rule (Chromium/Safari) — the
+  list still scrolls, nothing about its behaviour changed, it just no
+  longer shows a track. `.modal-card-wide` (a single-column max-width)
+  is replaced by `.modal-card-split`: a flex row of `.modal-card-main`
+  (the existing title/note/list/banner/actions, unchanged) and a new
+  `.modal-quote-panel` sibling — a fixed-width column, left border,
+  `var(--accent-soft)` background, holding the user's own line ("When
+  one (API) falls, we continue.") attributed to "— Clair Obscure:
+  Expedition 33". Purely decorative — no state, no wiring — so it's
+  hand-written directly into `#runDefaultsModal` in `part1.html` rather
+  than built in `renderRunModalBody()`. Collapses to a stacked column
+  under 760px (border moves from left to top) rather than disappearing,
+  since it's meant to be part of the experience, not a nice-to-have that
+  only survives on a wide screen. Uses only existing theme tokens
+  (`--accent-soft`, `--accent-strong`, `--text-faint`, `--border`), so it
+  reads correctly in light/dark/auto with no new colours — checked with
+  Playwright screenshots in both.
+- **The quote panel is now two different quotes, one per trigger — direct
+  follow-up request** ("full company er khetre quote ta alada kora jay
+  eta je alada bujhanor jonno" — for the whole-company run, the quote
+  itself is what should signal that this is a different, bigger action):
+  the per-group run keeps the original ("When one (API) falls, we
+  continue." — Clair Obscure: Expedition 33) unchanged; the whole-company
+  run gets its own ("I'm enjoying the uselessness of today and readying
+  my usefulness for tomorrow." — also Clair Obscure: Expedition 33, the
+  user's own second pick). No longer hand-written directly into
+  `part1.html` — the quote text/attribution moved to two empty elements
+  (`#runDefaultsQuoteText`/`#runDefaultsQuoteAttr`) that `openRunModal()`
+  now fills from a fourth `quote` argument, sourced from
+  `RUN_MODAL_QUOTES.group`/`.master` depending on which button opened it.
+  **Also fixed the same day, flagged in the same message**: the master
+  button's own copy called this "a fresh company" ("fresh company to na"
+  — this isn't a fresh company, it's an existing one just getting its
+  necessary defaults filled in) — reworded throughout: button now reads
+  "Run the standard setup →" with a small subtext underneath ("You'll be
+  ready to go in one click."), the modal's own title matches ("Run the
+  standard setup"), and the note text drops "a fresh company actually
+  needs" for "a company actually needs."
+- **The persistent strip's "Role" row showed the real login response
+  verbatim** (`company_admin`) instead of something readable. `format
+  RoleLabel(type)` title-cases the raw snake_case value for display only
+  (`"company_admin"` → `"Company Admin"`) — nothing else in this section
+  reads the formatted version; every real request still uses
+  `setup.companyUserType` untouched.
+
+**The master and per-group button/title wording was clunky, flagged the
+same day** ("grammaticallly shunte okay lagtese na" — didn't read right
+out loud): the master button dropped its trailing "...with the real
+defaults" (the modal's own note line already explains that this is a
+curated set, so the button just reads "Set up a fresh company →" now,
+matching its modal's title exactly). The per-group button/title changed
+from `` `Run ${group.label}'s defaults` `` to `` `Run defaults for
+${group.label}` `` — the possessive reads especially awkward now that
+group labels all end in "Settings" (below): "Run Payroll Settings's
+defaults" was the kind of sentence that prompted this whole fix.
+
+**Because Overtime isn't in the master run's list, its real dependency on
+Attendance Policy having overtime enabled — which now defaults off, see
+the Attendance Policy entry above — never actually comes up there; it
+only matters for a per-group Payroll run**, where it still shows as a
+named skip in the run list rather than a silent gap or a failed request.
+
+**Navigation guards extended, not reinvented.** `isBulkRunActive()` still
+checks `setup.groupRun?.running`/`setup.masterRun?.running`, so the
+existing mid-run block on tabs/back-link/next-module/dep-shortcut clicks
+covers these two runs for free — though since the modal is a fixed,
+full-viewport overlay, none of those controls are even reachable by a
+click while it's open regardless; the guard is belt-and-braces now more
+than load-bearing. The three sidebar nav buttons (Dashboard, an
+Operation, Company Setup itself) also check `isBulkRunActive()`, same
+reasoning — a whole-company run can take a while, and this covers the
+edge case of the modal somehow not being frontmost.
+
+**The button spacing above the master run button was uneven, found on a
+screenshot the same day** ("etar margin padding ta thik koro, equal hoy
+ni") — `#masterRunEnterBtn` sat directly under `.setup-hint-line` with no
+gap of its own (a bare inline `margin-bottom` that didn't match the hint
+line's `margin-top: 22px` above it), so the hint text and the button read
+as cramped together while the whole pair had generous space above and
+below. Fixed with `margin-top: 10px` on the button instead, so the gap
+above it and the 18px gap below it (from `.bulk-shortcut-btn`'s own
+`margin-bottom`, unchanged) both read as deliberate rather than the pair
+looking glued together.
+
+Confirmed end-to-end against a mocked staging company built for exactly
+this (`tests/company-setup.test.js`, blocks AW/AX/AX2): a master run on a
+fresh company creates all 6 default departments, all 24 default
+designations (Department→Designation dependency resolved with zero
+manual clicks), the default 3 leave types, a default leave policy
+bundling them at 12 days each, the default 3 salary components, a
+Configure Salary Components save using the 60/15/15/10 default filler,
+the default 2 bonus types and the default 3 bonus policies (both Eid
+ones correctly pointing at the one real Eid Bonus type) — 15 run, 0
+skipped, 0 failed. Stop halts before the next module (never mid-request);
+resuming afterward doesn't redo the module that already finished.
+
+### "Run defaults" now checks the real company, not just this session (2026-09-15)
+
+Requested directly, as the next thing to build after the feature above:
+`doneModules` only ever remembered what *this session* had run — a
+company already set up in an earlier session, or by hand outside this
+app entirely, had no way to tell "Run defaults" that a module's real
+data already exists, so a second run would try to create a second
+Company Profile, a second Bank Info record, and so on. The user's own
+framing: "shob settings e age call kore dekhbo GET api diye data ache
+kina. thakle oi specific ta run korte dibo na" — check with a real GET
+first, and don't run a module if it turns out already-configured.
+
+**None of the endpoints needed for this were in the sanitized Postman
+collection** — checked first, confirmed absent for all six candidates
+(`company-profile`, `payroll/configuration/payroll-cycle`, `payroll/
+configuration/non-paygrade-structure`, `payroll/configuration/tax-rules`,
+`company-bank-informations`, `bonus/configuration/policies`). Rather
+than guess plausible paths blind, they were found the same way `GET
+/attendance/policies` was found earlier in the project: real `curl`
+calls against the disposable staging test company the user opened for
+exactly this (`Bulk Test 03`) — credentials typed directly into shell
+commands for this one session, never written to any file. Five of six
+guessed straight from the module's own save-endpoint name; the sixth
+(Tax) the user supplied directly after independent guessing failed —
+`GET /payroll/configuration/tax-rules/list`, whose response carries a
+top-level `isEnabled` alongside the fixed list of tax rules, confirmed
+by writing real data into `Bulk Test 03` (company profile, bank info, a
+leave type + policy, two salary components + a structure, an attendance
+policy, a bonus type + policy, a payroll cycle, and enabling tax) and
+reading each one back to see exactly how the "already configured" shape
+differs from the "nothing yet" shape:
+
+| Module | Real GET endpoint | "Already configured" condition |
+|---|---|---|
+| Company Profile | `GET /company-profile` | `data.data !== null` |
+| Bank Info | `GET /company-bank-informations` | `data.data !== null` |
+| Payroll General | `GET /payroll/configuration/payroll-cycle` | `data.data !== null` |
+| Configure Salary Components | `GET /payroll/configuration/non-paygrade-structure` | `data.data.id` exists (empty `{}`, not `null`, when unconfigured) |
+| Attendance Policy | `GET /attendance/policies` (already used by Overtime's own dependency check) | array non-empty |
+| Tax | `GET /payroll/configuration/tax-rules/list` | `data.data.isEnabled === true` |
+
+`fetchCompanyConfig(path)` (`app.js`) is the new, small counterpart to
+`fetchCompanyResource()` for this shape — a single company-wide record
+rather than a list, returning `data.data` as-is (`null` or a real
+object) rather than coercing to an array. Each of the five single-record
+runners (`runDefaultCompanyProfile`, `runDefaultBankInfo`,
+`runDefaultPayrollGeneral`, `runDefaultConfigureSalaryComponents`,
+`runDefaultTax`) now calls it first and returns `{status: "skipped",
+message: "..."}` naming what's already there, before ever generating or
+saving anything; `runDefaultAttendancePolicy` does the same directly
+against `fetchCompanyResource("/attendance/policies")`, which it was
+already going to invalidate on success. All five still mark the module
+`done` in `setup.doneModules` on a skip too — a real, already-configured
+module should read as done, not as still-pending.
+
+**Leave Policy and Bonus Policy are intentionally not done the same
+way, yet** — both can legitimately hold more than one real record, so
+"a policy already exists" doesn't mean *our* default policy already
+exists. `GET /leave-policies` (confirmed real, in the collection all
+along, unlike the five above) and `GET /bonus/configuration/policies`
+(not in the collection, found and confirmed the same way, wrapped as
+`data.data.policies` — `fetchCompanyResource()`'s existing components-
+key fallback widened to also recognise a `policies` key, the exact
+future case its own comment already flagged) both work, but matching
+correctly needs a decision on what counts as "already done" when the
+company has *some* policies but not the exact ones our default would
+create — raised directly with the user rather than assumed, still being
+worked through together in real time against `Bulk Test 03` rather than
+decided in the abstract; not implemented yet as of this entry.
+
+### Company Profile names which real fields already have values (2026-09-15)
+
+A follow-up the same day, from the user actually clicking through the
+real HRIS admin panel and Bulk Forge side by side against `Bulk Test
+03`: the admin panel showed a fully-filled-in Company Profile, but Bulk
+Forge's own tab jumped straight to a fresh "generate one" form with no
+sign anything was already there. Company Profile has no mandatory
+fields (confirmed 2026-09-11 — a real save with every field emptied
+still succeeded), so "done" can't be judged by field-completeness the
+way another module's dependency check would be; the fix instead
+surfaces the real values themselves. Confirmed directly with the user
+between two options — replacing the form entirely with a read-only
+"already configured" view, or keeping the existing generate/edit/save
+form with a notice above it — the user picked the second, with the
+wording "following fields already have values, running again will
+overwrite data."
+
+`loadCompanyProfileExisting()` GETs `/company-profile` once per company
+connection (`companyProfile.existing`, checked in `wireCompanyProfileEvents()`
+the same shape as Leave Types'/Department's own background existing-check
+above — snapshots the form first, since this fetch can resolve after
+the visitor has started typing over the generated defaults) and
+`companyProfileExistingNoticeHtml()` renders a warning-coloured notice
+naming exactly which of the nine real fields (`legalName`, `tegNo`,
+`taxId`, `industry`, `businessType`, `website`, `description`,
+`missionStatement`, `visionStatement`) are non-empty on the real record
+— not just "this exists," the specific fields, so a QA engineer sees at
+a glance what would be overwritten. Absent entirely when nothing is
+configured yet (`existing === null`) or hasn't been checked yet
+(`existing === undefined`).
+
+**`companyProfile.existing` uses `undefined`, not `null`, as its "not
+yet checked" sentinel** — deliberately different from every other
+existing-check in this file (`leaveType.existing` etc., all `null`
+until fetched), because a real `null` answer from `fetchCompanyConfig()`
+is itself the meaningful "no profile yet" result here, so it can't
+double as "haven't asked." Missing this distinction caused a real,
+confirmed infinite-render bug during development: `fetchCompanyConfig()`
+returned bare `undefined` (not `null`) whenever a response happened to
+carry no `data` key at all, which is exactly the sentinel value —
+`companyProfile.existing` would silently reset to "not yet checked"
+after every single check, so the very next render fired the same
+background check again, forever. Fixed at the source: `fetchCompanyConfig()`
+now normalises a missing `data` key to `null` explicitly, so `undefined`
+is only ever produced by the one place meant to produce it (the state
+object's own initial value). Reproduced directly by the test suite
+itself before this fix: test J's own mocked Save route answered every
+method identically with a bare `{status,message}` body and no `data`
+key, which is exactly the shape that triggered it (and had also been
+silently clobbering the same test's own `sentBody` capture, since the
+background re-check's GET shared that mocked test route with the real
+PATCH — same gotcha as Bonus Types' GET/POST-sharing route above; fixed
+by branching the test's own mock on method, not by changing the app).
+
+Invalidated the same way every other per-module cache here is: a
+successful save (single-item or the "Run defaults" runner) resets
+`existing` back to `undefined` so the next render's check reflects what
+was just written, and `resetModuleState()` resets it on Sign out/Disconnect.
+
+**Bank Info got the identical treatment the same day** ("bank info er
+get korte parso?" — the next module in the same serial, one-at-a-time
+pass, per the user's own explicit instruction to go through Company
+Settings in order rather than jump ahead): `loadBankInfoExisting()`
+GETs `/company-bank-informations` (a distinct URL from the real save
+endpoint, `.../company-bank-informations/save`, so no method-branch
+needed the way Company Profile's shared GET/PATCH URL required),
+`bankInfoExistingNoticeHtml()` names which of the five real fields
+(`bankName`, `accountNumber`, `npsbCode`, `beftnCode`, `mfsCode`) are
+non-empty. Same `existing: undefined` sentinel, same invalidate-on-save
+(single-item and `runDefaultBankInfo()`), same `resetModuleState()`
+entry — the exact same shape as Company Profile's, copied rather than
+generalised into a shared helper since there are only two of these so
+far and their field lists/labels are the only thing that differs.
+
+**Extended to the other four single-record modules the same day**
+("tumi jehetu pattern dhore felso so ebar agaite thako. ja ja pao kore
+felo" — since you've got the pattern down, go ahead and do whatever
+fits it): Payroll General, Configure Salary Components, Tax and
+Attendance Policy all already had a real "is this already configured"
+GET check built for "Run defaults"' own skip logic (above), so adding
+the same notice to each was reusing an endpoint already proven real,
+not discovering a new one.
+
+- **Payroll General** — `loadPayrollGeneralExisting()` GETs `/payroll/
+  configuration/payroll-cycle`; the notice names the real cycle
+  (`PAYROLL_CYCLE_DISPLAY_LABELS`, e.g. "Fixed Date") from
+  `existing.config.payrollCycle` — the one field confirmed to matter,
+  rather than every field the real response carries (it also includes
+  `activePeriod`/`preview` blocks this app has no use for).
+- **Configure Salary Components** — `loadSalaryStructureExisting()`
+  GETs `/payroll/configuration/non-paygrade-structure`, wired inside
+  `wireSalaryStructureEvents()` only once its own ≥2-Active-components
+  dependency has already resolved (this module blocks on that first,
+  same as before). Names only Basic % — **confirmed against the real
+  API that this GET has no per-component breakdown at all**, unlike its
+  own PUT response, so there's nothing further to name honestly.
+- **Tax** — `loadPayrollTaxExisting()` GETs `/payroll/configuration/
+  tax-rules/list` (`isEnabled`). **Deliberately not the same warning-
+  boxed treatment as the other three** — `payrollTaxExistingNoticeHtml()`
+  reuses the plain success-toned confirmation style (`iconCheck()`,
+  `var(--success)`) already used for "Saved." everywhere else, since
+  re-enabling something already enabled isn't destructive the way
+  re-saving a record with newly-generated values is; a warning box would
+  have overstated the risk.
+- **Attendance Policy** — `loadAttendancePolicyExisting()` reuses
+  `fetchCompanyResource("/attendance/policies")` directly (an array, not
+  `fetchCompanyConfig()` — this module can have more than one real
+  policy, unlike the other three's single-record shape), naming every
+  real policy's own `title` rather than just counting them.
+
+All four follow the exact same `existing: undefined` sentinel,
+invalidate-on-save (single-item and their `runDefaultX()` runner) and
+`resetModuleState()` entry as Company Profile/Bank Info. Confirmed by
+test against real-shaped mocked responses for all four together (`BC`),
+plus Configure Salary Components' own Basic-% wording specifically
+(`BD`) — found and fixed one real test-only race while adding these:
+several existing test blocks for Payroll General/Configure Salary
+Components (`Y`, `AA`, `AA2`) captured a save's request body via a
+route registered on the same URL these new background GETs now also
+hit, with no method branch — the exact "GET clobbers a captured POST
+body" gotcha Company Profile's own test J hit first (below); fixed the
+same way, by branching each test's own mock on method, not by changing
+the app.
+
+**Locations got a related but deliberately different notice the same
+day** — direct request: "je koyta thakbe just bolba je ei company te
+'N' ta location acha, ekhan theke aro add kora jabe" (just say how many
+locations already exist, more can still be added from here). Unlike
+the six single-record modules above, Locations can hold any number of
+real branches, so an existing one is never at risk of being overwritten
+— `branchExistingNoticeHtml()` is a plain `.section-note` line, not the
+warning-boxed treatment, and doesn't tell the visitor to be careful
+about anything. `loadBranchExisting()` reuses `fetchCompanyResource
+("/company/branches")` directly (confirmed real and flat-array-shaped
+against `Bulk Test 03`, `GET /company/branches` — in the collection all
+along, just never called by this app before), same `existing: undefined`
+sentinel and invalidate-on-save discipline as everywhere else. Two more
+of this file's tests (`P`, at both this section and its geolocation-on
+sibling) hit the identical GET/POST-sharing-a-URL race the four modules
+above did, fixed the same way.
+
+**Extended to every other list-type module the same day** ("similar
+behavior jeshob page e paba okhaneo same jinish kore felo" — wherever
+you find the same shape, do the same thing there too): the same plain,
+non-warning count as Locations, applied everywhere a company can
+legitimately hold more than one real record.
+
+- **Department Management, Leave Types, Salary Components, Bonus
+  Types** — each already had its own `existing` array fetched in the
+  background for "Create the default(s) at once"'s own duplicate check
+  (built 2026-09-12/13); the single-item form's notice is a pure
+  template addition reading that same cached value — no new GET, no new
+  wiring, since the fetch and its invalidation already existed.
+- **Designation Management** — same idea, reading
+  `companyDesignation.existingDesignations` (already fetched alongside
+  its department dependency). **A real, confirmed bug found live while
+  adding this**: this field can legitimately be `null` at the exact
+  moment the single-item form renders — a save (single-item or bulk)
+  invalidates it and rerenders *immediately*, relying on the *next*
+  tab-open or bulk-mode entry to re-fetch it, not that render. The
+  template's own gate (`departments.length === 0`) stays satisfied the
+  whole time since only `existingDesignations` gets nulled, so an
+  unguarded `.length` read on it threw a real `TypeError`, caught by
+  the test suite itself (`R`, "no page errors through the whole
+  dependency flow"). Fixed by guarding the read
+  (`existingDesignations && existingDesignations.length > 0`) rather
+  than assuming the two caches are always in step.
+- **Custom Fields, Required Documents** — new checks, since neither had
+  one before: `loadCustomFieldExisting()` GETs `/company-settings/
+  employee-custom-fields/all`, `loadRequiredDocumentExisting()` GETs
+  `/required-documents` — both confirmed real and flat-array-shaped
+  against `Bulk Test 03`, neither in the sanitized Postman collection.
+- **Custom Addition/Deduction** — also new,
+  `loadCustomAdditionDeductionExisting()` GETs `/payroll/configuration/
+  custom-fields/list` (distinct URL from the real save endpoint, no
+  method branch needed). Its own response shape is genuinely different
+  from every array-based check above — `{customFields, total,
+  maxAllowed, remaining}` — so it goes through `fetchCompanyConfig()`
+  (returns the object as-is) rather than `fetchCompanyResource()`
+  (which would flatten it to just the array and throw away the real
+  cap). The notice names both: "already has 3 of 10... fields" rather
+  than a bare count, since the real 10-field ceiling is worth surfacing
+  directly.
+
+All eight follow the same invalidate-on-save discipline (single-item
+and, where one exists, the `runDefaultX()` runner) and
+`resetModuleState()` entry as every check before them. Confirmed by
+test (`BH`–`BK`) against real-shaped mocked responses for all eight;
+Required Documents' own test (`U`) already branched its mock on method
+correctly, so this batch just needed `toGrid()`'s own new defaults for
+the three brand-new endpoints, not a test-side fix.
+
+**Leave Policy and Bonus Policy resolved the same day — the ambiguous
+case deferred earlier that morning.** The open question then was what
+"already done" should mean when a company has *some* real policy but
+not necessarily the exact default one this app would create. Resolved
+directly, simpler than anything considered while it was still abstract:
+"leave ar bonus e jodi policy thake, name dekhaba ager motoi je eta ase.
+then chaile new create korte parbe eta bole diba" — if a policy exists,
+name it, the same way every module above already does; say a new one
+can still be created. **Not a skip, not a block** — unlike the six
+single-record modules, Save stays fully enabled and nothing is
+disabled; the notice is purely informational, closer in spirit to
+Locations' plain count than to Company Profile's warning box, except it
+names the real policy instead of just counting it (a company holding
+more than one distinctly-named policy is normal here, unlike a company
+profile).
+
+`loadLeavePolicyExisting()` GETs `/leave-policies` (flat array — this
+one's been in the collection the whole time, unlike most of the others
+this session) and `loadBonusPolicyExisting()` GETs `/bonus/configuration/
+policies` (wrapped as `data.data.policies` — the same fallback key
+widened into `fetchCompanyResource()` earlier the same day). Both wired
+the same way as their sibling modules: existing-check fires once per
+tab-open, snapshots the Name/Percentage inputs first (same "don't lose
+a hand-typed value to a background rerender" discipline as everywhere
+else), invalidates on every real save — single-item, Leave Policy's own
+"Create the default policy" shortcut, and Bonus Policy's both the
+single-item Save and its "Create the default 3" bulk run.
+
+**A flaky test found only under the full 8-suite run, not in
+isolation**, while confirming Configure Salary Components' own notice
+(built earlier the same day) still held: its test waited for the literal
+word "Basic" to appear, which the form's own "Basic %" label already
+satisfies the instant the ≥2-Active-components dependency resolves —
+before the *separate* background existing-check has necessarily
+resolved too. Passed reliably alone, where the background fetch's mocked
+delay is negligible against the rest of the test's own pacing; failed
+under real system load from seven other suites already running. Fixed
+by waiting for the notice's own text specifically, not a word it shares
+with the surrounding form.
+
+**The identical race resurfaced in "BC" itself, found 2026-09-19** —
+this fix only ever landed on "BD" (Configure Salary Components); "BC"'s
+own Payroll General/Tax/Attendance Policy checks still asserted on a
+notice's text right after a plain `waitForSelector`/fixed
+`waitForTimeout`, with no wait for the notice text itself. Failed twice
+under full-suite load (unrelated work in progress at the time — an
+Employee Add change nowhere near this file), passed reliably alone
+before that, same signature as "BD"'s own fix. Applied the identical
+fix to all three (`waitForFunction` on the notice's own text, not a
+selector or a fixed delay). **The same blind-`waitForTimeout`-before-an-
+"already"-check shape still exists in roughly a dozen more spots in this
+file**, everywhere else the 2026-09-15 "already has values" notice
+feature (above) added a test — none have actually failed yet, so they
+weren't touched speculatively, but the next one to flake under load will
+have this exact same cause.
+
+**Late Arrival, Absent Deduction, Overtime and Attendance Bonus are
+deliberately left out of this whole feature** — confirmed with the
+user directly rather than left as a gap nobody noticed: no known GET
+endpoint exists for any of the four (checked against the sanitized
+Postman collection; would need the same kind of real-API probing that
+found `/attendance/policies` and `/payroll/configuration/tax-rules/list`
+earlier), and the user's own call was that it isn't worth building —
+"ei 4 ta dorkar nai I guess. egula use korbe na keu" (nobody's likely
+to actually use these). Revisit only if that changes; don't build it
+speculatively. **Holiday Calendar** was never a candidate either, for a
+different reason — it's a bare sync action with nothing to configure or
+duplicate, so "already has values" doesn't apply to it at all.
+
+### A live verification pass against the real staging API (2026-09-10)
+
+Every module up to this point had only ever been checked against the
+Postman collection's own text and Playwright's mocked responses — never
+against the real, running Shomvob staging server. The user offered a
+real, disposable staging company's credentials for exactly this; they
+were used only in-memory, for this one verification pass, in terminal
+`curl` commands never written to any file, and are not recorded here or
+anywhere else in the repo.
+
+**Confirmed correct, byte-for-byte, against the real API:** Company
+Profile, Department Management, Designation Management, Leave Types
+(normal kind), Leave Policy, Custom Fields, Required Documents, Tax,
+Bonus Types, Salary Components, Custom Addition/Deduction. Bank Info's
+fields are also confirmed correct — a real attempt hit a `500` with a
+Postgres unique-constraint error, but that's the *test company* already
+having a bank record from earlier use, not a shape problem with what
+this app sends.
+
+**Confirmed broken and fixed the same day:** Locations (`officeName` →
+`name`, above), and Attendance Policy (`shifts`/`weekendDays` replaced by
+`maxCheckOutLimit`/`fixedBreakSettings`, above — fixed once the user
+supplied a known-good real payload and an admin-screen screenshot on a
+second machine, since no Postman collection ever had the real shape).
+
+**Confirmed broken, fixed the next day (2026-09-11):** Payroll Overtime
+had an undocumented real dependency on Attendance Policy having overtime
+enabled (above) — a real cross-group dependency this app didn't check
+or surface at the time, unlike Designation→Department or Leave
+Policy→Leave Type. This and Attendance Policy's own shape were already
+the user's own predicted "2-3 modules will need rework" before this
+whole build push started.
+
+### A second live pass, driving the actual UI, not curl (2026-09-11)
+
+The first pass (above) hit the real API directly with `curl`, bypassing
+this app's own UI entirely. This one drove the real, deployed app with
+Playwright against a fresh disposable staging test company — sign in,
+click into every settings module in order, use the new clear (×) button
+(above) to empty every currently-editable field, Save, and read back
+what this app actually displays. The point was less "which fields are
+mandatory" and more "does our own UI show the real server's answer
+properly" — the user's own framing. Credentials were typed directly
+into `env` vars for a one-off script run, never written into any file.
+
+**Confirmed working as designed:** every module correctly displayed
+either the real server's rejection message on an emptied field, or a
+real success — no silent failures, no blank error states, across all 12
+modules with editable fields (Company Profile, Bank Info, Locations,
+Department Management, Designation Management, Custom Fields, Required
+Documents, Leave Types, Leave Policy, Bonus Policy, Custom
+Addition/Deduction, Attendance Policy).
+
+**A genuinely interesting, non-bug finding:** Company Profile's all 6
+editable fields (`legalName`, `tegNo`, `taxId`, `industry`,
+`businessType`, `website`) were cleared and saved — the real API
+accepted the `PATCH` anyway. None of this module's generated fields are
+actually enforced server-side, despite the module always generating
+values for all of them. Nothing to fix here — this is exactly the kind
+of finding the clear button exists to surface, not a defect in this app.
+Most other modules' rejections came back as a bare `"Validation failed"`
+with no field named — Required Documents was the one exception, naming
+the field directly (`"Document name is required"`).
+
+**A real, confirmed, fixed bug: Configure Salary Components' dependency
+check could never actually unblock.** Documented in full above
+(Payroll → Configure Salary Components) — `fetchCompanyResource()`
+assumed every list endpoint returns a flat array, but the one paginated
+endpoint it's used against wraps the array a level deeper, so this
+dependency silently saw `[]` no matter how many Active salary
+components a company actually had. Confirmed against the real API
+directly (`curl`, bypassing the bug) that 2 Active components genuinely
+existed while the app still reported fewer than 2 — proof this was the
+app's own bug, not a stale server-side state. Fixed the same day;
+verified live afterward that the same real company's Configure Salary
+Components page unblocks and saves for real.
+
+**Confirmed still open at the time this pass was run:** revisiting
+Payroll Overtime after a real Attendance Policy existed in the same
+company still returned the same `"Enable overtime on an attendance
+policy first"` rejection — the cross-dependency was real and, at that
+point, still unmodeled in this app; it did not resolve on its own just
+because an Attendance Policy happened to exist (this particular one had
+rolled `overtimeEnabled: false`, confirmed directly via `GET
+/attendance/policies` — an undocumented endpoint found the same day,
+below). **Fixed the same day**, once that endpoint was found — see
+Payroll → Overtime, above.
+
+**Real records now exist in this disposable staging test company** from
+running this pass — same open question as the "Bulk Master" company
+before it (still unanswered): clean these up, or leave them as
+disposable test-company data.
+
+### "Create the defaults" now checks what already exists first (2026-09-12)
+
+Reported step by step by the user, with a real screenshot: a company
+already had all 3 default leave types (the 3 "Create the default 3"
+makes) plus a 4th, hand-made one — and "Create the default 3" still
+offered all 3 as if none existed. The user's own framing of the fix:
+"tumi to leave type get kore easily name match kore dekhte paro kongula
+create hoise kongula hoy nai... eta tumi shob page er jonno koro" — check
+what's already real, mark it, and do this for every "create the
+defaults" shortcut, not just this one. Applied to all three: Leave
+Types, Department Management, Designation Management.
+
+**Mechanism is the same in all three, and needed no new shared
+infrastructure** — the bulk list's own `"skipped"` item status (already
+built for a since-removed, unrelated reason — see Designation's own
+history above) already meant exactly "disabled checkbox, unselected,
+shown with a reason" the moment an item carries it. So marking an
+already-existing default just means building its bulk item with
+`selected: false, status: "skipped", message: "Already exists"` instead
+of the normal `selected: true, status: "pending"` — `bulkListTemplate()`,
+`bulkStatusHtml()` and `runBulkSequential()` needed zero changes.
+
+- **Leave Types** — `leaveType.existing` (`null` until fetched), loaded
+  via `loadLeaveTypeExisting()` (`GET /leave-types`, the same endpoint
+  Leave Policy's own dependency check already uses) and matched by
+  literal `name` against the 3 defaults.
+- **Department Management** — `companyDepartment.existing`, loaded via
+  `loadDepartmentExisting()` (`GET /departments/active`, the same
+  endpoint Designation's own dependency check already uses) and matched
+  by name, case-insensitive and trimmed (same comparison Designation's
+  preset-matching already used).
+- **Designation Management** — `companyDesignation.existingDesignations`,
+  loaded via a new `loadExistingDesignations()` (`GET /designations/
+  active?status=Active` — a real endpoint neither this app nor the
+  Postman collection had ever called before; found and confirmed live
+  the same day the user asked for this fix, see below) and matched by
+  **name and department together** — `"Manager"` in Cyberpunk and
+  `"Manager"` in Operations are two different real rows, so only the
+  exact (name, department) pair counts as already existing, never a bare
+  name match across the whole company.
+
+**Neither Leave Types nor Department block their tab's own render on
+this check** — unlike Designation, which already blocks on a real
+dependency (Department must exist) before showing anything, these two
+modules' whole premise is instant, no-network-wait rendering, and this
+existing-check is a courtesy, not a hard requirement. Each fires the
+fetch as soon as the tab opens, in the background
+(`if (leaveType.existing === null) loadLeaveTypeExisting().then(...)`),
+and the "Create the default(s)" click handler `await`s it directly if
+the visitor somehow clicks before it resolves — so correctness never
+depends on timing, only on whether the network call itself has finished.
+Designation's own existing-designations check, by contrast, is folded
+into its already-blocking `loadDesignationDependency()` — by the time
+the tab renders anything at all, both its department dependency and its
+own existing-designations check are already resolved together.
+
+**A real bug in this fix itself, found before it ever reached tests**:
+the background fetch's own `.then(rerender)` re-renders the whole tab
+body the instant it resolves — which, if a visitor had already started
+typing a Name by then, silently overwrote it, the exact "snapshot before
+re-render" class of bug this file has fixed repeatedly for toggle/seg
+click handlers, just triggered by a background network response instead
+of a click this time. Fixed by reading `#ltName`/`#deptModName`'s live
+value into the cached fields object before calling rerender(), the same
+discipline, just relocated to a `.then()` callback instead of an event
+handler.
+
+**Invalidated the same way every other dependency cache in this section
+already is**: creating a leave type/department/designation (single-item
+*or* bulk) nulls the relevant `existing`/`existingDesignations` state, so
+the next time "Create the default(s)" is entered it reflects what's
+actually real now, not a stale snapshot from before this run. All three
+are also cleared in `resetModuleState()`, same as every other per-module
+cache on Sign out/Disconnect.
+
+**Confirming the Designation endpoint was itself a small investigation**
+— the user supplied a real staging URL (`/designations/active?status=
+Active`) and said to find the bearer token in "amar api automation
+json" (a real, non-sanitized Postman collection on their machine,
+distinct from the sanitized copy on the Desktop mentioned earlier).
+Unauthenticated `curl` probing alone couldn't confirm the route was
+real — a `401` on this exact path and on a deliberately made-up sibling
+path under the same `/designations/` prefix came back identical, meaning
+the auth guard sits in front of the whole resource, not the specific
+route, so a `401` here proves less than it did for the earlier
+`/attendance/policies` discovery. Real confirmation came from logging in
+with a real (temporary, in-memory-only, never written to any file)
+staging test-company account found in that same collection and hitting
+both this URL and the Postman collection's own plain `GET /designations`
+with the resulting bearer token — both are real, both return the exact
+same shape (`data`: a flat array, each entry carrying a nested
+`department: { id, name, ... }` object, not a flat `departmentId`
+field), confirming `/designations/active?status=Active` works and
+matches the wrapping shape `fetchCompanyResource()` already expects
+without needing another wrapper-key fallback like Salary Components
+needed.
+
+### Schedule Management — a new group, "Create Roster" (2026-09-22)
+
+Came out of a round of lead feedback the user relayed directly, alongside
+several bigger, still-unscoped asks (audit logging, an admin panel, 3-tier
+access, a usage report) that are being tackled separately, in phases, not
+folded into this section. This one item — "roster ar default pattern
+create" — was scoped and built the same day it was handed over.
+
+**Not from the Postman collection at all.** Unlike almost everything else
+in Company Setup, the user supplied the real endpoint and a known-good
+real payload directly, the same way Attendance Policy's real shape was
+supplied when no collection entry existed for it either:
+`POST /workforce/time-slots`. A brand-new group,
+**Schedule Management**, sits between Attendance Settings and Leave
+Settings in `SETTINGS_GROUPS` (`app-data.js`) — direct placement
+instruction ("Attendance er pashe... khule otay rakho"). It holds two
+modules: **Create Roster** (built below) and **Create Roster Pattern**
+(the user's own next thing to hand over — currently just an honest
+"not built yet" tab via the existing `settingsComingSoonHtml()`
+fallback, same as any other unbuilt module always has been).
+
+**The request body is an array, but always exactly one item** —
+confirmed directly rather than assumed ("amra ektai korbo ashole")
+before building anything: `[{name, workStartTime, workEndTime,
+totalWorkingHours, halfDayHours, gracePeriodMinutes, color}]`. Like
+Locations, a company can hold any number of real time slots, so the
+existing-check (`loadRosterExisting()`/`rosterExistingNoticeHtml()`,
+`GET /workforce/time-slots` — the same URL as the save, confirmed by the
+user) is the same plain, non-warning "already has N time slots — more
+can still be added from here" count Locations/Department/etc. already
+use, not a "you're about to overwrite something" box.
+
+**`totalWorkingHours` and `halfDayHours` are deliberately not their own
+form fields** — confirmed directly ("total ta to auto calculate hobe
+bujhtesoi", "half 4 o auto dhoiro"): the UI only ever shows **Name,
+Start At, End At, Grace** (exactly the 4 the user listed, nothing more).
+`halfDayHours` is always the fixed `4` from the real default payload,
+full stop, never derived from anything. `totalWorkingHours` is *not*
+cached on state at all — `saveRoster()` computes it fresh from whatever
+Start/End the form currently holds, right before building the request
+body (`rosterTotalHours()`, rounded to the nearest half hour), so a
+hand-edited Start/End always sends a total that's actually consistent
+with what was typed rather than a stale generated number. Verified by
+test (`BN2`): editing Start to 08:00 and End to 16:30 sends
+`totalWorkingHours: 8.5`, not whatever a prior Regenerate had rolled.
+
+**Random generation follows the user's own explicit rules, not a
+guess:** Start At is drawn from `ROSTER_START_TIMES` — `["09:00",
+"09:30", "10:00", "10:30", "11:00"]`, direct instruction ("normally bd
+te 9-11 ta start time hoy 30 min gap e") — with End At always computed
+as Start + 9 hours (`addHoursToTime()`), matching the real default's own
+09:00–18:00 span; Grace is a real `<select>` over the user's own fixed
+set `[0, 5, 10, 15]` minutes rather than a free number input, since it's
+an enum, not a range; Name comes from a small pool of plausible shift
+names (`ROSTER_NAMES`); color is picked from a small palette including
+the real default's own `#22C55E` (purely cosmetic — "color random
+diyo" was the entire spec, nothing to confirm further).
+
+**"Create the Default" is a `.bulk-shortcut-btn` that loads the exact
+real payload the user supplied** (`ROSTER_DEFAULT` in `app-data.js`:
+`{name:"Default", workStartTime:"09:00", workEndTime:"18:00",
+gracePeriodMinutes:15, color:"#22C55E"}`) straight into the single-item
+form — same shape as Leave Policy's `#lpDefaultBtn`, not a second bulk-
+list UI, since there's only ever one item to create per call anyway.
+Verified by test (`BN`) that clicking it and saving sends the literal
+real payload byte-for-byte, including the recomputed `totalWorkingHours:
+9`/`halfDayHours: 4`.
+
+**Success status not yet confirmed against the real staging API** —
+unlike Bank Info's confirmed real `201`, this endpoint's actual success
+code hasn't been verified live, so `saveRoster()` uses the generic
+`!res.ok` check (same as Company Profile) rather than asserting a
+specific status. Worth a real verification pass once staging access is
+available for this endpoint, same as every other module eventually got.
+
+**"Create the Default" had the exact same silent-feedback bug Regenerate
+had, found live 2026-09-23** ("etay click korle kisu hoy na keno" — a
+screenshot showing the button clicked, Network tab empty, no visible
+reaction). It had worked — Name read "Default", which the random pool
+never produces — but a real change with zero visible feedback reads as
+broken, the identical class of bug `wireRegenerate()`'s own 2026-09-13
+fix (`CLAUDE.md` → Company Setup's "Every button in this section...")
+was built for. `wireRegenerate(id, regenerate, label)` picked up an
+optional third parameter (default `"Regenerating…"`, so every existing
+caller is untouched) and `#rstDefaultBtn` now routes through it with its
+own `"Loading the default…"` label instead of a bare click handler —
+same 1-second minimum spinner delay, same reasoning, just worded for
+what this button actually does.
+
+**The per-module "Create the Default" button was removed entirely,
+2026-09-24 — direct request** ("eta i think ekhane dorkar nai... amra
+upore run default diye pura schedule er ta run korte pari" — this isn't
+needed here, "Run defaults for Schedule Management" above already
+covers it): with "Run defaults for Schedule Management" sitting right
+above the tab strip on every page in this group, a second one-click
+shortcut for the exact same single record read as redundant in a way it
+doesn't for a bulk-list module (Department/Leave Types/Bonus
+Types/Salary Components all keep their own shortcut, since those loop
+several real creates that the group-level run doesn't surface
+individually). `#rstDefaultBtn` and its `wireRegenerate()` wiring
+(above) are gone from `rosterTemplate()`/`wireRosterEvents()`; the
+section-note points at the group-level button instead of describing a
+control that no longer exists. `runDefaultRoster()` itself is
+untouched — it never depended on this button existing in the DOM, only
+on the group/master "Run defaults" flow calling it directly, so
+removing the button changes nothing about what "Run defaults for
+Schedule Management" actually does. The Roster tab's own single-item
+form still exists — Regenerate, and now hand-typing every field, are
+what's left to reach that exact "Default" shape from this page directly
+if wanted, rather than the group-level run.
+
+`runDefaultRoster()` (in `MODULE_DEFAULT_RUNNERS`) matches the same
+"check what already exists first" discipline as Department/Leave
+Types/Salary Components — it checks the real existing list by name
+before creating a second "Default." At the time this module was first
+built, `runDefaultRosterPattern()` was still a deliberate stub
+returning `{status: "skipped", message: "Not built yet"}`, since Create
+Roster Pattern itself didn't exist yet the same day — see below, it was
+built later the same day, and `runDefaultRosterPattern()` now does the
+real thing. **Both `roster` and `roster_pattern` were added to
+`MASTER_RUN_MODULE_IDS` the next day (2026-09-24, direct request)** —
+see "Run defaults" → per-group and whole-company orchestration, above —
+so "Run every default" now covers Schedule Management too, not just a
+per-group run.
+
+### Create Roster Pattern — Schedule Management's second module (2026-09-23)
+
+`POST /workforce/patterns`. The user handed this over the same way as
+Create Roster — no Postman collection entry, a real endpoint and payload
+supplied directly, and this time a deliberate serial walkthrough ("ja ja
+boli carefully shuno serially execute korba") rather than everything at
+once: fetch the real time slot first, then check for existing patterns,
+then create. Each step confirmed before the next was given.
+
+**A real cross-module dependency, the first one this app has had on
+Create Roster.** Every entry in a pattern references a real Time Slot by
+its id, so this module needs at least one to exist first —
+`fetchCompanyResource("/workforce/time-slots")`, the exact same URL
+Create Roster's own existing-check already calls, fetched independently
+here rather than sharing that module's cache (same "own independent
+fetch even though it's the same endpoint" shape Late Arrival/Absent
+Deduction already use for their shared Leave Type dependency). Zero real
+time slots → blocked with `dependencyNoticeHtml("Time Slot", "schedule",
+"roster")`, a shortcut straight to Create Roster, same shape as every
+other real dependency in this app (Designation→Department, Leave
+Policy→Leave Type, Configure Salary Components→2 Active components).
+
+**`dayIndex` 0-4 maps to Sunday through Thursday — confirmed directly
+with the user before writing any code, not guessed.** Asked explicitly
+because getting this wrong would silently mis-schedule every pattern:
+does happen to match both BD's real work week and JS's own
+`Date.getDay()` convention (0 = Sunday), but that alignment was
+confirmed, not assumed from it looking plausible.
+
+**Deliberately one action, not a full generate/edit form — direct user
+instruction** ("eta editable kora possible but onek pera... eta phase
+two er jonno rakho," roughly: making it editable is a lot of hassle,
+keep that for phase two): assigning a different time slot to each of
+the 5 days only makes sense once a company has more than one real time
+slot to actually choose between, which isn't guaranteed yet. Only
+**Name** (default `"Standard Pattern"`) is a real input; `isCustomCycle`
+is always `false` and every entry's `dayIndex`/`timeSlotId`/`isWfh` are
+always the fixed shape from the user's own real payload — no random
+pools, no Regenerate, matching Holiday Calendar's "one action" simplicity
+but with the one field the user asked to keep editable. **Per-day/
+per-slot assignment is a named phase-two item**, not forgotten scope —
+flagged in the module's own code comment, not just here.
+
+**The real time slot to use is picked by matching the name "Default"
+first** (`pickDefaultTimeSlot()`) — same "match the known default by
+name" instinct as Configure Salary Components' filler and Leave Policy's
+own default policy — **falling back to whichever real time slot exists
+first** if a company's slots were all made or renamed by hand instead,
+so this still works rather than blocking on a name match that doesn't
+happen to exist. Verified by test (`BQ`): a company with only a
+"Morning Shift" slot (no "Default") still creates a pattern, correctly
+using that slot's real id.
+
+Same existing-count notice shape as Locations/Department/etc. ("already
+has N patterns — more can still be added from here," not a warning box,
+since a company can hold any number of real patterns) and the same
+`runDefaultRosterPattern()` "check what already exists first" discipline
+as every other default-shortcut — matched by the literal name "Standard
+Pattern" before offering to create a second one.
+
+### `fetchCompanyResource()` was silently broken for both workforce endpoints (2026-09-22)
+
+Found live, the same day Create Roster Pattern shipped: a real staging
+company ("Nexa Technologies") visibly had a real pattern in the actual
+HRIS admin screen — its "Working Hours → Patterns" tab showed "Standard
+work," and a pattern can't exist without at least one real time slot
+backing it — while Bulk Forge's own Create Roster Pattern tab insisted
+"This company doesn't have a Time Slot yet" and blocked. The user
+flagged the mismatch directly with two screenshots side by side rather
+than accepting it, then supplied real (temporary, used only in-memory
+for this one verification, not written to any file afterward — the
+scratch files used to hold the token during the check were deleted the
+same session) staging credentials for that exact company to check
+against, the same discipline as every other live-API verification pass
+in this project.
+
+**The exact same bug class as Configure Salary Components' 2026-09-11
+fix, just on two more endpoints.** `fetchCompanyResource()` assumed
+every list endpoint answers with a flat array at `data.data` unless it
+was a known paginated one — confirmed via real `curl` calls (login as
+the real company, then hit both endpoints with the resulting bearer
+token) that this was never true for either workforce endpoint, paginated
+or not: `GET .../workforce/time-slots` wraps its array as
+`data.data.timeSlots`, `GET .../workforce/patterns` wraps its as
+`data.data.patterns` — neither takes `limit`/`status` query params, so
+"only the paginated ones wrap" (the assumption baked into the function's
+own 2026-09-11 comment) turned out not to hold. Both silently returned
+`[]` no matter how much real data existed — Create Roster's own
+existing-count notice was equally broken by the same bug, just never
+reported, since an empty notice reads as "nothing yet" rather than
+visibly wrong the way a hard block does.
+
+Fixed by widening `fetchCompanyResource()`'s existing fallback chain
+with two more wrapper keys (`timeSlots`, `patterns`), same shape as the
+`components`/`policies` fallbacks already there — not by adding
+per-caller special cases. **The test mocks for both endpoints were
+rewritten to use the real wrapped shape** (`{data: {timeSlots: [...]}}`
+/ `{data: {patterns: [...]}}`) rather than the flatter shape that let
+the original bug through every check — the exact gotcha already
+documented for Configure Salary Components' own fix ("the existing
+test's own mock for this endpoint used a flat array too, which is
+exactly why it never caught this"), just repeated because the same
+"assume flat unless proven otherwise" default doesn't hold in general.
+**The lesson, worth remembering for any future workforce/schedule
+endpoint**: verify this app's own wrapping-key assumption against the
+real response every time, don't extend the paginated-endpoints-only
+theory to a new endpoint just because it's from the same product area.
+
+### A full systematic check for this same bug class, same day (2026-09-22)
+
+Direct request after the fix above ("tumi dekho amader onno kothao emon
+bug ase kina" — check whether this same bug exists anywhere else): every
+one of the 18 real GET endpoints this app calls (11 through
+`fetchCompanyResource()`, 6 through `fetchCompanyConfig()`) was hit
+directly against this exact real company (Nexa Technologies, already
+fully configured — the same company the original bug was found on),
+using a freshly-logged-in bearer token, and its actual response shape
+compared against what the code assumes.
+
+**Nothing else was broken.** The two workforce endpoints above were the
+only ones wrapped in a way the code didn't already account for — every
+other `fetchCompanyResource()` caller either genuinely returns a flat
+array (branches, departments, designations, custom fields, required
+documents, leave types, leave policies, bonus types, attendance
+policies — 9 of them) or one of the two already-known wrapper keys
+(salary components → `.components`, bonus policies → `.policies`), and
+every `fetchCompanyConfig()` caller's own specific nested-field read
+(`.config.payrollCycle`, `.basicSalaryPercentage`,
+`.customFields`/`.total`/`.maxAllowed`, `.isEnabled`) matched the real
+response exactly. The credentials and every fetched response were used
+only in-memory for this one pass and deleted from the scratchpad
+afterward, same discipline as every other live-API verification in this
+project.
+
+### Every "already has N X" notice gets a distinct font treatment (2026-09-24)
+
+Direct request, from a screenshot of Locations' own notice: "jodi emon
+hoy any settings e, etar font ta ektu different koro jeno cokhe pore" —
+these 13 plain-count notices (Locations, Create Roster, Create Roster
+Pattern, Department Management, Designation Management, Custom Fields,
+Required Documents, Leave Types, Leave Policy, Salary Components, Bonus
+Types, Bonus Policy, Custom Addition/Deduction) all rendered as a bare
+`.section-note` — identical weight and colour to the plain description
+line sitting right above them, so a real fact about *this specific
+company* read as more boilerplate copy. New `.existing-count-notice`
+class (`app.css`) — `font-weight: 600`, `color: var(--accent-strong)`,
+a touch larger than `.section-note` (13px) — replaces the literal
+`class="section-note" style="margin-top:-4px; margin-bottom:14px;"`
+that was repeated at all 13 call sites (a single `sed` pass, not 13
+hand-edits, since every occurrence was byte-for-byte identical).
+Deliberately **not** applied to Attendance Policy's own version — that
+one already uses the full warning-boxed treatment (border, background,
+icon), which reads as distinct on its own; this fix was only for the
+plain-text ones that didn't. Verified with Playwright screenshots in
+both light and dark — bright accent green against the surface,
+correctly legible in both without a single new hex value.
+
+### Location Types, Locations — replace the old Locations module entirely (2026-09-24)
+
+The old "Locations" (`POST /company/branches`, above) was removed
+outright, not extended — the real product moved to a different real API
+since that module was first built on 2026-09-10, and this session's own
+"ekta Default Location add kora lagbe" (need to add a Default Location)
+request turned into a full rebuild once the real shape came out. Not
+from the Postman collection at all — every endpoint and payload came
+straight from the user, several confirmed live against a real staging
+company (`Shark Pond`) before any code was written, same discipline as
+Roster/Roster Pattern. Two real modules, a genuine dependency between
+them, both still in Company Settings, in the exact slot the old
+Locations module used to occupy (right after Bank Info, before
+Department Management) — the group now holds 6 modules, not 5.
+
+**Location Types** — `POST /locations/location-types`. Only Name and
+"Can Have Geofence" are exposed as editable inputs, confirmed directly
+— `code` (always `""`), `sortOrder` (always `1`), `canHaveEmployees`
+(always `true`), `status` (always `"Active"`) and
+`allowedParentLocationTypeId` (always `null` — no parent-type hierarchy
+support yet, not asked for) are the fixed shape in
+`LOCATION_TYPE_DEFAULT` (`app-data.js`). `LOCATION_TYPE_NAMES` names
+real Dhaka-area zones (Baridhara, Gulshan, Banani, Uttara, …) rather
+than a generic label, matching the shape of the real default itself.
+Same plain "already has N location types — more can still be added
+from here" count as Locations/Department/etc., not a warning — a
+company can hold any number of real types.
+
+**Only Regenerate rolls a random name, same day, direct follow-up**
+("shuru te baridhaka dekhate chaitesi" — want to show Baridhara at the
+start): the very first load now always opens on the real default
+("Baridhara") rather than a random pick from `LOCATION_TYPE_NAMES` —
+same shape and same reasoning as Payroll General's own Cycle
+(2026-09-13), where a first impression of "the tool defaults to some
+random value" read as confusing. `generateLocationTypeFields
+(useDefaultName)` takes the same optional flag Payroll General's own
+generator does: the tab's first render passes `true`, Regenerate calls
+it with nothing and gets a fresh random pick instead.
+
+**Locations — the first real dependency in Company Settings itself**
+(every other real dependency in this app — Designation→Department,
+Leave Policy→Leave Type, Configure Salary Components→2 Active
+components, Roster Pattern→Roster — lives in a different group).
+`POST /locations`. Every real Location references a real Location Type
+by id (`locationTypeId`), so this blocks with
+`dependencyNoticeHtml("Location Type", "company", "location_types")`
+until at least one exists — same shape as every other dependency notice
+in the app. Four fields are editable: **Name** (from `OFFICE_NAMES`, the
+same pool the old branches module used), **Location Type** (a real
+`<select>` populated from this company's actual fetched types, not a
+free id), **Has Geofence**, and **Is Default** — `parentId`/`timezone`/
+`currency`/`headEmployeeId` stay `null` and `locale` stays `"en-BD"`,
+confirmed directly, no UI for any of them yet.
+
+- **`isDefault` only starts `true` for "Run defaults" itself, confirmed
+  directly** ("Custom korle user toggle on off korte parbe je default
+  naki na" — a hand-created location starts off, toggleable either way;
+  only the real default payload sets it true by default). A company
+  should end up with exactly one real default location — this app
+  doesn't enforce that itself (same "send what's configured, let the
+  real API's own rules apply" discipline as everywhere else), the real
+  default flow is just built around that expectation.
+- **When Has Geofence is on, coordinates are a small random offset from
+  Baridhara DOHS** — `randomBaridharaOffset()`, reused verbatim from the
+  old Locations module (its own reference point, and the same point the
+  real default location's own geofence sits on: `23.8103, 90.4125,
+  200m`), returning `{latitude, longitude, radiusInMeters}` which now
+  nests under a `geofence` key instead of three flat fields — the real
+  shape changed, the random-generation math didn't need to.
+- **`pickDefaultLocationType()` prefers the real type named "Baridhara"
+  (`LOCATION_TYPE_DEFAULT.name`), falling back to whichever real type
+  exists first** — same "match the known default by name" instinct as
+  Roster Pattern's own `pickDefaultTimeSlot()`, Configure Salary
+  Components' filler and Leave Policy's own default policy. Verified by
+  test: a company with only a "Gulshan" type (no "Baridhara") still
+  creates a location, correctly using that type's real id.
+
+**`fetchCompanyResource()`'s wrapper-key fallback widened twice more**
+— `GET .../locations/location-types/paginated` wraps as
+`data.data.locationTypes` (a paginated endpoint, consistent with the
+existing theory), but `GET .../locations` wraps as `data.data.items` —
+a fourth, more generic wrapper key with no endpoint-specific noun,
+checked last in the fallback chain deliberately so it can never shadow
+a more specific key some future endpoint might also use. Both confirmed
+live before being coded, same discipline as every wrapper key already
+in this function.
+
+**"Create the Default" gets no per-module button, on the same
+reasoning Roster's own button was just removed for** (above, same
+day) — "Run defaults for Company Settings" already covers both single
+records, so a second one-click shortcut for the same thing would be the
+identical redundancy just fixed. `runDefaultLocationType()`/
+`runDefaultLocation()` (`MODULE_DEFAULT_RUNNERS`) hold the real default
+payloads (`LOCATION_TYPE_DEFAULT.name` = `"Baridhara"`,
+`LOCATION_DEFAULT.name` = `"Railgate"`) and the same "check what already
+exists first, by name" discipline as every other default-shortcut in
+this app; both are in `MASTER_RUN_MODULE_IDS`, in the old branches
+module's exact old slot.
+
+**A real, confirmed bug found and fixed the same day, while probing
+this exact feature end-to-end**: switching tabs quickly after a save
+(background existing-check resolves after the previously-active tab's
+own inputs have already left the DOM) threw a real, uncaught
+`TypeError: Cannot read properties of null (reading 'value')` —
+reproduced directly with a Playwright probe script, not theoretical.
+Traced to `readCompanyProfileForm()`, but the identical unguarded shape
+existed in **six** places: Company Profile, Bank Info, Roster, Roster
+Pattern, Configure Salary Components and Attendance Policy's own
+background-check `.then()` callbacks all read `$("#someField").value`
+assuming their own tab was still the one on screen. Department's and
+Leave Types' own equivalents (built earlier) already guarded this
+correctly (`const nameInput = $("#deptModName"); if (nameInput) ...`) —
+this was the exact "roughly a dozen more spots... the next one to flake
+will have this exact same cause" gap flagged back on 2026-09-19 (see
+"Leave Policy and Bonus Policy resolved..." above), just found by a
+crash instead of a flaky test assertion this time. Fixed the same way
+everywhere it existed — including the two brand-new modules above,
+found before they ever reached a committed test — by guarding the
+element's existence before reading it, not just the state object's own
+`fields` truthiness. Confirmed by test that the same fast-navigation
+sequence that crashed before this fix no longer throws.
+
+Confirmed end-to-end by Playwright probe before any test was written:
+dependency blocking with zero real types, the real default payload
+(`Baridhara`, `Railgate` with its real geofence numbers) sending
+byte-for-byte, the dropdown populating from real fetched types, and
+both light and dark themes rendering the new `.existing-count-notice`
+correctly. `tests/company-setup.test.js` — blocks P/P2 (single-item
+save, dependency block, dropdown, geofence/isDefault toggles),
+BE/BF/BG/BE2 (existing-count notices, both modules) — and the AW master
+run block extended with real Location Type/Location creation, the
+group's own module-count assertions (`5`→`6` throughout the file) and
+tab-order assertions all updated to match.
+
+### A third live pass — Location Types/Locations/Roster/Roster Pattern, driving the real deployed site (2026-09-24)
+
+Requested directly ("full blown test korba... positive negative case"),
+against two real, fresh disposable staging companies (`Shark Pukur`,
+`Shark Balti`) — real tool sign-in and real company logins, driving the
+actual deployed `https://shomvob-bulk-project.vercel.app`, not a local
+build. Credentials used only in-memory in a scratch Playwright script,
+deleted afterward, never committed — same discipline as every other
+live pass in this project.
+
+**Positive (Shark Pukur):** "Run defaults" for both Company Settings and
+Schedule Management, real end to end — 6/6 and 2/2 modules done, 0
+skipped, 0 failed, zero page errors. Confirmed by a direct follow-up
+`curl`: the real company now holds exactly the real default Location
+Type (`Baridhara`) and the real default Location (`Railgate`,
+`isDefault: true`, correctly linked to that same Baridhara type's real
+id) — byte-for-byte what `LOCATION_TYPE_DEFAULT`/`LOCATION_DEFAULT`
+describe.
+
+**Negative/edge (Shark Balti):** Locations correctly blocked with zero
+real Location Types; Roster Pattern correctly blocked with zero real
+time slots. An empty required Name on Location Types got the real
+API's own generic `"Validation failed"` (same bare-message pattern
+found for most other modules in the 2026-09-11 pass). **A genuinely new
+finding**: the real API itself rejects a duplicate Location Type name
+server-side — `"A location type with the name "Gulshan Test Zone"
+already exists."` — confirmed by `curl` afterward that only one real
+record exists, not two. This app's own single-item form has no
+client-side duplicate check (only "Run defaults"/bulk shortcuts do, by
+design), and this confirms that's safe to leave as-is: the real server
+is the actual backstop, and its rejection surfaces through this app's
+existing "show the server's own message verbatim" discipline with no
+change needed.
+
+Zero page errors across either company, across the whole pass —
+further live confirmation that the six-site background-check crash fix
+(above, found the same day) holds up outside a mocked test too.
+
+**Extended the same day into a genuine A-to-Z pass, on direct
+correction** ("tumi ki khali location diye test korso? ami kintu
+complete A-Z test er jonno disilam" — the first pass above only
+exercised the newest modules; the real ask was every group). Ran "Run
+defaults" for every one of the 6 settings groups on both companies
+(not just the master run's curated 18 — every group's own full module
+list, Late Arrival/Absent Deduction/Overtime/Attendance
+Bonus/Custom Addition-Deduction included, since those are only reachable
+through a per-group run, never the master one). This is what actually
+found the three real bugs below — none of them touch a module the first,
+narrower pass had exercised.
+
+**Bug 1 — Location Types' `sortOrder` collided the moment a second real
+type existed.** The real default payload's own `sortOrder: 1` was sent
+unconditionally for every create; the real API rejects it outright once
+one real type already occupies that slot (`LOCATION_TYPE_SORT_ORDER_
+DUPLICATE: Sort order 1 is already used by "..."`) — surfaced on Shark
+Balti specifically because a type had already been hand-created there
+earlier in the same pass. Fixed by fetching the real current count
+fresh inside `saveLocationType()` itself (not a cached one) and sending
+`count + 1` — accurate even if something else created a type since this
+tab last checked, same "read fresh before writing" caution the app
+already applies to Roster's own `totalWorkingHours` recompute.
+
+**Bug 2 — Late Arrival's `latePenaltyLeaveType` isn't a real field at
+all**, on either company, confirmed by `curl` against the real
+`deduction-settings` endpoint directly: `"property latePenaltyLeaveType
+should not exist"`. The real field is **`latePenaltyLeaveTypeIds`, an
+array** — confirmed by trying the plural name and getting past that
+error to the next real validation instead. Same fix applied to
+**Absent Deduction's identically-shaped `absentDeductionLeaveType`** →
+`absentDeductionLeaveTypeIds`, found and fixed the same way, same
+session.
+
+**Bug 3 — Late Arrival's real default combination was never actually
+saveable.** `lateThresholdEnabled` is always sent `true` (never a
+toggle), and the real API requires at least one of `latePenaltyEnabled`/
+`repeatedLatePenaltyEnabled` to also be true whenever it is —
+`"Either late penalty or repeated late penalty must be enabled when
+late threshold is enabled!"`. Both defaulted `false` since the
+2026-09-13 change ("both default off... nothing stops both, either, or
+neither"), which is why "Run defaults for Payroll Settings" failed on
+this module on *both* companies, consistently, not flakily. Fixed by
+defaulting `latePenaltyEnabled` to `true` instead — both toggles stay
+fully independent in the UI, this only changes which one starts on.
+
+**A fourth, related finding, resolved the same day.** The same live curl
+session also surfaced `"Late penalty and repeated late penalty cannot
+both be enabled at the same time. Please enable only one."` — the real
+rule is **exactly one**, not merely *at least* one. Flagged back rather
+than decided unilaterally, since it meant reversing the explicit
+2026-09-13 "independent toggles" decision — confirmed directly ("hae
+eta korte parle valo, je exactly ekta hote hobe, duitai na"). Late
+Penalty / Repeated Late Penalty are no longer two independent Yes/No
+segs; `#laPenaltyTypeSeg` is a single radio-pair (`data-val="late"` /
+`"repeated"`) where selecting one always deselects the other, so an
+invalid combination can't be reached from the UI at all — this app's
+usual "let the real API be the backstop" discipline doesn't apply here
+specifically because the real API's own rule is "exactly one," which a
+UI shape can enforce directly rather than merely surface a rejection
+for. `generateLateArrivalFields()`'s defaults are unchanged (Late
+Penalty true, Repeated false); only the control that edits them
+changed shape.
+
+Both companies were left fully configured across all 6 groups by the
+end of this pass (Shark Pukur: every curated module plus Employee/
+Attendance/Leave/Payroll Settings in full; Shark Balti: the same, after
+its own negative-case detour) — further real, live confirmation beyond
+the mocked test suite that every dependency chain in this app
+(Location Type→Location, Department→Designation, Roster→Roster
+Pattern, Leave Type→Leave Policy, Salary Components→Configure Salary
+Components, Bonus Type→Bonus Policy, Attendance Policy→Overtime)
+resolves correctly end to end against the real API.
+
+### Audit Log — data capture only, no viewing UI yet (2026-09-24)
+
+The first of three lead-feedback asks (`TODO.md`) to actually get built —
+Dashboard and Tiered access/admin panel are still unstarted, deliberately
+separate phases. Scope was confirmed directly and is exactly three event
+kinds, nothing more: "ke ke login korlo / ke ki korlo / konta create
+korlo, bulk na settings" ("ar kichu? audit to basically eigulai" — that's
+genuinely all of it). Whether this phase needed its own viewing UI was
+asked directly too; the answer was to build capture only for now — "eta
+kintu admin panel er part hobar kotha. je admin dhuke dekhbe ke ki korse"
+(viewing belongs to the future admin panel, not this phase).
+
+**This is the app's first real, consciously-made exception to "No
+backend, no database, no Supabase" (above)** — the Supabase project
+(`wtlaiidtiugxirqcxjzw`, previously Auth-only, see "The Supabase project
+itself" above) gains its first real table, `audit_log`. Every other rule
+in that architecture section is untouched: the five generators are still
+100% client-side, and Company Setup's own two real logins are unchanged.
+This is additive, not a reversal.
+
+**`logAudit(eventType, detail, extra)`** (`app.js`) is a fire-and-forget
+`POST {SUPABASE_URL}/rest/v1/audit_log`, wrapped in try/catch with the
+failure silently swallowed — a logging write must never block or surface
+an error for the real user-facing action it's describing. Three call
+sites, matching the three confirmed event kinds exactly:
+
+- **`login`** — `wireSetupSignIn()`'s tool-login success handler, right
+  after `saveToolSession()`. Fires once per real Supabase tool sign-in,
+  not per company login (the company login was never in scope — it isn't
+  a Bulk Forge account, it's a real Shomvob credential).
+- **`settings_save`** — not a new call site at all. `setup.doneModules`
+  (a plain `Set`, everywhere else in this file) is now built by
+  `makeDoneModulesSet(initial)`, which returns a `Set` whose own `.add()`
+  is overridden to call `logAudit("settings_save", ...)` before doing the
+  real add. Every one of the ~66 pre-existing `setup.doneModules.add(...)`
+  call sites across every settings module — single-item saves, bulk
+  creates, "Run defaults" runners, session restore — logs itself
+  automatically, with zero edits to any of those 66 sites. Chosen
+  deliberately over a 66-site mechanical edit: same call shape everywhere
+  already goes through this one `Set`, so wrapping it once is lower-risk
+  and impossible to miss on the next new module. `setup.doneModules =
+  makeDoneModulesSet()` replaces every prior `new Set()` (Sign out,
+  Disconnect, and session-restore's `new Set(last.doneModules)`).
+- **`bulk_generate`** — `openGenerateCompleteModal()`, the first line of
+  the function body (Phase 1's "Generate now opens a modal" mechanism,
+  above) — fires once per successful generate across all five operations,
+  since all five already funnel through this one shared function.
+  `user_email` is `null` here — Bulk has no real login yet, only the joke
+  gate, per the current design; it will start carrying a real email once
+  the Tiered Access work (`TODO.md`) gates Bulk with real login too.
+
+**RLS was insert-only for the first day, deliberately.** `audit_log`
+originally allowed `INSERT` for `authenticated` (real Supabase
+tool-login) users and granted no read access at all. That was
+intentional, not an oversight — a SELECT policy is exactly the kind of
+decision the admin-panel/tiered-access work should make (who can see
+whose activity), and opening read access before Dashboard actually
+needed it would have been guessing at the shape ahead of time.
+
+**A minimal admin allowlist, added 2026-09-25 once Dashboard actually
+needed to read this table.** Confirmed directly rather than assumed —
+asked "ei approach kharap na" (is this approach okay) before building
+anything, and separately confirmed the Dashboard's real-stats section
+must itself stay gated behind real tool-login + admin (see "Dashboard
+only shows real stats to a signed-in admin" below) since the Dashboard
+*page* itself is still reachable by anyone past the joke gate alone —
+this is not the full Tiered Access system, just enough to answer "who
+can see this."
+
+- **`public.admins`** — one column, `email`, currently just
+  `mahmudur@shomvob.com` (the user's own explicit call: "khali
+  mahmudur@shomvob.com e thak apatoto"). RLS is enabled with **no
+  policies of its own at all** — not even a self-read policy — so this
+  table can never be queried directly through the API by anyone,
+  `anon` or `authenticated`, admin or not.
+- **`public.is_admin()`** — a `SECURITY DEFINER` SQL function, so it
+  runs with the function owner's privileges rather than the caller's,
+  which is what lets it read `admins` (a table with zero policies)
+  without opening that table up itself. Checks `auth.jwt() ->>
+  'email'` — the real Supabase Auth email of whoever is currently
+  signed in — against `admins`, returns a plain boolean. Granted
+  `EXECUTE` to `authenticated` only.
+- **`audit_log_select_admins`** — a real `SELECT` policy, `for select
+  to authenticated using (public.is_admin())`. So `audit_log` now has
+  two policies total: the original insert-for-anyone-signed-in, and
+  this new admin-gated read. Enforced by Postgres itself, not by
+  anything in this app's own client code — a non-admin signed-in user
+  hitting the same Supabase REST endpoint directly (devtools, `curl`,
+  whatever) gets an empty result, not a client-side-only hidden
+  section.
+- **Growing this list later is one `INSERT` into `admins`**, nothing
+  else — no code change, no redeploy, since `is_admin()` re-checks the
+  table live on every query.
+
+**Test mocking, fixed proactively before the suite was ever run** — the
+project's standing "every network call is intercepted" testing
+discipline (`tests/`'s own section above) would otherwise be broken by
+all three call sites at once, hitting live Supabase infrastructure on
+every test run with fake tokens:
+`mockSupabaseOk()` in `tests/company-setup.test.js` now also mocks
+`**/rest/v1/audit_log` (covering `toGrid()` plus 8 other direct call
+sites); `tests/lib.js`'s shared `generate()` helper mocks the same route
+too, covering all 5 generator-operation suites in the one shared place
+they all call through — the same "fix once in the shared helper, not
+per-suite" pattern the "file ready" modal change (above) already
+established for that exact function. Confirmed: full 8-suite run (692
+checks) green with these mocks in place.
+
+**Next, not yet started**: Dashboard (needs this data to have something
+real to show) and Tiered access/admin panel (needs a real read/view
+surface for this log, plus the admin login flow itself — explicitly left
+open by the user: "admin login ta kemne hobe ota tumi e bolo"). Both are
+captured in full in `TODO.md`.
+
+### Dashboard's "Team activity" section — real stats, admin-only (2026-09-25)
+
+The second of three lead-feedback items (`TODO.md`), picked over Tiered
+Access on purpose — the data already existed (`audit_log`, above) and
+this is non-disruptive, no login-flow change. Scope was proposed by
+Claude and confirmed directly rather than dictated up front: 4 stat
+tiles (tool sign-ins, settings saved, bulk files generated, estimated
+time saved) plus 2 breakdowns (bulk generates by operation, settings
+saves by company) — "okay koro" once laid out.
+
+**The Dashboard *page* stays reachable by anyone past the joke gate,
+exactly as before.** Only this one new section is gated, and it's gated
+at the network level, not with CSS — confirmed directly with the user
+after they caught the gap themselves ("dashboard kintu initial dummy
+login er por e dekhte parbe. ami ki bhul bujhaisi?" — the Dashboard is
+visible right after the joke gate, isn't that a problem for
+"admin-only" data?): `dashboardStats.status` starts `"idle"`, and
+`wireWelcomeEvents()` only ever calls `loadDashboardStats()` when
+`setup.toolToken` is already set (a real Supabase tool sign-in has
+happened) — someone who's only clicked through the joke gate never
+triggers a single network request for this, let alone sees data.
+
+**`checkIsAdmin()` calls `is_admin()` live via PostgREST's RPC endpoint
+every time** (`POST {SUPABASE_URL}/rest/v1/rpc/is_admin`, same
+`apikey`/bearer-token shape every other Supabase call in this app
+already uses) — never cached as a stored yes/no flag client-side, so
+growing the real `admins` table takes effect the next time anyone loads
+this section, no redeploy. A `false` (not signed in, or signed in but
+not admin) means `dashboardStats.status` becomes `"not_admin"` and the
+section renders nothing at all — same as the `"idle"` case, not a
+locked/teaser state, since a lock icon would itself be revealing that
+admin-only data exists here.
+
+**Numbers, not raw rows.** `loadDashboardStats()` fetches up to 2,000
+of the real `audit_log` rows in one call (`select=event_type,module_id,
+company_name` — no `user_email`, `detail` or timestamps requested,
+since the tiles/breakdowns above don't need them) and
+`summarizeAuditRows()` computes every tile/breakdown client-side from
+that — no separate aggregation backend, same "no backend beyond what's
+strictly needed" instinct as the rest of this app, now that the SELECT
+policy (above) makes a direct client-side read safe.
+
+**"Estimated time saved" reuses the app's own existing cost math, not a
+fresh number.** `OPERATION_CELL_ESTIMATE` (`app-data.js`) is the exact
+final figure from each operation's own `OPERATION_BLURBS[id].cost`
+line — 4,200 for Employee Add, and so on — multiplied by real
+`bulk_generate` counts per operation, then by the same
+`WELCOME_SECONDS_PER_CELL` (5) already used for the hero's own "5h 50m"
+figure. Explicitly an estimate, not a per-file actual — `audit_log`
+logs that a generate happened, not how many rows that particular file
+had, since row count was never part of what was asked to be captured.
+
+**Bar lists, not a chart library.** `barListHtml()` is plain HTML/CSS —
+a label, a `<div>` track with a width-percented fill `<div>`, a count —
+consistent with this app's "no external assets" rule (no CDN chart
+library) and its existing restraint about decorative chrome. The
+biggest bar in each list always reads full-width, so the rest read
+proportionally against the real biggest value rather than an arbitrary
+fixed scale.
+
+**Re-renders `#mainContent` directly once data resolves, not via
+`renderMain()`** — `renderMain()` also resets scroll position on every
+call (it's built for *changing* page, not updating one already on
+screen), which would jerk the visitor back to the top of the Dashboard
+the moment a slow admin-check resolved. Guarded by `currentOp !==
+"welcome"` first, same "don't apply a stale background response to a
+page the visitor has since left" discipline as every other background
+check in this app.
+
+**Reset on tool sign-out** (`clearToolSession()`) — `dashboardStats`
+goes back to `"idle"` so signing in again, possibly as a different
+(non-admin) user, re-checks rather than keeps showing the previous
+session's numbers.
+
+Confirmed by test: a non-admin signed-in visitor sees no "Team
+activity" section at all (`BR`); a real admin sees all 4 tiles with
+correctly-computed numbers and both breakdowns, verified against a
+known input set of mocked rows including the exact "60h 17m" time-saved
+math (`BS`). Verified visually with Playwright screenshots in both
+light and dark — the new `.stat-row-4`/`.stat-bar-*` styles use only
+existing theme tokens (`--surface-2`, `--border`, `--accent`,
+`--text-faint`), no new hex values.
+
+### A real, pre-existing Supabase outage was found and fixed (2026-09-25)
+
+The user tried the new Dashboard section and got nothing ("same
+pacchi" — same result, twice, after being walked through a hard
+refresh and a fresh sign-in). Confirmed live rather than guessed at:
+signing in with the real credentials directly by `curl` worked fine
+(`/auth/v1/token` returned a real token), but calling `is_admin()` with
+that same token returned `503 PGRST002 — "Could not query the database
+for the schema cache. Retrying."` — and critically, so did the
+already-existing `audit_log` endpoint, proving this wasn't anything
+specific to today's work.
+
+**Root cause, found in `postgrest_logs`, not guessed:** "Failed to load
+the schema cache using db-schemas=pg_pgrst_no_exposed_schemas... schema
+\"pg_pgrst_no_exposed_schemas\" does not exist." This project's
+"exposed schemas" API setting had somehow ended up pointing at a
+literal placeholder value instead of `public` — a pre-existing, project-
+level misconfiguration, not something either the `admins`/`is_admin()`
+migration or the Dashboard code introduced. The logs show this was
+actually surfaced *by* the earlier `NOTIFY pgrst, 'reload schema'` run
+while debugging — PostgREST had likely been serving a stale-but-working
+schema cache from before this got misconfigured, and forcing a reload
+made it pick up the broken value and fail outright. **This also means
+`audit_log`'s own INSERTs have likely been silently failing since
+before today** — the fire-and-forget `logAudit()` swallows failures on
+purpose (so a logging problem never blocks the real action it
+describes), so this had no visible symptom until someone tried to
+*read* the data back.
+
+**Fixed via SQL, not the dashboard** — `ALTER ROLE authenticator SET
+pgrst.db_schemas = 'public, extensions'` followed by `NOTIFY pgrst,
+'reload config'`. Supabase's PostgREST instance reads schema exposure
+from an `authenticator`-role GUC prefixed `pgrst.`, which can be set
+directly via SQL — this doesn't require dashboard access at all.
+Verified immediately afterward, live: the real `audit_log` GET now
+returns `200`, and `is_admin()` with the real `mahmudur@shomvob.com`
+token now correctly returns `true`.
+
+**Nothing in this app's own code changed for this fix** — Dashboard,
+Audit Log and every RLS policy above are all correct as designed; this
+was purely a broken piece of Supabase project configuration, now
+corrected at the source.
+
+### Tiered Access — steps 1 and 2 (2026-09-25)
+
+Started, deliberately not all at once — direct correction after an
+attempt to plan the whole journey up front: "overall journey emne msg e
+ekbare bujhano hard. amra aste aste agabo" (hard to explain the whole
+thing in one message, we'll go step by step). Full decisions are kept
+in `TODO.md`, not restated here in full — this section covers only
+what's actually built.
+
+**Step 1 — `user_access` replaces `admins` outright.** One table, one
+source of truth per real tool-login account, rather than the narrower
+`admins` (which only ever held a boolean) living alongside a second new
+table for tier: `email` (PK), `tier` (`'bulk' | 'company' | 'both'`,
+default `'both'`), `is_admin` (default `false`). `is_admin()`
+(Dashboard's own function, above) is redefined **in place** — same
+name, same signature, `CREATE OR REPLACE` rather than drop-and-recreate
+— since `audit_log`'s own SELECT policy already depends on it and a
+`DROP FUNCTION` would need `CASCADE`, taking that policy down too.
+**`my_tier()`**, a new sibling function, same `SECURITY DEFINER` shape,
+same default-when-missing instinct: any real account with no
+`user_access` row yet reads as `'both'` — confirmed directly with the
+user rather than assumed, specifically so today's 3 existing accounts
+(mahmudur, tamjida, tanvir) don't lose access the moment this ships. As
+before, `user_access` itself has **no direct read/write policy for
+anyone but an admin** — a regular account only ever learns its own
+tier/admin status through these two narrow RPCs, never by querying the
+table.
+
+**Step 2 — every Operation now needs the same real sign-in Company
+Setup's own step one always used, not just the joke gate.** Direct
+instruction from `TODO.md`'s own dictated journey ("Bulk... needs it
+too now, since access-tiering has to apply everywhere"). `goToOperation
+(opId)` is the one place this is decided — both the sidebar's Operations
+list and the Dashboard's own op-cards route through it now instead of
+setting `currentOp` directly, so there's exactly one gate to maintain:
+if `setup.toolToken` isn't set, the requested op id is stashed in
+`pendingOperation` and `currentOp` becomes `"operations_gate"` instead;
+once signed in, it lands exactly where the visitor meant to go, not
+back on the Dashboard.
+
+**`operationsGateTemplate()` is deliberately not a copy of Company
+Setup's own `setupSignInTemplate()`.** That one also picks dev/staging
+— meaningless here, since the five generators never call a real
+Shomvob server at all; gating Operations is purely about *who's*
+signed in. Same `supabaseSignIn()`/`saveToolSession()`/`logAudit
+("login", ...)` calls as Company Setup's own sign-in, though — one
+real account, reused everywhere it's needed, not a second parallel
+auth flow. **Company Setup's own sign-in also satisfies this gate**,
+and vice versa — both just set the same `setup.toolToken`, so signing
+in from either side unlocks the other for the rest of that session.
+
+**Tier itself wasn't enforced at the time this step shipped — this step
+only required *a* real sign-in**, same as Company Setup's step one
+always had. Real enforcement followed the next day — see "Tiered
+Access — real enforcement + lock icons" below.
+
+**A real, foreseeable side effect, confirmed acceptable rather than
+silently patched around:** `hasUnsavedWork()` already treated a bare
+tool sign-in as "worth warning about" on reload (`hasGeneratorWork() ||
+!!setup.toolToken`, since 2026-09-11 — "redoing that login is already
+the cost being warned about"). Now that Operations also require that
+same sign-in, the reload guard arms itself the moment *any* operation
+has been opened, even with a completely empty form — not a regression,
+the exact reasoning already on record just now also applies to
+Operations, not only Company Setup.
+
+**Test infrastructure:** a new `tests/tiered-access.test.js` — gate
+blocks/unblocks correctly, wrong credentials stay on the gate, a
+successful sign-in lands on the exact operation originally requested
+and logs a real `login` audit event, a later operation switch on the
+same page skips the gate entirely, and signing in via Company Setup
+also unlocks Operations (one account, either door). **Every one of the
+five generator suites' own navigation needed updating** — each drives
+a single shared page (or, for `attendance.test.js`/`assets.test.js`,
+a shared helper that reloads the page on every call) that previously
+reached its operation with a bare sidebar click; `mockToolSignIn()`/
+`goToOp()` (new shared helpers, `tests/lib.js`) now mock the same
+fake-token + `audit_log` calls `company-setup.test.js`'s own
+`toGrid()` already mocks, and drive the gate the same way a real
+visitor would the first time, going straight through on every
+subsequent operation switch after that. `appearance.test.js`'s own
+single operation visit (needed for a file-input dark-theme check)
+got the same fix. Full 9-suite run (787 checks) green.
+
+### Tiered Access — real enforcement + lock icons (2026-09-26)
+
+Direct instruction, given as "do 2 and 3 together, they're related"
+against a punch list of remaining Welcome/tier-page work proposed the
+same conversation (2: actually enforce `my_tier()`; 3: lock-icon UI).
+**The Welcome/tier routing page itself is still not built** — that's a
+separate, still-open item (`TODO.md`'s own "last piece of the
+originally-dictated journey") — so rather than wait on that page's own
+design pass, this retrofits the same enforcement + lock-icon idea onto
+today's real nav: a real tier of `"company"` locks the sidebar's whole
+Operations list, a real tier of `"bulk"` locks Company Setup, `"both"`
+(or the tier not yet resolved) locks neither. When the new page is
+eventually built, this same `myTier` state and `checkMyTier()` call are
+what it will read too — nothing here is throwaway.
+
+**`checkMyTier()`/`myTier`/`refreshMyTier()` mirror `checkIsAdmin()`/
+`isAdminUser`/`refreshAdminNav()` exactly** — same RPC-call shape
+(`POST {SUPABASE_URL}/rest/v1/rpc/my_tier`), same "never cached beyond
+this session's own nav rendering, re-checked live" discipline. One
+deliberate difference: `checkMyTier()` **fails open** to `"both"` on a
+network hiccup, where `checkIsAdmin()` fails closed to `false` — this
+is a client-side nav convenience, not the real security boundary (RLS
++ each RPC's own SQL policy is), so the worst case here is a lock icon
+that should show doesn't, never an unauthorized real write. Called
+from the same three sites `refreshAdminNav()` already is (both real
+sign-in success handlers, plus `init()`'s session-restore branch), and
+reset to `null` on the same real sign-out.
+
+**Disabled + a small pill, not hidden outright** — the same shape
+Coming-soon operations already used (`op.status === "soon"`), reusing
+`.pill-soon`'s own styling for a "Locked" pill rather than a new class,
+since the visual language is identical. A locked button also carries a
+`title` naming why, same pattern as Admin Panel's own disabled
+self-Remove button. This is exactly the TODO.md-dictated behaviour
+("Whatever a given user's tier doesn't include gets a lock icon
+instead of being hidden outright"), just living on today's nav instead
+of the still-unbuilt page.
+
+**Real enforcement, not just a disabled button** — `goToOperation()`
+(the one gate both the sidebar and the Dashboard's op-cards already
+route through) now also refuses a `"company"`-tier account outright,
+independent of whether the click even could have reached it, and shows
+a toast naming why. `wirePopstate()` (Back/Forward) gets the identical
+check for both directions — a stale history entry from before an
+account was retiered could otherwise land directly on a page the
+current tier no longer allows, the same class of gap this app's own
+Back/Forward already guarded against for a stale signed-out session
+(above).
+
+**The Dashboard's own sticky-bar note is tier-aware too** — it used to
+claim "Operations and Company Setup are unlocked for this session"
+unconditionally the moment `setup.toolToken` was set; left unconditional,
+that line would now sit directly under a visibly locked, greyed-out
+Operations list contradicting itself. Reworded per-tier
+(`"bulk"`/`"company"`/`"both"`), matching whichever half is actually
+locked.
+
+**A real race, caught by this file's own test before it ever shipped**
+(`tests/tiered-access.test.js`, blocks E/F): `refreshMyTier()`'s RPC
+call and the Dashboard's own render both fire synchronously right
+after sign-in, so the note's tier-aware text (set once, at render
+time, inside `wireWelcomeEvents()`) could easily be built from a still-
+`null` `myTier` — the ordinary case, not a rare one — and then never
+correct itself, since only `renderSidebar()` re-ran once the RPC
+actually resolved. Exactly the "background check resolves after the
+page already rendered, and nothing reapplies it" shape
+`dashboardStats`'s own fix already guards against, just not yet copied
+here. Fixed the same way: `refreshMyTier()` also re-renders
+`#mainContent` (`welcomeTemplate()` + `wireWelcomeEvents()`) when
+`currentOp === "welcome"` at the moment it resolves.
+
+**Test mocking, proactively added everywhere a real sign-in can
+happen** — same discipline this project already holds itself to for
+every new backend call introduced by this feature (`audit_log`,
+`is_admin()`, now `my_tier()`): `tests/lib.js`'s shared
+`mockToolSignIn()` (used by all five generator suites plus
+`back-navigation.test.js`) now defaults `my_tier()` to `"both"`, same
+as `company-setup.test.js`'s `mockSupabaseOk()` and
+`admin-panel.test.js`'s `mockAdminBackend()`. `tiered-access.test.js`
+gained its own `mockTier(page, tier)` helper and two new blocks (E/F)
+confirming both lock directions, the Locked pill, the enabled sibling
+staying enabled, the toast-backed real enforcement, and the sticky
+bar's own reworded note — full 11-suite run green throughout.
+
+### Dashboard redesign — step 2 of the Tiered Access journey (2026-09-25)
+
+Dictated directly, screenshot by screenshot, rather than speced up front
+in one message ("overall journey emne msg e ekbare bujhano hard. amra
+aste aste agabo" — the same working style Tiered Access itself started
+with). This is TODO.md's own flagged item 9 finally getting built: "What
+it can do" (the operation-card grid) leaves the pre-login Dashboard, and
+the old 3-tile hero row is replaced by real content — not a cosmetic
+pass, a real layout change, confirmed piece by piece before writing any
+code (AskUserQuestion rounds on: chart data source/visibility, meme
+content, what the two sticky buttons actually mean, whether the
+operation-card grid and old stat tiles survive).
+
+- **The operation-card grid is gone from the Dashboard**, confirmed
+  directly rather than assumed — it's destined for the still-unbuilt
+  Welcome/tier routing page (TODO.md step 5: Bulk/Settings/Both cards +
+  lock icons), not deleted outright. `.op-card*` CSS (`app.css`) and
+  `OPERATION_BLURBS` (`app-data.js`) are both **kept, not deleted**, with
+  a comment explaining why: the next planned step is expected to want
+  this exact numbered-card shape and blurb/cost text for its own
+  Bulk/Settings/Both choices. `WELCOME_BIGGEST_BATCH` *was* deleted —
+  genuinely orphaned once the old 3-tile row using it was removed,
+  confirmed by grep before deleting, unlike the two kept-for-reuse items
+  above.
+- **The old 3-tile hero stat row is replaced by `welcomeChartsHtml()`** —
+  3 plain-CSS bar charts (reusing `barListHtml()` as-is, the exact same
+  no-chart-library component "Team activity" below already established),
+  confirmed public/no-login-needed rather than folding into the
+  admin-only "Team activity" section: **Cells per operation**, **Minutes
+  saved per operation** (both from `OPERATION_CELL_ESTIMATE`, already-
+  shipped static data, no new numbers invented) and **Built from scratch
+  vs. filled into an export** (the 3-vs-2 split this file's own "Two of
+  the five build a file from scratch... two fill values into the
+  system's own export" distinction, above, visualized for the first
+  time). Sits above "Team activity," which is otherwise completely
+  untouched — still admin-only, still gated the same way.
+- **The meme is now a real GIF** (`assets/hackerman.gif`, ~2.9MB,
+  downloaded from Tenor — the user picked the specific one from a
+  screenshot of search results, Kung Fury's "Hackerman" scene) —
+  **a direct reversal of this app's own stated reason for drawing the
+  old meme instead of fetching one** ("a real meme image would be
+  someone else's to licence," `app.css`'s own prior comment on `.meme`).
+  That reasoning holds for anything published to a stranger; this is the
+  user's own internal QA tool, and the call to use a real image here was
+  made directly by the user, not defaulted into — documented as a
+  reversal for the same reason every other reversal in this file is
+  (reduced-motion, the burnt-copper palette, etc.), not silently
+  overwritten. Kept as a plain relative-path asset, not inlined — same
+  "too big for a data URI" reasoning as `assets/lazy_cat.mp4`.
+- **Two sticky buttons, confirmed to mean exactly this**: `#welcomeBar`
+  (`part1.html`, a static sibling of `#actionBar` inside `.main`, same
+  "normal flex child of a full-height column reads as a sticky bottom
+  bar" mechanism `#actionBar` itself already uses — not literal CSS
+  `position: fixed`) shows only on the Dashboard (`renderMain()` resets
+  it to `display:none` unconditionally at the top, the one branch that
+  needs it turns it back to `flex` — cheaper than touching every other
+  branch individually). **Sign in** reuses the exact Operations-gate
+  sign-in flow (Tiered Access step 2, above) with `pendingOperation =
+  null`, so a successful sign-in lands back on the Dashboard rather than
+  jumping anywhere else — zero new auth code, just a second entry point
+  into the one that already existed. Its own click handler is assigned
+  via `.onclick =`, not `addEventListener` — this button is static
+  markup outside `#mainContent`, so it survives every re-render of this
+  page, and `addEventListener` would have stacked a duplicate handler on
+  every visit (the exact class of bug `askDiscard()`'s and
+  `openGenerateCompleteModal()`'s own clone-and-replace patterns already
+  guard against elsewhere in this file). **Auto setup my company & bulk
+  upload** — TODO.md's own dictated joke/Rickroll button — renders
+  `disabled` with a `title="Coming soon"` rather than shipping a click
+  that does nothing: its actual troll behaviour is a later step in this
+  same walkthrough, not this one, and this app holds itself to a strict
+  "never ship a click with zero visible feedback" rule elsewhere (Create
+  Roster's own 2026-09-23 fix, `wireRegenerate()`'s 2026-09-13 fix) that
+  applies here too.
+- **The bar's own note text and Sign in button both react to
+  `setup.toolToken` live** — signed out: "Real Bulk Forge sign-in
+  unlocks Operations and Company Setup for the rest of this session.";
+  signed in: "Signed in as `{email}` — Operations and Company Setup are
+  unlocked for this session.", Sign in itself hidden. Verified by a
+  direct Playwright probe: clicking Sign in → the real gate → a
+  successful sign-in → lands back on the Dashboard with the note and
+  button both already updated, no reload needed.
+
+**Test fallout, all fixed in the same pass**: `company-setup.test.js`'s
+own "BR" block (Dashboard renders normally for a non-admin) asserted on
+the now-removed "What it can do" text — repointed at "By the numbers"
+instead. `employee.test.js` had three sites depending on
+`.op-card-grid`/`.op-card[data-op=...]`: a dedicated "dashboard card
+routes to its operation" check (removed outright — its own subject no
+longer exists, and the general sidebar-navigation mechanism it exercised
+is already covered everywhere else), the scroll-reset `hops` array's own
+`["Dashboard", ".op-card-grid"]` entry (repointed at `.welcome-hero`,
+which is unaffected by this redesign), and a "dashboard card lands at
+the top" scroll check (adapted to navigate away via the sidebar's own
+"Assets Add" item instead of a now-gone card, since that's the surviving
+path and the underlying scroll-reset concern is identical either way).
+Full 9-suite run green afterward, confirmed by a direct Playwright
+screenshot pass in both light and dark before considering this done —
+the meme, the three charts and the sticky bar all render correctly in
+both themes with no new hex values (`.stat-bar-*`/`.field-row-3` reuse
+existing tokens throughout).
+
+**What's still ahead in this same walkthrough, not started**: the
+troll button's actual Rickroll behaviour, the Welcome/tier routing page
+itself (Bulk/Settings/Both cards + lock icons, `my_tier()` actually
+enforcing anything), and Admin Panel. All still open per TODO.md; ask
+the user what's next rather than assuming this redesign implies a
+particular build order for the rest.
+
+### Dashboard redesign, round two — sidebar hidden pre-signin, sticky bar restyled (2026-09-25)
+
+Same day, three more items dictated screenshot by screenshot ("ami
+koyekta jinish boli age okay. then bolle koiro" — let me say a few
+things first, then implement once I say go), confirmed before any code
+was written, same discipline as round one.
+
+**The sidebar's Operations section is now hidden until a real tool
+sign-in happens** — direct feedback, with an arrow drawn on a
+screenshot: "landing dashboard e ei side bar dekhabona. agei shob
+dekhay dile somossa" (don't show this sidebar on the landing dashboard;
+showing everything up front is a problem). `#gatedNav`
+(`part1.html`) wraps the "Operations" label + `#opNav`; `renderSidebar()`
+toggles its `display` on every call based on `setup.toolToken`. With
+this hidden, the Dashboard is the only reachable page while signed out,
+and the sticky bar's own Sign in button is the one way off it.
+
+**Deliberately scoped to Operations only, not Setup/Company Setup** —
+found and flagged before touching it, not silently decided: Company
+Setup already gates itself with its own two-step sign-in form
+(`setupSignInTemplate()`), reachable by clicking its own always-visible
+sidebar link. Hiding that link too would have made its own step one
+form unreachable — nothing else lets a visitor type into it — a real
+regression against an existing, tested feature, not a cosmetic call.
+Raised directly rather than assumed; the user confirmed the split
+(Operations hidden, Setup/Company Setup untouched) is correct, since the
+Operations-picking experience itself is what's moving to a future,
+not-yet-built post-login page ("side bar ta amader new arekta je
+dashboard hobe login korar por okhane ashbe. almost same
+functionalities... eta just generic hocche" — the sidebar's Operations
+list is headed for that new post-login page; what's on the pre-login
+landing page now is meant to be generic).
+
+**This made yesterday's per-operation inline gate unreachable from the
+sidebar, confirmed acceptable rather than silently left broken.** Tiered
+Access step 2 (above) was built around clicking an operation item
+directly — even signed out — to trigger `operationsGateTemplate()` with
+`pendingOperation` set, landing back on that exact operation after
+signing in. With the operation item itself now hidden pre-signin, that
+path can never fire from the sidebar any more; the Dashboard's own
+sticky Sign in button (`pendingOperation = null`) is the only real entry
+point now, always returning to the Dashboard rather than a specific
+operation. `tests/tiered-access.test.js` was rewritten to match — blocks
+A/B/C now start from `#welcomeLoginBtn` instead of a direct
+`.op-item` click, and assert Operations becomes visible
+(`#gatedNav`) rather than assuming it always was. The underlying gate
+mechanism and `goToOperation()`'s `pendingOperation` handling are
+otherwise untouched — infrastructure that's currently only ever called
+with a null pending operation, not dead code, since a future page with
+its own per-operation entry points could still exercise it.
+
+**A real bug found while confirming this, fixed the same pass:**
+`#gatedNav`'s visibility could go stale. Company Setup's own tool
+sign-in success handler called `renderSetupBody()` but never
+`renderSidebar()`, so a visitor who signed in through Company Setup's
+own form (rather than the Dashboard's) had Operations already unlocked
+functionally but still hidden until some unrelated click (Dashboard,
+say) happened to re-render the sidebar — confirmed live via
+`tiered-access.test.js`'s own block D, which now asserts `#gatedNav` is
+visible immediately after that sign-in, not just that a subsequent
+operation click happens to work. The mirror case — Company Setup's own
+Sign out clearing `setup.toolToken` without re-rendering the sidebar,
+which would have left Operations visibly (but falsely) unlocked — was
+fixed the same way, on the same reasoning, before it could be reported
+live.
+
+**The sticky bar itself was restyled against a cookie-consent-banner
+screenshot the user supplied as a reference** — the ask was narrower
+than the reference's full layout: keep the existing note line
+(`#welcomeBarNote`, unchanged wording, confirmed to stay: "lagle pore
+change kora jabe" — can change it later if needed) sitting above the
+button row, like the reference's title/description sitting above its
+own three buttons, and make **both buttons read as equally real
+choices** — round one's pairing of a solid green Sign in against a
+dashed `.tiny-btn` made the disabled Setup button "get lost" ("ekhon
+jemon auto setup lagtese haray gese or mishe gese pura"). `.welcome-bar`
+switched from `.action-bar`'s default row layout to a stacked column;
+`.welcome-bar-btn` is the shared shape (padding, radius, font-size/
+weight, `flex: 1 1 220px` so they split the row evenly) both buttons
+carry, with `.generate-btn`/`.btn-neutral` only supplying colour —
+`.btn-neutral` is a new, plain solid secondary button (`--surface-2`
+background, `--border-strong` outline), reusable anywhere else a
+same-weight non-accent button is needed alongside a `.generate-btn`.
+
+**Test fallout**: `tests/lib.js`'s shared `goToOp()` helper (used by all
+five generator suites' own first operation visit) rewritten the same
+way as `tiered-access.test.js` — checks whether `#gatedNav` is already
+visible (a page that restored a session via `sessionStorage` on reload,
+as `attendance.test.js`/`assets.test.js` both do per-call, already has
+it) and only routes through `#welcomeLoginBtn` when it isn't. Full
+9-suite run green throughout this pass; confirmed visually with a direct
+Playwright screenshot of both the signed-out and signed-in Dashboard
+states, matching the two screenshots above exactly.
+
+### Dashboard redesign, round three — the sidebar hides entirely, not just Operations (2026-09-25)
+
+Direct correction the same day, screenshot-annotated, of round two's own
+scoping call. Round two deliberately hid only the Operations section and
+kept Setup/Company Setup's own sidebar link visible, flagged as a
+judgment call before building it. The correction that came back was
+broader: **"side bar shorao... side bar e ekta logout ase eta wrong.
+amra to sign in o kori nai"** (remove the sidebar — it has a Log out in
+it, which is wrong, since nothing's been signed in yet) — Company Setup,
+Log out, everything in there implies a session that doesn't exist
+pre-signin, and the sidebar-based nav experience as a whole is headed
+for a real post-login page anyway ("eta to arekta je page hobe okhane
+ashbe. side bar ta amader new arekta je dashboard hobe login korar por
+okhane ashbe. almost same functionalities... eta just generic hocche").
+
+**`$(".sidebar").style.display`, not `$("#gatedNav")`.** `renderSidebar()`
+now toggles the whole element on `setup.toolToken`; the `#gatedNav`
+wrapper from round two is gone, `part1.html`'s nav markup reverted to its
+original flat shape. Signed out, the Dashboard is the only reachable
+page and the sticky bar is the only way off it, same mechanism as round
+two just widened to the whole sidebar rather than one section of it.
+
+**This made Company Setup's own sidebar link — and so its whole
+step-one sign-in form — unreachable too, the exact conflict flagged
+before round two started.** Confirmed directly rather than silently
+resolved either way: **"accha taile rakho ekhon. amra oi signup page
+shajanor por oitay transfer kore dilo"** (keep it for now; once the new
+post-login page is designed, move it there). Nothing in
+`setupSignInTemplate()`/`wireSetupSignIn()` was touched — real,
+correct, working code, just currently unreachable from the real UI,
+same "kept for a near-future reuse, not dead" shape as `.op-card`'s own
+CSS in round one. `tests/company-setup.test.js`'s `gotoSetup()` (and
+every other site that clicks `.op-item:has-text("Company Setup")` on a
+genuinely signed-out page — blocks L, AQ, AR, AI) now force the sidebar
+visible via a direct `page.evaluate()` DOM poke before that click,
+documented inline as exactly that: not a real user path, a stand-in
+until step one actually moves. **One real gotcha found fixing this**:
+the sidebar nav's own click handler calls `renderSidebar()` on every
+click, which re-evaluates `setup.toolToken` and silently re-hides the
+forced-visible sidebar the instant a *second* unauthenticated navigation
+happens on the same page (block L, which checks Company Setup's column
+width then clicks back to Dashboard without ever completing sign-in) —
+fixed by re-applying the same forced-visible poke before that second
+click too, not by weakening the app's own real logic to accommodate it.
+`tests/tiered-access.test.js`'s own block D was rewritten to match the
+new reachability direction — it no longer tests "sign in via Company
+Setup," which is no longer a real path, but the reverse: once signed in
+via the Dashboard, Company Setup's own step one is skipped straight to
+step two, confirming the shared account still works from that side.
+
+**Two buttons, restyled and renamed, same feedback pass.** Equal size
+wasn't actually holding — `.welcome-bar-btn`'s `align-items: stretch`
+alone wasn't enough once the "Auto setup my company & bulk upload"
+label wrapped to two lines against "Sign in"'s one, so the shorter
+button sat visibly smaller. Fixed with an explicit shared `min-height`
+(52px) on `.welcome-bar-btn`, guaranteeing both match regardless of how
+either label wraps at any width — a more robust fix than shortening
+text to avoid wrapping, which would only have held at one viewport
+width. **"Sign in" was renamed to "Sign In for Real"** — direct
+feedback that the bare label didn't say what it actually unlocks
+("second ta Sign In to Explore Operations ba ektu proper name dite
+paro. sign in dile bujha jay na specific kisu"); landed on wording that
+echoes the how-row's own step 1 copy just above it ("Sign in for real")
+rather than the longer suggested alternative, so the two read as the
+same idea stated twice rather than two different claims. The first
+button's own label was confirmed fine as-is and left untouched.
+
+**The Appearance picker moved out of the sidebar entirely, into its own
+floating pill (`#appearanceFloat`, `part1.html`), rather than
+disappearing along with everything else.** Flagged before building,
+not assumed: this control has nothing to do with being signed in —
+unlike Log out or Operations, hiding it was pure collateral damage, and
+`tests/appearance.test.js` (33 checks, run entirely on the signed-out
+Dashboard) confirmed the regression directly by failing outright. Fixed
+by relocating rather than special-casing its old spot inside
+`.sidebar-foot`: `position: fixed; top: 16px; right: 20px`, clear of
+both the sidebar's own top-left brand corner and the sticky bottom bar
+every page can show, so it can't collide with either regardless of
+which is visible. Kept its exact original dark styling
+(`var(--sidebar-*)` tokens, a self-contained pill with its own
+background/border/shadow) rather than switching to the main content
+area's own light/dark-aware tokens — since this control's whole job is
+picking the *page's* theme, its own chrome staying a fixed dark anchor
+regardless of that choice reads as deliberate, not inconsistent.
+`wireAppearance()` itself needed no changes — purely ID-based
+(`#appearanceSeg button`), indifferent to where in the DOM those
+buttons actually live.
+
+Full 9-suite run green after all of the above; confirmed visually with
+a fresh Playwright screenshot pass of both the signed-out (no sidebar,
+floating Appearance top-right, equal-weight sticky-bar buttons with the
+new label) and signed-in (full sidebar back, no duplicate Appearance,
+Sign In button correctly gone) states.
+
+### The Rickroll — TODO.md step 3, built (2026-09-25)
+
+"Auto setup my company & bulk upload" (the sticky bar's own disabled
+button since round one, above) is no longer disabled — clicking it
+opens `#rickrollModal`, a real joke, not a real feature, exactly as
+TODO.md's dictated journey named it: "a deliberate joke... plays a
+Rickroll video." Reuses the existing `.modal-card-split` shell ("Run
+defaults" own two-column modal, above) rather than a new component —
+left panel is the joke's own text, right panel is a real video instead
+of that modal's thin decorative quote strip, so it gets its own
+`.rickroll-video-panel` width/treatment rather than reusing
+`.modal-quote-panel`.
+
+**The clip is the user's own file, supplied directly** — a local
+`rickroll.mp4` on their machine, copied into `assets/` (renamed from
+its original filename, which had a `#` and spaces in it — exactly the
+"truncates the src" trap this file's own media-rail section already
+warns about). Same treatment as every other video in this app: `loop
+muted playsinline autoplay`, no controls, no sound — confirmed directly
+this is what was wanted ("no sound, continues play hobe"), not a
+one-off exception for this clip.
+
+**Sourcing this took two passes, both confirmed directly rather than
+assumed.** The first instinct was to embed the real, official YouTube
+video — flagged back rather than built, since it would have been this
+app's first-ever external network dependency (this app inlines or
+self-hosts literally everything except the Google Fonts stylesheet) and
+would have needed a `vercel.json` CSP change to allow the iframe. The
+user's own call was self-hosted instead, same discipline as
+`assets/hackerman.gif` (Dashboard redesign, round one, above). The
+second pass hit an unexpected snag: **Tenor doesn't have anything
+close to the requested 15–20 second length** — every Rick Astley GIF
+found there tops out around 1–4 seconds, since Tenor's whole format is
+short looping clips, not longer segments. Flagged directly rather than
+padding the gap with a longer segment cut from the official music video
+(more real copyright exposure for marginal benefit, given the video
+already loops continuously) — the user resolved it by supplying their
+own already-downloaded clip directly, which is what actually shipped.
+
+**Copy, dictated directly, translated into English** (this app's rule
+that all product copy stays English, Operations section above) rather
+than left in the Banglish it was given in: "LMAO you lazy!" (in a
+visibly larger title size, `.rickroll-title`, 27px vs. the standard
+modal title's 19px — the one thing specifically asked to be bigger)
+followed by "Did you really think it would be this easy? No — it'll
+make your life easier and save you 95% of the time, but you still have
+to do it yourself. Just a few basic inputs, and whatever you actually
+need is ready." — kept as a direct translation of the dictated Banglish
+rather than a looser paraphrase, since the exact framing (the "no, but"
+structure, "95%," "just a few basic inputs") was given deliberately,
+not as rough notes.
+
+**Wired once in `init()`, not inside `wireWelcomeEvents()`** —
+`#welcomeSetupBtn` is static markup outside `#mainContent` that
+survives every Dashboard re-render, so a handler added inside
+`wireWelcomeEvents()` (which re-runs on every visit) would stack via
+plain `addEventListener` the same way `#welcomeLoginBtn` would have;
+unlike that button, this one's behaviour never depends on
+`setup.toolToken`, so it never needs rewiring at all — wiring it once,
+permanently, in `init()` sidesteps the stacking risk entirely rather
+than needing the `.onclick =` workaround `#welcomeLoginBtn` uses. The
+modal's own open/close/Escape handling follows `askDiscard()`'s
+established clone-and-replace pattern, so a second open can't stack a
+duplicate close handler either.
+
+**Supersedes TODO.md's own original rough description**, not an
+incomplete reading of it — that entry only ever said the left side
+"says 'no, log in first'" as a placeholder for whatever the real copy
+would turn out to be; the dictated text above (LMAO you lazy!/"no,
+but...") is that real copy, given directly once this step was actually
+being built, same as how a card-game reference or a quote's exact
+wording elsewhere in this app was only ever pinned down at build time,
+not predicted in the planning note that came before it.
+
+**Rebuilt from a modal into a real page the same day, on direct
+feedback** ("eta eto choto keno banaiso? eta ekta page hobar kotha" —
+why did you make this so small, this is supposed to be a page): the
+`.modal-card-split` shell above was scoped to `max-width: 720px`, which
+read as a cramped popup rather than the "right side Rickroll, left side
+copy" layout actually wanted. `#rickrollModal` is gone from
+`part1.html` entirely — clicking `#welcomeSetupBtn` now navigates
+(`currentOp = "rickroll"`) instead of un-hiding a modal, and
+`renderMain()` renders it through the exact same `.has-media`/
+`.op-col`/`.op-media`/`.op-media-frame` two-column shell every
+operation page already uses for its own video rail (`paintOperation()`,
+above) — left column ~65% width for the copy, right column sticky with
+the video filling it properly, rather than a second, smaller layout
+system built just for this one page. `rickrollTemplate()`/
+`wireRickrollEvents()` replace the old modal's markup/open-close
+handlers; the button wiring itself (`wireRickroll()`, still called once
+from `init()`, same reasoning as before — `#welcomeSetupBtn` is static
+markup outside `#mainContent`) now just sets `currentOp` and calls
+`renderSidebar()`/`renderMain()`, the same shape every other
+page-to-page navigation in this app already uses, rather than a modal
+open/close pair. `.rickroll-card`/`.rickroll-title`/
+`.rickroll-video-panel` are deleted from `app.css` — nothing
+references them any more.
+
+**Sized and aligned further, same day, direct follow-up on that same
+page:** the shared operation-page shell is tuned for a tall scrolling
+form beside a modest video rail, which is neither what this page has —
+flagged directly with three asks: a bigger video, the left copy
+vertically centred against it, and the exit button leading somewhere
+real. Three scoped overrides, all gated behind a
+`.rickroll-layout` class on `.main-inner` (reset to removed at the top
+of every `renderMain()` call, the same place `#welcomeBar` already
+resets itself, so it can never leak onto an actual operation's own
+video rail): `.main-inner.has-media.rickroll-layout` widens the video's
+grid column relative to the copy's (`1fr` : `1.2fr`, versus the shared
+shell's `1.9fr` : `1fr` favouring the form side); `.rickroll-frame`
+drops the shared frame's `max-height` cap so the video fills nearly the
+full viewport height instead of a modest rail's worth; `.rickroll-col`
+overrides the shared shell's `align-items: start` (which content-sizes
+each column and top-aligns it — fine for a form that's naturally
+shorter than the video rail, but left this page's short copy block
+stranded at the top of a much taller row) with `align-self: stretch`
+plus a centred flex column, so the copy now sits vertically centred
+against the video's own full height. All three reset to the ordinary
+single-column mobile behaviour under 1100px, same breakpoint the shared
+shell already collapses at.
+
+**The exit button now opens the real sign-in gate, not the
+Dashboard** — direct request ("okhane click korle main login e nibe"):
+the joke's own punchline is that there's no shortcut, so its own exit
+button leads to the actual next step (signing in for real) rather than
+back to the same Dashboard the joke was clicked from. **Relabelled the
+same way, direct follow-up** ("back to reality term ta sorao? login to
+Bulk Cheat emon kisu ekta dao" — drop that wording, give something like
+"login to Bulk [X]"): "Fine, back to reality" implied a return trip
+that no longer happens now that the button leads forward into sign-in
+instead — **`#rickrollBackBtn` now reads "Login to Bulk Forge"**, the
+app's own real name rather than an invented one, since the joke here is
+that there's no cheat code, just the real product. Reuses
+`operations_gate`/`operationsGateTemplate()` exactly as every other
+real sign-in in this app does, with `pendingOperation` cleared first so
+a successful sign-in lands on the Dashboard rather than jumping
+somewhere unrelated.
+
+**Title and body copy sized up, 2026-09-27** — direct feedback, on a
+screenshot the day after syncing to a second machine ("LMAO you lazy!
+ta aro boro font e dao. ar nicher lekha ta ar olpo ektu boro"): next to
+the video filling the whole right column, the plain shared
+`.page-title`/`.page-desc` sizes (26px/14.5px, the same as every other
+page-head in this app) read too modest. Scoped to `.rickroll-layout
+.page-title { font-size: 40px }` / `.rickroll-layout .page-desc {
+font-size: 16.5px }` — this page only, so Company Setup modules/Admin
+Panel/every other page-head keeps its existing size. The same
+screenshot also asked "eta kottheke ashlo?" about the "Dear certified
+lazy" eyebrow — confirmed this is original copy from when this page
+was first built (2026-09-25), not something the next day's Welcome-
+page rewrite introduced; the two pages independently landing on the
+same phrase (both riffing on the login gate's own "certified lazy"
+joke) is a coincidence flagged back to the user rather than assumed.
+
+**Resolved the same day, direct follow-up: the eyebrow is gone, and
+the exit button now reads as a real CTA.** "dear certified lazy ta
+baad diba. ar button ta aro boro ar shundor koro main page er moto" —
+drop the eyebrow, and make the button bigger and nicer, like the main
+(Dashboard) page's own button. The `<span class="page-eyebrow">`
+line is deleted outright from `rickrollTemplate()` — nothing else on
+this page reads it, so there was nothing to reflow around. `#rickroll
+BackBtn` swaps `.tiny-btn` (dashed border, muted, the app's generic
+low-emphasis style) for `.generate-btn` (the real green CTA colour
+every "Generate"/"Sign in" button in this app already uses), plus a
+scoped size bump — `.rickroll-layout #rickrollBackBtn { padding: 14px
+28px; font-size: 15.5px; min-height: 52px }` — matching the
+Dashboard's own sticky-bar buttons' presence. **Deliberately not also
+given the `.welcome-bar-btn` class itself**, even though that's the
+literal class those sticky-bar buttons carry: `.welcome-bar-btn`'s own
+`flex: 0 1 300px` is written for `.welcome-bar-actions`, a *row* flex
+container, where flex-basis sets width — `.setup-actions` here (this
+button's real parent) is a *column* flex container, where the same
+flex-basis would set a 300px height instead. Sized directly rather
+than risk that mismatch.
+
+### Real browser Back/Forward (2026-09-25)
+
+Direct request: "amader proper back function nai. kono page e gele je
+arek jaygay properly back korbo eta nai" (there's no proper way to go
+back to where you were). This app never touched the History API before
+this — every top-level page swap was pure in-memory state (`currentOp`
++ a re-render), so the browser's own Back button had no history entry
+of this app's own pages to go back to; it either left the app for
+whatever the tab held before, or did nothing at all.
+
+**`navigateTo(opId, {replace})`** (`app.js`) is now the one place every
+top-level page change goes through, replacing the
+`currentOp = X; renderSidebar(); renderMain();` triple that used to be
+repeated at every call site — centralised so a future call site can't
+forget the history half of it, the same reasoning `goToOperation()`
+itself was already built on (and now calls `navigateTo()` internally).
+`history.pushState({op: opId}, "", location.href)` records the page;
+the URL itself is never touched — this is a plain static single-file
+site with no server-side routing to match, so only `history.state` (a
+marker private to the tab's own session, not a real address) carries
+which page is showing. A hard reload always lands back on the Dashboard
+(or a restored tool session), same as before this feature existed.
+
+**`replace: true` swaps the *current* history entry instead of adding a
+new one** — used only where landing on a page is the completion of a
+previous step rather than a genuinely new one: a successful sign-in
+through the operations gate (`wireOperationsGateEvents()`) replaces the
+gate's own entry with the operation that was actually requested, so
+Back from there returns to whatever page was open *before* the gate
+interrupted it, not back to the gate itself.
+
+**`popstate` (`wirePopstate()`, wired once in `init()`) is the
+Back/Forward handler** — it reads the id straight out of the state that
+was pushed/replaced and renders it directly, deliberately *not* calling
+`navigateTo()` itself (pushing a new entry from inside a Back/Forward
+handler would corrupt the Forward stack the browser is already
+managing). Two things it guards that a bare `currentOp = e.state.op`
+wouldn't:
+
+- **A gated Operation reached via Back/Forward still needs a real
+  sign-in.** Every Operation is normally only reachable through
+  `goToOperation()`'s own gate check; without this, Back could land
+  directly on an operation's page from a still-signed-in history entry
+  after the visitor has since logged out — a real gap, confirmed live
+  with a Playwright probe before this guard was added (push Employee
+  Add, push Attendance Add so Employee Add's entry is buried rather
+  than current, clear the session and reload — which only overwrites
+  the *current* top entry's state, leaving the buried one stale — then
+  Back into it: without the guard the form rendered directly; with it,
+  the real gate does). Same `OPERATIONS` lookup `goToOperation()`
+  already uses.
+- **Mid-bulk-run, Back/Forward is blocked the same way every other
+  navigation control already is** (`isBulkRunActive()` — sidebar
+  nav/tabs/dep-shortcuts, "Run defaults"' own orchestration section
+  above). A popstate can't be cancelled the way a click can, so it's
+  undone instead: the still-current page's state is pushed right back
+  (`history.pushState({op: currentOp}, ...)`), so the address bar's
+  history position doesn't silently drift out of sync with what's still
+  on screen.
+
+**`init()` establishes the first history entry with `replaceState`, not
+`pushState`**, right before the first render — this is the page that's
+already loaded, not a new step, and every later `navigateTo()` push
+lands on top of this one so Back eventually returns here rather than
+running out of history entries and leaving the app.
+
+**Deliberately scoped to top-level page changes only** — Company
+Setup's own internal drill-down (group grid → a group's tabbed page →
+a specific module tab) is untouched; its existing "← Back to Company
+Setup" link still works exactly as before, just without any History
+API involvement. Extending this to that level (or to individual
+settings tabs) wasn't asked for and would meaningfully deepen the
+history stack for comparatively little benefit — revisit only if asked.
+
+Confirmed by a new suite, `tests/back-navigation.test.js` (12 checks):
+Back/Forward moves correctly between real operation pages; signing in
+through the gate replaces that entry, so Back from the requested
+operation skips the gate entirely; and Back into a stale signed-in
+operation entry after a real sign-out re-shows the real gate rather
+than the operation's own form.
+
+### Admin Panel (2026-09-25)
+
+TODO.md's Admin Panel v1 scope (view the audit log, change an existing
+account's tier/admin flag), built the same day it was finally picked
+up — plus one scope change given directly when the build started:
+"user add remove korte parbe" (be able to add/remove users too), which
+TODO.md's own earlier entry had deliberately deferred as a manual
+Claude+SQL process. Confirmed directly rather than assumed to still be
+out of scope, since it changes the architecture: add/remove needs the
+Supabase Admin API, which needs the `service_role` key, which this
+app's own hard rule says can never be client-side (see "The Supabase
+project itself", above). "Beshi complex korbo na" (don't make this too
+complex) was the one explicit constraint — kept to by reusing existing
+mechanisms everywhere one already fit, rather than building new UI
+patterns for this page.
+
+**A real sidebar section, shown only to a confirmed admin.** `isAdminUser`
+(a plain module-level flag, `app.js`) drives whether the new "Admin"
+`.op-nav-label`/`#adminNav` section renders at all in `renderSidebar()`
+— same "hidden entirely, not shown-disabled" instinct the rest of the
+sidebar already holds itself to pre-signin (a lock icon here would
+itself reveal that an admin-only page exists). `refreshAdminNav()` sets
+it via a live `checkIsAdmin()` call (the exact same RPC the Dashboard's
+own Team Activity section already uses) right after every real sign-in
+— both doors, the operations gate and Company Setup's own step one,
+since either one can be how an admin actually signs in — and resets it
+to `false` on a real sign-out. **This flag only ever gates the nav
+items, never the data itself** — `adminUsersTemplate()`/
+`adminAuditTemplate()` re-verify via `checkIsAdmin()` live, every single
+time either page is actually opened (`loadAdminPanelData()`, triggered
+from each page's own `"idle"` branch), the same "never trust a cached
+flag for admin-gated data" discipline the Dashboard already
+established. A non-admin who somehow reaches `currentOp ===
+"admin_users"`/`"admin_audit"` anyway (a stale `popstate` entry, say)
+sees "Admins only," not the real page — confirmed by test.
+
+**Two real, individually-navigable pages, not one long scrolling
+page** — restructured the same day it first shipped, direct feedback
+from a screenshot: "ekhane default users ta khulbe, ar side menu te
+audit users shob serially niche niche thakbe... shob gula individual
+page hobe" (Users should open by default, and the sidebar should list
+Audit/Users etc. one below another — meaning these are all individual
+pages). `ADMIN_TOOLS` (`app-data.js`) drives the sidebar's own "ADMIN"
+section exactly the way `SETUP_TOOLS` already drives the "SETUP"
+section above it — `{id: "admin_users", label: "Users"}` listed first
+(the array order is what makes it the default first click, no separate
+redirect needed), `{id: "admin_audit", label: "Audit Log"}` second.
+`renderMain()` gets one branch per id, each rendering only its own
+template. **Both pages still share one `loadAdminPanelData()` call**
+(`adminPanel` state, one admin check, one Edge Function call, one audit
+fetch, done together) rather than fetching independently per page —
+an admin opening one of these two is likely to check the other in the
+same sitting, so this avoids a redundant second `is_admin()`/`list`
+round trip when they click over. `wireAdminStatusHandling()` is the
+small shared helper both pages' own wiring functions call first, so the
+idle/checking/denied/error handling (identical on either page) isn't
+duplicated twice.
+
+All built from existing components rather than new ones —
+`.preview-table`/`.preview-table-wrap` for both tables,
+`.switch`/`.switch-track` (Leave Types' own Sandwich/Bridge toggle) for
+the per-row Admin flag, `.seg`/`.seg-fill` for the new-user form's
+Admin choice, `pwFieldMarkup()` for the new-user password field —
+checked in both themes with a Playwright screenshot before this was
+considered done, no new hex values anywhere:
+
+1. **Users** (`admin_users`, default) — every real `auth.users` account
+   (via the Edge Function's `list` action, below — this can't come from
+   `user_access` alone, since that table only ever gains a row once
+   someone's actually been retiered or admin-flagged; a full account
+   list needs the real `auth.users`, which isn't in the exposed
+   `public`/`extensions` schemas this project's PostgREST serves). Each
+   row: email, last real sign-in, **Bulk Operations / Company
+   Operations / Admin as three plain checkboxes**, Save, Remove.
+   **Rebuilt from a Tier `<select>` + a `.switch` into this shape the
+   same day, direct instruction against a spreadsheet mockup**
+   ("Manage users er table er design ta kemon hobe dilam... Check box
+   hobe, Check dile Green tick mark ashbe"): `tier` stays exactly one
+   column in `user_access` (`bulk`/`company`/`both`) — nothing changed
+   in the database — only the two edges converting to/from it changed.
+   `tierToChecks(tier)` reads it as two independent booleans for
+   rendering; `checksToTier(bulk, company)` converts back at Save time
+   (`both` when both are checked, otherwise whichever one is). **Neither
+   Bulk nor Company can be unchecked down to zero** — the same "can't
+   configure your way to nothing" discipline Employee Add's own theme
+   picker already holds itself to (the last remaining one is a silent
+   no-op, not an error message), since a tier with neither checked has
+   no real meaning in `checksToTier()`. A checked box reads as a plain
+   green tick — `.preview-table input[type="checkbox"]` sets
+   `accent-color: var(--accent)`, the exact same native-checkbox
+   styling hook `.dept-head`/`.choice`/`.rule-scope-box` already use
+   elsewhere, not a new custom checkbox component. **Tier/admin-flag
+   Save is a direct client write to `user_access`, no Edge Function
+   involved** — confirmed via
+   `execute_sql` before writing any code that `user_access_write_admins`
+   is already `FOR ALL` (covers INSERT/UPDATE/DELETE, not split into
+   separate policies), so an admin's own browser upserting a row
+   (`Prefer: resolution=merge-duplicates`) is already exactly what RLS
+   allows, the same discipline every other write in this app already
+   follows. Logged via the existing `logAudit()` helper, a new event
+   type: `admin_access_change`. **The two section titles were renamed
+   the same day, direct request against a real admin-screen
+   reference** — "Existing users" → **"Manage Users"**, "Add a user" →
+   **"Create new user"** — no change to what either section actually
+   does.
+
+   **Manage Users and Create new user split into two real tabs the
+   same day, direct correction of the first pass** ("manage ar user
+   create kora alada rakhar kotha chilo. 1 page e na" — managing and
+   creating were supposed to stay separate, not on one page), against
+   the same real admin-screen reference this whole redesign started
+   from (its own "Company Settings" tab strip: Company Profile/Bank
+   Info/Department Management/Designation Management). Reuses
+   `.settings-tabs`/`.settings-tab` — the exact tab component Company
+   Setup's own module pages already are — rather than a second,
+   Admin-only tab component. `adminUsersTab` (a plain local variable,
+   `"manage"` default) is deliberately *not* wired into
+   `setup.activeModule` — none of that machinery (done-dots, "Run
+   defaults", dependency blocking) applies here, just which of two
+   template bodies (`adminManageUsersBodyHtml()`/
+   `adminCreateUserBodyHtml()`) is showing. A successful create switches
+   back to the Manage Users tab automatically, so the account just
+   created is visible right away rather than leaving the admin staring
+   at their own just-submitted form.
+
+   **Manage Users' middle 4 columns center-aligned, header and data
+   alike, same day** — direct instruction, two screenshots: the header
+   row first ("egula center align korba"), then a follow-up naming the
+   data cells too ("ei 4 ta column er data o center align thakbe").
+   Scoped to `.admin-users-table th:nth-child(n+2):nth-child(-n+5)` /
+   `td:nth-child(n+2):nth-child(-n+5)` (Last signed in, Bulk Operations,
+   Company Operations, Admin) — Email (column 1) and the trailing
+   actions column (6, no header) both stay left, since the second
+   screenshot's own marked box explicitly excluded the Email data
+   column. `.admin-users-table` is a class on that one table
+   specifically, not a `.preview-table`-wide rule, so Leave Balance's/
+   Payroll's own preview tables elsewhere (plain left-aligned text
+   columns) are untouched.
+
+   **Create new user's own Tier `<select>`/Admin `.seg` replaced with
+   the identical three checkboxes Manage Users already uses, same day,
+   direct follow-up** ("ekhane tier ta manage users er moto tick mark
+   box gula diba. same goes for admin, Yes or No box diba. Default No
+   thakbe"): Bulk Operations/Company Operations (both default checked —
+   matches the old `<select>`'s own "Both" default, and reuses
+   `checksToTier()`/the identical "can't uncheck both to zero" guard,
+   not a second copy of that logic) and a single Admin checkbox
+   (default unchecked, since a brand-new account being an admin was
+   never the common case). `.field-checkbox` gives these the same
+   `accent-color: var(--accent)` green tick as the table's own
+   checkboxes, just outside a `<table>` this time. `ADMIN_TIER_OPTIONS`
+   and the old `#adminNewTier`/`#adminNewAdminSeg` markup are deleted
+   outright, not left dead — nothing reads either any more.
+
+   **Each checkbox moved to the left of its own label text, same day,
+   direct follow-up** ("check box gula name er baam pashe dao" — put
+   the checkboxes to the left of the names): the three `.field` divs
+   (label above, checkbox below, per `.field`'s own
+   `flex-direction: column`) are now a single wrapping `<label
+   class="field-checkbox-row">` per checkbox, same inline shape Leave
+   Types' own Sandwich/Bridge checkboxes (`.rule-scope-box label`)
+   already use — `<input> Bulk Operations`, checkbox first, text
+   after, laid out as a horizontal flex row rather than stacked. Same
+   element ids (`#adminNewBulkCb`/`#adminNewCompanyCb`/
+   `#adminNewAdminCb`), so `wireAdminCreateUserEvents()` and this
+   module's own tests needed no changes.
+2. **Audit Log** (`admin_audit`) — the real `audit_log` table, last 200
+   rows, newest first (`GET .../audit_log?select=*&order=created_at.desc&limit=200`,
+   the admin's own bearer token, gated by the existing
+   `audit_log_select_admins` policy — nothing new needed here). A
+   "Refresh" button re-fetches just this page's data without reloading
+   the whole page.
+
+**Both admin pages get the wider 1100px `.wide` column Company Setup
+already uses, not the default 760px** — direct feedback, same day:
+"amader page width besh valoi khali thaktese. table eto kiptami kore
+choto rakhteso keno?" (there's plenty of spare width, why keep the
+table so stingily narrow). The default column was sized for the five
+generators' own short field-rows; a six-column data table reads
+cramped at that width (the Audit Log's own Detail column was visibly
+cut off before this). `renderMain()`'s `admin_users`/`admin_audit`
+branches add `"wide"` instead of removing it, same class Company Setup
+already relies on.
+
+**The `admin-users` Edge Function is the one, narrow exception to "no
+backend beyond what's strictly needed"** — deployed to this same
+Supabase project (`wtlaiidtiugxirqcxjzw`) via
+`mcp__claude_ai_Supabase__deploy_edge_function`, **not committed to this
+repo**, since it holds no secret of its own to protect (the
+`service_role` key it uses is a Supabase-managed environment variable,
+auto-injected at runtime, never typed or stored anywhere in this
+codebase) — same principle as `.vercelignore` keeping `CLAUDE.md` out
+of the deploy, just the reverse direction. `verify_jwt: true` (the
+platform rejects a request with no valid Supabase-issued JWT before the
+function's own code ever runs), and the function *also* re-checks
+`is_admin` itself, using its own service-role client, before doing
+anything — a client-side check alone would only be a UI convenience;
+this is the actual enforcement, since anyone could otherwise call the
+function's URL directly. Three actions:
+
+- **`list`** — `auth.admin.listUsers()` merged with each email's
+  `user_access` row (defaulting to `tier: "both", is_admin: false` for
+  an account with no row yet, same fallback `my_tier()`/`is_admin()`
+  already use).
+- **`create`** — `auth.admin.createUser({ email, password, email_confirm:
+  true })`, then an upsert into `user_access` **only if** the chosen
+  tier/admin differs from the default (both/false) — no pointless row
+  for the common case.
+- **`delete`** — `auth.admin.deleteUser(userId)`, then deletes that
+  email's `user_access` row. **Refuses to let an admin delete their own
+  account, even called directly** — not just a disabled button on the
+  client (`isSelf` in `adminUserRowHtml()`, which also gets no click
+  handler wired at all), the function's own code checks
+  `targetEmail === callerEmail` first and rejects it — defense in
+  depth, so a bypassed or hand-crafted request can't lock an admin out
+  of their own account.
+
+Both `create` and `delete` log themselves into `audit_log` from inside
+the function, using its own service-role client (so this works even if
+the RLS insert policy ever changed) — two new event types,
+`admin_user_create`/`admin_user_delete`. **`audit_log.event_type`'s own
+CHECK constraint had to be widened for this** (migration
+`widen_audit_log_event_type_for_admin_actions`) — it only ever allowed
+`login`/`bulk_generate`/`settings_save` before, the three kinds scoped
+when audit logging was first built; now also allows the three admin
+ones above.
+
+**mahmudur@shomvob.com stays the one seeded admin, nothing hardcodes
+it as special anywhere in this code** — "chaile admin aro add korte
+parbe" (more admins can be added from here) is exactly the Admin toggle
+in the Users table; growing the admin list is purely a data change from
+this point on, the same way it already was via direct SQL.
+
+**A real bug, found live 2026-09-26: the Admin nav section vanished on
+a hard refresh** ("hard refresh dile amake logged in dekhay but abar
+admin menu gula ashe na" — a refresh still shows me signed in, but the
+admin menu doesn't come back). `refreshAdminNav()` was only ever wired
+into the two real sign-in *success handlers* — a session restored on
+reload sets `setup.toolToken` directly from the persisted
+`TOOL_SESSION_KEY` (`init()`, "Two logins, not one" above), skipping
+both, so `isAdminUser` stayed `false` even for a genuine admin and the
+whole "ADMIN" section silently disappeared every time the page
+reloaded, landing on Company Setup's own step two exactly as designed
+— just missing its Admin nav. Fixed by calling `refreshAdminNav()`
+right there too, in the same `if (savedTool)` branch that restores
+`setup.toolToken` — fire-and-forget, same as both sign-in call sites,
+correcting the sidebar once the async check resolves.
+
+Confirmed by a new suite, `tests/admin-panel.test.js` (31 checks): both
+nav items are invisible to a non-admin; an admin sees both, Users
+listed before Audit Log; the Admin section survives a hard refresh
+(the bug above, reproduced and fixed the same day); Manage Users is
+the default active tab and the create form isn't shown until its own
+tab is clicked (and vice versa); each page shows
+only its own real data (Users
+never shows the audit table and vice versa) with the signed-in admin's
+own Remove disabled and everyone else's enabled; unchecking Company
+alone (starting from "both") sends `tier: "bulk"`; unchecking the last
+remaining operations checkbox is a no-op, confirmed still checked
+afterward; creating a user calls the Edge Function with the real form
+values, not a direct auth write; removing another account confirms
+first, then calls the Edge Function with that account's real id and
+email.
+
+**Reset password (2026-09-26)** — asked directly ("accha keu password
+vule gele ki korbe?" — what if someone forgets their password), and
+this app has no self-service "forgot password" flow at all (no email
+delivery infra, no reset-link landing page). Two options were weighed:
+Supabase's built-in `resetPasswordForEmail()` (needs SMTP configured on
+the project plus a new reset-link landing page in this app), or an
+admin resetting it manually from the panel already built here. The
+user's own call — "1 e koro. total user hobe 25 jon" (do option 1;
+total user count will be 25) — picked the admin-does-it-manually route,
+consistent with "beshi complex korbo na" and the small, entirely
+internal-QA user base.
+
+A fourth action on the `admin-users` Edge Function,
+**`reset_password`**: re-checks `is_admin` the same way `create`/
+`delete` already do, then `auth.admin.updateUserById(userId, {
+password })` — the same Admin API family as `create`. Logs
+`admin_password_reset` (a fourth event type added to `audit_log`'s own
+CHECK constraint, migration
+`widen_audit_log_event_type_for_password_reset`, alongside the three
+`admin_user_create`/`admin_user_delete`/`admin_access_change` kinds
+already there). No self-lockout guard is needed here the way `delete`
+has one — an admin resetting their own password is a completely normal
+thing to do, unlike deleting their own account.
+
+**The client side is a plain `window.prompt()`**, not a new modal
+component for one field — matches this section's own existing risk
+tolerance (Remove already uses `window.confirm`) rather than building
+`pwFieldMarkup()`'s show/hide toggle into a fourth surface for what is,
+in practice, an admin typing a password once and telling the affected
+person out of band (Slack/WhatsApp). A **"Reset password"** `.tiny-btn`
+sits between Save and Remove in each Manage Users row
+(`adminUserRowHtml()`); its click handler (`wireAdminManageUsersEvents()`)
+prompts for the new password, checks it's at least 6 characters
+client-side (the same floor Supabase Auth itself enforces — the Edge
+Function checks it too, server-side, since a client check alone is
+only a UI convenience), calls `adminUsersFetch("reset_password", ...)`,
+and confirms success via the app's existing `showToast()` — a one-off
+"did this work" confirmation, not persistent row state, so it didn't
+need a new UI element the way the table's own tier/admin columns did.
+
+Confirmed by test (`tests/admin-panel.test.js`, block G): the prompt
+names the account being reset; the real call carries that account's
+real user id, email and the typed password; a success toast confirms
+it; no page errors.
+
+**Audit Log filters — User and Date (2026-09-26)** — direct request:
+"audit e duita filter ano. User ar date." Plain client-side filtering
+over the already-loaded 200 rows, no new query — `adminAuditFilter`
+(`{ user, date }`, a module-level object kept separate from `adminPanel`
+itself, same reasoning `adminUsersTab` already is: this is display
+state about the loaded data, not part of the load). User is a real
+`<select>` populated from the distinct `user_email` values actually
+present in the loaded rows (not every real account — there's no "every
+account that ever logged an event" endpoint, and the loaded window is
+exactly who's filterable); Date is a plain `<input type="date">`,
+matched against each row's own local date
+(`new Date(row.created_at).toLocaleDateString("en-CA")`, which is
+already the `YYYY-MM-DD` shape the input's own `value` uses). Either
+control re-renders the whole tab (`filteredAuditRows()`), same "swap
+the whole body" shape every other control in this section already
+uses. A **"Clear filters"** button appears next to Refresh only once a
+filter is active, and a `"Showing N of M events."` line appears above
+the table the same way — both absent entirely rather than shown-empty
+when nothing is filtered, matching this app's own instinct elsewhere
+(a lock icon, an empty-state notice) not to reveal a control's presence
+before it has anything to say. The zero-rows message distinguishes
+"Nothing logged yet." (no real events at all) from "No events match
+these filters." (real events exist, just not this combination) —
+different situations, different messages, same principle as every
+other empty-state in this app.
+
+Confirmed by test (`tests/admin-panel.test.js`, block H, against a
+3-row fixture spanning two users and two dates): unfiltered shows all
+3 rows with no Clear button; filtering by user narrows to that user's
+rows and shows the count line; adding the date filter on top narrows
+further; Clear filters restores all 3 rows and resets both controls;
+a combination matching nothing shows the "no events match" message; no
+page errors.
+
+**Pagination and a Settings Group column (2026-09-26)** — direct
+request, both from the same screenshot: "ekhane 50 ta entry rakho per
+page. table ta ektu boro koro. ar module e bank info asche properly
+but eta kon settings er moddhe etao ekta column e dekhao er pashe."
+
+- **50 rows per page** — `ADMIN_AUDIT_PAGE_SIZE`, plain client-side
+  slicing of the already-filtered rows (`adminAuditPage`, same "display
+  state, not a new query" shape the User/Date filters themselves
+  already use — this is still slicing the one `limit=200` fetch, not a
+  new paginated endpoint). Previous/Page N of M/Next
+  (`.audit-pagination`) renders only once there's a second page, same
+  "absent entirely, not shown-disabled with nothing to do" instinct as
+  Clear filters above. Changing either filter, Clear filters, or
+  Refresh all reset back to page 1 — a stale page number from before
+  could otherwise point past the end of the newly changed list.
+- **The table itself got bigger** — `.audit-table` (a modifier on this
+  one table specifically, not `.preview-table` as a whole, so Manage
+  Users/Leave Balance/Payroll's own preview tables elsewhere keep their
+  existing size): font-size 12.5px → 13.5px, cell padding 8px 12px →
+  10px 14px.
+- **A "Settings Group" column, right after Module** — a bare module id
+  like `bank_info` doesn't say which of the 6 `SETTINGS_GROUPS` it
+  belongs to without already knowing this app's module list by heart.
+  Reuses `findSettingsModule(moduleId)` (built for "Run defaults"' own
+  lookups, above) rather than a second id→group table — its
+  `groupLabel` is exactly what's needed. A module id with no match
+  (`bulk_generate` events, whose `module_id` names an *operation* like
+  `employee_add`, not a settings module) shows a plain "—", same dash
+  every other empty cell in this table already uses.
+
+Confirmed by test (`tests/admin-panel.test.js`, block I, against a
+62-row fixture): the Settings Group column names `bank_info`'s real
+group ("Company Settings"); a non-settings module id shows a dash;
+page 1 shows exactly 50 rows with Previous disabled and Next enabled;
+Next moves to page 2's remaining 12 rows with Next now disabled;
+Previous returns to page 1's own 50; no page errors.
+
+**Manage Users' own Save had no visible feedback at all, found live
+2026-09-26 ("kisu change korle ba update korle ekta proper success
+modal dekhao with proper msg").** Unlike Reset password (a toast,
+above) or Remove (the row visibly disappearing), a tier/admin change
+via Save gave no confirmation whatsoever beyond the spinner clearing —
+the exact "a real change with zero visible feedback reads as broken"
+class of bug this app has fixed repeatedly elsewhere (`wireRegenerate()`,
+Create Roster's own Default button). Direct request this time was for
+a modal specifically, not another toast. `openSuccessModal(title,
+bodyText)` (`app.js`) is a small, reusable "this real change went
+through" component — `#successModal` in `part1.html`, the same
+`.modal`/`.modal-card` shell `#discardModal`/`#generateCompleteModal`
+already use, one title, one message, one "Got it" button, same
+clone-and-replace close-handler pattern as those two so reopening it
+can't stack a duplicate. Wired into Manage Users' Save success path:
+`"Access updated"` / `"{email} now has {tier in plain English}{, plus
+Admin if set}."` — `tierSummaryLabel(tier)` spells out the same three
+tier states the checkboxes already represent, just as a sentence
+rather than a checkbox pair.
+
+Confirmed by test (`tests/admin-panel.test.js`, block C, extended):
+the modal appears naming the real email and the real tier/admin
+change; Got it closes it. Verified visually in both themes.
+
+**The `.section-num` "1" badge dropped from Manage Users and Create
+new user, same day** ("ei 1 uthay dao. lagtese na to" — remove this
+1, it doesn't look right): that badge exists so Company Setup's own
+multi-section module pages can number several sections in sequence
+("1 Company Profile", "2 Bank Info", …) — a single, standalone section
+numbered "1" with no "2" anywhere on the page never had a reason to
+carry one. Both `<h2 class="section-title">` headers dropped the
+`<span class="section-num">1</span>` — plain text titles now, matching
+what a single-section page actually is.
+
+**Audit Log's own "Activity" section had the identical badge, caught
+in a same-day follow-up** ("audit log eo emon ekta 1 ase uthay dao" —
+Audit Log has one of these too, remove it): same fix, same reasoning —
+one standalone section, no "2" to number it against.
+
+Nothing — every module in every `SETTINGS_GROUPS` group (including both
+of Schedule Management's) now has a real handler; per-day/per-slot
+assignment for Roster Pattern (above) is a deliberately deferred phase
+two, not a gap. `settingsComingSoonHtml()`'s fallback has no reachable
+gap left under normal navigation and stays in the code the same way
+`renderMain()`'s own "Coming soon" branch did after phase 1's five
+operations were built.
+
+Two to three of the ~20 modules were expected to need a rework pass once
+tried against a real environment — the user's own estimate, given before
+this build push started (2026-09-10): Attendance Policy "sure" (now
+fixed, above), Payroll's Tax module confirmed exactly as predicted (still
+just an enable/disable toggle, no create-bracket endpoint exists), and a
+small chance in Leave Types/Department/Designation (none surfaced).
+Payroll Overtime's dependency on Attendance Policy — the one item from
+that estimate left open after the first live pass — is now fixed too
+(above). Treat all of this as expected, not a sign something here was
+rushed carelessly.
+
+**A sanitized copy of the full Postman collection** (passwords and
+identifiers in raw request bodies replaced with `REDACTED`; every
+endpoint, header, and pre-request/test script left intact) was written to
+the user's Desktop on 2026-09-10 (`HRIS_Collection_sanitized_for_other_pc.json`)
+so work can continue on a second machine without the original file — it
+is not committed here, same as the original never was.
+
+Also not built yet: a run log, a Stop control, and a "Hey Lazy!"-style
+guard for leaving mid-run. Company Profile didn't need any of these —
+it's a single record, one PATCH, no partial state possible — so its
+absence here isn't an oversight. **The real need appears with the first
+module that loops writes** (e.g. creating several Leave Types or Bonus
+Types one at a time): that is where "some of this already happened on a
+real server and leaving now doesn't undo it" first becomes a real risk,
+and where `hasUnsavedWork()`/`wireUnloadGuard()` will need extending —
+build it alongside whichever module is first to actually loop, not
+speculatively before then.
+
+## The Hackerman meme is now the user's own face (2026-09-28)
+
+`assets/hackerman.gif` (the Tenor download, Dashboard redesign round
+one, above) is gone — replaced with `assets/hackerman.mp4`, direct
+instruction ("ami nijer face boshaisi" — I put my own face on it): the
+user's own edit of the same Kung Fury clip, his own face composited in.
+This drops the second-hand-licensing question that GIF always carried
+("a real meme image would be someone else's to licence") entirely —
+it's the user's own footage now, for his own internal tool.
+
+`<video loop muted playsinline autoplay>` replaces the old `<img>` in
+`welcomeTemplate()`'s Offer section — the exact same treatment every
+other clip in this app already gets (the login gate's cat, the five
+operation media rails, the Rickroll). `.meme-img`'s own CSS
+(display/width/border/radius/shadow) is generic enough that neither the
+markup swap nor the format change needed a single rule touched. Still a
+plain relative-path asset, not inlined — same "too big for a data URI"
+reasoning as `assets/lazy_cat.mp4`, though the new clip (~1.4MB) is
+smaller than the GIF it replaced (~2.9MB).
+
+## `audit_log` now records real entry counts (2026-09-29)
+
+The first real piece of the post-login **Dashboard** page (TODO.md's
+last remaining Tiered Access step) — worked out through discussion
+before any code, same discipline as the Welcome page's own build.
+Confirmed content, before layout: per-Bulk-operation real counts (how
+many bulk runs, how many total entries created), per-operation and
+combined real time-saved, a 3-way Manual/AI/Bulk-Forge total comparison
+(explicitly labelled **estimated**, since the per-entry basis is still
+the user's own dictated `OPERATION_TIME_COMPARISON` figures, not a
+measured number), a This week/month/3 months/6 months filter over all
+of it, the already-confirmed Bulk/Settings/Both routing cards with lock
+icons, and a small, low-emphasis "what we offer" card strip — visible
+to any signed-in user, no separate admin gate, since reaching the
+Dashboard at all already requires a real sign-in ("dashboard kintu only
+for signed user").
+
+**`audit_log` only ever recorded that a generate happened, never how
+many rows the file had** — real per-operation "total entries created"
+needed a real number to sum, so a new nullable `entry_count integer`
+column was added (`ALTER TABLE audit_log ADD COLUMN entry_count
+integer;`, run directly by the user via the Supabase SQL Editor — this
+session's own connected Supabase MCP account only had access to two
+unrelated personal projects, not the shared Shomvob SQA org, so the
+migration couldn't be applied through the usual tool path this time).
+
+**`openGenerateCompleteModal()`'s own `logAudit("bulk_generate", ...)`
+call now also sends `entry_count`, read straight back off the
+already-built workbook** rather than threaded through all five
+generators' own call sites: every one of them builds its sheet from a
+plain `rows` array via `aoa_to_sheet(rows)` (row 0 the header), so
+`XLSX.utils.decode_range(ws["!ref"]).e.r` — the sheet's own decoded
+range end-row — is exactly the real data-row count, for free, with
+zero changes needed to any of the five `handleXGenerate()` functions.
+Verified directly with a real Playwright run (not just reasoned about):
+generating 25 Employee Add rows sends `entry_count: 25` in the real
+POST body. Full 11-suite run green — no test asserted on the previous
+audit_log payload shape, so nothing needed updating.
+
+**Not yet built**: the Dashboard page itself (the layout/filter/graph
+work this column exists to feed) — next.
+
+## The post-login Dashboard (2026-09-29)
+
+TODO.md's own last remaining Tiered Access step, built the same day as
+`entry_count` above (which this page exists to consume) — content
+confirmed through discussion before any code, same discipline as the
+Welcome page's own build. **A real Shomvob HR admin screenshot was the
+starting reference** ("emon kichu graph rakhbo" — I'll keep some graphs
+like this), then narrowed down message by message into exactly what's
+built:
+
+- **Get started** — two routing cards, **Bulk** and **Settings**
+  (TODO.md's own "Bulk/Settings/Both" spec re-read correctly once
+  actually building it: "Both" was never a literal third card, it's
+  the tier value that leaves *neither* card locked — a `"company"`
+  tier locks Bulk, a `"bulk"` tier locks Settings, `"both"`/unresolved
+  locks neither). Reuses the same disabled+`title`+small pill shape
+  the sidebar's own Locked pills already established, in a new
+  `.dashboard-locked-pill` class rather than reusing `.pill-soon`
+  itself — that one's colours are tuned for the sidebar's own fixed-
+  dark background, not a light/dark-aware main-content card. Clicking
+  Bulk goes to the first real operation; clicking Settings goes
+  straight to Company Setup.
+- **Real usage** — a `.preview-table`, one row per Bulk operation
+  (real bulk-run count, real entries created, real time saved) plus a
+  final Settings row that's deliberately just a count with no time
+  figure — direct instruction, confirmed after flagging the real
+  design gap first (there was no reliable per-module manual-time
+  figure left to compute a real Settings time-saved number from, since
+  the dictated `37 min` total was always "the whole company in one
+  Run defaults click," not a per-individual-save rate): "settings choto
+  jinish. protita alada kore dekhale beshi value create ba difference
+  bujha jabe na" — Settings is a small thing, showing each save's own
+  difference separately wouldn't read as meaningful. A **This week /
+  This month / Last 3 months / Last 6 months / All time** filter sits
+  above the table — "All time" is the default, added on top of the
+  user's own four (confirmed directly: a light-usage account would
+  otherwise open on an empty-looking "This week"). Each option is a
+  rolling window from now, not a calendar boundary, computed client-
+  side and sent as a `since_ts` parameter.
+- **Estimated impact so far** — `.numbers-addup-box`, reused as-is from
+  "By the numbers" — two totals, vs-fully-manual and vs-AI, Bulk
+  operations only (Settings has no "with AI" baseline, same reasoning
+  as the Welcome page's own comparison). Explicitly labelled
+  **"Estimated"**, not a plain number — the per-entry basis scaling a
+  real count up is still the dictated `OPERATION_TIME_COMPARISON`
+  figures, not a measured rate, so a real count multiplied by an
+  estimate is still an estimate, and the page says so rather than
+  letting a real-sounding number imply otherwise.
+- **What we offer** — a low-emphasis, horizontally-scrolling strip at
+  the very bottom, reusing `OPERATION_BLURBS`/`SETTINGS_GROUPS`
+  directly (both kept specifically for this reuse when the old
+  operation-card grid was removed from the Welcome page, 2026-09-25 —
+  see that section's own note). Confirmed position directly ("service
+  cards gula koi dekhabo? majha majhi?" — where do the service cards
+  go, in the middle?) against the same real Shomvob screenshot's own
+  "Quick Links" section, which sits last, not in the middle — so this
+  does too, not because a middle placement was wrong on its own merits,
+  but because the reference the whole page was modelled on put it last.
+
+**No admin gate on top of any of this** — confirmed directly ("signed
+user. cz dashboard kintu only for signed user. welcome is open for
+all"): reaching the Dashboard at all already requires a real sign-in,
+so a second, narrower admin check on top would be redundant — unlike
+"Team activity" (Welcome page, admin-only), which needed its own gate
+specifically because the *Welcome page itself* stays reachable by
+anyone past the joke gate.
+
+**Two new, narrow SQL functions power the real numbers** —
+`dashboard_bulk_stats(since_ts)` (returns `{module_id, generate_count,
+total_entries}` grouped and summed from `audit_log`) and
+`dashboard_settings_save_count(since_ts)` — both `SECURITY DEFINER`,
+granted `EXECUTE` to `authenticated` only, never `anon`, and both
+return only aggregated counts, no `company_name`/`user_email` — the
+same anon-safe-aggregate discipline `public_generate_counts()` already
+holds itself to, just scoped one notch tighter since this data only
+ever needs to exist for someone who's actually signed in. Applied
+directly via the Supabase SQL Editor, same as `entry_count` above —
+this session's own connected Supabase MCP account still didn't have
+access to the Shomvob SQA project.
+
+**A real sign-in with no pending operation now lands on `"dashboard"`,
+not `"welcome"`** — `wireOperationsGateEvents()`'s own `pendingOperation
+|| "welcome"` fallback is the one place this was decided, changed to
+`|| "dashboard"`; the same two `myTier`-mismatch corrections inside
+`wirePopstate()` (a stale Bulk/Settings history entry from before a
+retiering) fall back the same way now, since both only ever fire once
+signed in. **The sidebar gets a second, separate nav item, "Dashboard,"
+above "Welcome"** — not a repurposing of the existing Welcome button,
+even though that button is only ever visible/clickable once signed in
+anyway (the whole `.sidebar` hides otherwise, which made repointing it
+tempting): several existing tests click it by its exact label
+("Welcome") expecting the real pre-signin-style page (`.welcome-row`
+etc.) to render, to check unrelated things like scroll-reset behaviour.
+Adding a second item keeps that page reachable exactly as before, with
+zero risk to those checks. `opIcon("dashboard")` is a new hand-drawn
+bar-chart glyph, same hand as every other `OP_ICONS` entry.
+
+**Real fallout from this routing change, all fixed the same day**:
+`tiered-access.test.js`'s blocks E/F checked `#welcomeBarNote`
+(Welcome-page-only UI) immediately after a sign-in that no longer lands
+there — both now click the sidebar's "Welcome" item first, since a
+signed-in visitor genuinely revisiting that page and seeing its
+tier-aware note is still exactly what those blocks are testing, just
+one click later than before. `back-navigation.test.js`'s block B
+checked `.welcome-headline` for the same reason — now checks
+`.dashboard-route-row`, the new page's own stable first-paint marker.
+Confirmed by a full 11-suite run green (866 checks) before adding a
+12th suite, `tests/dashboard.test.js` (22 checks): both routing cards
+enabled for a `"both"` tier and correctly locked/routing for
+`"company"`/`"bulk"` tiers, real per-operation numbers rendering from
+mocked `dashboard_bulk_stats()` rows, the Settings row showing a plain
+count with no time figure, the impact box's own "Estimated" label, the
+time-range filter defaulting to "All time" and sending a real
+`since_ts` that actually changes when switched, and the service strip
+listing all 11 real items (5 operations + 6 groups) after the usage
+section, not before it.
+
+**Real usage got two bar charts under the table the same day it first
+shipped, on live feedback against a real screenshot** ("eta ki ashlo?
+amader koyekta chart graph ashar kotha. ektao ashe nai" — where are the
+charts we were supposed to get, not even one showed up): this page was
+originally kicked off by a real Shomvob HR dashboard screenshot showing
+actual line/bar/donut charts, and what shipped first was a plain data
+table with none — a real gap between what was shown as inspiration and
+what got built, not something confirmed away at any point. Rather than
+replace the table, the user's own call was to keep both and compare
+("table chart duitai rakho, then dekhi konta valo lage" — keep both,
+we'll see which reads better, drop whichever isn't needed). Two more
+`barListHtml()` calls (the same plain-CSS bar component "By the
+numbers"/"Team activity" already use — no chart library, consistent
+with this app's own restraint) sit in a `.field-row` right under the
+table: **Entries created, by operation** and **Time saved, by
+operation**, both built from the exact same per-operation `rows` this
+section's own table already computes — no second data source.
+`barListHtml()` picked up an optional second `formatCount` argument
+(default identity, so its two pre-existing callers — "Team activity"'s
+own two bar lists — are untouched) so the time-saved chart can print
+`formatHoursMinutes()`'s "1H 20M" shape instead of a bare minute count,
+while still sorting/sizing bars off the raw minute value underneath.
+Also fixed in the same edit, found while widening this function: `max`
+now falls back to `1` when the biggest value is `0` — the entries chart
+can legitimately be all-zero (see the note right below), and dividing
+by a zero max produced `NaN%`-wide bars before this guard.
+
+**The reported "entries created = 0 / time saved = 0" the same
+screenshot flagged is real historical data, not a bug** — confirmed by
+reading `dashboard_bulk_stats()`'s own math rather than assumed:
+`entry_count` (above) only exists on `audit_log` rows logged *after*
+today's deploy, so the handful of real Employee Add generates that
+happened before this column existed have `entry_count = NULL` forever,
+and `coalesce(sum(entry_count), 0)` correctly sums those to `0` — the
+run *count* is still real (it was always tracked), only the *entries*
+figure for that pre-existing data can never be recovered, since the row
+count of an already-downloaded file was never captured anywhere. The
+user's own call, once this was explained: leave it as-is, since every
+generate from now on carries a real count and the historical gap will
+simply age out of relevance.
+
+Confirmed by a real Playwright screenshot pass (not just the mocked
+test suite) at both 1440px and 390px with real non-zero mocked data:
+both charts render true proportional bar widths (no `NaN%`), and the
+`.field-row` pair stacks into two full-width rows under the existing
+mobile breakpoint rather than squeezing side by side. Full 12-suite
+run stayed green (888 checks) — no test asserted on the table's own
+markup in a way either chart's insertion touched.
+
+**Revised the same day: `barListHtml()`'s plain progress-bar rows still
+didn't read as real charts, direct feedback against a live screenshot**
+("eta kono graph chart er moddhe pore? ek fota o shundor lagtese na" —
+does this even count as a chart, not even a little bit good-looking).
+Discussed rather than guessed at a fix: asked to analyse which chart
+type actually suits which of this section's real datasets, with
+reasoning, not just restyle the same shape. The analysis that landed,
+confirmed directly:
+
+- **Bulk runs, by operation → a real donut chart.** This number was
+  never charted at all before (only in the table) and is genuinely a
+  *share-of-activity* question — "which operation gets clicked most" —
+  which is exactly what a donut is good at and a bar chart isn't.
+- **Entries created / Time saved, by operation → real axis bar
+  charts**, kept as two separate charts rather than folded into one —
+  both are *magnitude/ranking* questions where an axis lets an exact
+  value be read off, which a donut can't do past a couple of slices.
+  The two aren't the same "By the numbers" duplication bug fixed
+  earlier in this file (two identical-shaped bar lists showing one
+  ranking twice): here each operation carries its own per-entry time
+  cost (`OPERATION_TIME_COMPARISON`), so the two charts' rankings can
+  genuinely diverge, unlike that earlier case where minutes was just
+  cells × one shared, fixed rate.
+
+**Mocked up on a design canvas first, one option per artboard, before
+any app code changed** — the user's own request ("amake ekta dummy
+design dekhao ekta ekta kore"), the same propose-before-build
+discipline this project already holds itself to for anything visual.
+Confirmed, with one direct correction: the donut's first pass used five
+shades of the one brand green, flagged as too hard to tell apart
+("donut e ektu different colors use koro jeno easily differentiate kora
+jay") — landed on `DASHBOARD_CHART_COLORS` (`app-data.js`), five
+genuinely distinct hues (`#28a143` green, `#3b82f6` blue, `#e2a336`
+amber, `#8b5cf6` violet, `#64748b` slate) chosen specifically to avoid
+every colour that already carries a meaning elsewhere in this app —
+green (accent/success), gold (warning), red (danger), the env badges'
+blue/purple — so a data-viz colour can't be misread as one of those on
+the same page.
+
+**`barListHtml()`'s two callers here are gone, replaced by two new
+hand-rolled chart helpers** (`app.js`, same "no external chart library"
+discipline as every other chart in this app) — `barListHtml()` itself
+is untouched and still serves "Team activity"'s own two bar lists:
+
+- **`donutChartHtml(items)`** — plain inline SVG, one stroke-dasharray
+  arc per slice over a base ring (`var(--surface-2)`), rotated -90° so
+  the first slice starts at 12 o'clock; a legend lists every slice's
+  colour swatch, label and real percentage share. All-zero input (a
+  brand-new account) shows "Nothing yet.", the same empty-state
+  `barListHtml()` already used, rather than an empty ring.
+- **`axisBarChartHtml(items, formatValue)`** — a CSS-grid chart (axis
+  column + plot column, `.dashboard-bar-chart` in `app.css`): 5 tick
+  values on a real y-axis, dashed gridlines behind the bars, a value
+  label above each bar, category labels below. `TOP_RESERVE` (18px)
+  keeps the tallest bar's own value label from colliding with the top
+  gridline — the exact class of clipping bug this file has caught
+  elsewhere when a value sits flush against a container's own edge.
+  `formatValue` defaults to a bare number; the time-saved chart passes
+  `formatHoursMinutes` so its axis and bars read "1H 20M" instead of
+  raw minutes, the same optional-formatter shape `barListHtml()` itself
+  picked up earlier the same day.
+
+`.field-row` (2 columns) is now `.dashboard-chart-row` (3 columns,
+`.field-row-3`'s own `repeat(3, 1fr)` shape) holding one
+`.dashboard-chart-card` each — Bulk runs (donut), Entries created (bar),
+Time saved (bar) — all three built from the exact same per-operation
+`rows` the table above already computes, still no second data source.
+Stacks to 1 column at the same breakpoint `.dashboard-route-row`
+already does.
+
+Confirmed by a real Playwright screenshot pass in both light and dark,
+plus a 390px mobile check, against real non-zero mocked
+`dashboard_bulk_stats()` data: the donut's 5 slices render in 5 visibly
+distinct colours over a real ring (not a solid disc), both bar charts
+show real gridlines and axis tick values (`3200/2400/1600/800/0`,
+`1H 4M/48 Min/32 Min/16 Min/0 Min`), and the 3-column row correctly
+collapses to 1 column on mobile. Full 12-suite run stayed green (888
+checks) — `dashboard.test.js`'s own assertions read the table's cell
+text, never `barListHtml()`'s markup, so none needed updating.
+
+**Revised again the same day: the table's gone outright, and every
+chart got its own filter** — direct feedback against a live screenshot
+("ei part tuku full baad diye dao, graphs e beshi shundor. ar every
+graph e filter lagao" — cut this part entirely, the graphs read
+nicer; put a filter on every graph). Asked directly what "every graph
+e filter lagao" meant before touching anything, since a shared single
+filter already existed and this could have meant either "keep one
+filter, just show it near each graph" or "give each graph its own,
+independent range" — confirmed the second: each chart should be
+individually filterable, e.g. Bulk runs on "This month" while Entries
+created stays on "All time," at the same time.
+
+**The Real usage table is deleted, including its own Settings row**
+(the "32 real saves" count) — no chart replaces that number, so it's
+simply gone from the Dashboard for now; a real, acknowledged trade-off
+of the instruction as given, not an oversight. `dashboard_settings_
+save_count` (the SQL function that fed it) is still deployed, just
+unused client-side — nothing to clean up there.
+
+**One shared `dashboardRealStats` object became `dashboardChartStats`,
+one independent slot per chart** — `bulk_runs`/`entries`/`time_saved`,
+plus a fourth, `impact`. `loadDashboardChartStats(key, rangeId)`
+replaces the old single loader; each slot calls `dashboard_bulk_stats`
+on its own (that RPC already returns both `count` and `entries` per
+operation in one response, so "bulk_runs" and "entries" each just read
+a different field off their own independent fetch, and "time_saved" is
+derived client-side from its own fetch's `entries`, the same
+`OPERATION_TIME_COMPARISON` scaling `chartStatsForOperation()` — the
+old `realStatsForOperation()`, renamed to take a `key` — already did).
+**`impact` — the "Estimated impact so far" box — deliberately has no
+filter UI of its own**, pinned to All time: a judgment call, not
+something asked for explicitly, since "so far" reads as a cumulative
+claim rather than "in this range" the way the three charts are. Each
+chart's own `<select class="dashboard-chart-range" data-chart-key="…">`
+is wired once in `wireDashboardEvents()` (a plain class + data-attribute
+query, not three separate ids) — changing one calls
+`loadDashboardChartStats()` for that key alone and re-renders the whole
+page, exactly the same "re-render on background resolve" shape every
+other async check in this app already uses; the other two charts' own
+last-fetched data is untouched by that re-render, since each lives in
+its own state slot.
+
+**Layout is otherwise unchanged from the zigzag pass above** — each
+chart's own filter sits in a new `.dashboard-chart-head` row next to
+its title, inside the same `.dashboard-chart-main` column the chart
+itself already occupies; the alternating chart-left/chart-right rows
+and the description text beside each are untouched.
+
+`tests/dashboard.test.js` was rewritten to match, not patched around —
+the old table/`#dashRangeSelect` assertions are gone; new ones confirm
+no `.preview-table` remains, all three `.dashboard-chart-range` selects
+default to "All time," exactly 4 requests fire on first load (3 charts
++ the impact box), and changing one chart's own select fires exactly
+one more request with a different `since_ts` while the rest stay
+untouched. Confirmed by a real Playwright screenshot pass (table really
+gone, all three filters visible and independent, mobile still stacks
+cleanly) and the full 12-suite run staying green (894 checks).
+
+**Three more real bugs, all found and fixed the same day, two of them
+flagged directly against a live screenshot with the broken area
+circled and one caught by the user simply doing the arithmetic
+himself** ("duita jinish, mark kora jaygay dekho lekha kete gese. ar
+ratio thik koro... ar calculation check koro. 100 employee generation e
+kemne matro 2 min time save hoy?" — two things: look at the marked
+spot, text is cut off; fix the ratio too; and check the math — how does
+generating 100 employees save only 2 minutes?).
+
+1. **A category label wrapping to two lines was vertically clipped.**
+   `.dashboard-bar-chart`'s own label row was a fixed 24px
+   (`grid-template-rows: 150px 24px`), and `.dashboard-bar-label` has
+   `overflow: hidden` — a two-word operation name ("Employee
+   Attendance", "Leave Balance") wraps to 2 lines at this font size,
+   and the fixed row plus the clip together chopped the wrapped
+   second line's bottom off instead of showing it. Fixed by making the
+   row `auto` height instead of a fixed px value — it now grows to fit
+   whatever its own tallest label actually needs, independently per
+   chart card.
+2. **The chart:description split wasn't actually 75:25** — direct
+   request. `.dashboard-chart-main`'s own `flex: 0 0 380px` (earlier
+   the same day) was a fixed pixel width, not a proportion, so the
+   real ratio drifted with the card's own width rather than holding at
+   any fixed split. Fixed with percentage flex-basis
+   (`flex: 1 1 75%` / `flex: 1 1 25%`) — `flex-shrink` stays on for
+   both (not `0 0`) so the row's own 28px gap is absorbed
+   proportionally by each side rather than pushing the row past 100%
+   width. Verified directly: measured 681.0px vs 227.0px in a real
+   card, exactly 75.0%/25.0%.
+3. **The real bug, not just a display fix: "Time saved, by operation"
+   was plotting the wrong number entirely.** The chart's own title
+   promises time *saved*, but its `build()` function plotted raw
+   `r.bulkForge` — the scaled Bulk Forge tool-time *itself* (how long
+   the tool takes, not how much it saves) — which is why 100 real
+   Employee Add entries (scale ×2 over the dictated 50-entry basis)
+   showed "2 Min": that's `1 min × 2`, the tool's own generation time,
+   not a saving. This bug predates this exact chart — it was already
+   present in the very first `barListHtml()` version of this same
+   "Time saved, by operation" row, several revisions earlier the same
+   day, just never caught until the user did the arithmetic himself
+   and it didn't add up. Fixed to plot `manual − bulkForge` (clamped
+   at 0), the actual time-saved delta versus doing it fully by hand —
+   the same headline comparison "Add it all up"/"Estimated impact so
+   far" already use elsewhere in this app, not a fresh metric invented
+   for this chart. The same real input (100 Employee Add entries) now
+   correctly reads "2H 33M" (155 min manual − 2 min Bulk Forge),
+   verified directly rather than just reasoned about.
+
+Confirmed by a real Playwright screenshot + DOM measurement pass: the
+75:25 split measured exact, no `.dashboard-bar-label` has
+`scrollHeight > clientHeight` (nothing clipped) across a 3-word label,
+and the Employee Add time-saved bar reads "2H 33M" against real
+`total_entries: 100` input, not the old "2 Min". Full 12-suite run
+green throughout (`dashboard.test.js` didn't assert on either chart's
+exact pixel ratio or its raw minute values, so nothing needed
+updating there) — one unrelated, pre-existing flake surfaced in
+`company-setup.test.js` the same run (529 vs. its usual 530, still
+zero *failed* checks, just one fewer registered) — confirmed via a
+clean `git diff` that this session's own changes never touched
+anything outside the Dashboard's own code, and reproduced the same
+529 in a standalone re-run of just that suite; almost certainly one of
+the "roughly a dozen more spots" of unguarded
+`waitForTimeout`-before-an-"already"-check races this file already
+flags as a known, pre-existing risk (2026-09-19, above) — not
+something this session's work caused.
+
+**Three more small revisions the same day, each from a follow-up
+screenshot, none needing a test change:**
+
+1. **The donut got bigger and its legend un-stretched** ("eta aro boro
+   koro" — make this bigger): the donut sat small inside
+   `.dashboard-chart-main`'s new 75%-wide column, and
+   `.dashboard-donut-legend-label`'s own `flex-grow: 1` stretched to
+   fill the leftover width — dragging each row's percentage far away
+   from its own label instead of sitting next to it. Fixed both at
+   once: the SVG render size grew 130px → 190px (the underlying
+   viewBox/circle math untouched), and the legend stopped stretching
+   at all — each row is now its own natural width, percentage
+   immediately after the label.
+2. **A bare `<select>` sizes off its widest OPTION, not its current
+   value** — found live, a screenshot with the wrapped "Entries
+   created, by operation" title circled: `.dashboard-chart-range` had
+   no explicit width, so it claimed as much room as "Last 6 months"
+   needed even while showing "All time," squeezing the title next to
+   it onto two lines. Fixed with a fixed `width: 128px`.
+3. **"Estimated impact so far" moved above all three charts**, direct
+   request — a pure markup reorder in `dashboardUsageHtml()`, no CSS
+   change needed since both blocks already carry their own
+   `margin-top`.
+
+## "What we offer & FAQ" — real per-operation documentation (2026-09-29)
+
+Two related asks in the same message, handled together since one made
+the other's own scope decision obvious. First: the Dashboard's existing
+low-emphasis "What we offer" strip (2026-09-25, kept from the old
+operation-card grid) should open something real on click — "click
+korle amra new ekta page banabo. okhane every single logic amra ja
+kortesi otar explanation thakbe. Like Employee Bulk upload e gele,
+every column er logic ta and amra ki kortesi eta diba" (clicking should
+open a new page explaining every single thing we actually do — for
+Employee Add, every column's own logic). Second, in the same message:
+the strip's own Settings breakdown should collapse to one combined
+card, not the six it had one per `SETTINGS_GROUPS` group — "ei section
+e settings combined ekta dilei hobe, shob gula venge venge deyar
+dorkar nai" (one combined entry is enough here, no need to break it
+into pieces).
+
+**Content is a plain-English restatement of each operation's own
+already-confirmed spec (`SPEC.md`/`CLAUDE.md`), not new business
+rules** — `FAQ_TOPICS` (`app-data.js`) holds one entry per Bulk
+operation (a real `columns: [{name, rule}]` table, matching the exact
+column names and confirmed rules this file and `SPEC.md` already
+document — Employee ID's `PREFIX0001` sequencing, Joining Date's
+60/25/15 year-weighting, Leave Balance's half-step/ceiling/only-
+increases rule, and so on) plus one combined `settings` entry with
+plain prose instead of a table (the six real groups, "every field
+stays editable," dependencies checked live and named rather than
+failing silently, and the "Run defaults" shortcut) — deliberately not
+one entry per settings module, matching the "combined, not broken up"
+instruction directly. Nothing here was guessed; the same "confirm
+rules, never assume" discipline the generators themselves are held to.
+
+**One page, two states, not a second content system.** `faqTemplate()`
+shows either the 6-card index (`faqIndexBodyHtml()`) or one topic's own
+detail view (`faqDetailBodyHtml()`), switched by a module-level
+`faqTopic` variable — `null` for the index. **Not tracked in browser
+history** — landing on the FAQ page itself is a real top-level
+`navigateTo("faq")`, but switching between topics once there is a
+plain re-render, the same "internal drill-down, no History API
+involvement" shape Company Setup's own group-grid-to-tab drill-down
+already uses; a detail view's own `#faqBackLink` returns to the index
+the same way Company Setup's "← Back to Company Setup" link does.
+`openFaqTopic(id)` is the one shared entry point both the Dashboard's
+own strip and the dedicated FAQ page's identical cards call — clicking
+either navigates or re-renders as appropriate, so there's exactly one
+place this decision is made, not two copies of it.
+
+**`faqCardsHtml()` replaces the old 11-item strip with `FAQ_TOPICS`'s
+own 6** — 5 Bulk operations plus the one combined Settings card,
+reusing `OPERATION_BLURBS`' own cost line for the operations' notes
+(Settings gets none, since there's no single "N cells" figure for it).
+Cards are real `<button>` elements now, not `<div>`s — a card that
+opens a page needs to behave like a control, not a static label, the
+same accessibility discipline this app already holds itself to
+elsewhere. `.dashboard-service-strip` switched from horizontal-scroll
+to wrap, now that 6 cards fit in two short rows without needing a
+scrollbar at all. The dedicated FAQ page reuses the exact same strip
+markup at a larger size (`.faq-index-grid`, a modifier class) rather
+than a second card component.
+
+**The sidebar gets its own, deliberately separate "What we offer &
+FAQ" item** — direct placement instruction ("side menu te shob gula
+option er niche, logout er upore, alada vabe thakbe" — below every
+option, above Log out, on its own): `#faqNav` is a sibling of `.op-nav`
+itself, not nested inside its scrollable list, sitting between it and
+`.sidebar-foot` — pinned in view regardless of scroll position within
+Operations/Setup/Admin, the same way Log out itself already is, rather
+than scrolling away with the rest of the nav. No tier/admin gate —
+this is documentation, not a real write, so any signed-in visitor can
+open it.
+
+### The Welcome nav item is gone — a real, confirmed loophole (2026-09-29)
+
+Same message, a third item: "ar ekta loophole ase. login korar por
+welcome page ta ar dekhano uchit na. o to login korei felse" (there's
+also a loophole — the Welcome page shouldn't be shown after logging
+in, since they've already signed in). Confirmed directly before
+touching anything, since this touches a deliberate 2026-09-29 design
+decision (a *separate* "Dashboard" sidebar item was added specifically
+so several existing tests could still click "Welcome" by its exact
+label and check the real pre-signin page's own content) — the fix
+removes only the *sidebar button*, not the underlying page: an
+unauthenticated visitor still lands on the real Welcome page first
+(`currentOp`'s own initial value is untouched), since the whole
+sidebar stays hidden until a real sign-in happens anyway. What's
+removed is the path that let an *already signed-in* visitor navigate
+back to that same public, "please sign in" marketing page from the
+sidebar — a genuine loophole, not a feature.
+
+**Reachable by Back, not gone outright — confirmed acceptable, not a
+gap.** Browser Back/Forward is a separate mechanism from the sidebar
+(`wirePopstate()`), deliberately untouched by this fix — a signed-in
+visitor who arrived via Welcome -> the operations gate -> Dashboard can
+still hit Back and land on that same Welcome page, exactly as a real
+browser's own history already allows for any page. Only the *sidebar's
+own* button, the loophole actually named, is removed; chasing the
+Back-button path too would be scope beyond what was asked, and this
+app's own Back/Forward feature was built to behave like a real
+browser's, not to second-guess it.
+
+**Real test fallout, all fixed the same way — Back, not a new button.**
+Seven `.op-item:has-text("Welcome")` clicks across three files needed
+a different path once that button no longer exists:
+
+- Two (`company-setup.test.js`'s own "state survives navigating away"
+  check, `employee.test.js`'s own scroll-reset `hops` array + a
+  standalone scroll check) only ever used Welcome as *some other page*
+  to navigate to and back — replaced with "Dashboard," the same kind of
+  page switch, since neither test cared about Welcome's own content.
+- Five genuinely needed to reach Welcome's own content while already
+  signed in (`company-setup.test.js`'s own "L" — the page's 1320px
+  column doesn't drift after a detour — and "BR"/"BS" — the admin-only
+  "Team activity" section; `tiered-access.test.js`'s own "E"/"F" —
+  `#welcomeBarNote`'s tier-aware wording). Each of these flows' own
+  browser history is exactly `[welcome (from init()'s own
+  replaceState), <wherever the test navigated next> (pushed)]` — a
+  single `page.goBack()` reliably lands back on the same Welcome page
+  a real signed-in visitor could still reach this exact way, with
+  `setup.toolToken` untouched throughout (Back doesn't clear app
+  state), so every one of these checks still exercises the real
+  feature it always did.
+
+Confirmed by a real Playwright screenshot pass: "Welcome" is genuinely
+absent from every `.op-item` nav label (`Dashboard` still present),
+"What we offer & FAQ" sits correctly between the nav list and Log out,
+the Employee Add detail page renders a real rule table in both light
+and dark, the Settings detail page renders prose with no table, and a
+390px mobile pass shows zero horizontal overflow on the card grid. A
+new suite, `tests/faq.test.js` (20 checks): the 6-card index (never
+11), a real column-rule table for Employee Add naming its actual
+`PREFIX0001`/joining-date-weighting rules, the combined Settings card's
+prose (no table) naming the real six groups and "Run defaults," the
+Dashboard's own strip opening the identical FAQ topic (not a second
+content path), Back returning to the index, and the sidebar item's own
+position. Full 13-suite run green (915 checks) — including the five
+Back-based rewrites above, all still passing exactly what they always
+tested.
+
+**The donut got bigger again the same day, direct follow-up against
+another screenshot** ("etar height aro boro koro, circle ta jeno aro
+boro hoy" — make this taller, so the circle can get bigger too): 190px
+→ 260px (the render size only, same untouched viewBox/circle math as
+the first size-up). The card itself has no fixed height, so it grows
+to fit the bigger circle automatically — no separate height rule
+needed, exactly what the request implied by pointing at both in one
+breath.
+
+**A real bug surfaced immediately by this, found live rather than
+guessed at ahead of time**: `.dashboard-donut-body` (circle + legend)
+had stayed a side-by-side flex row on mobile the whole time, harmless
+at the smaller 190px size but overflowing the page horizontally
+(measured 421px of scroll width on a 390px viewport) the moment the
+circle grew past what a phone-width card's row could actually fit
+next to its own legend. Fixed the same way every other side-by-side
+element in this app already is under the existing mobile breakpoint —
+`.dashboard-donut-body` stacks to a centred column there instead,
+circle on top, legend below. Verified directly: `scrollWidth` back to
+exactly 390 (no overflow), and the circle's/legend's horizontal
+centres measured within a pixel of each other, confirming a real
+vertical stack rather than a coincidental fit. Full 13-suite run
+stayed green — nothing here touched a test-visible selector or class,
+only rendered pixel sizes.
+
+**"What we offer & FAQ"'s own card strip became a real 3-column grid
+the same day, direct feedback against a screenshot** ("3 ta 3 ta kore
+equally shundor kore vaag kore dao" — split these evenly, 3 by 3): the
+original `flex-wrap` sized each card to its own content, so 6 cards
+landed 4-then-2 with mismatched widths rather than two clean rows.
+`.dashboard-service-strip` is `display: grid; grid-template-columns:
+repeat(3, 1fr)` now, on both the Dashboard's own compact strip and the
+dedicated FAQ page's bigger `.faq-index-grid` variant — one shared
+class, so the fix landed in both places at once rather than needing a
+second copy. Collapses to a single column at the existing mobile
+breakpoint, same as every other grid in this app. Confirmed by a real
+bounding-box check in both places: all 6 cards measure identical
+widths, the first three share one `top` and the last three share
+another (a true 2×3 grid), and mobile still stacks to 1 column with no
+overflow. Full 13-suite run green — no test asserted on the strip's
+own layout shape, only its card count and labels.
+
+**The Settings card got its own note line too, same day** — the five
+Bulk operations' own cards each carry `OPERATION_BLURBS`' cost line
+(e.g. "14 columns x 300 rows = 4,200 cells"), but Settings had none,
+reading as visually incomplete next to them. Direct instruction:
+"settings e likhte paro je Automatic or Custom settings setup" — a
+plain `note` field on `FAQ_TOPICS`' own settings entry (`app-data.js`),
+read by `faqCardsHtml()` ahead of the bulk-only cost-line lookup
+(`t.note || (t.category === "bulk" ? ... : "")`) — a per-topic override
+any future topic can use the same way, not something special-cased
+just for Settings.
+
+**The Dashboard's own page-head is gone, replaced by a sidebar "Signed
+in as" card, direct request the same day** ("upore dashboard ta uthay
+diba. ar 'Signed in as...' ei part ta shoray diba. and side panel e
+[a reference screenshot] ei screenshot er moto user er chotto ekta part
+rakho je Signed in as then user" — remove the "Dashboard" heading and
+the "Signed in as..." line above it; put a small "Signed in as [user]"
+card in the sidebar instead, modelled on a real reference screenshot's
+own sidebar-footer card). `dashboardTemplate()`'s `.page-head` (the
+`<h1>Dashboard</h1>` + "Signed in as {email} — pick where to go..."
+paragraph) is deleted outright — nothing else on the page read it.
+
+`#sidebarUserCard` is a new sibling inside `.sidebar-foot`, right above
+Log out, the same position the reference screenshot's own card held
+above its Log in/Sign up buttons — rendered at the end of
+`renderSidebar()` (so it updates on every sign-in/sign-out alongside
+everything else that section already does), showing a single-letter
+avatar (the email's own first character, uppercased) plus "Signed in
+as" + the real `setup.toolEmail`, or nothing at all when signed out.
+
+**Email only, on purpose — a named first step, not the finished
+idea**: "amra jodi shobar jonno ekta user name dite pari aro valo hoy.
+apatoto mail diye design koro then user name er concept e ashtesi" (it
+would be nicer if everyone had a real display name; design with email
+for now, the username idea comes next) — flagged here so a future
+session doesn't mistake the email-based avatar/label for the final
+design; revisit once real usernames exist for the 25-or-so real
+accounts this app has.
+
+Confirmed by a real Playwright check: `#mainContent` on the Dashboard
+now has no `.page-head`/`.page-title`/`.page-desc` at all and its text
+no longer includes "pick where to go," and `#sidebarUserCard`'s own
+card renders the real signed-in email with a matching avatar letter,
+sitting before Log out in document order. Full 13-suite run green — no
+test asserted on the removed page-head text.
+
+**"Get started" moved to the very bottom of the page, "Real usage"
+renamed to "User Statistics" (2026-09-30)** — two more direct requests
+against a screenshot with "Get started" boxed in red: "Get Started ta
+ei page er ekdom niche diba. ar real usage name change kore User
+Statistics diba" (put Get Started at the very bottom of this page, and
+rename "Real usage" to "User Statistics"). Both are pure reorders/
+renames in `dashboardTemplate()`/`dashboardUsageHtml()` — no new
+markup, no CSS changes: the "Get started" `.section` block (the
+Bulk/Settings routing cards) moved from the top of the template
+literal to after `${dashboardServiceStripHtml()}`, so the page now
+reads User Statistics → What we offer & FAQ → Get started, top to
+bottom; the `<h2 class="section-title">` text in `dashboardUsageHtml()`
+changed from "Real usage" to "User Statistics". Confirmed by Playwright
+in both themes at 1440px and 390px: the DOM order is correct, the
+heading text search finds "User Statistics" and no remaining "Real
+usage", and nothing clips or misaligns as a result of the reorder — the
+reordered sections are unrelated `.section` siblings, so moving one
+past the others needed no layout changes. Full 13-suite run green
+throughout (no test asserted on section order or the old heading text).
+
+## Employee Add gets a configurable starting number; Attendance Add's holiday list is scoped to the range (2026-09-30)
+
+Two small, direct requests, given one after another before either was
+built (per this session's own "list everything, then build" discipline)
+— then "ei duita koro age" (do these two first).
+
+**Employee Add — "Starting number."** Employee ID/Biometric ID always
+sequenced from `0001`, confirmed correct for a brand-new company — but
+flagged directly as a real risk for a second run against the *same*
+company: "user je same company er jonno abar create korbe. so oi 1
+theke shuru korle duplicate porbe" (if the user generates again for the
+same company, starting from 1 again collides with IDs that already
+exist). The fix mirrors a pattern this app already had, not a new one —
+Attendance Add's own `idSourceMarkup()` "generate" mode has carried a
+"Start number" field (`genStart`, defaulting to 1, hint "Real accounts
+don't always start at 0001") since long before this session. Employee
+Add's own **Batch basics** section picked up the identical idea: a
+third field, "Starting number" (`#startNumberInput`, default `1`, min
+`1`), added to what was a 2-field `.field-row` — now a 3-column
+`.field-grid-3` (the same class Attendance's own generate-mode picker
+uses, already collapsing to 1 column under the existing mobile
+breakpoint, so no new CSS was needed). `generateWorkbookRows()` takes a
+new `startNumber` argument and sequences `pad4(start + i)` instead of
+always `pad4(i + 1)`; `renderIdPreview()`'s own 3 sample chips shift to
+match whatever's typed, live. Default stays `1`, so a plain Generate
+click with the field untouched produces byte-identical output to
+before this change — nothing about the default, single-run case
+changed. Verified end-to-end: Starting number 50 + count 10 produces a
+real downloaded file with Employee IDs `PREFIX0050`–`PREFIX0059`.
+
+**Attendance Add — the "Shomvob HR holidays" chip list is now scoped
+to the selected date range**, not every year `BD_HOLIDAYS` holds —
+direct feedback against a screenshot showing all 28 dates regardless
+of the From/To range picked above it: "ekhane user je date range
+select korbe only oi range er moddhe jeshob holiday porbe oigula
+dekhabe. kono holiday na thakle ekta msg dekhaba" (only show holidays
+that fall inside the selected range; show a message if none do).
+**Display-only fix, not a generation-logic change** — `govtHolidayList()`
+itself (used by `activeHolidaySet()`/`generateAttendanceRows()`) stays
+unscoped and unchanged, since `eachDate(att.from, att.to, ...)` already
+confines actual row generation to the range; the real bug was purely
+that `renderHolidays()` rendered every govt holiday regardless of
+range. Fixed by filtering the govt list a second time, after the
+existing `att.govtRemoved` filter, against `att.from`/`att.to` (both
+plain ISO `YYYY-MM-DD` strings from their own `<input type="date">`,
+so a lexical string comparison is exact — no date parsing needed). An
+empty result after filtering renders a plain message ("No Shomvob HR
+holidays fall inside this date range.") instead of an empty box.
+`renderHolidays()` is now also called from both `#fromDate`/`#toDate`'s
+own `input` handlers (it wasn't before — they only called
+`renderRangeTally()`/`updateSummary()`), so the chip list updates live
+as the range is edited, not just on the next holiday-mode toggle.
+Removing a chip (`att.govtRemoved`) is unaffected — it still matches by
+literal date string against the full list, so a removal made while one
+range is selected still holds if the range is later widened to include
+that date again. Verified end-to-end: Feb 1–15 2026 correctly shows
+only that window's own 3 real holidays (02-04/02-11/02-12); Jan 1–15
+2026 (a real gap in the calendar) shows the "no holidays" message; the
+full year reverts to all 28.
+
+Confirmed by Playwright in both themes at 1440px and 390px for both
+fixes — the 3-column Batch basics grid stacks cleanly on mobile, the
+Holiday section's chip list/empty-state message render correctly with
+no CSS changes needed (existing `.chip`/`.sub-note` classes, reused
+as-is). Full 13-suite run green throughout — no test asserted on an
+exact ID sequence starting at 1, or on the holiday chip count/text, so
+neither fix needed a test update.
+
+## "What we offer & FAQ" redesigned into a two-level shell (2026-09-30)
+
+Design discussed and confirmed *before* any code, per this session's own
+"bujhai age, hut kore kaj shuru korba na" (explain the design first,
+don't just jump in and start) — the user sketched the target layout in
+a plain Excel grid (a screenshot of two labelled columns, "Bulk
+Operation"/"Settings", with Employee/attendance/leave/payroll/asset
+listed under the first) rather than a finished spec, and confirmed one
+piece at a time: a top toggle between Bulk Operation and Settings
+(Bulk default), a left-hand list of that category's own individual
+items, and the first item already open by default with its detail
+alongside — "details kemne thakbe pore boli" (I'll say how the details
+themselves should look later) was explicit that the detail *content*
+format is still open; only this navigation shell was confirmed and
+asked to be built now ("banao eituk age" — build this part first).
+
+**Replaces the 2026-09-29 shape outright** — a 6-card index (5 Bulk
+operations + 1 combined Settings card) with a single detail view and
+its own "← Back" link. That card grid and back-link are gone from the
+dedicated FAQ page entirely; there is no more "index" state to return
+to, since the shell always shows a category, that category's own list,
+and one item's detail, all at once.
+
+**Settings is no longer one combined card's worth of content** — direct
+follow-up question asked before building ("Settings tab select korle
+baam pashe ki thakbe?"), confirmed: the left list under Settings shows
+the real 6 `SETTINGS_GROUPS` (Company/Employee/Attendance/Schedule
+Management/Leave/Payroll Settings), matched by their real `id`s, not a
+second hardcoded list. Since each group's own *detailed* content isn't
+designed yet, `faqDetailBodyHtml()` shows the exact same shared overview
+text every group already had (`FAQ_SETTINGS_SHARED` in `app-data.js` —
+the old single "settings" `FAQ_TOPICS` entry's own intro/prose, lifted
+out unchanged) plus that specific group's own real module names (read
+straight off `SETTINGS_GROUPS[i].modules`, e.g. Company Settings lists
+"Company Profile, Bank Info, Location Types, Locations, Department
+Management, Designation Management") — real data, not fabricated
+per-group content, so the 6 items read as genuinely different pages
+rather than 6 identical clones of one paragraph, without pre-empting
+whatever per-module breakdown the user designs next.
+
+**State**: `faqTopic` (a single nullable id) became `faqCategory`
+("bulk"/"settings") + `faqTopic` (an id meaningful *within* that
+category — a `FAQ_TOPICS` id under Bulk, a `SETTINGS_GROUPS` id under
+Settings). `resolveFaqTopic()` defaults `faqTopic` to the current
+category's own first item whenever it's `null` or stale (left over from
+switching category), so the detail pane is never empty — `faqTemplate()`
+calls it before rendering, `faqCategorySeg`'s own click handler resets
+`faqTopic = null` before re-rendering so switching category always
+lands back on that category's first item, not wherever the other
+category happened to leave off. Neither is tracked in browser history,
+same as before and same as Company Setup's own group→module drill-down
+— a plain re-render, not a second History API entry per click.
+
+**The Dashboard's own card strip is untouched** — still exactly 6 cards
+(5 Bulk + 1 combined "Settings"), since that's a separate showcase
+feature from the FAQ page's own internal navigation and the user never
+asked to change it. `openFaqTopic(id)` is the one place the two connect:
+called with a Bulk operation's id it sets `faqCategory = "bulk"`
+directly; called with `"settings"` (the Dashboard card's own id — there
+is no single `FAQ_TOPICS` entry by that id any more) it sets
+`faqCategory = "settings"` and resolves `faqTopic` to
+`SETTINGS_GROUPS[0]`'s id, so clicking that one card still lands
+somewhere real rather than an empty category.
+
+**A real mobile bug, found and fixed by the verification pass itself,
+not guessed at in advance**: `.faq-shell`'s base `align-items:
+flex-start` sizes a column-mode flex child to its own *content* width
+rather than stretching to fill — harmless above the existing 860px
+breakpoint, where the two columns sit side by side and share the row's
+width normally, but once collapsed to a single stacked column on
+mobile this let the wide `.preview-table` inside `.faq-detail-panel`
+push the whole page 1825px wide against a 390px viewport (measured via
+`document.documentElement.scrollWidth`), rather than the table getting
+its own internal horizontal scroll the way every other wide table in
+this app already does. Fixed with one added declaration inside the
+existing `@media (max-width: 860px)` block — `align-items: stretch` —
+so both the nav list and the detail panel are forced to the container's
+full width, letting `.preview-table-wrap`'s own `overflow-x: auto` do
+its job like it does everywhere else. Confirmed: `scrollWidth` back to
+exactly 390 in both themes after the fix.
+
+**Test fallout, `tests/faq.test.js` rewritten outright**, not patched —
+every old assertion depended on markup that no longer exists
+(`.dashboard-service-card`/`#faqBackLink` *inside* the FAQ page,
+6-card-index-then-detail flow). New blocks confirm: Bulk Operation
+selected by default with all 5 real operations listed and the first
+(Employee Add) already open with no click; clicking another item swaps
+the detail panel and the active state in place; toggling to Settings
+swaps the list to the real 6 groups with Company Settings open by
+default, prose (not a table) naming real modules; the Dashboard's own
+strip still shows exactly 6 cards and each one still lands on the right
+category/topic preselected; the sidebar item's own position is
+unchanged; and reopening the page via the sidebar after having drilled
+into Settings resets back to Bulk Operation, not wherever it was left.
+Confirmed by Playwright in both themes at 1440px and 390px. Full
+13-suite run green throughout.
+
+**Still open, per the user's own "pore boli"**: what each Settings
+group's own detail should actually contain (a per-module breakdown, the
+same way each Bulk operation gets a real column/rule table, or
+something else) — don't design or build this unprompted; ask first, the
+same discipline this whole feature has followed so far.
+
+**Two follow-up fixes the same day, from a screenshot with the toggle
+boxed in red and a reference screenshot of Company Setup's own
+Dev/Staging picker beside it**: "uporer section ta equal width e purata
+cover koro... ar overall page er width barao eto kom keno" (make the
+top section cover the full width evenly, like this reference; also the
+overall page width is too small).
+
+- **`#faqCategorySeg`'s own `max-width: 420px`** — the only thing
+  keeping the Bulk Operation/Settings toggle narrow, `.seg-fill` itself
+  already splits the two buttons evenly — is gone, modelled directly on
+  Company Setup's own `#setupCoEnvSeg` (Dev/Staging), which has no such
+  cap and simply fills its row. Verified: both buttons now measure
+  exactly equal width, spanning the full section.
+- **A new `.main-inner.faq-wide { max-width: 1400px; }`** — wider than
+  every other `.wide` page (1100px) — applied alongside `.wide` (not
+  instead of it, so this page keeps `.wide`'s own typography bumps too),
+  same "a distinct class rather than raising `.wide` itself" reasoning
+  `.welcome-wide` already established (`company-setup.test.js` asserts
+  an exact 1100px for that one). Reset to removed at the top of
+  `renderMain()` alongside `rickroll-layout`/`welcome-wide`, so it can
+  never leak onto another page; the `faq` branch adds both `wide` and
+  `faq-wide` together, and since both selectors carry identical
+  specificity, `faq-wide`'s own rule simply needs to come after
+  `.main-inner.wide`'s in `app.css` to win. Verified: `#mainContent`
+  reaches the true 1400px cap at a 1920px viewport (at 1440px it
+  correctly fills all the room actually left beside the sidebar, since
+  a `max-width` can't exceed that). The Bulk side's own 14-column table
+  still needs its own inner horizontal scroll even at this width — same
+  as every other wide `.preview-table` in this app, expected, not a
+  regression. Confirmed by Playwright in both themes at 1440px/1920px,
+  plus a 390px mobile check (`scrollWidth` exactly 390, no overflow —
+  the wider cap is simply unreachable below it, same as any other
+  `.main-inner` page). Full 13-suite run green throughout — neither fix
+  touched a class or id any test asserts on.
+
+## Every FAQ field rewritten into plain-English narrative — Bulk and Settings (2026-09-30)
+
+The "still open" item from the FAQ redesign above — what each Settings
+group's own detail should contain — was answered the same day, but the
+real scope turned out to be bigger: the user first dictated a complete
+worked example of the *style* he wanted for every field on the whole
+page, not just Settings. His own Employee ID example: "first e 4 letter
+nibo random prefix, system ekta suggest korbe chaile user nijeo any 4
+letter dite pare. then koto gula employee seta input neyar por
+basically 2 ta option ashbe. default serial 0001 theke shuru hoye...
+ba user jodi same employee er jonno abar generate kore tokhon to 1
+theke shuru korle somossa. so user tokhon starting number chaile 1 er
+bodole onno number o dite parbe" — followed by the explicit brief:
+"evabe every single field ami description dibo jeno je coding ba eshob
+bujheo na se porleo bujhte pare... Plain simple english e likhba."
+
+**Every existing "rule" one-liner across the whole FAQ page was too
+terse for that bar** — e.g. Employee ID's old text was just "PREFIX0001,
+sequential, always starting at 0001," which states the mechanism but
+never explains *why* it matters or what a QA engineer should do about
+it (the Starting number field, built earlier the same day — see "Batch
+basics" above — exists specifically to solve the "regenerating for a
+company that already has IDs" problem the user's own example calls
+out). The fix, confirmed one operation at a time before being applied
+everywhere: rewrite every `rule` string in `FAQ_TOPICS` (`app-data.js`)
+into a full paragraph — what the field is, why it exists or matters,
+the real mechanism/default behind it, and a concrete example number
+where that helps a non-technical reader picture it. Drafted for
+Employee Add's 14 fields first and shown to the user for approval
+("hae thik ache" — yes, that's fine) before touching any other
+operation, then applied to all 5 Bulk operations' columns in one pass.
+
+**Then broadened to Settings in the same breath** — "tumi ekebare
+taile settings shoho kore felo" (go ahead and do it all at once,
+Settings included), answering the deferred question from the FAQ
+redesign's own "Still open" note above: each of the 6 real
+`SETTINGS_GROUPS` now gets the identical treatment, a real
+`.preview-table` of "Module — Field" rows (e.g. "Company Profile —
+Legal Name", "Attendance Policy — Title", "Late Arrival — Penalty
+Type"), not the old plain module-name list + 3 generic prose bullets.
+`FAQ_SETTINGS_GROUP_DETAILS` (`app-data.js`) is the new data structure
+— one entry per group id, each holding a `columns` array in the exact
+same shape `FAQ_TOPICS` already uses; `faqDetailBodyHtml()`'s Settings
+branch renders it through the identical `.preview-table-wrap` markup
+the Bulk branch already had, rather than inventing a second table
+shape. `FAQ_SETTINGS_SHARED.prose` is trimmed from 3 generic bullets to
+2 — the two facts a table can't show on its own (live dependency-
+checking, the "Run defaults" shortcut) — kept as a shared closing note
+under every group's table now that the table itself covers what the
+old "editable fields"/"six groups" bullets used to state.
+
+**Only real, user-facing editable fields are described — nothing
+invented.** Every one of the 24 real modules across the 6 groups was
+checked directly against its own template function in `app.js` before
+being written, matching this app's own "headline fields only" scoping
+already documented per module above (e.g. Leave Types only exposes
+Name/Sandwich Rule/Bridge as real toggles; Attendance Policy only
+exposes Title; Custom Addition/Deduction exposes Name/Type/Carry
+Forward) — a module with very little to configure (Holiday Calendar: a
+single sync button; Tax: a single enable/disable toggle) gets a short,
+honest row rather than padded, invented complexity. Real cross-module
+facts already documented elsewhere in this file carry through
+correctly — Configure Salary Components' own real ≥2-Active-components
+dependency, Late Arrival/Repeated Late Penalty's real "exactly one, not
+merely at least one" rule, Overtime's real dependency on Attendance
+Policy having overtime enabled, Custom Addition/Deduction's real
+10-field ceiling, Roster Pattern's real "one shared time slot, per-day
+assignment is a named phase-two item" limitation.
+
+**Test fallout**: `tests/faq.test.js` block B's Asset Code assertion
+was checking for the literal old text `"PREFIX0001"`, which the new
+paragraph doesn't repeat verbatim — updated to check for `"0001"`
+instead, still confirming the real mechanism is named. Block C's own
+"renders prose, not a column/rule table" assertion is inverted outright
+— Settings now *does* render a real table, same as Bulk — renamed and
+flipped to `=== 1`, with a new assertion added confirming a real field
+name (Legal Name) actually appears in it.
+
+Confirmed by Playwright in both themes at 1440px: Employee Add's table
+shows the new narrative text (mentioning "Starting number," not the old
+terse line); all 5 Bulk operations render full-paragraph content with
+no fragments; all 6 Settings groups render a real, non-empty field
+table (row counts: Company Settings 15, Employee Settings 6, Attendance
+Settings 2, Schedule Management 3, Leave Settings 6, Payroll Settings
+14) with the "Run defaults" note still present under each; a 390px
+mobile check on the widest table (Payroll Settings) showed zero
+horizontal page overflow. Full 13-suite run green throughout (FAQ grew
+from 31 to 32 checks).
+
+**The table itself needed one more real fix the same day, flagged
+directly against a screenshot with the table's own bottom scrollbar
+circled**: "eta emon ken? width fix rakho. multiple line e egele to
+kono somossa nai" (why is it like this? keep the width fixed — if it
+wraps across multiple lines, that's not a problem). Every `.preview-
+table` in this app (Admin Panel, Audit Log, Leave Balance, Payroll)
+shares one CSS rule — `white-space: nowrap` on every cell — because
+every other use of this component holds short, ID-like values that
+were never meant to wrap. FAQ's own cells now carry full paragraphs,
+so that same shared rule forced the "What we do" column onto one long
+line per row and made the whole table need a horizontal scrollbar just
+to read, rather than growing taller the way a real paragraph should.
+
+Fixed by scoping new rules to `#faqDetailPanel .preview-table`
+specifically — `table-layout: fixed`, `white-space: normal; word-wrap:
+break-word` on cells, first column fixed to 26% width — rather than
+touching the shared `.preview-table` rule itself, which would have
+reintroduced unwanted wrapping into Admin Panel's Users table, Audit
+Log, and Leave Balance/Payroll's own preview tables, all of which still
+want their existing single-line behaviour. Confirmed by Playwright at
+1440px in both themes: the table's own `.preview-table-wrap` no longer
+scrolls (`scrollWidth` now equals `clientWidth`), text wraps across
+multiple lines exactly as asked, and the fixed first column measures
+26% as intended with no overlap or clipping.
+
+**A second, genuine mobile issue surfaced from that same verification
+pass**, not asked for but caught before it shipped: the desktop-tuned
+26% first-column width read fine at 1400px but was genuinely cramped
+at 390px — a long field name like "Configure Salary Components — Basic
+% and each component's %" wrapped into a narrow column one word (or
+part of one) per line, an ugly line-break pattern rather than a clean
+paragraph wrap. Fixed with a mobile-only override inside the FAQ
+shell's own existing `@media (max-width: 860px)` block — the first
+column widens to 38% specifically below that breakpoint, leaving "What
+we do" the majority of the row either way. Confirmed by Playwright at
+390px in both themes: the first column now measures 38% (was 26%),
+the same long field name wraps 2–3 words per line instead of one, and
+`document.documentElement.scrollWidth` stays exactly 390 — no page
+overflow reintroduced. The 1440px desktop state was re-verified
+untouched by this mobile-only addition. Full 13-suite run green
+throughout both fixes — neither touched a class or id any test asserts
+on.
+
+## Self-service "Change Password" (2026-10-04)
+
+Direct request, after a real batch of 18 new real accounts was added
+through the Admin Panel's own "Create new user" form (same Edge
+Function/mechanism Admin Panel already documents above, just run
+against the live site for real): "password change korar ekta kisu kore
+deya jabe user ra jeno change korte pare?" — a way for any signed-in
+user to change their *own* password, not the existing Admin Panel
+feature (`adminUsersFetch("reset_password", ...)`, above), which is
+an **admin** acting on *someone else's* account through the
+service-role Edge Function.
+
+**Confirmed before building**: lives as a small "Change password" text
+link under the "Signed in as" email in the sidebar's own user card
+(`#sidebarUserCard`) — visible to any signed-in account, admin or not,
+not folded into Admin Panel; a real form (new password + confirm, each
+with the existing show/hide toggle), not a bare `window.prompt()` like
+the admin-side reset uses; and no current-password re-entry required,
+since the live, already-issued `setup.toolToken` already proves who
+this is — the same trust every other authenticated call in this file
+already extends to it.
+
+**Needs no Edge Function and no service-role key at all**, unlike
+Admin Panel's own `reset_password` action — Supabase Auth's plain
+`PUT /auth/v1/user` endpoint already accepts a user's own bearer token
+to change that same user's password. `changeMyPassword(newPassword)`
+(`app.js`, right beside `supabaseSignIn()`) is the whole mechanism: one
+`fetch` with `Authorization: Bearer ${setup.toolToken}` and the
+publishable `apikey`, same header shape every other Supabase call here
+already uses.
+
+`openChangePasswordModal()` follows `openSuccessModal()`'s/
+`askDiscard()`'s own established clone-and-replace pattern for its
+Cancel/Save buttons (so reopening the modal can't stack a duplicate
+handler from a previous open), client-side validates both fields are
+present, at least 6 characters, and match each other before ever
+calling the network (`#chpwError` names whichever check failed), and
+on success closes itself and opens the existing generic `#successModal`
+— "Password updated" — rather than a new, one-off success surface.
+The modal's own two show/hide toggle buttons are wired **once**, in
+`init()`, not inside `openChangePasswordModal()` — unlike Cancel/Save,
+they carry no per-open state to recapture, and this modal's markup is
+static (never torn down), so wiring them on every open would stack
+duplicate listeners instead of replacing anything, the same distinction
+`wirePasswordToggles(gate)`'s own one-time call already relies on for
+the login gate.
+
+**A real id collision, found by the test suite itself before this ever
+shipped**: the modal's first draft reused Company Profile's own `cp`
+prefix (`cpSaveBtn`, `cpError`, …) for "**c**hange **p**assword" — since
+this modal is static markup living outside `#mainContent`, it's always
+in the DOM alongside whichever settings module happens to be open, so
+the moment Company Setup's own Company Profile tab was showing,
+`#cpSaveBtn` resolved to *two* elements instead of one.
+`company-setup.test.js`'s own block I ("jumping back to Company
+Profile still works") caught this immediately — not a flaky race, a
+real collision. Renamed to a clearly distinct `chpw` prefix throughout
+(`chpwNewPass`/`chpwConfirmPass`/`chpwError`/`chpwCancelBtn`/
+`chpwSaveBtn`/`chpwTitle`) rather than guessing a narrower fix — worth
+remembering for any future static, always-mounted modal: check its own
+ids against every settings module's own short prefixes (`cp`, `bi`,
+`lt`, `lp`, …), not just against other modals.
+
+Confirmed end-to-end against the real live site, not just the mocked
+test suite: signed in as a real seeded account, changed its password
+through this exact flow, signed out, confirmed the *new* password
+really works for a real sign-in, then changed it back to the original
+— so the real account was left exactly as it started. Full 13-suite
+run green throughout (no test suite was added for this feature's own
+network call, same as every other real-write action in this app that
+only a live pass, not a mocked one, can truly confirm).
+
+## Employee Add gets Pay Type / Hourly Rate — two new real template columns (2026-10-05)
+
+The real Shomvob template changed — the user supplied a second, newer
+copy (`employee_bulk_upload_template.xlsx`) and two real columns had
+appeared since the one this app was originally built against:
+**Pay Type** (`Monthly`/`Hourly`, optional in the template, sits right
+after Joining Date) and **Hourly Rate** (optional, sits right after
+Gross Salary, validated >0 and ≤100,000). The template's own instruction
+text read as contradictory at first glance — Gross Salary's header
+still carries a `*` but its own comment says "Required for Monthly.
+Optional for Hourly," and Hourly Rate's comment says the mirror — so
+the real generation rule was confirmed directly with the user rather
+than guessed from the ambiguous template text, dictated one condition
+at a time:
+
+- **Monthly** (the default, unchanged from before this feature):
+  Gross Salary filled exactly as always (৳20,000–150,000, step 500),
+  Hourly Rate left blank.
+- **Hourly**: the exact mirror — Hourly Rate filled (৳100–500, step
+  50, the user's own dictated range — tighter than the template's own
+  100,000 ceiling, chosen to read as realistic rather than merely
+  valid), Gross Salary left blank.
+- **Pay Type itself is never left blank** — confirmed directly
+  ("'Hourly' ar 'Monthly' hobe input"), even though the real template
+  would accept an empty cell there as meaning Monthly. Every row writes
+  the literal word.
+
+**A real UI control, not a hidden generation-time coin flip** — a
+3-way `.seg` toggle (Monthly default, Hourly, Mixed), placed as its own
+"Pay type" section between Name source and Department & designation
+("name ar department er majhkhane"), confirmed exactly there before
+building. **Mixed** reveals a ratio input (default 50%, confirmed to
+mean "% of the batch that lands Hourly, the rest Monthly") — each row
+independently rolls Hourly at that percentage via `pctHit()`, the same
+mechanism Attendance Add's own late/absent/early percentages already
+use, not a fresh roll mechanism invented for this.
+
+**Mechanism**: `generateWorkbookRows()` takes a new `payConfig` argument
+(`{mode, ratio}`, defaulting to `{mode:"monthly", ratio:50}` when
+omitted, so the one call site simply always passes the real
+module-level `empPay` state object) — per row, `isHourly = mode ===
+"hourly" || (mode === "mixed" && pctHit(ratio))`, and both Gross
+Salary/Hourly Rate are generated or left `""` off that single boolean,
+never independently. `hourlyRate()` is the new sibling to the existing
+`grossSalary()`, same shape (a `randInt` across a fixed step). `HEADER`
+gained both columns in their real template positions (index 7 and 9),
+and `downloadWorkbook()`'s `ws["!cols"]` widened from 14 to 16 entries
+to match — a mismatched `!cols` length doesn't error, it just silently
+mis-widths every column after the point they diverge, so this needed
+fixing in lockstep with `HEADER`, not as an afterthought.
+
+**Test fallout, `employee.test.js`** — every column-index assertion
+past Joining Date shifted by 2 (Email `r[8]`→`r[10]`, Phone `r[9]`→
+`r[11]`, Department/Designation `r[12]/r[13]`→`r[14]/r[15]`); "14
+columns" became "16 columns," plus a new header-shape assertion
+confirming Pay Type/Gross Salary/Hourly Rate sit at the real indices
+7/8/9. New coverage added, not just the index shift: Monthly-default
+behavior (every row literally "Monthly," Gross Salary real and in
+range, Hourly Rate blank); switching to Hourly mode end-to-end (every
+row "Hourly," Gross Salary blank, Hourly Rate real and in range);
+and Mixed mode pinned to a 100% ratio (deterministic — every row still
+lands Hourly — the same "test the Mixed branch actually fires, don't
+rely on a mid-range roll being flaky-proof" discipline this file
+already uses elsewhere for a percentage-driven branch). Full 13-suite
+run green throughout.
+
+**`FAQ_TOPICS`' own Employee Add column table got both new fields too**
+(`app-data.js`), same plain-English narrative depth every other field
+there already has (2026-09-30's own rewrite) — not a terser stub, since
+nothing in this app's own documentation discipline carves out an
+exception for a newly-added column.
+
+**Deliberately not touched**: `OPERATION_CELL_ESTIMATE.employee_add`
+(still `4200`, "14 columns x 300 rows") and `OPERATION_BLURBS
+.employee_add.cost` (still "14 columns x 300 rows") — both feed the
+Welcome page's and Dashboard's own "estimated time saved" math, and
+changing either without the user's own explicit confirmation would be
+exactly the kind of silent number change this app's own discipline
+(`WELCOME_VS_AI_SAVED_MIN`'s own comment, among others) holds itself
+against. Worth noting if asked: a real row only ever has one of Gross
+Salary/Hourly Rate filled (never both), so a literal 16-cells-per-row
+count would actually overstate it slightly — revisit only if the user
+wants that math updated too.
+
+## Adding a sixth operation
+
+Nothing is outstanding, but if another operation is ever added, the route
+that worked five times is: get the real Shomvob template (.xlsx) from the
+user, inspect it with `tools/probe_xlsx.py`, confirm every column's rule
+with the user before writing code (don't assume), then:
+
+1. Flip its `status` from `"soon"` to `"active"` in `OPERATIONS`
+   (`src/app-data.js`)
+2. Add its data tables (name pools / option lists / etc.) to
+   `src/app-data.js`
+3. Add `<operation>Template()` + `wire<Operation>Events()` +
+   `generate<Operation>Rows()` in `src/app.js`, following the existing
+   five
+4. Branch on `currentOp` in `renderMain()`, and add a case to the
+   `updateSummary()` / `handleGenerate()` dispatchers
+5. If it needs employee IDs, reuse the shared picker — `idSourceMarkup()`,
+   `bindIdSource()`, `wireIdSourceSeg()` — rather than writing another one
+6. Run `python build.py`, add `tests/<operation>.test.js` following the
+   existing five, and check the generated file's sheet name, headers and
+   data against the real template
