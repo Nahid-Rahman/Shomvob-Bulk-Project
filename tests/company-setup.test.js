@@ -92,6 +92,7 @@ async function mockSupabaseOk(page) {
      Company Setup navigation is unaffected unless a test deliberately
      overrides this route with a narrower tier. */
   await page.route("**/rest/v1/rpc/my_tier", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '"both"' }));
+  await page.route("**/rest/v1/rpc/my_preview", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "false" }));
 }
 function mockSupabaseFail(page) {
   return page.route("**/auth/v1/token**", (route) =>

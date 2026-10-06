@@ -197,6 +197,16 @@ rules only; put narrative/changelog detail in HISTORY.md (and only if worth keep
   (`verify_jwt: true`, re-checks `is_admin` itself): `list`, `create`, `delete` (refuses
   self-delete), `reset_password`. Both pages share `loadAdminPanelData()`; non-admin
   reaching them sees "Admins only".
+- **Preview access (2026-10-06):** a fourth, testing-only flag, `user_access.preview`
+  (boolean, default false), read via the SECURITY DEFINER RPC `my_preview()`; `checkMyPreview()`
+  **fails closed** (unlike `my_tier()`), `refreshMyTier()` fetches both. Work-in-progress pages
+  live in `PREVIEW_TOOLS` (`app-data.js`: Attendance update, Report), shown in a sidebar
+  "Preview" section (WIP pills) only when `myPreview`; hidden, not locked. Gated by
+  `goToPreview()` + `wirePopstate()`. The code is NOT secret (ships to every browser, user
+  confirmed that's fine); real data for a preview feature should still sit behind RPC/RLS.
+  Admin Users has a Preview checkbox (table + create form); the flag is read straight from
+  `user_access` (`fetchPreviewFlags()`), not the Edge Function's `list` (not in repo, may not
+  return it). A feature graduates by leaving `PREVIEW_TOOLS`. Admins do not auto-get Preview.
 - **Audit log** (`logAudit(eventType, detail, extra)`, fire-and-forget, failure swallowed):
   events `login`, `settings_save`, `bulk_generate` (+ `entry_count` read from the sheet
   range), `admin_user_create`, `admin_user_delete`, `admin_access_change`,
@@ -430,10 +440,10 @@ Calls a real Shomvob dev/staging API and writes into a real test company.
     cd tests && npm run setup   # once
     npm test
 
-13 suites, ~938 checks (a drifting snapshot): employee, attendance, assets, leave,
+14 suites, ~980 checks (a drifting snapshot): employee, attendance, assets, leave,
 payroll, appearance (two colour-scheme contexts; reads computed background channels, not
 hexes), company-setup (mocks every network call via `page.route()`), gate (only suite
-inspecting the gate DOM), back-navigation, tiered-access, admin-panel, dashboard, faq.
+inspecting the gate DOM), back-navigation, tiered-access, admin-panel, preview, dashboard, faq.
 Rules: assertions map to SPEC.md — check SPEC.md before changing a test; `signIn(page)`
 clears the joke gate; `goToOp()`/`mockToolSignIn()` (tests/lib.js) do the real sign-in
 (mocking `audit_log`, `my_tier()`, `is_admin()`); `mockPublicStats(page)` before every

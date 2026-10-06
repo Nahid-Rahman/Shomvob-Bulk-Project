@@ -796,6 +796,16 @@ const ADMIN_TOOLS = [
   { id: "admin_audit", label: "Audit Log" },
 ];
 
+/* Preview (2026-10-06) — work-in-progress features, visible only to
+   accounts an admin has ticked "Preview" for (`user_access.preview`).
+   Testing-only: the code ships to every browser, this just keeps the
+   nav and routes from showing up for anyone else. A feature graduates
+   by moving out of this list into its real home. */
+const PREVIEW_TOOLS = [
+  { id: "preview_attendance", label: "Attendance update" },
+  { id: "preview_report", label: "Report" },
+];
+
 /* The ~20 settings modules, two levels deep — confirmed with the user
    2026-09-09 against real screenshots of the actual HRIS admin (not
    invented): a group is a tabbed page (mirrors "Company Settings" and

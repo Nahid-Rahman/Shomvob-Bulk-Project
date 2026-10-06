@@ -443,6 +443,17 @@
     navigateTo(opId);
   }
 
+  /* Preview pages' own gate — a real sign-in AND the Preview flag.
+     Same "UI courtesy + real enforcement one layer down" shape as
+     goToOperation(); wirePopstate() repeats the check for Back/Forward. */
+  function goToPreview(opId) {
+    if (!setup.toolToken || !myPreview) {
+      showToast("Your account doesn't have Preview access.", true);
+      return;
+    }
+    navigateTo(opId);
+  }
+
   function renderSidebar() {
     const home = $("#homeNav");
     home.innerHTML = "";
@@ -586,6 +597,27 @@
       });
     }
 
+    /* Preview (2026-10-06) — hidden entirely (not locked) unless the
+       account has the flag, same reasoning as the Admin section above:
+       a lock pill would itself announce that unreleased pages exist. */
+    $("#previewNavLabel").style.display = myPreview ? "" : "none";
+    const previewNav = $("#previewNav");
+    previewNav.innerHTML = "";
+    if (myPreview) {
+      PREVIEW_TOOLS.forEach((op) => {
+        const btn = document.createElement("button");
+        btn.className = "op-item";
+        btn.type = "button";
+        btn.setAttribute("aria-current", String(op.id === currentOp));
+        btn.innerHTML = `<span class="op-item-label">${opIcon(op.id)}${op.label}</span><span class="pill-soon">WIP</span>`;
+        btn.addEventListener("click", () => {
+          if (isBulkRunActive()) return;
+          goToPreview(op.id);
+        });
+        previewNav.appendChild(btn);
+      });
+    }
+
     /* "What we offer & FAQ" (2026-09-29) — its own sidebar item, below
        every other section, right above Log out ("shob gula option er
        niche, logout er upore, alada vabe thakbe" — below all the
@@ -640,6 +672,21 @@
     } else {
       userCard.innerHTML = "";
     }
+  }
+
+  /* Empty shell for a Preview page until its real content is dictated. */
+  function previewPlaceholderTemplate(opId) {
+    const tool = PREVIEW_TOOLS.find((t) => t.id === opId);
+    return `
+      <div class="page-head">
+        <span class="page-eyebrow">Preview</span>
+        <h1 class="page-title">${escapeHtml(tool.label)}</h1>
+        <p class="page-desc">Work in progress. Only accounts with Preview access can see this page, and it may change or vanish without notice.</p>
+      </div>
+      <div class="section">
+        <p class="section-note">Nothing here yet. Check back after the next build.</p>
+      </div>
+    `;
   }
 
   /* Wraps an operation's form in the two-column shell when that operation
@@ -755,6 +802,12 @@
       wireAdminAuditEvents();
       return;
     }
+    if (isPreviewOp(currentOp)) {
+      $("#actionBar").style.display = "none";
+      root.classList.remove("has-media", "wide");
+      root.innerHTML = previewPlaceholderTemplate(currentOp);
+      return;
+    }
     if (currentOp === "faq") {
       $("#actionBar").style.display = "none";
       root.classList.remove("has-media", "welcome-wide");
@@ -846,6 +899,8 @@
     company_setup: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
     admin_users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     admin_audit: '<path d="M9 2h6l4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v4h4"/><path d="M8 12h8M8 16h8M8 8h3"/>',
+    preview_attendance: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 1.9"/>',
+    preview_report: '<path d="M9 2h6l4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v4h4"/><path d="M8 12h8M8 16h8M8 8h3"/>',
     faq: '<circle cx="12" cy="12" r="9.5"/><path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   };
 
@@ -3528,8 +3583,35 @@
     }
   }
   let myTier = null; // null until a real sign-in resolves it — "bulk" | "company" | "both"
+
+  /* Preview access (2026-10-06) — `my_preview()` is a SECURITY DEFINER
+     RPC over `user_access.preview`, same shape as my_tier(). Unlike
+     checkMyTier() this fails CLOSED: a hiccup (or the RPC not existing
+     yet) hides work-in-progress pages rather than showing them to
+     someone who wasn't given them. */
+  async function checkMyPreview() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/my_preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` },
+        body: "{}",
+      });
+      if (!res.ok) return false;
+      return (await res.json()) === true;
+    } catch (e) {
+      return false;
+    }
+  }
+  let myPreview = false;
+  const isPreviewOp = (id) => PREVIEW_TOOLS.some((t) => t.id === id);
+
   async function refreshMyTier() {
-    myTier = setup.toolToken ? await checkMyTier() : null;
+    if (setup.toolToken) {
+      [myTier, myPreview] = await Promise.all([checkMyTier(), checkMyPreview()]);
+    } else {
+      myTier = null;
+      myPreview = false;
+    }
     renderSidebar();
     /* A real, confirmed race, caught by this file's own test
        (tiered-access.test.js, blocks E/F) before it ever shipped: the
@@ -4798,7 +4880,7 @@
      upserts, so this works whether the target already has a row (an
      existing account being retiered) or not (an account that's only
      ever hit the default-both path via my_tier()'s own fallback). */
-  async function saveUserAccess(email, tier, isAdmin) {
+  async function saveUserAccess(email, tier, isAdmin, preview) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/user_access`, {
       method: "POST",
       headers: {
@@ -4807,11 +4889,29 @@
         Authorization: `Bearer ${setup.toolToken}`,
         Prefer: "resolution=merge-duplicates,return=minimal",
       },
-      body: JSON.stringify({ email, tier, is_admin: isAdmin }),
+      body: JSON.stringify({ email, tier, is_admin: isAdmin, preview: !!preview }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.message || "Could not save.");
+    }
+  }
+
+  /* The `admin-users` Edge Function's `list` isn't in this repo, so it
+     can't be assumed to return the newer `preview` column. Read it
+     straight from `user_access` instead (admin-only under RLS, same as
+     the write above) and merge by email. Failure just leaves every
+     flag false — Save would then surface the real error. */
+  async function fetchPreviewFlags() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/user_access?select=email,preview`, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${setup.toolToken}` },
+      });
+      if (!res.ok) return {};
+      const rows = await res.json();
+      return Object.fromEntries(rows.map((r) => [r.email, r.preview === true]));
+    } catch (e) {
+      return {};
     }
   }
 
@@ -4824,9 +4924,9 @@
       return;
     }
     try {
-      const [auditRows, listData] = await Promise.all([fetchAuditLogRows(), adminUsersFetch("list")]);
+      const [auditRows, listData, previewFlags] = await Promise.all([fetchAuditLogRows(), adminUsersFetch("list"), fetchPreviewFlags()]);
       adminPanel.auditRows = auditRows;
-      adminPanel.users = listData.users;
+      adminPanel.users = listData.users.map((u) => ({ ...u, preview: previewFlags[u.email] === true }));
       adminPanel.status = "ready";
     } catch (e) {
       adminPanel.status = "error";
@@ -4889,6 +4989,7 @@
         <td><input type="checkbox" class="admin-bulk-checkbox" ${checks.bulk ? "checked" : ""} /></td>
         <td><input type="checkbox" class="admin-company-checkbox" ${checks.company ? "checked" : ""} /></td>
         <td><input type="checkbox" class="admin-flag-checkbox" ${u.is_admin ? "checked" : ""} /></td>
+        <td><input type="checkbox" class="admin-preview-checkbox" ${u.preview ? "checked" : ""} /></td>
         <td>
           <button type="button" class="tiny-btn admin-save-btn">Save</button>
           <button type="button" class="tiny-btn admin-reset-btn" data-user-id="${escapeHtml(u.id)}">Reset password</button>
@@ -4962,7 +5063,7 @@
         <div class="section-head"><h2 class="section-title">Manage Users</h2></div>
         <div class="preview-table-wrap">
           <table class="preview-table admin-users-table">
-            <thead><tr><th>Email</th><th>Last signed in</th><th>Bulk Operations</th><th>Company Operations</th><th>Admin</th><th></th></tr></thead>
+            <thead><tr><th>Email</th><th>Last signed in</th><th>Bulk Operations</th><th>Company Operations</th><th>Admin</th><th>Preview</th><th></th></tr></thead>
             <tbody>${adminPanel.users.map(adminUserRowHtml).join("")}</tbody>
           </table>
         </div>
@@ -4983,7 +5084,7 @@
           </div>
           ${pwFieldMarkup("adminNewPass", "Password")}
         </div>
-        <div class="field-row field-row-3">
+        <div class="field-row field-row-4">
           <label class="field-checkbox-row">
             <input type="checkbox" id="adminNewBulkCb" class="field-checkbox" checked />
             Bulk Operations
@@ -4995,6 +5096,10 @@
           <label class="field-checkbox-row">
             <input type="checkbox" id="adminNewAdminCb" class="field-checkbox" />
             Admin
+          </label>
+          <label class="field-checkbox-row">
+            <input type="checkbox" id="adminNewPreviewCb" class="field-checkbox" />
+            Preview
           </label>
         </div>
         <div class="setup-actions">
@@ -5129,14 +5234,15 @@
         const email = row.dataset.email;
         const tier = checksToTier($(".admin-bulk-checkbox", row).checked, $(".admin-company-checkbox", row).checked);
         const isAdmin = $(".admin-flag-checkbox", row).checked;
+        const preview = $(".admin-preview-checkbox", row).checked;
         setBtnBusy(btn);
         try {
-          await saveUserAccess(email, tier, isAdmin);
-          logAudit("admin_access_change", `${setup.toolEmail} set ${email} to ${tier}${isAdmin ? " (admin)" : ""}`);
+          await saveUserAccess(email, tier, isAdmin, preview);
+          logAudit("admin_access_change", `${setup.toolEmail} set ${email} to ${tier}${isAdmin ? " (admin)" : ""}${preview ? " (preview)" : ""}`);
           const u = adminPanel.users.find((x) => x.email === email);
-          if (u) { u.tier = tier; u.is_admin = isAdmin; }
+          if (u) { u.tier = tier; u.is_admin = isAdmin; u.preview = preview; }
           clearBtnBusy(btn);
-          openSuccessModal("Access updated", `${email} now has ${tierSummaryLabel(tier)}${isAdmin ? ", plus Admin" : ""}.`);
+          openSuccessModal("Access updated", `${email} now has ${tierSummaryLabel(tier)}${isAdmin ? ", plus Admin" : ""}${preview ? ", plus Preview" : ""}.`);
         } catch (e) {
           clearBtnBusy(btn);
           usersErr.textContent = e.message;
@@ -5230,6 +5336,9 @@
       setBtnBusy(createBtn);
       try {
         await adminUsersFetch("create", { email, password, tier, is_admin: isAdmin });
+        /* The Edge Function doesn't know about Preview, so it's a
+           follow-up write to the row `create` just made. */
+        if ($("#adminNewPreviewCb").checked) await saveUserAccess(email, tier, isAdmin, true);
         /* Switch back to Manage Users so the account just created is
            visible right away, rather than leaving the visitor staring
            at their own just-submitted form. */
@@ -6241,6 +6350,7 @@
         clearToolSession();
         isAdminUser = false;
         myTier = null;
+        myPreview = false;
         renderSetupBody();
         /* Mirrors the sign-in fix above — without this, #gatedNav would
            keep showing Operations as unlocked after a real tool
@@ -12897,6 +13007,11 @@
         currentOp = "dashboard";
       } else if (opId === "company_setup" && myTier === "bulk") {
         currentOp = "dashboard";
+      } else if (isPreviewOp(opId) && (!setup.toolToken || !myPreview)) {
+        /* Same Back/Forward guard as the tier checks above — a stale
+           history entry must not reach a Preview page once the session
+           is gone or the flag isn't there. */
+        currentOp = setup.toolToken ? "dashboard" : "welcome";
       } else {
         currentOp = opId;
       }

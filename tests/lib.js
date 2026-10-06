@@ -137,6 +137,9 @@ async function mockToolSignIn(page) {
   );
   await page.route("**/rest/v1/audit_log**", (route) => route.fulfill({ status: 201, contentType: "application/json", body: "[]" }));
   await page.route("**/rest/v1/rpc/my_tier", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '"both"' }));
+  /* Preview access (2026-10-06) — refreshMyTier() fires my_preview()
+     alongside my_tier(). Default false; preview.test.js overrides. */
+  await page.route("**/rest/v1/rpc/my_preview", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "false" }));
   /* The real post-login Dashboard (2026-09-29) fetches these the
      instant it's reached — mocked here, not just in dashboard's own
      test file, since a real sign-in with no pending operation now

@@ -6,6 +6,19 @@ here instead of only saying it out loud, and delete it once it's done
 (pull the latest before checking — another machine may have finished it,
 or added more).
 
+- **2026-10-06 — Preview access built (committed; push only after the SQL below
+  is run on Supabase, else Admin Save breaks).** New `user_access.preview` flag +
+  `my_preview()` RPC, sidebar "Preview" section, Admin Users checkbox. Its two entries
+  are empty placeholders: **Attendance update** and **Report**. Next, in order:
+  (1) **Report** first (user's own order) — ask what "Report validation" means, nothing
+  is dictated yet; (2) then Attendance generation upgrade — wait for the full list of
+  changes before building. Supabase SQL (user runs it in the dashboard; MCP can't reach
+  the org): `alter table public.user_access add column if not exists preview boolean
+  not null default false;` + `create or replace function public.my_preview() returns
+  boolean language sql stable security definer set search_path = public as $$ select
+  coalesce((select preview from public.user_access where lower(email) =
+  lower(auth.jwt() ->> 'email')), false) $$;` + `grant execute on function
+  public.my_preview() to authenticated;`
 - **Session paused here, 2026-10-04 (end of day)** — "git e sync koro
   oi device eo ektu kaj korbo so update koro shob" (sync to git, I'll
   work on the other device too). Everything up to and including this

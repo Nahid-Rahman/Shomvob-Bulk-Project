@@ -74,8 +74,18 @@ async function mockAdminBackend(page, { isAdmin, auditRows }) {
     }
     return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "unknown action" }) });
   });
+  await page.route("**/rest/v1/rpc/my_preview", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "false" }));
   let savedAccessBody = null;
   await page.route("**/rest/v1/user_access**", (route) => {
+    /* Branch on method: the Users page's own GET (Preview flags) must
+       not clobber a captured POST body. */
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([{ email: "tamjida@shomvob.com", preview: true }, { email: "mahmudur@shomvob.com", preview: false }]),
+      });
+    }
     savedAccessBody = route.request().postDataJSON();
     return route.fulfill({ status: 201, contentType: "application/json", body: "[]" });
   });
@@ -179,6 +189,12 @@ async function signInForReal(page, email) {
     await page.click('.op-item:has-text("Users")');
     await page.waitForSelector(".preview-table");
 
+    // Preview column (2026-10-06): read from user_access, not the Edge
+    // Function's list -- the mock flags tamjida only
+    check("C the Preview checkbox reflects each account's flag",
+      (await page.isChecked('tr[data-email="tamjida@shomvob.com"] .admin-preview-checkbox')) &&
+      !(await page.isChecked('tr[data-email="mahmudur@shomvob.com"] .admin-preview-checkbox')));
+
     // tamjida starts at "both" (both boxes checked) -- unchecking Company
     // alone should leave just Bulk checked
     await page.uncheck('tr[data-email="tamjida@shomvob.com"] .admin-company-checkbox');
@@ -190,6 +206,7 @@ async function signInForReal(page, email) {
     check("C the tier/admin change is sent as a direct user_access write",
       saved && saved.email === "tamjida@shomvob.com" && saved.tier === "bulk" && saved.is_admin === true,
       JSON.stringify(saved));
+    check("C the save carries the Preview flag too", saved && saved.preview === true, JSON.stringify(saved));
     check("C no error shown after a successful save", (await page.textContent("#adminUsersError")).trim() === "");
 
     // A proper success modal, not silence (2026-09-26, direct request:
@@ -223,7 +240,7 @@ async function signInForReal(page, email) {
     await page.goto(PAGE);
     await signIn(page);
     await mockAuthOk(page);
-    const { calls } = await mockAdminBackend(page, { isAdmin: true });
+    const { calls, getSavedAccessBody } = await mockAdminBackend(page, { isAdmin: true });
 
     await signInForReal(page, "mahmudur@shomvob.com");
     await page.click('.op-item:has-text("Users")');
@@ -231,6 +248,7 @@ async function signInForReal(page, email) {
     await page.click('.settings-tab:has-text("Create new user")');
     await page.waitForSelector("#adminNewEmail");
 
+    check("D Preview defaults unchecked", !(await page.isChecked("#adminNewPreviewCb")));
     check("D Admin defaults unchecked (No)", !(await page.isChecked("#adminNewAdminCb")));
     check("D Bulk/Company Operations both default checked (Both)",
       (await page.isChecked("#adminNewBulkCb")) && (await page.isChecked("#adminNewCompanyCb")));
@@ -239,6 +257,7 @@ async function signInForReal(page, email) {
     await page.fill("#adminNewPass", "whatever123");
     await page.uncheck("#adminNewBulkCb");
     await page.check("#adminNewAdminCb");
+    await page.check("#adminNewPreviewCb");
     await page.click("#adminCreateBtn");
     await page.waitForTimeout(400);
 
@@ -246,6 +265,10 @@ async function signInForReal(page, email) {
       calls.create && calls.create.email === "newperson@shomvob.com" && calls.create.password === "whatever123" &&
       calls.create.tier === "company" && calls.create.is_admin === true,
       JSON.stringify(calls.create));
+    const createdAccess = getSavedAccessBody();
+    check("D ticking Preview follows the create with a user_access write carrying it",
+      createdAccess && createdAccess.email === "newperson@shomvob.com" && createdAccess.preview === true && createdAccess.tier === "company",
+      JSON.stringify(createdAccess));
     check("D switches back to Manage Users after a successful create",
       (await page.textContent('.settings-tab[aria-current="true"]')).trim() === "Manage Users");
     check("D no page errors", errs.length === 0, errs.join(" | "));

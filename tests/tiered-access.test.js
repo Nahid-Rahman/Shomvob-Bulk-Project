@@ -47,6 +47,7 @@ function mockAuthFail(page) {
    this file needs this mocked too. Defaults to "both" unless a block
    registers its own narrower override first. */
 function mockTier(page, tier) {
+  page.route("**/rest/v1/rpc/my_preview", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "false" }));
   return page.route("**/rest/v1/rpc/my_tier", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(tier) }));
 }
 
