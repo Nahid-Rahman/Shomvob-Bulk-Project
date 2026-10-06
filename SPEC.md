@@ -1200,9 +1200,13 @@ this is ready to replace it.
   companies with no deductions), except **overtime moves to the Reward
   scenario**.
 - Each deduction type is built on its own first; combinations at the end.
-- Output: the attendance .xlsx **plus a PDF report** (this is TODO.md's
-  "Report validation" item). PDF via vendored jsPDF, inlined like SheetJS
-  (confirmed). No employee names (ID source has none).
+- Output: **only the attendance .xlsx.** (Changed 2026-10-06: the PDF
+  report — who should get how many penalties, boundary checks, minutes
+  missed — moves out of bulk into a separate **Report validator** feature,
+  the Preview "Report" entry, to be discussed after Attendance. "Bulk only
+  does bulk's task." The jsPDF decision is parked until that discussion.)
+  The PDF lines kept below under each type describe what the validator
+  will need to show, not something this generator outputs.
 
 ### Deduction type 1 — Late Arrival Penalty (Aggregate / Repeated) — discussion closed
 Real system settings (Payroll Settings → Deduction Rules): Late Arrival
@@ -1225,15 +1229,15 @@ concern.
 - **Boundary group** (no input; outside the violator %): `ceil(total × 10%)`
   employees drawn from the non-violators, min 1, max 3 (Claude's pick,
   user delegated it). Exactly `T+N−1` late days per month → 0 penalty.
-  If no non-violators are left (Violator % = 100), the PDF's boundary
-  section says so instead of being empty.
+  If no non-violators are left (Violator % = 100), there is no boundary
+  group (the validator should say so rather than show nothing).
 - Everyone else: never late, check-in within grace (9:00 + 10 min grace →
   by 9:10). In this scenario everyone is present every working day (no
   absences).
-- PDF: header (scenario, T, N, range, %s, date), summary (counts, penalties
-  per month), violators per month (ID, month, late count, late dates with In
-  time, expected penalty), boundary section last (ID, month, late days,
-  expected penalty 0). (Confirmed.)
+- (For the Report validator) report: header (scenario, T, N, range, %s,
+  date), summary (counts, penalties per month), violators per month (ID,
+  month, late count, late dates with In time, expected penalty), boundary
+  section last (ID, month, late days, expected penalty 0).
 
 ### Deduction type 2 — Absent Deduction (Aggregate / Repeated)
 Real setting: "Absent without notice for N days" + optional "Repeated
@@ -1249,8 +1253,8 @@ concern). **No threshold** (T = 0).
 - An absent day = **no row** for that employee on a working day.
 - "Without notice" = no approved leave on that day. The generator only knows
   IDs, so it **assumes the range has no approved leave** (option a, chosen
-  2026-10-06); the UI shows a short hint and the PDF header states the
-  assumption. Handling real leave (upload the leave export, or fetch via the
+  2026-10-06); the UI shows a short hint (and the Report validator should
+  state the assumption). Handling real leave (upload the leave export, or fetch via the
   API) is a future TODO.
 
 ### Shift check-in bands (real time slot, confirmed 2026-10-06)
@@ -1273,9 +1277,31 @@ cutoff 09:30, absent after 10:00:
   cutoff and Absent after. Without them the Cutoff / Absent-after scenarios
   are blocked with a named reason (the system itself won't apply them).
 
+### Deduction types 3 & 4 — Cutoff Breach / Absent After Breach — discussion closed
+Same structure, different trigger: Cutoff = check-in after the shift's late
+cutoff; Absent After = check-in after the shift's absent-after time.
+- **No N, no threshold: every breach day is one charge.** Optional
+  "Repeated breach penalty" = one charge per run of consecutive breach days
+  (any length) instead of every day. Penalty Mode (Time missed / Fixed hours
+  / Fixed days) and "Deduct per breach" are amounts — not our concern.
+- Carried over: Violator % with `ceil`, every month, non-violators on time
+  within grace, everyone present every working day, auto boundary group.
+- Violators: **4 or 5 breach days per month** (random). Repeated mode: those
+  days split into **2 runs** (e.g. 2+2 or 2+3), i.e. 2 charges.
+- Breach check-in times: Cutoff random in 09:31:00–10:00:59 (some rows on the
+  exact edge 09:31:00). Absent After from 10:01:00 up to **before half day**
+  = shift start + half-day hours (09:00 + 4h → latest 12:59:59). Check-out as
+  usual at shift end.
+- **All four deductions can be on in one real company**, so band edges have
+  side effects: the Cutoff boundary (09:30:59) is a late mark, the Absent
+  After boundary (10:00:59) is a cutoff breach. Accepted: a boundary
+  employee gets **only 1 boundary row per month**, every other day on time.
+- Requires the shift's Late cutoff / Absent after fields (see bands above);
+  otherwise blocked with a named reason.
+
 ### Still to discuss
-Cutoff Breach Penalty, Absent After Breach Penalty, then
-the Reward scenario (overtime, attendance bonus), then combinations.
+The Reward scenario (overtime, attendance bonus), then combinations, then
+the Report validator.
 
 ## Outstanding
 
