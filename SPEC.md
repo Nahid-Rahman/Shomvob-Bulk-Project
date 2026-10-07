@@ -1339,6 +1339,9 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      still recorded as attendance but counts **0 overtime**.
    - **O6 (decided):** Monthly Hour Limit covers **weekday (Regular) overtime only**;
      Weekend and Holiday overtime have only their own daily limits, no monthly cap.
+   - **O7 (decided):** no OT % input. Someone picking the Overtime scenario wants
+     overtime data, so the tool itself makes **80–85% of employees** (random in that
+     band) overtime earners; the rest leave at shift end so normal rows are visible too.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
