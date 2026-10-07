@@ -1326,6 +1326,7 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      with their own Daily Hour Limit (max 12) and rate.
    - **O1 (decided):** overtime starts once work passes Daily Working Hours (8); Daily
      Hour Limit (12) is the cap on the whole day, so max overtime = 12 − 8 = 4 h/day.
+     (In the generator the day length is the shift's own length — see O9.)
    - **O2 (decided):** weekday overtime is measured from the **shift's End time** (time
      after shift end until Out), not from the In→Out duration — arriving late does not
      reduce overtime. E.g. shift 09:00–18:00, In 09:30, Out 19:00 → 1 h overtime.
