@@ -1319,6 +1319,13 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      Overtime Configuration, Attendance Bonus Configuration, Shift Bonus
      Configuration. Only **Overtime** and **Attendance Bonus** belong to the bulk
      generator; **Shift Bonus** (a per-present-day amount per shift) is out of scope.
+   - Overtime settings (Regular): Working Days/Month (26) × Daily Working Hours (8)
+     = monthly hours (pay-rate maths only); Daily Hour Limit (max 12); Monthly Hour
+     Limit (optional, max 300); Calculation Type Fixed Rate / Multiplier of Salary
+     (money — Report validator's job). Advanced: Weekend and Holiday each toggle on/off
+     with their own Daily Hour Limit (max 12) and rate.
+   - **O1 (decided):** overtime starts once work passes Daily Working Hours (8); Daily
+     Hour Limit (12) is the cap on the whole day, so max overtime = 12 − 8 = 4 h/day.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
