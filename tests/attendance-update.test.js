@@ -278,6 +278,113 @@ function noRowsOffWorkingDays(rows) {
   await page.waitForTimeout(100);
   check("H 0% violators is blocked, not a plain file", await page.isDisabled("#generateBtn"));
 
+  /* ---------- J. Bonus → Overtime (SPEC O1–O15) ----------
+     Shift 09:00–18:00 = 9 h, Daily Hour Limit 12 → weekday cap 3 h
+     (out 21:00:00). Monthly limit 20 h, Weekend on at 12 h. */
+  await page.click('#attxModeSeg button[data-mode="bonus"]');
+  await page.check('#attxBonusChoices input[value="overtime"]');
+  await page.fill("#otxDaily", "12");
+  await page.fill("#otxMonthly", "20");
+  await page.fill("#latePct", "10");
+  await page.fill("#absentPct", "5");
+  check("J tally: 16–17 earners, 3 h cap, monthly boundary named",
+    /16–17\s*overtime earners/.test(await page.textContent("#attxRuleTally")) && /3 h past shift end/.test(await page.textContent("#attxRuleTally")) && /exactly on it/.test(await page.textContent("#attxRuleTally")),
+    await page.textContent("#attxRuleTally"));
+  const J = await generate(page, XLSX, "attx-J-overtime");
+  check("J filename names the scenario", /^attendance_overtime_bulk_upload_/.test(J.suggested), J.suggested);
+  const workSet = new Set([...WORKING["2026-09"], ...WORKING["2026-10"]]);
+  const jWork = J.rows.filter((r) => workSet.has(r[1]));
+  const jOff = J.rows.filter((r) => !workSet.has(r[1]));
+  const CAP = S("21:00:00");
+  check("J weekday Out never before shift end, always on :00", jWork.every((r) => toSec(r[3]) >= S("18:00:00") && r[3].endsWith(":00")));
+  check("J weekday overtime never past cap + 45 min", jWork.every((r) => toSec(r[3]) <= S("21:45:00")));
+  check("J some weekday overtime lands exactly on the 3 h cap", jWork.some((r) => toSec(r[3]) === CAP));
+  check("J some weekday overtime goes a little over the cap", jWork.some((r) => toSec(r[3]) > CAP));
+  const jEarners = new Set(jWork.filter((r) => toSec(r[3]) > S("18:00:00")).map((r) => r[0]));
+  check("J 80–85% earn overtime (16–17 of 20), the rest leave at 18:00:00", jEarners.size >= 16 && jEarners.size <= 17, `earners ${jEarners.size}`);
+  check("J late arrivals are mixed in", jWork.some((r) => band(toSec(r[2])) !== "ontime"));
+  check("J absences are mixed in", !everyoneWorksEveryDay(analyse(J.rows)));
+  /* Monthly weekday OT as the system counts it: each day clipped at the cap. */
+  const L = 20 * 3600;
+  ["2026-09", "2026-10"].forEach((m) => {
+    const sums = new Map();
+    jWork.filter((r) => r[1].startsWith(m)).forEach((r) => {
+      const ot = Math.min(toSec(r[3]), CAP) - S("18:00:00");
+      sums.set(r[0], (sums.get(r[0]) || 0) + ot);
+    });
+    const vals = [...sums.values()];
+    check(`J ${m}: exactly one earner lands on the 20 h monthly limit`, vals.filter((v) => v === L).length === 1, JSON.stringify(vals));
+    check(`J ${m}: exactly one goes over it (by 30–90 min)`, vals.filter((v) => v > L).length === 1 && vals.filter((v) => v > L).every((v) => v <= L + 90 * 60), JSON.stringify(vals));
+  });
+  check("J weekend rows exist and are all Fri/Sat", jOff.length > 0 && jOff.every((r) => [5, 6].includes(new Date(r[1] + "T00:00:00").getDay())));
+  check("J weekend work starts at 09:00:00 and runs 2 h to 12 h 45 min", jOff.every((r) => r[2] === "09:00:00" && toSec(r[3]) >= S("11:00:00") && toSec(r[3]) <= S("21:45:00")));
+  check("J some weekend day is exactly the 12 h limit", jOff.some((r) => toSec(r[3]) === S("21:00:00")));
+  const jGoers = new Set(jOff.map((r) => r[0]));
+  check("J 30–35% of earners (5–6) work weekends, all of them earners", jGoers.size >= 5 && jGoers.size <= 6 && [...jGoers].every((id) => jEarners.has(id)), `goers ${jGoers.size}`);
+  check("J each goer works 1–2 weekend days a month",
+    [...jGoers].every((id) => ["2026-09", "2026-10"].every((m) => { const n = jOff.filter((r) => r[0] === id && r[1].startsWith(m)).length; return n >= 1 && n <= 2; })));
+
+  /* Weekend toggle off: still comes in, 0 overtime (O5) — a day no longer than the shift. */
+  await page.click('#otxWeekendSeg button[data-on="no"]');
+  check("J weekend limit input disables with the toggle", await page.isDisabled("#otxWeekendLimit"));
+  const J2 = await generate(page, XLSX, "attx-J2-weekend-off");
+  const j2Off = J2.rows.filter((r) => !workSet.has(r[1]));
+  check("J weekend off: some still come in, 2–9 h", j2Off.length > 0 && j2Off.every((r) => toSec(r[3]) >= S("11:00:00") && toSec(r[3]) <= S("18:00:00")));
+  await page.click('#otxWeekendSeg button[data-on="yes"]');
+
+  await page.fill("#otxDaily", "9");
+  await page.waitForTimeout(100);
+  check("J a Daily Hour Limit no longer than the shift is blocked",
+    (await page.isDisabled("#generateBtn")) && /leaves no room for overtime/.test(await page.textContent("#actionSummary")), await page.textContent("#actionSummary"));
+  await page.fill("#otxDaily", "12");
+  await page.fill("#otxMonthly", "");
+  await page.waitForTimeout(100);
+  check("J a blank monthly limit is allowed", !(await page.isDisabled("#generateBtn")));
+
+  /* ---------- K. Bonus → Attendance Bonus (SPEC B1–B6) ----------
+     Sep 2026 has 22 working days, Oct 21 (Fri/Sat weekend). */
+  await page.check('#attxBonusChoices input[value="attendance_bonus"]');
+  await page.click('#abxKindSeg button[data-kind="fixed"]');
+  await page.fill("#abxN", "18");
+  await page.fill("#latePct", "10");
+  check("K tally: 2 just make it, 2 miss by one, needed days per month",
+    /2\s*just make it.*2\s*miss by one day/s.test(await page.textContent("#attxRuleTally")) && /September 2026: 18 of 22/.test(await page.textContent("#attxRuleTally")),
+    await page.textContent("#attxRuleTally"));
+  const abCheck = async (name, need) => {
+    const K = await generate(page, XLSX, name);
+    const byK = analyse(K.rows);
+    check(`${name} nothing on weekends`, noRowsOffWorkingDays(K.rows));
+    let exact = 0, miss = 0, earn = 0, short = 0, bad = [];
+    IDS.forEach((id) => {
+      const c = monthsOf(byK, id).map(({ m, rec }) => [rec.present.size, need[m]]);
+      if (c.every(([n, R]) => n === R)) exact++;
+      else if (c.every(([n, R]) => n === R - 1)) miss++;
+      else if (c.every(([n, R]) => n > R)) earn++;
+      else if (c.every(([n, R]) => n <= R - 2)) short++;
+      else bad.push(`${id}:${JSON.stringify(c)}`);
+    });
+    check(`${name} 2 employees exactly on the requirement every month`, exact === 2, `exact ${exact}`);
+    check(`${name} 2 employees one day short every month`, miss === 2, `miss ${miss}`);
+    check(`${name} 12–14 earn it with days to spare`, earn >= 12 && earn <= 14, `earn ${earn}`);
+    check(`${name} the rest are well short`, exact + miss + earn + short === 20, bad.join(" "));
+    return K;
+  };
+  const K1 = await abCheck("K-fixed", { "2026-09": 18, "2026-10": 18 });
+  check("K filename names the scenario", /^attendance_attendance_bonus_bulk_upload_/.test(K1.suggested), K1.suggested);
+  check("K late days are mixed in (they still count as present)", K1.rows.some((r) => band(toSec(r[2])) !== "ontime"));
+
+  /* Percentage of Days, round half up: 22 × 90% = 19.8 → 20, 21 × 90% = 18.9 → 19. */
+  await page.click('#abxKindSeg button[data-kind="percent"]');
+  await page.fill("#abxN", "90");
+  await abCheck("K-percent", { "2026-09": 20, "2026-10": 19 });
+
+  await page.click('#abxKindSeg button[data-kind="fixed"]');
+  await page.fill("#abxN", "22");
+  await page.waitForTimeout(100);
+  check("K a month with fewer working days than needed is blocked and named",
+    (await page.isDisabled("#generateBtn")) && /October 2026 has only 21 working days in this range — fewer than 22/.test(await page.textContent("#actionSummary")), await page.textContent("#actionSummary"));
+  await page.fill("#abxN", "18");
+
   /* ---------- I. The live Attendance Add is untouched ---------- */
   await page.click('.op-item:has-text("Employee Attendance Add")');
   await page.waitForSelector("#otSeg");

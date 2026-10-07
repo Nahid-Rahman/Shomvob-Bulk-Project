@@ -37,8 +37,8 @@ or added more).
   ekebare full context thakbe"):**
   1. **Reward scenario** in Attendance update (overtime, attendance bonus)
      — named **Bonus** in the picker. Discussion done 2026-10-07 (SPEC.md →
-     Still to discuss → O1–O15, B1–B6; Shift Bonus out of scope). Fully
-     decided. NOT built yet — wait for "build".
+     Still to discuss → O1–O15, B1–B6; Shift Bonus out of scope). **Built
+     and pushed 2026-10-07** (Preview page; tests J/K). Next: Combination.
   2. **Combination** (several deductions/rewards at once) in Attendance
      update — discussion first.
   3. **The Report validator** — nothing dictated yet, start by asking.

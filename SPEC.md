@@ -1314,7 +1314,8 @@ cutoff; Absent After = check-in after the shift's absent-after time.
   otherwise blocked with a named reason.
 
 ### Still to discuss (order set by the user 2026-10-07)
-1. The Reward scenario (overtime, attendance bonus) — in this generator.
+1. The Reward scenario (overtime, attendance bonus) — in this generator. **Done —
+   built 2026-10-07 as "Bonus"; decisions below.**
    - Scope (2026-10-07): the product's Bonus settings have three cards —
      Overtime Configuration, Attendance Bonus Configuration, Shift Bonus
      Configuration. Only **Overtime** and **Attendance Bonus** belong to the bulk
@@ -1395,8 +1396,26 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      needed (Fixed Days N, or N% of that month), **block generating** with a named
      reason, e.g. "September 2026 has only 20 working days — fewer than 22." (same
      approach as Deduction's month-fit checks).
-   - Attendance Bonus discussion complete (B1–B6). Bonus is not built yet — build only
-     when the user says so.
+   - Attendance Bonus discussion complete (B1–B6).
+   - **Built 2026-10-07** (Preview page, picker option "Bonus"; tests J/K in
+     `tests/attendance-update.test.js`). Claude's own implementation choices (not
+     dictated — change freely if the user disagrees):
+     - Overtime: weekday Out is pinned to :00 seconds; a non-OT day leaves at shift end
+       exactly (a stray minute past end would itself count as overtime under O2).
+       Weekend/holiday rows start at shift start :00 and end :00 (exact duration).
+     - Over-cap day = cap + 15–45 min; weekday OT days ~15% at cap, ~15% over, rest
+       random 45 min–cap; weekend/holiday days ~20% at limit, ~15% over, rest 2 h–limit;
+       if a file rolls none of an edge, one day is forced to it. Toggle-off day
+       length = 2 h–shift length.
+     - Monthly boundary: 1–2 earners exactly on the limit and 1–2 over it (by 30–90
+       min) per month, picked fresh each month; they have no absences and no over-cap
+       days that month. Ordinary earners are trimmed to stay under the limit, counting
+       each day clipped at the cap.
+     - Attendance Bonus: boundary sizes = Deduction's (ceil 10%, 1–3) each; "earn it"
+       = present on R+1..W days; "well short" = R−6..R−2 present days; roles fixed
+       across months. Out time = shift end + 0–10 min (overtime is irrelevant here).
+       A Percentage that rounds a month's requirement to 0 is blocked.
+     - Filenames: `attendance_overtime_bulk_upload_…`, `attendance_attendance_bonus_…`.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 

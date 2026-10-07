@@ -816,6 +816,13 @@ const ATTENDANCE_DEDUCTION_TYPES = [
   { id: "absent_after", label: "Absent After Breach Penalty", sub: "Check-in after the shift's absent-after time" },
 ];
 
+/* Attendance update's Bonus scenario (SPEC.md → O1–O15, B1–B6). Shift
+   Bonus is deliberately not here — it isn't a bulk-upload concern. */
+const ATTENDANCE_BONUS_TYPES = [
+  { id: "overtime", label: "Overtime", sub: "Staying past shift end, plus some weekend and holiday work" },
+  { id: "attendance_bonus", label: "Attendance Bonus", sub: "Present enough working days in a month to earn it" },
+];
+
 /* The ~20 settings modules, two levels deep — confirmed with the user
    2026-09-09 against real screenshots of the actual HRIS admin (not
    invented): a group is a tabbed page (mirrors "Company Settings" and
