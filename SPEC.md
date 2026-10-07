@@ -1337,6 +1337,8 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      weekends, Holiday's limit for holidays; each max 12).
    - **O5 (decided):** if the Weekend / Holiday toggle is **off**, work on that day is
      still recorded as attendance but counts **0 overtime**.
+   - **O6 (decided):** Monthly Hour Limit covers **weekday (Regular) overtime only**;
+     Weekend and Holiday overtime have only their own daily limits, no monthly cap.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
