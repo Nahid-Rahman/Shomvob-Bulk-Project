@@ -48,13 +48,11 @@ or added more).
   2. After that: Attendance update replaces the live Attendance Add —
      ask before swapping.
 
-  **Noticed, not asked for (ask before doing):** the real Payroll Settings →
-  Deduction Rules UI has moved on from what Company Setup's Late Arrival /
-  Absent Deduction modules send — it now has a "Deduction source order"
-  (salary first / leave first) and an ordered multi-leave-type list, and
-  two new rules (Cutoff Breach, Absent After Breach) that Company Setup
-  doesn't configure at all; the real time slot also has Late cutoff /
-  Absent after fields. Raised once in chat, no answer yet.
+  **Decided, don't raise again (2026-10-07):** Company Setup will NOT be
+  updated for the real Deduction Rules UI's newer parts (deduction source
+  order, ordered multi-leave-type list, Cutoff Breach / Absent After Breach,
+  the time slot's Late cutoff / Absent after) — "eta common case na, so
+  general setup e lagbe na". Those stay a QA-side thing, configured by hand.
 
   Older: the 2-page CXO impact report (2026-09-30) is at
   https://claude.ai/artifact/TyRNnJUPVJ5BFi8GEwaLJp — if asked again, ask
