@@ -1380,7 +1380,8 @@ cutoff; Absent After = check-in after the shift's absent-after time.
    - **B2 (decided 2026-10-07):** **Percentage of Days** = present on at least N% of the
      month's working days, the required count **rounded to nearest: a fraction above .5
      rounds up, below .5 rounds down** (24 × 90% = 21.6 → 22; 22 × 90% = 19.8 → 20;
-     21 × 90% = 18.9 → 19; 23 × 90% = 20.7 → 21). Exactly .5: pending the user's answer.
+     21 × 90% = 18.9 → 19; 23 × 90% = 20.7 → 21). **Exactly .5 rounds up** (25 × 90% =
+     22.5 → 23), i.e. ordinary round-half-up.
    - **B3 (decided):** a **present day = any day with an attendance row**, late or not.
    - **B4 (decided):** only **working-day** presence counts; weekend/holiday attendance
      does not add to the bonus count.
@@ -1394,8 +1395,8 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      needed (Fixed Days N, or N% of that month), **block generating** with a named
      reason, e.g. "September 2026 has only 20 working days — fewer than 22." (same
      approach as Deduction's month-fit checks).
-   - Attendance Bonus discussion complete (B1–B6) except B2's exact-.5 case. Bonus is
-     not built yet — build only when the user says so.
+   - Attendance Bonus discussion complete (B1–B6). Bonus is not built yet — build only
+     when the user says so.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
