@@ -1342,6 +1342,8 @@ cutoff; Absent After = check-in after the shift's absent-after time.
    - **O7 (decided):** no OT % input. Someone picking the Overtime scenario wants
      overtime data, so the tool itself makes **80–85% of employees** (random in that
      band) overtime earners; the rest leave at shift end so normal rows are visible too.
+   - **O8 (decided):** an overtime earner does overtime on a random **30–50% of that
+     month's working days** (user: ~30% is typical, 50% is the real-world high).
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
