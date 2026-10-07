@@ -1362,6 +1362,8 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      OT earners' monthly weekday OT lands **exactly on the limit**, some go **over it**
      (to check the system caps the month), the rest stay under. The tool adjusts those
      employees' OT-day lengths to hit it, which may bend O8's 30–50% days rule for them.
+   - **O13 (decided):** the Overtime file is realistic, not clean — some late arrivals
+     and absences are mixed in (amount: O14).
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
