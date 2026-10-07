@@ -36,7 +36,9 @@ or added more).
   jorimana ar reward shob sesh kori, taile report er time tomar kase
   ekebare full context thakbe"):**
   1. **Reward scenario** in Attendance update (overtime, attendance bonus)
-     — discussion first, nothing dictated yet.
+     — named **Bonus** in the picker. Discussion done 2026-10-07 (SPEC.md →
+     Still to discuss → O1–O15, B1–B6; Shift Bonus out of scope). Open: B2's
+     Percentage-of-Days rounding (user checking). NOT built yet — wait for "build".
   2. **Combination** (several deductions/rewards at once) in Attendance
      update — discussion first.
   3. **The Report validator** — nothing dictated yet, start by asking.

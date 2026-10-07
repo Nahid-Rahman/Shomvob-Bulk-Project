@@ -1389,6 +1389,12 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      (Fixed Days / Percentage of Days) and N. Absent days fall on random working days;
      lateness mixed in via Standard's Late %. (Percentage-of-Days boundaries depend on
      B2's rounding.)
+   - **B6 (decided):** if any month in the range has fewer working days than the days
+     needed (Fixed Days N, or N% of that month), **block generating** with a named
+     reason, e.g. "September 2026 has only 20 working days — fewer than 22." (same
+     approach as Deduction's month-fit checks).
+   - Attendance Bonus discussion complete (B1–B6) except **B2's rounding** (user to
+     check). Bonus is not built yet — build only when the user says so.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
