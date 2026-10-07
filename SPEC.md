@@ -1377,6 +1377,9 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      Percentage of Salary (Based on [component], %) — money, Report validator's job.
    - **B1 (decided):** **Fixed Days** = bonus once a month if present **at least N days**
      that month (N = 22 → 22+ present days get it, 21 don't).
+   - **B2 (partly open):** **Percentage of Days** = present on at least N% of the
+     month's working days. **Rounding is unknown** (24 × 90% = 21.6 → 22 or 21?) — the
+     user will check the product. Open until then.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
