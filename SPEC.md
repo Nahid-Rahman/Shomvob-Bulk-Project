@@ -1368,6 +1368,10 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      inputs (per-day, defaults 15 / 5, user-editable); **no Early check-out** (an early
      leaver can't do overtime that day). An OT day is never an absent day but may be a
      late day (late doesn't reduce OT, O2). O8's 30–50% is counted over present days.
+   - **O15 (decided):** the picker gets a new option named **Bonus** (Standard /
+     Deduction / Bonus / Combination); under it, type chips **Overtime** / **Attendance
+     Bonus**, like Deduction's type chips.
+   - Overtime discussion complete (O1–O15). Attendance Bonus next.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
