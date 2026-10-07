@@ -1381,6 +1381,8 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      month's working days. **Rounding is unknown** (24 × 90% = 21.6 → 22 or 21?) — the
      user will check the product. Open until then.
    - **B3 (decided):** a **present day = any day with an attendance row**, late or not.
+   - **B4 (decided):** only **working-day** presence counts; weekend/holiday attendance
+     does not add to the bonus count.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
