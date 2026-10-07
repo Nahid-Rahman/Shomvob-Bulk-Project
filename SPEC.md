@@ -1354,6 +1354,10 @@ cutoff; Absent After = check-in after the shift's absent-after time.
    - **O10 (decided):** weekday OT length per OT day — mostly random between 45 min and
      the cap; some days **exactly at the cap** (boundary); some days **a little over the
      cap** (e.g. cap 3:00 → Out at 3:30 past shift end) to check the system clips it.
+   - **O11 (decided):** about **30–35% of OT earners** (user: "30% or a bit more") also
+     come in on **1–2 weekend/holiday days a month**, working a random 2 h (importer
+     minimum) up to that day type's limit — some at exactly the limit, some a little
+     over. If a toggle is off, some still come in (0 OT) so O5 can be tested.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
