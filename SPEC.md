@@ -1344,6 +1344,12 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      band) overtime earners; the rest leave at shift end so normal rows are visible too.
    - **O8 (decided):** an overtime earner does overtime on a random **30–50% of that
      month's working days** (user: ~30% is typical, 50% is the real-world high).
+   - **O9 (decided):** page inputs = Daily Hour Limit (12), Monthly Hour Limit (300,
+     optional), Weekend on/off + Daily Hour Limit (on, 12), Holiday on/off + Daily Hour
+     Limit (on, 12). **No Daily Working Hours input** — the day's length comes from the
+     shift's own Start→End, so the weekday OT cap = Daily Hour Limit − shift length
+     (e.g. 12 − 9 h for a 09:00–18:00 shift = 3 h). Working Days/Month, Calculation Type
+     and rates are not asked (money only, Report validator).
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
