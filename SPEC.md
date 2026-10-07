@@ -1351,6 +1351,9 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      shift's own Start→End, so the weekday OT cap = Daily Hour Limit − shift length
      (e.g. 12 − 9 h for a 09:00–18:00 shift = 3 h). Working Days/Month, Calculation Type
      and rates are not asked (money only, Report validator).
+   - **O10 (decided):** weekday OT length per OT day — mostly random between 45 min and
+     the cap; some days **exactly at the cap** (boundary); some days **a little over the
+     cap** (e.g. cap 3:00 → Out at 3:30 past shift end) to check the system clips it.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
