@@ -1332,6 +1332,9 @@ cutoff; Absent After = check-in after the shift's absent-after time.
    - **O3 (decided):** Monthly Hour Limit caps **overtime hours only** per month (not
      regular + overtime). At 300 it can't be reached by weekday OT alone (4 h × 26 =
      104), but a company may set it lower, so it still matters.
+   - **O4 (decided):** on a Weekend / Holiday (toggle on) the **whole In→Out time is
+     overtime**, capped by that day type's own Daily Hour Limit (Weekend's limit for
+     weekends, Holiday's limit for holidays; each max 12).
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
