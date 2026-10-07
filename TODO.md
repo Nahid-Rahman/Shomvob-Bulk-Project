@@ -6,6 +6,14 @@ here instead of only saying it out loud, and delete it once it's done
 (pull the latest before checking — another machine may have finished it,
 or added more).
 
+- **Latest pause, 2026-10-07** — "oi machine e parle korbo naile kal abar".
+  Since the note below: the **Bonus** scenario (Overtime + Attendance
+  Bonus) was discussed decision by decision and **built + live** (SPEC.md →
+  "Still to discuss" → O1–O15, B1–B6, plus Claude's own choices under
+  "Built 2026-10-07"). All committed, pushed, deployed; 15 suites green.
+  **Pick up at: Combination** (item 2 below) — discussion first, one
+  question at a time, record each decision in SPEC.md, build only on "build".
+
 - **Session paused here, 2026-10-06 (end of day)** — "onno machine e
   continue korbo" (continuing on the other machine). Everything below is
   committed and pushed to `main` and live; nothing local, nothing
