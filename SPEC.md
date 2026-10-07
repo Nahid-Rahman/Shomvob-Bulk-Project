@@ -1364,6 +1364,10 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      employees' OT-day lengths to hit it, which may bend O8's 30–50% days rule for them.
    - **O13 (decided):** the Overtime file is realistic, not clean — some late arrivals
      and absences are mixed in (amount: O14).
+   - **O14 (decided):** the Overtime scenario keeps Standard's **Late %** and **Absent %**
+     inputs (per-day, defaults 15 / 5, user-editable); **no Early check-out** (an early
+     leaver can't do overtime that day). An OT day is never an absent day but may be a
+     late day (late doesn't reduce OT, O2). O8's 30–50% is counted over present days.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
