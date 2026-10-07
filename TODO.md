@@ -32,21 +32,24 @@ or added more).
      Claude made itself (marked "change freely"). `tests/attendance-update.test.js`.
   3. The user's own account has Preview ticked (confirmed 2026-10-06).
 
-  **Next, in this order (user's own order):**
-  1. **The Report part** — nothing is dictated yet, start by asking. What
-     is already decided: it's the TODO's old "Report validation" item; the
-     PDF that was first planned inside the attendance generator moved here
-     ("bulk e only bulk er task thakuk") — expected penalties per ID per
-     month, late/absent/breach dates with In time, a boundary-check section
-     last (SPEC.md keeps those "(For the Report validator)" lines); the
-     user also put **Reward** (overtime, attendance bonus) and
-     **Combination** (several deductions at once) under this part. jsPDF
+  **Next, in this order (re-ordered by the user 2026-10-07 — "age ei
+  jorimana ar reward shob sesh kori, taile report er time tomar kase
+  ekebare full context thakbe"):**
+  1. **Reward scenario** in Attendance update (overtime, attendance bonus)
+     — discussion first, nothing dictated yet.
+  2. **Combination** (several deductions/rewards at once) in Attendance
+     update — discussion first.
+  3. **The Report validator** — nothing dictated yet, start by asking.
+     Already decided: it's the TODO's old "Report validation" item; the PDF
+     first planned inside the attendance generator moved here ("bulk e only
+     bulk er task thakuk") — expected penalties per ID per month,
+     late/absent/breach dates with In time, a boundary-check section last
+     (SPEC.md keeps those "(For the Report validator)" lines). jsPDF
      (vendored + inlined like SheetJS) was agreed for a PDF, parked until
-     this discussion. Open questions to ask: what the validator takes as
-     input (our generated xlsx? the system's own payroll/attendance
-     report? both, and compare?), and what it outputs.
-  2. After that: Attendance update replaces the live Attendance Add —
-     ask before swapping.
+     then. Open questions: what it takes as input (our generated xlsx? the
+     system's own report? both, compared?) and what it outputs.
+  4. After that: Attendance update replaces the live Attendance Add — ask
+     before swapping.
 
   **Decided, don't raise again (2026-10-07):** Company Setup will NOT be
   updated for the real Deduction Rules UI's newer parts (deduction source

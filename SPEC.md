@@ -1187,9 +1187,9 @@ request, and every module's tab picks up a done marker.
 
 Built on the Preview page "Attendance update" (`attendanceUpdateTemplate()`,
 `generateDeductionRows()`); the live Attendance Add stays untouched until
-this replaces it. Reward (overtime, attendance bonus) and Combination are
-deferred to the Report part ("eta report er part e korbo"); Combination is
-shown as a disabled "Combination · later" button. Tests:
+this replaces it. Reward (overtime, attendance bonus) and Combination come
+next in this same generator (re-ordered 2026-10-07, before the Report
+validator); Combination is shown as a disabled "Combination · later" button. Tests:
 `tests/attendance-update.test.js`.
 
 **Implementation choices Claude made (not dictated — change freely):**
@@ -1313,9 +1313,10 @@ cutoff; Absent After = check-in after the shift's absent-after time.
 - Requires the shift's Late cutoff / Absent after fields (see bands above);
   otherwise blocked with a named reason.
 
-### Still to discuss
-The Reward scenario (overtime, attendance bonus), then combinations, then
-the Report validator.
+### Still to discuss (order set by the user 2026-10-07)
+1. The Reward scenario (overtime, attendance bonus) — in this generator.
+2. Combinations (several rules at once) — in this generator.
+3. Then the Report validator, with the full rule set in hand.
 
 ## Outstanding
 
