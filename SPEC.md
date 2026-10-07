@@ -1375,6 +1375,8 @@ cutoff; Absent After = check-in after the shift's absent-after time.
    - Attendance Bonus settings: "Count attendance bonus On" = **Percentage of Days** or
      **Fixed Days**; "For [N] Days of Attendance"; amount = Fixed rate (Taka) or
      Percentage of Salary (Based on [component], %) — money, Report validator's job.
+   - **B1 (decided):** **Fixed Days** = bonus once a month if present **at least N days**
+     that month (N = 22 → 22+ present days get it, 21 don't).
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
