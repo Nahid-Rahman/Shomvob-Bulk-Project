@@ -1315,6 +1315,10 @@ cutoff; Absent After = check-in after the shift's absent-after time.
 
 ### Still to discuss (order set by the user 2026-10-07)
 1. The Reward scenario (overtime, attendance bonus) — in this generator.
+   - Scope (2026-10-07): the product's Bonus settings have three cards —
+     Overtime Configuration, Attendance Bonus Configuration, Shift Bonus
+     Configuration. Only **Overtime** and **Attendance Bonus** belong to the bulk
+     generator; **Shift Bonus** (a per-present-day amount per shift) is out of scope.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
