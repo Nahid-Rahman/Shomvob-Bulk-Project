@@ -1383,6 +1383,12 @@ cutoff; Absent After = check-in after the shift's absent-after time.
    - **B3 (decided):** a **present day = any day with an attendance row**, late or not.
    - **B4 (decided):** only **working-day** presence counts; weekend/holiday attendance
      does not add to the bonus count.
+   - **B5 (decided):** no % input; each month the tool splits employees itself:
+     ~60–70% qualify (present > N), boundary 1–3 present **exactly N** (just qualify),
+     boundary 1–3 present **N − 1** (just miss), the rest well below N. Inputs: type
+     (Fixed Days / Percentage of Days) and N. Absent days fall on random working days;
+     lateness mixed in via Standard's Late %. (Percentage-of-Days boundaries depend on
+     B2's rounding.)
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
