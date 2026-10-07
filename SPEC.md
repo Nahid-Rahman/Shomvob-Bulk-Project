@@ -1358,6 +1358,10 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      come in on **1–2 weekend/holiday days a month**, working a random 2 h (importer
      minimum) up to that day type's limit — some at exactly the limit, some a little
      over. If a toggle is off, some still come in (0 OT) so O5 can be tested.
+   - **O12 (decided):** Monthly Hour Limit boundary — when the limit is reachable, some
+     OT earners' monthly weekday OT lands **exactly on the limit**, some go **over it**
+     (to check the system caps the month), the rest stay under. The tool adjusts those
+     employees' OT-day lengths to hit it, which may bend O8's 30–50% days rule for them.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
