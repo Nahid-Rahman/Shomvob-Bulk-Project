@@ -1372,6 +1372,9 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      Deduction / Bonus / Combination); under it, type chips **Overtime** / **Attendance
      Bonus**, like Deduction's type chips.
    - Overtime discussion complete (O1–O15). Attendance Bonus next.
+   - Attendance Bonus settings: "Count attendance bonus On" = **Percentage of Days** or
+     **Fixed Days**; "For [N] Days of Attendance"; amount = Fixed rate (Taka) or
+     Percentage of Salary (Based on [component], %) — money, Report validator's job.
 2. Combinations (several rules at once) — in this generator.
 3. Then the Report validator, with the full rule set in hand.
 
