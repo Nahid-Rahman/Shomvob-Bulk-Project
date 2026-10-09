@@ -1477,6 +1477,11 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      - A deduction TC's employees get enough breach days per month for the rule to
        actually charge (T/N for Late; breach days for Cutoff / Absent After), as in the
        single scenarios.
+     - **TC-09: Absent (no row) + No Overtime** is included too (9 TCs in all): some
+       working days have no row, enough per month for the Absent rule to charge, the
+       other days normal rows, never any overtime (Absent + Overtime is not a valid
+       combination). Reuses the single Absent Deduction scenario's logic. Included only
+       when the range has enough working days (what happens otherwise: still to decide).
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
