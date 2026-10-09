@@ -1417,6 +1417,16 @@ cutoff; Absent After = check-in after the shift's absent-after time.
        A Percentage that rounds a month's requirement to 0 is blocked.
      - Filenames: `attendance_overtime_bulk_upload_…`, `attendance_attendance_bonus_…`.
 2. Combinations (several rules at once) — in this generator.
+   - **C1 (decided 2026-10-09):** no combination is blocked. The user picks any 2+ of
+     the 6 types (Late Arrival, Absent, Cutoff Breach, Absent After Breach, Overtime,
+     Attendance Bonus); **each picked rule gets its own, separate group of employee IDs**
+     (e.g. Absent violators and Attendance Bonus earners are different people), so the
+     rules never fight over one employee. The user will supply as many IDs as needed
+     (e.g. 200).
+   - Possible combinations (for reference): 57 type sets (6 types, 2+ at a time:
+     15 pairs, 20 triples, 15 of 4, 6 of 5, 1 of all 6). Counting modes too (each of the
+     4 deductions Aggregate/Repeated, Attendance Bonus Fixed Days/Percentage, Overtime one
+     mode): 474.
 3. Then the Report validator, with the full rule set in hand.
 
 ## Outstanding
