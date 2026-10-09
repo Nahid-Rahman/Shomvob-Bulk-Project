@@ -1417,7 +1417,7 @@ cutoff; Absent After = check-in after the shift's absent-after time.
        A Percentage that rounds a month's requirement to 0 is blocked.
      - Filenames: `attendance_overtime_bulk_upload_…`, `attendance_attendance_bonus_…`.
 2. Combinations (several rules at once) — in this generator.
-   - **C1 (decided 2026-10-09):** no combination is blocked. The user picks any 2+ of
+   - **C1 (decided 2026-10-09; group model revised below):** no combination is blocked. The user picks any 2+ of
      the 6 types (Late Arrival, Absent, Cutoff Breach, Absent After Breach, Overtime,
      Attendance Bonus); **each picked rule gets its own, separate group of employee IDs**
      (e.g. Absent violators and Attendance Bonus earners are different people), so the
@@ -1427,6 +1427,22 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      15 pairs, 20 triples, 15 of 4, 6 of 5, 1 of all 6). Counting modes too (each of the
      4 deductions Aggregate/Repeated, Attendance Bonus Fixed Days/Percentage, Overtime one
      mode): 474.
+   - **C1/C3 revised the same day (2026-10-09) — the group model is per employee, not
+     per rule.** What one employee can carry:
+     - at most **one late-type** rule: Late Arrival *or* Cutoff Breach *or* Absent After
+       Breach (one check-in can only land in one band);
+     - **Absent stands alone**: an Absent violator is never late and gets neither
+       Attendance Bonus nor Overtime;
+     - a late-type can pair with **Attendance Bonus, Overtime, or both**; the two bonuses
+       can also pair with each other.
+     So there are **16 possible employee profiles**: 3 late-type only, 3 bonus only
+     (Att. Bonus / Overtime / both), 9 late-type + bonus (3 × 3), 1 Absent only.
+     From the user's selection the generator makes **one separate employee group per
+     valid combination** of the selected rules. E.g. Cutoff + Att. Bonus + Overtime →
+     7 groups: Cutoff; Att. Bonus; Overtime; Cutoff + Att. Bonus; Cutoff + Overtime;
+     Att. Bonus + Overtime; all three. Adding Absent adds only an "Absent only" group.
+     Selecting two late-types (e.g. Late + Cutoff) never puts them in one group; each
+     pairs with the bonuses separately. Group sizes: still to decide (C5).
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
@@ -1435,7 +1451,8 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      generator does NOT promise "group X = 0 penalties of rule Y"; the future Report
      validator must compute **every picked rule for every employee** from the file, not
      only the rule each employee's group was built for.
-   - **C3 (decided 2026-10-09):** IDs are split **equally** across the picked rules
+   - **C3 (decided 2026-10-09; superseded by the per-employee group model below — IDs
+     now split across combination groups, not rules):** IDs are split **equally** across the picked rules
      (200 IDs, 3 rules → ~67 each), no new input. Inside each group the single
      scenario's own rules apply unchanged (Deduction: Violator % + auto boundary group,
      the rest on time; Overtime: 80–85% earners; Attendance Bonus: B5's split). No extra
