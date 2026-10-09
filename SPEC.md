@@ -1491,6 +1491,12 @@ cutoff; Absent After = check-in after the shift's absent-after time.
        IDs**; fewer → blocked, naming how many more are needed. IDs beyond 90 are left
        out of the file and named on the page (C6). (Claude's pick, change freely: IDs are
        shuffled, each TC first gets its minimum, the rest are dealt round-robin up to 10.)
+     - **Boundary check-ins (decided):** no separate boundary group; each band's edges
+       land inside the TC that owns that band, on some days, the rest random. With the
+       shift above: TC-01/02 (no deduction) some check-ins at 09:10:59 (last on-time
+       second); Late TCs some late days at 09:11:00 and 09:30:59; Cutoff TCs at 09:31:00
+       and 10:00:59; Absent After TCs at 10:01:00. Every edge appears at least once in
+       the file. Edges are derived from the shift's grace / cutoff / absent-after.
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
