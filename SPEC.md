@@ -1486,6 +1486,11 @@ cutoff; Absent After = check-in after the shift's absent-after time.
        has only 7 working days in this range — Late Deduction needs at least 5 late days
        plus on-time days. Widen the date range."), same as the single scenarios'
        month-fit checks. Every generated file always holds all 9 TCs.
+     - **Group size (decided):** at most 10 employees per TC; minimums as C7 — a TC with
+       Overtime needs 7, every other TC 3 (TC-01 included) → at least 4×7 + 5×3 = **43
+       IDs**; fewer → blocked, naming how many more are needed. IDs beyond 90 are left
+       out of the file and named on the page (C6). (Claude's pick, change freely: IDs are
+       shuffled, each TC first gets its minimum, the rest are dealt round-robin up to 10.)
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
