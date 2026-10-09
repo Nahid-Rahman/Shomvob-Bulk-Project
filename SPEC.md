@@ -1441,6 +1441,11 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      the rest on time; Overtime: 80–85% earners; Attendance Bonus: B5's split). No extra
      "plain, no-rule" group. (Claude's pick, change freely: an uneven remainder goes one
      extra ID each to the first groups in picker order; IDs are shuffled before splitting.)
+   - **C4 (decided 2026-10-09):** each ticked rule shows **its own input block**, exactly
+     as in its single scenario, stacked one under another — own Violator %, own T/N/mode,
+     own limits, and Overtime / Attendance Bonus each keep their own Late % / Absent %.
+     No shared inputs between rules (common inputs — IDs, range, weekend, holidays,
+     shifts, time format — stay shared as always).
 3. Then the Report validator, with the full rule set in hand.
 
 ## Outstanding
