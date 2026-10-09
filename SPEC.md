@@ -1459,6 +1459,24 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      splits the same 10 into earners / limit-boundary / normal. So one person may be a
      violator and an earner, or only one of them; boundary cases exist in combo groups
      too. Each rule's own single-scenario rules are reused unchanged.
+   - **Redesign, same day (2026-10-09) — supersedes C1–C8's "user picks rules" model.**
+     The shift itself says which band a check-in falls in (on time ≤ grace, Late, Cutoff,
+     Absent After), so one run can cover every logical case. **Combination = the tool
+     auto-generates every scenario in one file; the user picks no rules.**
+     - Test cases: deduction {None, Late, Cutoff, Absent After} × Overtime {no, yes} =
+       **8 TCs** (TC-01 No ded + no OT … TC-08 Absent After + OT), each its own employee
+       group; plus boundary check-ins at each band edge.
+     - **"Absent" in these TCs means Absent After** (check-in after the absent-after
+       time, a row exists) — not a no-row absence.
+     - **Attendance Bonus is out of Combination** for now: it's a monthly count ("present
+       N days this month"), which doesn't fit a combination test.
+     - Band edges stay as already confirmed (shift check-in bands section): late runs to
+       09:30:59, Cutoff starts 09:31:00, Absent After starts 10:01:00 (for a 09:00 shift,
+       10m grace, cutoff 09:30, absent after 10:00) — always derived from the shift, never
+       hard-coded. (The user's own list used rounded times as shorthand.)
+     - A deduction TC's employees get enough breach days per month for the rule to
+       actually charge (T/N for Late; breach days for Cutoff / Absent After), as in the
+       single scenarios.
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
