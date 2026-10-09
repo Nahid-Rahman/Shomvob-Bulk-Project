@@ -1427,6 +1427,14 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      15 pairs, 20 triples, 15 of 4, 6 of 5, 1 of all 6). Counting modes too (each of the
      4 deductions Aggregate/Repeated, Attendance Bonus Fixed Days/Percentage, Overtime one
      mode): 474.
+   - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
+     Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
+     Late % / Absent %), and if that mixing trips another rule that is on in the same
+     combination (an overtime earner who was also late often enough to get a Late
+     penalty), so be it: "someone can be a little late and still do overtime". So the
+     generator does NOT promise "group X = 0 penalties of rule Y"; the future Report
+     validator must compute **every picked rule for every employee** from the file, not
+     only the rule each employee's group was built for.
 3. Then the Report validator, with the full rule set in hand.
 
 ## Outstanding
