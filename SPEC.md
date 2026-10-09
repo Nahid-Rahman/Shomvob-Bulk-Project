@@ -1497,6 +1497,13 @@ cutoff; Absent After = check-in after the shift's absent-after time.
        second); Late TCs some late days at 09:11:00 and 09:30:59; Cutoff TCs at 09:31:00
        and 10:00:59; Absent After TCs at 10:01:00. Every edge appears at least once in
        the file. Edges are derived from the shift's grace / cutoff / absent-after.
+     - **Page inputs (decided):** common inputs as always (IDs, range, weekend, holidays,
+       shifts, time format) plus the company's rule settings so the generator knows what
+       will actually charge: Late Arrival (T, Aggregate/Repeated, N), Cutoff Breach
+       (Repeated on/off), Absent After Breach (Repeated on/off), Absent (Aggregate/
+       Repeated, N), Overtime (daily limit, monthly limit, Weekend/Holiday toggles +
+       limits). **No Violator %** (the TC decides who violates) and **no Late % /
+       Absent %** — "No Deduction" TCs are clean: on time, present every working day.
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
