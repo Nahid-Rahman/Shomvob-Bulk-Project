@@ -1435,6 +1435,12 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      generator does NOT promise "group X = 0 penalties of rule Y"; the future Report
      validator must compute **every picked rule for every employee** from the file, not
      only the rule each employee's group was built for.
+   - **C3 (decided 2026-10-09):** IDs are split **equally** across the picked rules
+     (200 IDs, 3 rules → ~67 each), no new input. Inside each group the single
+     scenario's own rules apply unchanged (Deduction: Violator % + auto boundary group,
+     the rest on time; Overtime: 80–85% earners; Attendance Bonus: B5's split). No extra
+     "plain, no-rule" group. (Claude's pick, change freely: an uneven remainder goes one
+     extra ID each to the first groups in picker order; IDs are shuffled before splitting.)
 3. Then the Report validator, with the full rule set in hand.
 
 ## Outstanding
