@@ -1453,6 +1453,12 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      Overtime **7**; a multi-rule group needs the largest of its rules' minimums (e.g.
      Cutoff + Overtime = 7). Too few IDs → Generate is blocked and the message names the
      total needed (minimum × number of groups) and how many more to add.
+   - **C8 (decided 2026-10-09):** inside a multi-rule group each rule makes **its own
+     split, independently and at random** — e.g. in a Cutoff + Overtime group of 10,
+     Cutoff splits the 10 into violators / boundary / on time, and Overtime separately
+     splits the same 10 into earners / limit-boundary / normal. So one person may be a
+     violator and an earner, or only one of them; boundary cases exist in combo groups
+     too. Each rule's own single-scenario rules are reused unchanged.
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
