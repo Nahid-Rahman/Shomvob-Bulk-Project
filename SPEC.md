@@ -1481,7 +1481,11 @@ cutoff; Absent After = check-in after the shift's absent-after time.
        working days have no row, enough per month for the Absent rule to charge, the
        other days normal rows, never any overtime (Absent + Overtime is not a valid
        combination). Reuses the single Absent Deduction scenario's logic. Included only
-       when the range has enough working days (what happens otherwise: still to decide).
+       when the range has enough working days.
+     - **Not enough days → Generate is blocked** with a named reason (e.g. "October 2026
+       has only 7 working days in this range — Late Deduction needs at least 5 late days
+       plus on-time days. Widen the date range."), same as the single scenarios'
+       month-fit checks. Every generated file always holds all 9 TCs.
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
