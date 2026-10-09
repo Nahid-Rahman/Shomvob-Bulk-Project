@@ -1442,7 +1442,12 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      7 groups: Cutoff; Att. Bonus; Overtime; Cutoff + Att. Bonus; Cutoff + Overtime;
      Att. Bonus + Overtime; all three. Adding Absent adds only an "Absent only" group.
      Selecting two late-types (e.g. Late + Cutoff) never puts them in one group; each
-     pairs with the bonuses separately. Group sizes: still to decide (C5).
+     pairs with the bonuses separately.
+   - **C5 (decided 2026-10-09):** a group holds **at most 10 employees**. IDs fill the
+     groups (equally while there are fewer than 10 per group); IDs beyond 10 × groups
+     are **left unused**. (Open: whether unused IDs appear in the file at all, and the
+     per-group minimums — Claude proposed Deduction 2 / Overtime 6 / Att. Bonus 5, not
+     yet confirmed.)
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
