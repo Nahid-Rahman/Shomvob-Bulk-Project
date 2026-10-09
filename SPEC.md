@@ -1445,9 +1445,10 @@ cutoff; Absent After = check-in after the shift's absent-after time.
      pairs with the bonuses separately.
    - **C5 (decided 2026-10-09):** a group holds **at most 10 employees**. IDs fill the
      groups (equally while there are fewer than 10 per group); IDs beyond 10 × groups
-     are **left unused**. (Open: whether unused IDs appear in the file at all, and the
-     per-group minimums — Claude proposed Deduction 2 / Overtime 6 / Att. Bonus 5, not
-     yet confirmed.)
+     are **left unused**. (Open: the per-group minimums — Claude proposed Deduction 2 /
+     Overtime 6 / Att. Bonus 5, a multi-rule group taking the largest; not yet confirmed.)
+   - **C6 (decided 2026-10-09):** unused IDs are **not in the file at all**; the page says
+     so before Generate (e.g. "130 IDs left unused — 10 per combination group is the cap.").
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
