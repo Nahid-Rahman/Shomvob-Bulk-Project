@@ -6,6 +6,13 @@ here instead of only saying it out loud, and delete it once it's done
 (pull the latest before checking — another machine may have finished it,
 or added more).
 
+- **2026-10-09** — **Combination built + live** (Preview → Attendance update →
+  Combination). Discussed decision by decision; the first model (user picks rules,
+  C1–C8) was replaced the same day by "the tool makes every case itself": 9 test
+  cases (SPEC.md → "Redesign, same day"). Attendance Bonus is out of Combination.
+  15 suites green. **Next: the Report validator** (item 3 below) — start by asking.
+  Screenshot import of rule settings is parked (Future item below).
+
 - **Latest pause, 2026-10-07** — "oi machine e parle korbo naile kal abar".
   Since the note below: the **Bonus** scenario (Overtime + Attendance
   Bonus) was discussed decision by decision and **built + live** (SPEC.md →
@@ -47,8 +54,7 @@ or added more).
      — named **Bonus** in the picker. Discussion done 2026-10-07 (SPEC.md →
      Still to discuss → O1–O15, B1–B6; Shift Bonus out of scope). **Built
      and pushed 2026-10-07** (Preview page; tests J/K). Next: Combination.
-  2. **Combination** (several deductions/rewards at once) in Attendance
-     update — discussion first.
+  2. **Combination** — **done 2026-10-09** (see the note at the top).
   3. **The Report validator** — nothing dictated yet, start by asking.
      Already decided: it's the TODO's old "Report validation" item; the PDF
      first planned inside the attendance generator moved here ("bulk e only
@@ -70,6 +76,16 @@ or added more).
   Older: the 2-page CXO impact report (2026-09-30) is at
   https://claude.ai/artifact/TyRNnJUPVJ5BFi8GEwaLJp — if asked again, ask
   whether its real-numbers section needs a refresh rather than redrafting.
+- **Future (Attendance update, Combination): screenshot import of the rule
+  settings** — user asked 2026-10-09 whether a QA engineer could upload
+  screenshots of the company's Deduction Rules / Overtime settings instead of
+  typing them. Agreed to build manual inputs first. Likely route when picked
+  up: a Supabase Edge Function calling a vision model (API key as a Supabase
+  secret — a new architecture exception, the user's call), values pre-filled
+  into the form for the user to check. Browser OCR (Tesseract.js) was judged
+  too heavy and can't read toggle states. Shift grace/cutoff/absent-after
+  could instead come from the real API (`/workforce/time-slots`), but the
+  deduction/overtime rules have no known GET.
 - **Future (Attendance update, Absent Deduction):** the generator assumes the
   date range has no approved leave, so the expected absent penalties (in
   the future Report validator) can be off if the test company already has

@@ -823,6 +823,25 @@ const ATTENDANCE_BONUS_TYPES = [
   { id: "attendance_bonus", label: "Attendance Bonus", sub: "Present enough working days in a month to earn it" },
 ];
 
+/* Attendance update's Combination scenario (SPEC.md → "Redesign, same
+   day"): every logical case in one file, each its own employee group.
+   The shift's bands decide what a check-in is (on time, Late, Cutoff,
+   Absent After); Attendance Bonus is deliberately out (it's a monthly
+   count). A group holds at most COMBINATION_GROUP_MAX employees and at
+   least 7 with overtime, 3 without. */
+const ATTENDANCE_COMBINATION_TCS = [
+  { id: "TC-01", ded: null, ot: false },
+  { id: "TC-02", ded: null, ot: true },
+  { id: "TC-03", ded: "late", ot: false },
+  { id: "TC-04", ded: "late", ot: true },
+  { id: "TC-05", ded: "cutoff", ot: false },
+  { id: "TC-06", ded: "cutoff", ot: true },
+  { id: "TC-07", ded: "absent_after", ot: false },
+  { id: "TC-08", ded: "absent_after", ot: true },
+  { id: "TC-09", ded: "absent", ot: false },
+];
+const COMBINATION_GROUP_MAX = 10;
+
 /* The ~20 settings modules, two levels deep — confirmed with the user
    2026-09-09 against real screenshots of the actual HRIS admin (not
    invented): a group is a tabbed page (mirrors "Company Settings" and

@@ -317,7 +317,10 @@ accepts; if a real upload fails, fix against that error's actual text.
   overtime live-only, shift threshold fields render only on the Preview page). Own state
   `attx`; "What are we generating?" Standard (today's flow minus overtime) / Deduction (Late
   Arrival, Absent, Cutoff Breach, Absent After Breach; Aggregate or Repeated) / Bonus
-  (Overtime, Attendance Bonus — 2026-10-07, SPEC O1–O15/B1–B6) / Combination (later).
+  (Overtime, Attendance Bonus — 2026-10-07, SPEC O1–O15/B1–B6) / Combination (2026-10-09: the
+  tool itself makes 9 test cases — deduction {none, Late, Cutoff, Absent After} × overtime
+  {no, yes}, plus Absent (no row) — each its own group, 3–10 people (7+ with overtime), 43 IDs
+  minimum, extra IDs left out; no rule picking, no Violator/Late/Absent %).
   Deduction = Violator % breaks the rule every month, an auto boundary group stops one step
   short, everyone else on time. Bonus has no % input: the tool picks earners, exact-boundary
   and just-miss employees itself. No PDF (moved to the future Report validator).

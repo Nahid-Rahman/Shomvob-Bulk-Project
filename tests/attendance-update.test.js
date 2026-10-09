@@ -130,7 +130,7 @@ function noRowsOffWorkingDays(rows) {
   /* ---------- A. Standard: today's flow minus overtime ---------- */
   await openPage(page);
   check("A Standard is the default mode", (await page.getAttribute('#attxModeSeg button[data-mode="standard"]', "aria-pressed")) === "true");
-  check("A Combination is shown but disabled (later)", await page.isDisabled('#attxModeSeg button[data-mode="combination"]'));
+  check("A Combination is offered", !(await page.isDisabled('#attxModeSeg button[data-mode="combination"]')));
   check("A no overtime section on this page", (await page.locator("#otSeg").count()) === 0);
   check("A shift cards carry late cutoff / absent after / half day", (await page.locator('#shiftList input[data-side="cutoff"]').count()) === 1);
   await fillCommon(page);
@@ -384,6 +384,83 @@ function noRowsOffWorkingDays(rows) {
   check("K a month with fewer working days than needed is blocked and named",
     (await page.isDisabled("#generateBtn")) && /October 2026 has only 21 working days in this range — fewer than 22/.test(await page.textContent("#actionSummary")), await page.textContent("#actionSummary"));
   await page.fill("#abxN", "18");
+
+  /* ---------- L. Combination (SPEC → "Redesign, same day") ----------
+     9 test cases, each its own employees: deduction {none, late, cutoff,
+     absent after} × overtime {no, yes}, plus plain absence. 95 IDs →
+     every case gets the 10-employee cap, 5 left out of the file. */
+  const LIDS = Array.from({ length: 95 }, (_, i) => "CMBX" + String(i + 1).padStart(4, "0"));
+  await page.click('#attxModeSeg button[data-mode="combination"]');
+  await page.waitForSelector("#cbLateN");
+  check("L no violator % and no late/absent % on this page",
+    (await page.locator("#attxPct").count()) === 0 && (await page.locator("#latePct").count()) === 0 && (await page.locator("#absentPct").count()) === 0);
+  await page.fill("#idPaste", LIDS.slice(0, 42).join("\n"));
+  await page.waitForTimeout(100);
+  check("L 42 IDs is blocked, naming how many more",
+    (await page.isDisabled("#generateBtn")) && /needs at least 43 employee IDs .* Add 1 more/.test(await page.textContent("#actionSummary")), await page.textContent("#actionSummary"));
+  await page.fill("#idPaste", LIDS.join("\n"));
+  await page.click('#cbLateThSeg button[data-th="on"]');
+  await page.fill("#cbLateTh", "2");
+  await page.click('#cbLateRepSeg button[data-rep="no"]');
+  await page.fill("#cbLateN", "3");
+  await page.click('#cbAbsentRepSeg button[data-rep="no"]');
+  await page.fill("#cbAbsentN", "3");
+  await page.click('#cbCutoffRepSeg button[data-rep="no"]');
+  await page.click('#cbAaRepSeg button[data-rep="no"]');
+  await page.click('#otxWeekendSeg button[data-on="yes"]');
+  await page.fill("#otxDaily", "12");
+  await page.fill("#otxMonthly", "20");
+  await page.waitForTimeout(100);
+  const lTally = await page.textContent("#attxRuleTally");
+  check("L tally lists 9 cases at 10 each and names the 5 unused IDs",
+    (await page.locator("#attxRuleTally tbody tr").count()) === 9 && /5 IDs left unused/.test(lTally), lTally);
+  const Lf = await generate(page, XLSX, "attx-L-combination");
+  check("L filename names the scenario", /^attendance_combination_bulk_upload_/.test(Lf.suggested), Lf.suggested);
+  const lIds = new Set(Lf.rows.map((r) => r[0]));
+  check("L 90 employees in the file, the 5 unused left out", lIds.size === 90, `ids ${lIds.size}`);
+  const lWorkSet = new Set([...WORKING["2026-09"], ...WORKING["2026-10"]]);
+  const lBy = analyse(Lf.rows.filter((r) => lWorkSet.has(r[1])));
+  const prof = new Map(); // id -> { bands:Set, missing:{m:n}, ot:bool }
+  lIds.forEach((id) => {
+    const bands = new Set();
+    const missing = {};
+    monthsOf(lBy, id).forEach(({ m, days, rec }) => {
+      missing[m] = days.filter((ds) => !rec.present.has(ds)).length;
+      rec.present.forEach((sec) => {
+        const bd = band(sec);
+        if (bd !== "ontime") bands.add(bd);
+      });
+    });
+    const ot = Lf.rows.some((r) => r[0] === id && (!lWorkSet.has(r[1]) || toSec(r[3]) > S("18:00:00")));
+    prof.set(id, { bands, missing, ot });
+  });
+  const P = [...prof.values()];
+  check("L nobody ever lands in two late bands", P.every((p) => p.bands.size <= 1));
+  check("L nobody is both late-banded and absent", P.every((p) => !(p.bands.size && Object.values(p.missing).some((n) => n))));
+  const caseOf = (p) => (Object.values(p.missing).some((n) => n) ? "absent" : p.bands.size ? [...p.bands][0] : "none");
+  const tally = {};
+  P.forEach((p) => {
+    const k = `${caseOf(p)}|${p.ot}`;
+    tally[k] = (tally[k] || 0) + 1;
+  });
+  check("L every case has exactly 10 people (none/late/cutoff/absent after × OT, absent without)",
+    ["none", "late", "cutoff", "absent_after"].every((d) => tally[`${d}|true`] === 10 && tally[`${d}|false`] === 10) && tally["absent|false"] === 10 && !tally["absent|true"],
+    JSON.stringify(tally));
+  const lateOk = [...prof].filter(([, p]) => caseOf(p) === "late").every(([id]) =>
+    monthsOf(lBy, id).every(({ rec }) => { const late = [...rec.present.values()].filter((v) => band(v) === "late").length; const pen = Math.floor((late - 2) / 3); return pen >= 1 && pen <= 3; }));
+  check("L late cases really charge: 1–3 penalties every month (T 2, N 3)", lateOk);
+  const breachOk = (bd) => [...prof].filter(([, p]) => caseOf(p) === bd).every(([id]) =>
+    monthsOf(lBy, id).every(({ rec }) => { const n = [...rec.present.values()].filter((v) => band(v) === bd).length; return n >= 4 && n <= 5; }));
+  check("L cutoff cases breach 4–5 days every month", breachOk("cutoff"));
+  check("L absent-after cases breach 4–5 days every month", breachOk("absent_after"));
+  check("L absent case misses 3, 6 or 9 working days every month (N 3, 1–3 penalties)",
+    P.filter((p) => caseOf(p) === "absent").every((p) => Object.values(p.missing).every((n) => [3, 6, 9].includes(n))));
+  const nonOtOut = Lf.rows.filter((r) => !prof.get(r[0]).ot);
+  check("L anyone without overtime leaves at 18:00:00 exactly", nonOtOut.every((r) => r[3] === "18:00:00"));
+  const ins = new Set(Lf.rows.map((r) => r[2]));
+  check("L every band edge is in the file (09:15:59, 09:16:00, 09:30:59, 09:31:00, 10:00:59, 10:01:00)",
+    ["09:15:59", "09:16:00", "09:30:59", "09:31:00", "10:00:59", "10:01:00"].every((t) => ins.has(t)), [...ins].filter((t) => /^(09:1[56]|09:3[01]|10:0[01])/.test(t)).join(","));
+  check("L weekend rows only for overtime cases", Lf.rows.filter((r) => !lWorkSet.has(r[1])).every((r) => prof.get(r[0]).ot));
 
   /* ---------- I. The live Attendance Add is untouched ---------- */
   await page.click('.op-item:has-text("Employee Attendance Add")');

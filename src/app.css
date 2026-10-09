@@ -1236,6 +1236,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .seg button:hover:not([aria-pressed="true"]) { color: var(--text); }
 
 .seg-panel { margin-top: 14px; }
+/* Combination's case table: short enough to wrap rather than scroll. */
+.preview-table.combo-table th, .preview-table.combo-table td { white-space: normal; }
+.preview-table.combo-table td:first-child { white-space: nowrap; }
+@media (max-width: 640px) {
+  .preview-table.combo-table th, .preview-table.combo-table td { padding: 8px 8px; }
+  /* Attendance update's four-way picker doesn't fit a phone in one row;
+     two by two instead (it ran 14px past a 390px screen). */
+  #attxModeSeg { display: grid; grid-template-columns: 1fr 1fr; border-radius: 14px; width: 100%; }
+}
 
 /* .seg is inline-flex by default — sized to its buttons' own text, which
    reads fine sitting next to a label of similar weight (Enable Filter,

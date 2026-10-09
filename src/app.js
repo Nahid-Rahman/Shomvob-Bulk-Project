@@ -2921,20 +2921,12 @@
     return { violators, boundary, clean: total - violators - boundary };
   }
 
-  function attendanceUpdateProblems() {
-    const out = attendanceProblems();
-    if (out.length || attx.mode === "standard") return out;
-    if (attx.mode === "bonus") return bonusProblems();
-    const type = attx.type;
-    const cfg = attx[type];
-    const typeLabel = ATTENDANCE_DEDUCTION_TYPES.find((t) => t.id === type).label;
-
-    if (!(cfg.pct >= 1)) out.push("Violator % needs to be at least 1 — otherwise nobody breaks the rule");
-    if ((type === "late" || type === "absent") && !(cfg.n >= 1)) out.push(type === "late" ? "Apply penalty after every N late days needs N of at least 1" : "Absent without notice for N days needs N of at least 1");
-
-    /* The thresholds this rule needs must exist on every shift, and the
-       bands they make must actually have room in them. */
+  /* The thresholds the given deduction types need must exist on every
+     shift, and the bands they make must actually have room in them. */
+  function shiftBandProblems(types) {
+    const out = [];
     const shiftsToCheck = singleShift() ? [att.shifts[0]] : att.shifts;
+    const labelOf = (t) => ATTENDANCE_DEDUCTION_TYPES.find((x) => x.id === t).label;
     shiftsToCheck.forEach((sh, i) => {
       const name = singleShift() ? "The shift" : `Shift ${i + 1}`;
       const b = shiftBands(sh);
@@ -2942,12 +2934,27 @@
       if (b.cutoff != null && b.cutoff <= b.graceEnd) out.push(`${name}'s late cutoff has to be after its grace period ends`);
       if (b.cutoff != null && b.absentAfter != null && b.absentAfter <= b.cutoff) out.push(`${name}'s absent-after time has to be after its late cutoff`);
       if (b.cutoff == null && b.absentAfter != null && b.absentAfter <= b.graceEnd) out.push(`${name}'s absent-after time has to be after its grace period ends`);
-      if (type === "cutoff" && b.cutoff == null) out.push(`${typeLabel} needs a late cutoff on ${name.toLowerCase()}`);
-      if (type === "absent_after") {
-        if (b.absentAfter == null) out.push(`${typeLabel} needs an absent-after time on ${name.toLowerCase()}`);
+      if (types.includes("cutoff") && b.cutoff == null) out.push(`${labelOf("cutoff")} needs a late cutoff on ${name.toLowerCase()}`);
+      if (types.includes("absent_after")) {
+        if (b.absentAfter == null) out.push(`${labelOf("absent_after")} needs an absent-after time on ${name.toLowerCase()}`);
         else if (b.absentAfter + 1 > b.halfDayEnd - 1) out.push(`${name}'s half day ends before its absent-after time — no room for a late check-in`);
       }
     });
+    return out;
+  }
+
+  function attendanceUpdateProblems() {
+    const out = attendanceProblems();
+    if (out.length || attx.mode === "standard") return out;
+    if (attx.mode === "bonus") return bonusProblems();
+    if (attx.mode === "combination") return combinationProblems();
+    const type = attx.type;
+    const cfg = attx[type];
+
+    if (!(cfg.pct >= 1)) out.push("Violator % needs to be at least 1 — otherwise nobody breaks the rule");
+    if ((type === "late" || type === "absent") && !(cfg.n >= 1)) out.push(type === "late" ? "Apply penalty after every N late days needs N of at least 1" : "Absent without notice for N days needs N of at least 1");
+
+    out.push(...shiftBandProblems([type]));
     if (out.length) return out;
 
     /* Every month in the range must fit at least the smallest violator
@@ -3083,23 +3090,26 @@
     return attx.ab.kind === "fixed" ? attx.ab.days : roundHalfUp((W * attx.ab.pct) / 100);
   }
 
-  function bonusProblems() {
+  function overtimeSettingProblems() {
     const out = [];
+    const o = attx.ot;
+    const inHours = (v, max) => v > 0 && v <= max;
+    if (!inHours(o.dailyLimit, 12)) out.push("Daily Hour Limit has to be between 1 and 12 hours");
+    if (o.monthlyLimit != null && !inHours(o.monthlyLimit, 300)) out.push("Monthly Hour Limit has to be up to 300 hours, or left blank for no cap");
+    if (o.weekendOn && !inHours(o.weekendLimit, 12)) out.push("Weekend's Daily Hour Limit has to be between 1 and 12 hours");
+    if (o.holidayOn && !inHours(o.holidayLimit, 12)) out.push("Holiday's Daily Hour Limit has to be between 1 and 12 hours");
+    if (out.length) return out;
     const shiftsToCheck = singleShift() ? [att.shifts[0]] : att.shifts;
-    if (attx.bonusType === "overtime") {
-      const o = attx.ot;
-      const inHours = (v, max) => v > 0 && v <= max;
-      if (!inHours(o.dailyLimit, 12)) out.push("Daily Hour Limit has to be between 1 and 12 hours");
-      if (o.monthlyLimit != null && !inHours(o.monthlyLimit, 300)) out.push("Monthly Hour Limit has to be up to 300 hours, or left blank for no cap");
-      if (o.weekendOn && !inHours(o.weekendLimit, 12)) out.push("Weekend's Daily Hour Limit has to be between 1 and 12 hours");
-      if (o.holidayOn && !inHours(o.holidayLimit, 12)) out.push("Holiday's Daily Hour Limit has to be between 1 and 12 hours");
-      if (out.length) return out;
-      shiftsToCheck.forEach((sh, i) => {
-        const b = shiftBands(sh);
-        if (b && otCapMin(b) <= 0) out.push(`${shiftName(i)} is ${hoursText(b.end - b.start)} long — a ${o.dailyLimit} h Daily Hour Limit leaves no room for overtime`);
-      });
-      return out;
-    }
+    shiftsToCheck.forEach((sh, i) => {
+      const b = shiftBands(sh);
+      if (b && otCapMin(b) <= 0) out.push(`${shiftName(i)} is ${hoursText(b.end - b.start)} long — a ${o.dailyLimit} h Daily Hour Limit leaves no room for overtime`);
+    });
+    return out;
+  }
+
+  function bonusProblems() {
+    if (attx.bonusType === "overtime") return overtimeSettingProblems();
+    const out = [];
     const ab = attx.ab;
     if (ab.kind === "fixed" && !(ab.days >= 1 && ab.days <= 31)) out.push("Days of attendance has to be between 1 and 31");
     if (ab.kind === "percent" && !(ab.pct >= 1 && ab.pct <= 100)) out.push("Percentage of days has to be between 1 and 100");
@@ -3159,23 +3169,17 @@
      over the monthly limit when it's reachable; 30–35% of earners also
      come in on 1–2 weekend/holiday days a month. Everyone else leaves at
      shift end on the dot. Late % and Absent % mix in real-life noise. */
-  function generateOvertimeRows() {
+  /* Who earns overtime on which day (O7–O12), for the given employees:
+     id -> Map(date -> { absent } | { otMin } | { offMin }). `allEarn`
+     makes every one of them an earner (Combination); `absentPct` mixes in
+     absences (0 = none). */
+  function planOvertime(allIds, bandOf, opts) {
     const o = attx.ot;
-    const fmt = att.timeFormat;
-    const shifts = effectiveShifts();
-    const bandOf = new Map();
-    const allIds = [];
-    shifts.forEach((sh) => {
-      const b = shiftBands(sh);
-      sh.ids.forEach((id) => {
-        bandOf.set(id, b);
-        allIds.push(id);
-      });
-    });
     const total = allIds.length;
     let nEarn = Math.round((total * randInt(80, 85)) / 100);
     if (total >= 2) nEarn = Math.min(nEarn, total - 1); // someone stays normal (O7)
     nEarn = Math.max(total ? 1 : 0, nEarn);
+    if (opts.allEarn) nEarn = total; // Combination: the test case itself says "with overtime"
     const earners = shuffle(allIds).slice(0, nEarn);
     const earnerSet = new Set(earners);
     const nGoers = earners.length ? Math.max(1, Math.round((earners.length * randInt(30, 35)) / 100)) : 0;
@@ -3221,7 +3225,7 @@
           return;
         }
         const present = work.filter((ds) => {
-          if (!pctHit(att.absentPct)) return true;
+          if (!pctHit(opts.absentPct)) return true;
           p.set(ds, { absent: true });
           return false;
         });
@@ -3310,6 +3314,22 @@
       }
     });
 
+    return plan;
+  }
+
+  function generateOvertimeRows() {
+    const fmt = att.timeFormat;
+    const shifts = effectiveShifts();
+    const bandOf = new Map();
+    const allIds = [];
+    shifts.forEach((sh) => {
+      const b = shiftBands(sh);
+      sh.ids.forEach((id) => {
+        bandOf.set(id, b);
+        allIds.push(id);
+      });
+    });
+    const plan = planOvertime(allIds, bandOf, { allEarn: false, absentPct: att.absentPct });
     const rows = [ATTENDANCE_HEADER.slice()];
     const holidays = activeHolidaySet();
     const weekend = new Set(att.weekend);
@@ -3393,6 +3413,197 @@
     return rows;
   }
 
+  /* ---------- Combination ----------
+     SPEC.md → "Redesign, same day": one file holding every logical case,
+     each test case (ATTENDANCE_COMBINATION_TCS) its own employees. A
+     deduction TC's people break that rule every month (enough to really
+     charge); an overtime TC's people all earn overtime (O8–O12 otherwise
+     unchanged); band edges sit inside the TC that owns the band. Nobody
+     has random lateness or absence on top — a "No deduction" case is
+     clean, and one employee only ever lands in one late band. */
+
+  function combinationTcMin(tc) {
+    return tc.ot ? 7 : 3;
+  }
+
+  /* Sizes per TC: every TC gets its minimum, the rest are dealt one at a
+     time in TC order up to the cap. null = too few IDs. */
+  function combinationGroupSizes(total) {
+    const sizes = ATTENDANCE_COMBINATION_TCS.map(combinationTcMin);
+    let left = total - sizes.reduce((a, b) => a + b, 0);
+    if (left < 0) return null;
+    let moved = true;
+    while (left > 0 && moved) {
+      moved = false;
+      for (let i = 0; i < sizes.length && left > 0; i++) {
+        if (sizes[i] < COMBINATION_GROUP_MAX) {
+          sizes[i]++;
+          left--;
+          moved = true;
+        }
+      }
+    }
+    return { sizes, unused: left };
+  }
+
+  function combinationProblems() {
+    const out = [];
+    if (!(attx.late.n >= 1)) out.push("Late Arrival: apply penalty after every N late days needs N of at least 1");
+    if (!(attx.absent.n >= 1)) out.push("Absent: absent without notice for N days needs N of at least 1");
+    if (out.length) return out;
+    out.push(...overtimeSettingProblems());
+    if (out.length) return out;
+    out.push(...shiftBandProblems(["cutoff", "absent_after"]));
+    if (out.length) return out;
+
+    const total = singleShift() ? att.ids.length : assignedIdSet().size;
+    const need = ATTENDANCE_COMBINATION_TCS.reduce((a, tc) => a + combinationTcMin(tc), 0);
+    if (total < need) {
+      out.push(`Combination needs at least ${need} employee IDs (7 for each overtime case, 3 for the rest) — you've added ${total}. Add ${need - total} more`);
+      return out;
+    }
+    /* Every deduction case has to be able to charge in every month. */
+    for (const [key, days] of workingDaysByMonth()) {
+      const W = days.length;
+      for (const type of ["late", "cutoff", "absent_after", "absent"]) {
+        if (largestFittingK(type, W)) continue;
+        const label = ATTENDANCE_DEDUCTION_TYPES.find((t) => t.id === type).label;
+        const needDays = specSize(deductionSpec(type, "violator", violatorKs(type).slice(-1)[0]));
+        out.push(`${monthLabel(key)} has only ${W} working day${W === 1 ? "" : "s"} in this range — ${label} needs at least ${needDays}. Widen the date range`);
+        return out;
+      }
+    }
+    return out;
+  }
+
+  /* One combination check-in: `sp` is that day's plan entry or none. */
+  function combinationInTime(b, sp) {
+    if (!sp) return deductionInTime("late", b, "ontime");
+    if (sp.kind === "ontime") return { min: b.graceEnd, sec: 59 }; // last on-time second
+    if (sp.edge === "end") return { min: sp.kind === "late" ? b.cutoff : b.absentAfter, sec: 59 }; // last second of the band
+    return deductionInTime(sp.kind, b, sp.kind, sp.edge === "start");
+  }
+
+  function generateCombinationRows() {
+    const fmt = att.timeFormat;
+    const shifts = effectiveShifts();
+    const bandOf = new Map();
+    const allIds = [];
+    shifts.forEach((sh) => {
+      const b = shiftBands(sh);
+      sh.ids.forEach((id) => {
+        bandOf.set(id, b);
+        allIds.push(id);
+      });
+    });
+    const { sizes } = combinationGroupSizes(allIds.length);
+    const pool = shuffle(allIds);
+    const tcOf = new Map();
+    let next = 0;
+    ATTENDANCE_COMBINATION_TCS.forEach((tc, t) => {
+      for (let k = 0; k < sizes[t]; k++) tcOf.set(pool[next++], tc);
+    });
+
+    /* id -> Map(date -> { kind, edge }): the deduction days, planned per
+       month exactly like the single Deduction scenario's violators. */
+    const special = new Map();
+    let flip = 0;
+    const months = workingDaysByMonth();
+    tcOf.forEach((tc, id) => {
+      const plan = new Map();
+      special.set(id, plan);
+      months.forEach((days) => {
+        const W = days.length;
+        if (!tc.ded) {
+          plan.set(days[randInt(0, W - 1)], { kind: "ontime" });
+          return;
+        }
+        const kmax = largestFittingK(tc.ded, W);
+        const spec = deductionSpec(tc.ded, "violator", choice(violatorKs(tc.ded).filter((k) => k <= kmax)));
+        const slots = placeSpec(spec, W);
+        const twoEdges = tc.ded === "late" || tc.ded === "cutoff";
+        slots.forEach((slot, j) => {
+          let edge = null;
+          if (tc.ded !== "absent") {
+            if (slots.length === 1) edge = twoEdges && flip++ % 2 ? "end" : "start";
+            else if (j === 0) edge = "start";
+            else if (j === 1 && twoEdges) edge = "end";
+          }
+          plan.set(days[slot], { kind: tc.ded, edge });
+        });
+      });
+    });
+
+    const otIds = allIds.filter((id) => tcOf.has(id) && tcOf.get(id).ot);
+    const otPlan = planOvertime(otIds, bandOf, { allEarn: true, absentPct: 0 });
+
+    const rows = [ATTENDANCE_HEADER.slice()];
+    const holidays = activeHolidaySet();
+    const weekend = new Set(att.weekend);
+    eachDate(att.from, att.to, (date) => {
+      const ds = fmtDate(date);
+      const isWork = !holidays.has(ds) && !weekend.has(date.getDay());
+      shifts.forEach((sh) => {
+        const b = shiftBands(sh);
+        if (!b) return;
+        sh.ids.forEach((id) => {
+          if (!tcOf.has(id)) return; // past the cap: left out of the file (C6)
+          const e = otPlan.has(id) ? otPlan.get(id).get(ds) : null;
+          if (!isWork) {
+            if (e && e.offMin != null) rows.push([id, ds, formatTime(b.start, fmt, 0), formatTime(b.start + e.offMin, fmt, 0)]);
+            return;
+          }
+          const sp = special.get(id).get(ds);
+          if (sp && sp.kind === "absent") return; // absent = no row at all
+          const t = combinationInTime(b, sp);
+          /* Overtime is on in this company, so anyone not on overtime that
+             day leaves at shift end exactly (O2). */
+          rows.push([id, ds, formatTime(t.min, fmt, t.sec), formatTime(b.end + (e && e.otMin ? e.otMin : 0), fmt, 0)]);
+        });
+      });
+    });
+    return rows;
+  }
+
+  /* Payroll Settings → Overtime Configuration, shared by Bonus →
+     Overtime and Combination. `tail` goes under the day-type rows. */
+  function overtimeSectionHtml(numHtml, tail) {
+    const o = attx.ot;
+    const dayType = (key, label) => `
+      <div class="field">
+        <label>${label} overtime</label>
+        <div class="seg seg-fill" id="otx${label}Seg">
+          <button type="button" data-on="no" aria-pressed="${!o[key + "On"]}">Off</button>
+          <button type="button" data-on="yes" aria-pressed="${o[key + "On"]}">On</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="otx${label}Limit">${label} Daily Hour Limit</label>
+        <input type="number" id="otx${label}Limit" min="1" max="12" step="0.5" value="${o[key + "Limit"]}" ${o[key + "On"] ? "" : "disabled"} />
+        <span class="hint">The whole day is overtime, up to this (max 12)</span>
+      </div>`;
+    return `
+    <div class="section">
+      <div class="section-head"><h2 class="section-title">${numHtml}Overtime</h2></div>
+      <p class="section-note">Match these to the company's Payroll Settings → Overtime Configuration. Rates aren't asked here — money is the Report validator's job.</p>
+      <div class="field-grid-2">
+        <div class="field">
+          <label for="otxDaily">Daily Hour Limit</label>
+          <input type="number" id="otxDaily" min="1" max="12" step="0.5" value="${o.dailyLimit}" />
+          <span class="hint">Shift plus overtime, at most this many hours a day (max 12)</span>
+        </div>
+        <div class="field">
+          <label for="otxMonthly">Monthly Hour Limit (optional)</label>
+          <input type="number" id="otxMonthly" min="1" max="300" value="${o.monthlyLimit == null ? "" : o.monthlyLimit}" placeholder="No cap" />
+          <span class="hint">Weekday overtime hours a month. Blank = no cap (max 300)</span>
+        </div>
+      </div>
+      <div class="field-row">${dayType("weekend", "Weekend")}</div>
+      <div class="field-row">${dayType("holiday", "Holiday")}</div>
+      ${tail}
+    </div>`;
+  }
+
   function bonusSettingsHtml(numHtml) {
     const pctFields = (withAbsent) => `
       <div class="field">
@@ -3407,41 +3618,8 @@
         <span class="hint">Share of working days nobody turns up</span>
       </div>` : ""}`;
     if (attx.bonusType === "overtime") {
-      const o = attx.ot;
-      const dayType = (key, label) => `
-        <div class="field">
-          <label>${label} overtime</label>
-          <div class="seg seg-fill" id="otx${label}Seg">
-            <button type="button" data-on="no" aria-pressed="${!o[key + "On"]}">Off</button>
-            <button type="button" data-on="yes" aria-pressed="${o[key + "On"]}">On</button>
-          </div>
-        </div>
-        <div class="field">
-          <label for="otx${label}Limit">${label} Daily Hour Limit</label>
-          <input type="number" id="otx${label}Limit" min="1" max="12" step="0.5" value="${o[key + "Limit"]}" ${o[key + "On"] ? "" : "disabled"} />
-          <span class="hint">The whole day is overtime, up to this (max 12)</span>
-        </div>`;
-      return `
-      <div class="section">
-        <div class="section-head"><h2 class="section-title">${numHtml}Overtime</h2></div>
-        <p class="section-note">Match these to the company's Payroll Settings → Overtime Configuration. Rates aren't asked here — money is the Report validator's job.</p>
-        <div class="field-grid-2">
-          <div class="field">
-            <label for="otxDaily">Daily Hour Limit</label>
-            <input type="number" id="otxDaily" min="1" max="12" step="0.5" value="${o.dailyLimit}" />
-            <span class="hint">Shift plus overtime, at most this many hours a day (max 12)</span>
-          </div>
-          <div class="field">
-            <label for="otxMonthly">Monthly Hour Limit (optional)</label>
-            <input type="number" id="otxMonthly" min="1" max="300" value="${o.monthlyLimit == null ? "" : o.monthlyLimit}" placeholder="No cap" />
-            <span class="hint">Weekday overtime hours a month. Blank = no cap (max 300)</span>
-          </div>
-        </div>
-        <div class="field-row">${dayType("weekend", "Weekend")}</div>
-        <div class="field-row">${dayType("holiday", "Holiday")}</div>
-        <div class="field-row">${pctFields(true)}</div>
-        <div id="attxRuleTally" style="margin-top:12px"></div>
-      </div>`;
+      return overtimeSectionHtml(numHtml, `<div class="field-row">${pctFields(true)}</div>
+        <div id="attxRuleTally" style="margin-top:12px"></div>`);
     }
     const ab = attx.ab;
     const fixed = ab.kind === "fixed";
@@ -3540,7 +3718,8 @@
     const num = () => `<span class="section-num">${++n}</span>`;
     const isDed = attx.mode === "deduction";
     const isBonus = attx.mode === "bonus";
-    const isOt = isBonus && attx.bonusType === "overtime";
+    const isCombo = attx.mode === "combination";
+    const isOt = (isBonus && attx.bonusType === "overtime") || isCombo;
 
     const bonusChoices = ATTENDANCE_BONUS_TYPES.map(
       (t) =>
@@ -3561,12 +3740,12 @@
 
       <div class="section">
         <div class="section-head"><h2 class="section-title">${num()}What are we generating?</h2></div>
-        <p class="section-note">Standard is an ordinary month. Deduction makes some people break one rule, on purpose, every month. Bonus makes people earn overtime or an attendance bonus.</p>
+        <p class="section-note">Standard is an ordinary month. Deduction makes some people break one rule, on purpose, every month. Bonus makes people earn overtime or an attendance bonus. Combination puts every deduction-and-overtime case in one file.</p>
         <div class="seg" id="attxModeSeg">
           <button type="button" data-mode="standard" aria-pressed="${attx.mode === "standard"}">Standard</button>
           <button type="button" data-mode="deduction" aria-pressed="${isDed}">Deduction</button>
           <button type="button" data-mode="bonus" aria-pressed="${isBonus}">Bonus</button>
-          <button type="button" data-mode="combination" disabled title="Several rules at once — coming later">Combination · later</button>
+          <button type="button" data-mode="combination" aria-pressed="${isCombo}">Combination</button>
         </div>
         ${isDed ? `<div class="choice-list" id="attxTypeChoices" style="margin-top:14px">${typeChoices}</div>` : ""}
         ${isBonus ? `<div class="choice-list" id="attxBonusChoices" style="margin-top:14px">${bonusChoices}</div>` : ""}
@@ -3580,7 +3759,7 @@
 
       <div class="section">
         <div class="section-head"><h2 class="section-title">${num()}Date range</h2></div>
-        <p class="section-note">Which days to cover.${isDed ? " Every deduction rule is counted per calendar month, and the rule is broken in every month of the range." : isBonus ? " Monthly limits and the attendance bonus are counted per calendar month." : ""}</p>
+        <p class="section-note">Which days to cover.${isDed || isCombo ? " Every deduction rule is counted per calendar month, and the rule is broken in every month of the range." : isBonus ? " Monthly limits and the attendance bonus are counted per calendar month." : ""}</p>
         <div class="field-row">
           <div class="field">
             <label for="fromDate">From</label>
@@ -3636,7 +3815,7 @@
         <div id="holidayWrap"></div>
       </div>
 
-      ${isDed ? deductionSettingsHtml(num()) : isBonus ? bonusSettingsHtml(num()) : `
+      ${isDed ? deductionSettingsHtml(num()) : isBonus ? bonusSettingsHtml(num()) : isCombo ? combinationSettingsHtml(num) : `
       <div class="section">
         <div class="section-head"><h2 class="section-title">${num()}Percentages</h2></div>
         <p class="section-note">What share of people turn up late, don't turn up, and leave early. Overtime isn't here any more — it lives under Bonus → Overtime.</p>
@@ -3737,10 +3916,109 @@
       </div>`;
   }
 
+  /* Combination asks only what the company has configured — who breaks
+     what is decided by the test cases. `num` hands out section numbers. */
+  function combinationSettingsHtml(num) {
+    const L = attx.late;
+    const A = attx.absent;
+    const seg = (id, cfg, title, aggLabel, repLabel) => `
+      <div class="field">
+        <label>${title}</label>
+        <div class="seg seg-fill" id="${id}">
+          <button type="button" data-rep="no" aria-pressed="${!cfg.repeated}">${aggLabel}</button>
+          <button type="button" data-rep="yes" aria-pressed="${cfg.repeated}">${repLabel}</button>
+        </div>
+      </div>`;
+    return `
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Test cases</h2></div>
+        <p class="section-note">Every case lands in one file, each with its own employees: no deduction, Late, Cutoff or Absent After — each with and without overtime — plus plain absence. Deduction cases break their rule every month, enough to really charge. Band edges (the last on-time second, the first and last second of each band) land inside the case that owns that band.</p>
+        <div id="attxRuleTally"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Late Arrival Penalty</h2></div>
+        <p class="section-note">Match these to Payroll Settings → Deduction Rules. No violator % here — the test case decides who breaks what.</p>
+        <div class="field-grid-2">
+          <div class="field">
+            <label>Late Arrival Threshold</label>
+            <div class="seg seg-fill" id="cbLateThSeg">
+              <button type="button" data-th="off" aria-pressed="${!L.thresholdOn}">Off</button>
+              <button type="button" data-th="on" aria-pressed="${L.thresholdOn}">On</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="cbLateTh">Maximum late days per month</label>
+            <input type="number" id="cbLateTh" min="0" max="31" value="${L.threshold}" ${L.thresholdOn ? "" : "disabled"} />
+            <span class="hint">Late days forgiven each month</span>
+          </div>
+        </div>
+        <div class="field-grid-2">
+          ${seg("cbLateRepSeg", L, "Penalty type", "Aggregate", "Repeated")}
+          <div class="field">
+            <label for="cbLateN">Apply penalty after every</label>
+            <input type="number" id="cbLateN" min="1" max="31" value="${L.n}" />
+            <span class="hint">late days${L.repeated ? ", in a row (weekends and holidays don't break a run)" : ""}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Cutoff and Absent After Breach</h2></div>
+        <p class="section-note">Both need a late cutoff and an absent-after time on every shift (Shifts, above).</p>
+        <div class="field-grid-2">
+          ${seg("cbCutoffRepSeg", attx.cutoff, "Cutoff Breach Penalty", "Every breach day", "Repeated breach")}
+          ${seg("cbAaRepSeg", attx.absent_after, "Absent After Breach Penalty", "Every breach day", "Repeated breach")}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2 class="section-title">${num()}Absent Deduction</h2></div>
+        <p class="section-note">For the plain-absence case (TC-09): no row at all on those days, and never any overtime.</p>
+        <div class="field-grid-2">
+          ${seg("cbAbsentRepSeg", A, "Penalty type", "Aggregate", "Repeated")}
+          <div class="field">
+            <label for="cbAbsentN">Absent without notice for</label>
+            <input type="number" id="cbAbsentN" min="1" max="31" value="${A.n}" />
+            <span class="hint">days${A.repeated ? ", in a row (weekends and holidays don't break a run)" : ""}</span>
+          </div>
+        </div>
+        <p class="sub-note">Assumes nobody has approved leave in this range.</p>
+      </div>
+
+      ${overtimeSectionHtml(num(), "")}`;
+  }
+
+  function renderCombinationTally() {
+    const box = $("#attxRuleTally");
+    if (!box) return;
+    const total = singleShift() ? att.ids.length : assignedIdSet().size;
+    const g = combinationGroupSizes(total);
+    const label = (ded) => ({ late: "Late", cutoff: "Cutoff", absent_after: "Absent After", absent: "Absent (no row)" })[ded] || "None";
+    const rows = ATTENDANCE_COMBINATION_TCS.map(
+      (tc, i) => `<tr><td>${tc.id}</td><td>${escapeHtml(label(tc.ded))}</td><td>${tc.ot ? "Yes" : "No"}</td><td>${g ? g.sizes[i] : `${combinationTcMin(tc)} needed`}</td></tr>`
+    ).join("");
+    const need = ATTENDANCE_COMBINATION_TCS.reduce((a, tc) => a + combinationTcMin(tc), 0);
+    const note = !g
+      ? `Needs at least ${need} employee IDs — you've added ${total}.`
+      : g.unused
+        ? `${g.unused} ID${g.unused === 1 ? "" : "s"} left unused — ${COMBINATION_GROUP_MAX} per test case is the cap, and unused IDs aren't in the file.`
+        : `All ${total} IDs are used.`;
+    box.innerHTML = `
+      <div class="preview-table-wrap">
+        <table class="preview-table combo-table">
+          <thead><tr><th>Case</th><th>Deduction</th><th>Overtime</th><th>People</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <p class="sub-note" style="margin-top:8px">${escapeHtml(note)}</p>`;
+  }
+
   /* Plain-English read-back of what the chosen numbers will produce. */
   function renderAttxTally() {
     if (attx.mode === "deduction") renderDeductionTally();
     else if (attx.mode === "bonus") renderBonusTally();
+    else if (attx.mode === "combination") renderCombinationTally();
   }
 
   function renderDeductionTally() {
@@ -3859,7 +4137,7 @@
         updateSummary();
       });
     });
-    if (attx.mode === "bonus") {
+    if (attx.mode === "bonus" || attx.mode === "combination") {
       const o = attx.ot;
       const bonusNum = (id, apply) => {
         const el = $("#" + id);
@@ -3897,6 +4175,27 @@
         if (attx.ab.kind === "fixed") attx.ab.days = n;
         else attx.ab.pct = n;
       });
+      if (attx.mode === "combination") {
+        /* The four deduction rules' own settings, shared with Deduction. */
+        [["cbLateRepSeg", attx.late], ["cbAbsentRepSeg", attx.absent], ["cbCutoffRepSeg", attx.cutoff], ["cbAaRepSeg", attx.absent_after]].forEach(([id, cfg]) => {
+          $all(`#${id} button`).forEach((b) => {
+            b.addEventListener("click", () => {
+              cfg.repeated = b.dataset.rep === "yes";
+              rerenderAttendanceUpdate();
+            });
+          });
+        });
+        $all("#cbLateThSeg button").forEach((b) => {
+          b.addEventListener("click", () => {
+            attx.late.thresholdOn = b.dataset.th === "on";
+            rerenderAttendanceUpdate();
+          });
+        });
+        const count = (v) => Math.max(0, parseInt(v, 10) || 0);
+        bonusNum("cbLateTh", (v) => (attx.late.threshold = count(v)));
+        bonusNum("cbLateN", (v) => (attx.late.n = count(v)));
+        bonusNum("cbAbsentN", (v) => (attx.absent.n = count(v)));
+      }
     } else if (attx.mode === "deduction") {
       const cfg = attx[attx.type];
       $all("#attxRepeatSeg button").forEach((b) => {
@@ -3959,7 +4258,9 @@
         ? ATTENDANCE_DEDUCTION_TYPES.find((t) => t.id === attx.type).label
         : attx.mode === "bonus"
           ? ATTENDANCE_BONUS_TYPES.find((t) => t.id === attx.bonusType).label
-          : "Standard";
+          : attx.mode === "combination"
+            ? "Combination"
+            : "Standard";
     summary.innerHTML = `<strong>${assigned}</strong> employees · <strong>${days}</strong> days · <strong>${att.shiftCount}</strong> shift · ${escapeHtml(scenario)}`;
     btn.disabled = false;
   }
@@ -3978,14 +4279,16 @@
             ? attx.bonusType === "overtime"
               ? generateOvertimeRows()
               : generateAttendanceBonusRows()
-            : generateAttendanceRows();
+            : attx.mode === "combination"
+              ? generateCombinationRows()
+              : generateAttendanceRows();
       if (rows.length < 2) {
         showToast("That produced no rows at all — check the percentages and the date range.", true);
         return;
       }
       const { wb } = downloadAttendanceWorkbook(rows);
       const slug =
-        attx.mode === "deduction" ? `${attx.type}${attx[attx.type].repeated ? "_repeated" : ""}` : attx.mode === "bonus" ? attx.bonusType : "standard";
+        attx.mode === "deduction" ? `${attx.type}${attx[attx.type].repeated ? "_repeated" : ""}` : attx.mode === "bonus" ? attx.bonusType : attx.mode === "combination" ? "combination" : "standard";
       const filename = `attendance_${slug}_bulk_upload_${fmtDate(today).replace(/-/g, "")}.xlsx`;
       openGenerateCompleteModal("Attendance update file is ready!", `${filename} — ${rows.length - 1} attendance rows.`, wb, filename);
     } catch (err) {

@@ -1416,7 +1416,7 @@ cutoff; Absent After = check-in after the shift's absent-after time.
        across months. Out time = shift end + 0–10 min (overtime is irrelevant here).
        A Percentage that rounds a month's requirement to 0 is blocked.
      - Filenames: `attendance_overtime_bulk_upload_…`, `attendance_attendance_bonus_…`.
-2. Combinations (several rules at once) — in this generator.
+2. Combinations (several rules at once) — in this generator. **Done — built 2026-10-09.**
    - **C1 (decided 2026-10-09; group model revised below):** no combination is blocked. The user picks any 2+ of
      the 6 types (Late Arrival, Absent, Cutoff Breach, Absent After Breach, Overtime,
      Attendance Bonus); **each picked rule gets its own, separate group of employee IDs**
@@ -1504,6 +1504,26 @@ cutoff; Absent After = check-in after the shift's absent-after time.
        Repeated, N), Overtime (daily limit, monthly limit, Weekend/Holiday toggles +
        limits). **No Violator %** (the TC decides who violates) and **no Late % /
        Absent %** — "No Deduction" TCs are clean: on time, present every working day.
+     - Screenshot import of these settings: deferred to a later feature (TODO.md).
+     - **Built 2026-10-09** (Preview page, picker option "Combination";
+       `generateCombinationRows()`, test L in `tests/attendance-update.test.js`).
+       Claude's own implementation choices (not dictated — change freely):
+       - Every employee in a deduction TC is a violator (1–3 penalties a month for
+         Late/Absent, 4–5 breach days for Cutoff/Absent After, as in Deduction); there is
+         no "stops one step short" boundary employee inside Combination — the band
+         edges cover the boundary instead.
+       - Edges, per employee per month: TC-01/02 one check-in at the last on-time second;
+         Late and Cutoff violators' first breach day on the band's first second, second
+         breach day on its last second (09:30:59 / 10:00:59); Absent After's first breach
+         day on 10:01:00. Absent (no row) has no edges.
+       - Every overtime-TC employee is an earner; O8–O12 otherwise unchanged (30–50% of
+         days, at-cap / over-cap days, monthly-limit boundary, weekend/holiday goers),
+         planned over all overtime-TC employees together. Anyone not on overtime that
+         day leaves at shift end exactly (:00), since overtime is on in this company.
+       - The rule settings are shared with the Deduction / Bonus scenarios' own inputs.
+       - Filename `attendance_combination_bulk_upload_{YYYYMMDD}.xlsx`.
+       - Phone: the four-way picker became 2×2 under 640px (it overflowed a 390px screen
+         by 14px, pre-existing since Bonus was added).
    - **C2 (decided 2026-10-09):** cross-triggering is allowed — realistic over clean.
      Groups keep their own scenario's mixing (e.g. the Overtime group keeps Standard's
      Late % / Absent %), and if that mixing trips another rule that is on in the same
